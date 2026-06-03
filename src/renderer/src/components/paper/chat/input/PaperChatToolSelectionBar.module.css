@@ -88,9 +88,10 @@
   margin-bottom: var(--sm-space-2);
   width: 360px;
   max-height: min(480px, calc(100vh - 200px));
-  background: var(--sm-color-surface-3);
+  background: var(--sm-color-surface-1);
   border: 1px solid var(--sm-color-border-default);
   border-radius: var(--sm-radius-md);
+  box-shadow: var(--sm-shadow-md);
   z-index: 200;
   overflow-y: auto;
 }
@@ -118,7 +119,7 @@
   background: none;
   width: 100%;
   text-align: left;
-  border-bottom: 1px solid var(--sm-color-border-default);
+  border-bottom: 1px solid var(--sm-color-border-subtle);
   box-sizing: border-box;
   font-size: 13px;
   color: var(--sm-color-text-primary);
@@ -202,15 +203,15 @@
 
 .plus-menu__accordion-content {
   background: var(--sm-color-surface-2);
-  border-top: 1px solid var(--sm-color-border-default);
+  border-top: 1px solid var(--sm-color-border-subtle);
 }
 
-/* Toggle 开关（搜索） */
+/* Toggle 开关（搜索）— 滑块用画布色，与设置页 MCP 开关一致 */
 .plus-menu__toggle-switch {
   position: relative;
   width: 36px;
   height: 20px;
-  background-color: var(--sm-color-border-default);
+  background-color: var(--sm-color-surface-active);
   border-radius: 10px;
   transition: background-color var(--sm-transition-fast);
   flex-shrink: 0;
@@ -226,8 +227,9 @@
   left: 2px;
   width: 16px;
   height: 16px;
-  background-color: var(--sm-color-text-primary);
+  background-color: #fff;
   border-radius: 50%;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
   transition: transform var(--sm-transition-fast);
 }
 

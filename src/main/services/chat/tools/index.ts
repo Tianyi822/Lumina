@@ -19,3 +19,18 @@ export type { ToolCallDefinition, UnifiedToolExecutorOptions } from './UnifiedTo
 
 // 工具统计收集器（阶段六）
 export { ToolStatsCollector, toolStatsCollector } from './ToolStatsCollector'
+
+// 工具编排框架
+export { ToolResultEnricher } from './ToolResultEnricher'
+export { ToolResultMerger } from './ToolResultMerger'
+export { ToolOrchestrator } from './ToolOrchestrator'
+export type { ToolOrchestratorOptions } from './ToolOrchestrator'
+export { ToolRegistrationStrategy } from './ToolRegistrationStrategy'
+export { PaperSemanticExtractor, paperSemanticExtractor } from './PaperSemanticExtractor'
+
+// 能力单元系统
+export { capabilityRegistry } from './capabilities/CapabilityRegistry'
+export { registerBuiltinCapabilities } from './capabilities/registerBuiltinCapabilities'
+export { CapabilityComposer } from './orchestration/CapabilityComposer'
+export { CapabilityManager, capabilityManager } from './CapabilityManager'
+export { presetRegistry } from './presets/PresetRegistry'

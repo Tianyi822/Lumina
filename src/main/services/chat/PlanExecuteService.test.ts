@@ -14,6 +14,7 @@ interface Harness {
   service: PlanExecuteService
   events: StreamEvent[]
   reactRequests: ChatRequest[]
+  planMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[][]
   warnings: Array<{ message: string; context?: Record<string, unknown> }>
 }
 
@@ -25,6 +26,7 @@ function createHarness(
 ): Harness {
   const events: StreamEvent[] = []
   const reactRequests: ChatRequest[] = []
+  const planMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[][] = []
   const warnings: Array<{ message: string; context?: Record<string, unknown> }> = []
   const abortController = new AbortController()
 
@@ -58,17 +60,22 @@ function createHarness(
     ({
       chat: {
         completions: {
-          create: async () => ({
-            choices: [
-              {
-                message: {
-                  content: JSON.stringify({
-                    steps: planSteps
-                  })
+          create: async (params: {
+            messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[]
+          }) => {
+            planMessages.push(params.messages)
+            return {
+              choices: [
+                {
+                  message: {
+                    content: JSON.stringify({
+                      steps: planSteps
+                    })
+                  }
                 }
-              }
-            ]
-          })
+              ]
+            }
+          }
         }
       }
     }) as unknown as OpenAI
@@ -87,7 +94,7 @@ function createHarness(
     reactLoopService
   })
 
-  return { service, events, reactRequests, warnings }
+  return { service, events, reactRequests, planMessages, warnings }
 }
 
 function createRequest(): ChatRequest {
@@ -242,6 +249,57 @@ test('计划步骤会保留非零退出码命令的 stderr 作为后续观察', 
   assert.match(secondStepPrompt, /ls -la \/app/)
   assert.match(secondStepPrompt, /exit_code/)
   assert.match(secondStepPrompt, /No such file or directory/)
+})
+
+test('生成计划前会过滤最近历史中的孤立 tool 消息', async () => {
+  const harness = createHarness([{ success: true }])
+  const request = createRequest()
+  request.messages = [
+    { role: 'user', content: '先检索一下论文' },
+    {
+      role: 'assistant',
+      content: null,
+      tool_calls: [
+        {
+          id: 'call-outside',
+          type: 'function',
+          function: { name: 'paper__search_context', arguments: '{"query":"first"}' }
+        }
+      ]
+    },
+    { role: 'tool', tool_call_id: 'call-outside', content: '{"matches":["old"]}' },
+    {
+      role: 'assistant',
+      content: null,
+      tool_calls: [
+        {
+          id: 'call-inside',
+          type: 'function',
+          function: { name: 'paper__search_context', arguments: '{"query":"second"}' }
+        }
+      ]
+    },
+    { role: 'tool', tool_call_id: 'call-inside', content: '{"matches":["new"]}' },
+    { role: 'user', content: '现在帮我规划实验' }
+  ]
+
+  const result = await harness.service.sendMessageWithPlan(request, {
+    isDestroyed: () => false,
+    send: (_channel: string, event: StreamEvent) => {
+      harness.events.push(event)
+    }
+  } as unknown as WebContents)
+
+  assert.equal(result.success, true)
+  assert.deepEqual(
+    harness.planMessages[0].map((message) => message.role),
+    ['system', 'assistant', 'tool', 'user']
+  )
+  const assistantMessage = harness.planMessages[0][1] as { tool_calls?: Array<{ id: string }> }
+  const toolMessage = harness.planMessages[0][2] as { tool_call_id?: string }
+
+  assert.equal(assistantMessage.tool_calls?.[0]?.id, 'call-inside')
+  assert.equal(toolMessage.tool_call_id, 'call-inside')
 })
 
 test('计划步骤重试后仍失败时整体状态为 failed', async () => {

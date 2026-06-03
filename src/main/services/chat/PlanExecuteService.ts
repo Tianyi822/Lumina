@@ -14,6 +14,7 @@ import type { StopController } from './StopController'
 import type { StreamHandler } from './StreamHandler'
 import type { ReactLoopService } from './ReactLoopService'
 import { promptBuilder } from './PromptBuilder'
+import { formatMessagesWithKnowledge } from './message'
 
 /**
  * PlanExecuteService 配置选项
@@ -311,42 +312,7 @@ export class PlanExecuteService {
 
     const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
       { role: 'system', content: planPrompt },
-      ...request.messages.slice(-4).map((m) => {
-        if (m.role === 'tool') {
-          return {
-            role: 'tool' as const,
-            tool_call_id: m.tool_call_id || '',
-            content: m.content || ''
-          }
-        }
-
-        if (m.role === 'assistant' && m.tool_calls && m.tool_calls.length > 0) {
-          const assistantMsg: OpenAI.Chat.Completions.ChatCompletionAssistantMessageParam & {
-            reasoning_content?: string
-          } = {
-            role: 'assistant' as const,
-            content: m.content || null,
-            tool_calls: m.tool_calls
-          }
-          if (m.reasoning_content) {
-            assistantMsg.reasoning_content = m.reasoning_content
-          }
-          return assistantMsg as OpenAI.Chat.Completions.ChatCompletionMessageParam
-        }
-
-        if (m.role === 'assistant' && m.reasoning_content) {
-          return {
-            role: 'assistant' as const,
-            content: m.content || '',
-            reasoning_content: m.reasoning_content
-          }
-        }
-
-        return {
-          role: m.role as 'system' | 'user' | 'assistant',
-          content: m.content || ''
-        }
-      })
+      ...formatMessagesWithKnowledge(request.messages.slice(-4))
     ]
 
     const response = await client.chat.completions.create(

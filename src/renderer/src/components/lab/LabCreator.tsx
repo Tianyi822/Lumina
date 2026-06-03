@@ -182,7 +182,6 @@ export default function LabCreator({ visible, dockerStatus, onClose }: LabCreato
           className={['sm-modal__overlay', 'lab-creator-overlay', className]
             .filter(Boolean)
             .join(' ')}
-          onClick={onClose}
         >
           <div
             ref={creatorRef}
@@ -341,12 +340,21 @@ export default function LabCreator({ visible, dockerStatus, onClose }: LabCreato
                       </div>
                     </div>
                     <div className={styles['ssh-form__field']}>
-                      <label className="form-label">认证方式</label>
-                      <div className={styles['ssh-form__toggle']}>
+                      <label className="form-label" id="ssh-auth-type-label">
+                        认证方式
+                      </label>
+                      <div
+                        className={styles['ssh-form__toggle']}
+                        role="radiogroup"
+                        aria-labelledby="ssh-auth-type-label"
+                      >
                         <button
+                          type="button"
+                          role="radio"
+                          aria-checked={sshConfig?.authType === 'password'}
                           className={[
                             styles['ssh-form__toggle-btn'],
-                            sshConfig?.authType === 'password' && styles.active
+                            sshConfig?.authType === 'password' && styles['ssh-form__toggle-btn--active']
                           ]
                             .filter(Boolean)
                             .join(' ')}
@@ -355,9 +363,12 @@ export default function LabCreator({ visible, dockerStatus, onClose }: LabCreato
                           密码
                         </button>
                         <button
+                          type="button"
+                          role="radio"
+                          aria-checked={sshConfig?.authType === 'key'}
                           className={[
                             styles['ssh-form__toggle-btn'],
-                            sshConfig?.authType === 'key' && styles.active
+                            sshConfig?.authType === 'key' && styles['ssh-form__toggle-btn--active']
                           ]
                             .filter(Boolean)
                             .join(' ')}
@@ -439,9 +450,8 @@ export default function LabCreator({ visible, dockerStatus, onClose }: LabCreato
               canCreate={canCreate}
               createPhaseText={createPhaseText}
               onClose={onClose}
-              onCreate={async () => {
-                const created = await creatorStore.handleCreate()
-                if (created) onClose()
+              onCreate={() => {
+                void creatorStore.handleCreate()
               }}
             />
 

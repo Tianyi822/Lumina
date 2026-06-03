@@ -1,6 +1,7 @@
 import OpenAI from 'openai'
 import type { MCPToolReference } from '../../../types/chat'
 import type { MCPToolCallResult } from '@shared/types/mcp'
+import type { ToolCategory } from '@shared/types/tool-stats'
 import { enhanceToolDescriptions } from './ToolDescriptionEnhancer'
 import type { ToolDescriptionLevel } from '../prompts/types'
 
@@ -30,12 +31,19 @@ export interface ToolAdapter {
     args: Record<string, unknown>,
     onProgress?: (message: string) => void
   ): Promise<MCPToolCallResult>
+
+  /** 可选：自定义结果增强，不实现则使用 ToolResultEnricher 默认策略 */
+  enrichResult?(
+    toolName: string,
+    args: Record<string, unknown>,
+    result: MCPToolCallResult
+  ): import('./PipelineTypes').ToolResultMetadata
 }
 
 /**
- * 工具类别
+ * 工具类别（从 @shared/types/tool-stats 重导出，保持向后兼容）
  */
-export type ToolCategory = 'lab' | 'knowledge' | 'mcp' | 'paper' | 'paper_web'
+export type { ToolCategory }
 
 /**
  * 工具函数定义（内部存储格式）

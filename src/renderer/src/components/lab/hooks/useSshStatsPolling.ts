@@ -1,16 +1,8 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import type { SshServerStats } from '@renderer/types/lab'
-import type { RangeHours } from '../sshMonitorTypes'
+import { MONITOR_CHART_MAX_POINTS, trimRollingQueue } from '../monitorChartSeries'
 
 const SSH_STATS_REFRESH_INTERVAL = 3000
-const MAX_HISTORY_HOURS = 24
-
-const RANGE_OPTIONS: Array<{ label: string; value: RangeHours }> = [
-  { label: '1 小时', value: 1 },
-  { label: '3 小时', value: 3 },
-  { label: '12 小时', value: 12 },
-  { label: '24 小时', value: 24 }
-]
 
 export interface UseSshStatsPollingOptions {
   labId: string
@@ -22,16 +14,10 @@ export interface UseSshStatsPollingOptions {
 export interface UseSshStatsPollingReturn {
   stats: SshServerStats | null
   statsHistory: SshServerStats[]
-  selectedRangeHours: RangeHours
   loading: boolean
   refreshing: boolean
   errorMessage: string
   sampledAtLabel: string
-  chartWindow: { start: number; end: number }
-  visibleSamples: SshServerStats[]
-  rangeLabel: string
-  rangeOptions: typeof RANGE_OPTIONS
-  setRange: (hours: RangeHours) => void
   loadStats: (options?: { silent?: boolean }) => Promise<void>
 }
 
@@ -40,7 +26,6 @@ export function useSshStatsPolling(options: UseSshStatsPollingOptions): UseSshSt
 
   const [stats, setStats] = useState<SshServerStats | null>(null)
   const [statsHistory, setStatsHistory] = useState<SshServerStats[]>([])
-  const [selectedRangeHours, setSelectedRangeHours] = useState<RangeHours>(1)
   const [loading, setLoading] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
@@ -51,7 +36,6 @@ export function useSshStatsPolling(options: UseSshStatsPollingOptions): UseSshSt
   const onResetRef = useRef(onReset)
   onResetRef.current = onReset
 
-  // 派生展示值
   const sampledAtLabel = stats?.sampledAt
     ? new Date(stats.sampledAt).toLocaleTimeString('zh-CN', {
         hour: '2-digit',
@@ -60,34 +44,10 @@ export function useSshStatsPolling(options: UseSshStatsPollingOptions): UseSshSt
       })
     : '-'
 
-  const chartWindow = (() => {
-    const end = Math.max(Date.now(), stats ? new Date(stats.sampledAt).getTime() : 0)
-    return {
-      start: end - selectedRangeHours * 60 * 60 * 1000,
-      end
-    }
-  })()
-
-  const visibleSamples = statsHistory.filter((sample) => {
-    const time = new Date(sample.sampledAt).getTime()
-    return time >= chartWindow.start && time <= chartWindow.end
-  })
-
-  const rangeLabel =
-    RANGE_OPTIONS.find((option) => option.value === selectedRangeHours)?.label || '1 小时'
-
-  // 追加历史采样
   const appendSample = useCallback((sample: SshServerStats) => {
-    const sampleTime = new Date(sample.sampledAt).getTime()
-    const minTime = sampleTime - MAX_HISTORY_HOURS * 60 * 60 * 1000
-
-    setStatsHistory((prev) => {
-      const filtered = prev.filter((item) => new Date(item.sampledAt).getTime() >= minTime)
-      return [...filtered, sample]
-    })
+    setStatsHistory((prev) => trimRollingQueue([...prev, sample], MONITOR_CHART_MAX_POINTS))
   }, [])
 
-  // 加载统计数据
   const loadStats = useCallback(
     async (loadOptions?: { silent?: boolean }) => {
       if (!connected || refreshingRef.current) {
@@ -122,12 +82,6 @@ export function useSshStatsPolling(options: UseSshStatsPollingOptions): UseSshSt
     [appendSample, labId, connected]
   )
 
-  // 设置时间范围
-  const setRange = useCallback((hours: RangeHours) => {
-    setSelectedRangeHours(hours)
-  }, [])
-
-  // 停止轮询
   const stopPolling = useCallback(() => {
     if (timerRef.current !== null) {
       clearInterval(timerRef.current)
@@ -135,7 +89,6 @@ export function useSshStatsPolling(options: UseSshStatsPollingOptions): UseSshSt
     }
   }, [])
 
-  // 依赖变化时同步轮询
   useEffect(() => {
     stopPolling()
 
@@ -164,7 +117,6 @@ export function useSshStatsPolling(options: UseSshStatsPollingOptions): UseSshSt
     }
   }, [labId, connected, active, stopPolling, loadStats])
 
-  // labId 变化时重置
   useEffect(() => {
     hasStatsRef.current = false
     setStats(null)
@@ -176,16 +128,10 @@ export function useSshStatsPolling(options: UseSshStatsPollingOptions): UseSshSt
   return {
     stats,
     statsHistory,
-    selectedRangeHours,
     loading,
     refreshing,
     errorMessage,
     sampledAtLabel,
-    chartWindow,
-    visibleSamples,
-    rangeLabel,
-    rangeOptions: RANGE_OPTIONS,
-    setRange,
     loadStats
   }
 }

@@ -95,6 +95,7 @@
   justify-content: space-between;
   gap: var(--sm-space-5);
   padding: var(--sm-space-6);
+  flex-shrink: 0;
 }
 
 .workspace-header__copy {
@@ -198,10 +199,27 @@
   position: relative;
 }
 
+.content-body.content-body--tabbed-detail {
+  padding-bottom: 0;
+}
+
 .tab-content {
   flex: 1;
   min-height: 0;
   overflow: hidden;
+  display: none;
+}
+
+.tab-content--active {
+  display: flex;
+  flex-direction: column;
+}
+
+.tab-content--active > * {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  align-self: stretch;
 }
 
 .frontend-recovery-banner {

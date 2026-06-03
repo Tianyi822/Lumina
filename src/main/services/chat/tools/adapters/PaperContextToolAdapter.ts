@@ -1,6 +1,7 @@
 import type { ToolAdapter } from '../UnifiedToolRegistry'
 import type { MCPToolReference } from '../../../../types/chat'
 import type { MCPToolCallResult } from '@shared/types/mcp'
+import type { ToolResultMetadata } from '../PipelineTypes'
 import {
   paperContextSearchToolService,
   type PaperContextSearchArgs
@@ -71,5 +72,47 @@ export class PaperContextToolAdapter implements ToolAdapter {
     }
 
     return paperContextSearchToolService.search(this.paperId, args as PaperContextSearchArgs)
+  }
+
+  enrichResult(
+    _toolName: string,
+    _args: Record<string, unknown>,
+    result: MCPToolCallResult
+  ): ToolResultMetadata {
+    const content =
+      typeof result.content === 'string'
+        ? result.content
+        : JSON.stringify(result.content ?? '')
+
+    const sectionCount = (content.match(/^##\s/gm) || []).length
+    const contentLength = content.length
+
+    let coverage: 'high' | 'medium' | 'low'
+    if (!result.success) {
+      coverage = 'low'
+    } else if (sectionCount >= 3 && contentLength > 1000) {
+      coverage = 'high'
+    } else if (sectionCount >= 1 && contentLength > 300) {
+      coverage = 'medium'
+    } else {
+      coverage = 'low'
+    }
+
+    const keyFindings = content
+      .split('\n')
+      .filter((line) => line.trim().startsWith('- ') || line.trim().startsWith('• '))
+      .slice(0, 5)
+
+    return {
+      coverage,
+      keyFindings,
+      sourceType: 'paper',
+      sourceName: this.paperId ?? 'unknown',
+      confidence: result.success ? Math.min((sectionCount + 1) / 4, 1) : 0,
+      suggestion:
+        coverage === 'low' && result.success
+          ? '论文中未找到相关内容，建议搜索知识库补充'
+          : undefined
+    }
   }
 }

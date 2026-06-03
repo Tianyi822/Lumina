@@ -12,6 +12,8 @@ const CORE_INSTRUCTIONS = `# 角色
 
 const LAB_MANAGEMENT = `# 实验室管理指南
 
+实验室工具是可选能力。开启实验室后，你仍然需要先判断用户目标是否真的需要代码执行、文件操作、容器环境或预览验证；不需要工具时直接回答。复杂任务可以在内部拆成若干步骤逐步调用工具，但不要为了所有实验室会话都强行输出计划。
+
 当用户要求创建实验室时，按以下流程操作：
 
 1. 确定创建方式：优先根据用户目标和上下文推断创建方式。常见服务或多服务编排优先使用 Docker Compose；单个自定义运行环境优先使用 Dockerfile；用户明确提到已有容器时才使用 existing。只有无法安全推断且必须由用户做主观选择时，才调用 lab__create_lab 工具只传 name 参数（不传 creation_type）来展示选项。
@@ -113,4 +115,42 @@ export function buildKnowledgeEnhancedPrompt(): string {
 - 基于搜索结果回答时，注明来源："根据知识库中的《文档名》..."
 - 如果搜索结果不相关，告知用户并尝试用其他方式回答
 - 通用常识问题或简单问候无需搜索知识库`
+}
+
+const CATEGORY_DISPLAY_NAMES: Record<string, string> = {
+  paper: '论文上下文检索 (paper__search_context)',
+  knowledge: '知识库搜索 (knowledge__search)',
+  paper_web: '论文联网搜索 (paper_web__search)',
+  lab: '实验室工具',
+  mcp: 'MCP 工具'
+}
+
+export function buildToolCoordinationGuide(
+  stages: Array<{ category: string; execution: 'required' | 'conditional' }>
+): string {
+  if (stages.length === 0) return ''
+
+  const lines: string[] = [
+    '## 工具使用协调策略',
+    '',
+    '当回答问题时，请按以下优先级顺序使用工具：',
+    ''
+  ]
+
+  stages.forEach((stage, i) => {
+    const name = CATEGORY_DISPLAY_NAMES[stage.category] ?? stage.category
+    if (stage.execution === 'required') {
+      lines.push(`${i + 1}. **首先**使用 ${name} 检索相关内容`)
+    } else {
+      lines.push(`${i + 1}. **当前面结果不足以完整回答时**，使用 ${name} 补充`)
+    }
+  })
+
+  lines.push('')
+  lines.push(
+    '**回答时标注来源**：论文内容标注"根据论文原文"，知识库内容标注"根据知识库《文档名》"，联网搜索内容标注"根据搜索结果"。'
+  )
+  lines.push('通用常识问题无需调用工具，直接回答即可。')
+
+  return lines.join('\n')
 }

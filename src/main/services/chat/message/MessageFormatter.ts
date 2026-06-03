@@ -143,6 +143,101 @@ export function formatQuotesContext(quotes: PaperQuote[]): string {
   return context
 }
 
+function cloneChatMessage(msg: ChatMessage): ChatMessage {
+  return {
+    ...msg,
+    tool_calls: msg.tool_calls?.map((toolCall) => ({
+      id: toolCall.id,
+      type: toolCall.type,
+      function: {
+        name: toolCall.function.name,
+        arguments: toolCall.function.arguments
+      }
+    })),
+    attachedDocuments: msg.attachedDocuments ? [...msg.attachedDocuments] : undefined,
+    attachedImages: msg.attachedImages ? [...msg.attachedImages] : undefined,
+    attachedQuotes: msg.attachedQuotes ? [...msg.attachedQuotes] : undefined
+  }
+}
+
+function shouldKeepAssistantMessage(msg: ChatMessage): boolean {
+  const hasContent = msg.content && msg.content.trim().length > 0
+  const hasToolCalls = msg.tool_calls && msg.tool_calls.length > 0
+  const hasReasoning = msg.reasoning_content && msg.reasoning_content.trim().length > 0
+  return Boolean(hasContent || hasToolCalls || hasReasoning)
+}
+
+/**
+ * 清理发送给模型的工具消息配对，避免历史裁剪后出现孤立 tool 消息。
+ */
+export function sanitizeToolMessagePairs(messages: ChatMessage[]): ChatMessage[] {
+  const filteredMessages = messages.map(cloneChatMessage).filter((msg) => {
+    if (msg.role === 'assistant') {
+      return shouldKeepAssistantMessage(msg)
+    }
+    return true
+  })
+
+  const sanitizedMessages: ChatMessage[] = []
+  const consumedToolIndexes = new Set<number>()
+
+  for (let index = 0; index < filteredMessages.length; index++) {
+    if (consumedToolIndexes.has(index)) continue
+
+    const msg = filteredMessages[index]
+    if (msg.role === 'tool') {
+      continue
+    }
+
+    if (msg.role !== 'assistant' || !msg.tool_calls || msg.tool_calls.length === 0) {
+      sanitizedMessages.push(msg)
+      continue
+    }
+
+    const validToolCalls = msg.tool_calls.filter((toolCall) => toolCall.id.trim().length > 0)
+    const pendingToolCallIds = new Set(validToolCalls.map((toolCall) => toolCall.id))
+    const matchedToolMessages: ChatMessage[] = []
+
+    for (
+      let toolIndex = index + 1;
+      toolIndex < filteredMessages.length && filteredMessages[toolIndex].role === 'tool';
+      toolIndex++
+    ) {
+      const toolMessage = filteredMessages[toolIndex]
+      const toolCallId = toolMessage.tool_call_id
+      if (!toolCallId || !pendingToolCallIds.has(toolCallId)) {
+        continue
+      }
+
+      matchedToolMessages.push(toolMessage)
+      pendingToolCallIds.delete(toolCallId)
+      consumedToolIndexes.add(toolIndex)
+    }
+
+    if (matchedToolMessages.length === 0) {
+      const assistantMessage: ChatMessage = {
+        ...msg,
+        tool_calls: undefined
+      }
+      if (shouldKeepAssistantMessage(assistantMessage)) {
+        sanitizedMessages.push(assistantMessage)
+      }
+      continue
+    }
+
+    const matchedToolCallIds = new Set(
+      matchedToolMessages.map((toolMessage) => toolMessage.tool_call_id)
+    )
+    sanitizedMessages.push({
+      ...msg,
+      tool_calls: validToolCalls.filter((toolCall) => matchedToolCallIds.has(toolCall.id))
+    })
+    sanitizedMessages.push(...matchedToolMessages)
+  }
+
+  return sanitizedMessages
+}
+
 /**
  * 格式化消息为 OpenAI 格式
  * 过滤掉空内容的助手消息，将知识库结果和附加文档附加到最后一条用户消息
@@ -153,28 +248,7 @@ export function formatMessagesWithKnowledge(
   knowledgeResults?: KnowledgeSearchResult[]
 ): OpenAI.Chat.Completions.ChatCompletionMessageParam[] {
   const knowledgeContext = buildKnowledgeContext(knowledgeResults)
-
-  const filteredMessages = messages.filter((msg) => {
-    if (msg.role === 'assistant') {
-      const hasContent = msg.content && msg.content.trim().length > 0
-      const hasToolCalls = msg.tool_calls && msg.tool_calls.length > 0
-      return hasContent || hasToolCalls
-    }
-    return true
-  })
-
-  // 清理孤立的 tool_calls：确保每个 assistant 的 tool_calls 都有对应的 tool 消息
-  const validToolCallIds = new Set(
-    filteredMessages
-      .filter((msg) => msg.role === 'tool' && msg.tool_call_id)
-      .map((msg) => msg.tool_call_id!)
-  )
-
-  for (const msg of filteredMessages) {
-    if (msg.role === 'assistant' && msg.tool_calls && msg.tool_calls.length > 0) {
-      msg.tool_calls = msg.tool_calls.filter((tc) => validToolCallIds.has(tc.id))
-    }
-  }
+  const filteredMessages = sanitizeToolMessagePairs(messages)
 
   return filteredMessages.map((msg, index) => {
     if (msg.role === 'user' && index === filteredMessages.length - 1) {

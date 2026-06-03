@@ -141,6 +141,9 @@
   --sm-workspace-toolbar-button-bg-hover: #f3f3f4;
   --sm-workspace-toolbar-button-shadow: none;
   --sm-workspace-toolbar-button-gap: 4px;
+  --sm-primary-sidebar-theme-switch-track: var(--sm-color-surface-2);
+  --sm-primary-sidebar-theme-switch-thumb: var(--sm-color-surface-1);
+  --sm-primary-sidebar-theme-switch-border: var(--sm-color-border-subtle);
   --sm-chat-toolbar-scrim: linear-gradient(
     180deg,
     rgba(255, 255, 255, 0.82) 0%,

@@ -1,12 +1,10 @@
-export type RangeHours = 1 | 3 | 12 | 24
-
 export type ChartValueKind = 'percent' | 'rate'
 
 export type ChartTone = 'primary' | 'success' | 'warning' | 'danger' | 'info' | 'muted'
 
 export interface ChartPoint {
   time: number
-  value: number
+  value: number | null
 }
 
 export interface MetricChart {
@@ -19,6 +17,7 @@ export interface MetricChart {
   kind: ChartValueKind
   maxValue: number
   points: ChartPoint[]
+  sampleCount: number
   emptyLabel: string
   supported: boolean
   hostDetailLabel?: string

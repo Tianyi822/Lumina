@@ -1,7 +1,7 @@
-import { useState, useEffect, useMemo } from 'react'
-import InteractiveTerminalPanel from './InteractiveTerminalPanel'
+import { useLayoutEffect, useMemo, useRef } from 'react'
 import LabDetailEmptyState from './LabDetailEmptyState'
 import type { ContainerDetails, LabData } from '@renderer/types/lab'
+import { useLabTerminalSessionStore } from '@renderer/stores/lab/labTerminalSessionStore'
 import styles from './LabTerminalTab.module.css'
 
 interface LabTerminalTabProps {
@@ -21,6 +21,11 @@ export default function LabTerminalTab({
   isSshConnected,
   labDetailTab
 }: LabTerminalTabProps) {
+  const slotRef = useRef<HTMLDivElement>(null)
+  const ensureSession = useLabTerminalSessionStore((s) => s.ensureSession)
+  const setVisibleSession = useLabTerminalSessionStore((s) => s.setVisibleSession)
+  const clearAnchor = useLabTerminalSessionStore((s) => s.clearAnchor)
+
   const sshTerminalSubtitle = useMemo(() => {
     const ssh = currentLab?.ssh
     if (!ssh) return ''
@@ -43,40 +48,85 @@ export default function LabTerminalTab({
     return selectedContainer ? `docker:${selectedContainer.id}` : null
   }, [currentLab?.backendType, currentLab?.status, currentLab?.labId, selectedContainer])
 
-  const [renderedTerminalKey, setRenderedTerminalKey] = useState<string | null>(null)
+  const canHostTerminal = useMemo(() => {
+    if (!terminalTargetKey || !currentLab) return false
+    if (isSshLab) {
+      return isSshConnected
+    }
+    return isDockerReady && !!selectedContainer
+  }, [terminalTargetKey, currentLab, isSshLab, isSshConnected, isDockerReady, selectedContainer])
 
-  useEffect(() => {
-    setRenderedTerminalKey((prev) => {
-      if (!terminalTargetKey) return null
-      // 目标变了且正在渲染旧目标 → 先清空
-      if (prev && terminalTargetKey !== prev) return null
-      // 只在终端 tab 激活时渲染
-      if (labDetailTab === 'terminal') return terminalTargetKey
-      return prev
+  const currentLabId = currentLab?.labId ?? null
+  const targetSessionReady = useLabTerminalSessionStore((s) =>
+    terminalTargetKey ? Boolean(s.sessions[terminalTargetKey]) : false
+  )
+
+  useLayoutEffect(() => {
+    if (!canHostTerminal || !terminalTargetKey || !currentLabId) {
+      clearAnchor()
+      return
+    }
+
+    const hasSession = !!useLabTerminalSessionStore.getState().sessions[terminalTargetKey]
+    if (labDetailTab !== 'terminal' && !hasSession) {
+      clearAnchor()
+      return
+    }
+
+    ensureSession({
+      key: terminalTargetKey,
+      labId: currentLabId,
+      backend: isSshLab ? 'ssh' : 'docker',
+      targetId: isSshLab ? currentLabId : selectedContainer!.id,
+      title: isSshLab ? currentLab!.name : dockerTerminalTitle,
+      subtitle: isSshLab ? sshTerminalSubtitle : dockerTerminalSubtitle
     })
-  }, [labDetailTab, terminalTargetKey])
+
+    if (labDetailTab !== 'terminal') {
+      clearAnchor()
+      return
+    }
+
+    const slot = slotRef.current
+    if (!slot) {
+      return
+    }
+
+    setVisibleSession(terminalTargetKey, slot)
+
+    return () => {
+      clearAnchor()
+    }
+  }, [
+    canHostTerminal,
+    terminalTargetKey,
+    currentLabId,
+    currentLab?.name,
+    isSshLab,
+    selectedContainer,
+    labDetailTab,
+    targetSessionReady,
+    ensureSession,
+    setVisibleSession,
+    clearAnchor,
+    dockerTerminalTitle,
+    dockerTerminalSubtitle,
+    sshTerminalSubtitle
+  ])
 
   if (isSshLab) {
-    if (currentLab && isSshConnected && renderedTerminalKey === terminalTargetKey) {
+    if (!currentLab || !isSshConnected) {
       return (
-        <InteractiveTerminalPanel
-          key={terminalTargetKey || undefined}
-          backend="ssh"
-          targetId={currentLab.labId}
-          title={currentLab.name}
-          subtitle={sshTerminalSubtitle}
-        />
+        <section className={styles['ssh-terminal-connect-panel']}>
+          <div className={styles['ssh-terminal-connect-panel__copy']}>
+            <h2>SSH 未连接</h2>
+            <p>请使用上方连接提示重新连接 {sshTerminalSubtitle || '远程服务器'}。</p>
+          </div>
+        </section>
       )
     }
 
-    return (
-      <section className={styles['ssh-terminal-connect-panel']}>
-        <div className={styles['ssh-terminal-connect-panel__copy']}>
-          <h2>SSH 未连接</h2>
-          <p>请使用上方连接提示重新连接 {sshTerminalSubtitle || '远程服务器'}。</p>
-        </div>
-      </section>
-    )
+    return <div ref={slotRef} className={styles['terminal-slot']} />
   }
 
   if (!isDockerReady) {
@@ -97,17 +147,5 @@ export default function LabTerminalTab({
     )
   }
 
-  if (renderedTerminalKey === terminalTargetKey) {
-    return (
-      <InteractiveTerminalPanel
-        key={terminalTargetKey || undefined}
-        backend="docker"
-        targetId={selectedContainer.id}
-        title={dockerTerminalTitle}
-        subtitle={dockerTerminalSubtitle}
-      />
-    )
-  }
-
-  return null
+  return <div ref={slotRef} className={styles['terminal-slot']} />
 }

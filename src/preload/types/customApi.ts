@@ -19,6 +19,7 @@ import type { ToolStatsApi } from './toolStats'
 import type { PaperWebSearchApi } from './paperWebSearch'
 import type { SshApi } from './ssh'
 import type { UpdateApi } from './update'
+import type { CapabilityApi } from './capability'
 
 /**
  * 自定义的完整 API
@@ -50,4 +51,5 @@ export interface CustomApi {
   ssh: SshApi
   // 自动更新 API
   update: UpdateApi
+  capability: CapabilityApi
 }

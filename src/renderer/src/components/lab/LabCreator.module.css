@@ -27,27 +27,54 @@
 
 .ssh-form__toggle {
   display: flex;
-  gap: 8px;
+  gap: var(--sm-space-1);
+  padding: 3px;
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-sm);
+  background: var(--sm-color-surface-1);
 }
 
 .ssh-form__toggle-btn {
-  padding: 8px 16px;
-  border: 1px solid var(--sm-color-border-default);
-  border-radius: 6px;
-  background-color: var(--sm-color-bg-app);
-  color: var(--sm-color-text-primary);
+  flex: 1;
+  min-height: 34px;
+  padding: 0 var(--sm-space-4);
+  border: 1px solid transparent;
+  border-radius: calc(var(--sm-radius-sm) - 2px);
+  background: transparent;
+  color: var(--sm-color-text-secondary);
+  font-family: var(--sm-font-sans);
   font-size: 13px;
+  font-weight: 500;
+  line-height: 1;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition:
+    background-color var(--sm-transition-fast),
+    border-color var(--sm-transition-fast),
+    color var(--sm-transition-fast),
+    box-shadow var(--sm-transition-fast);
 }
 
-.ssh-form__toggle-btn.active {
-  border-color: var(--sm-color-border-selected);
-  background-color: var(--sm-color-surface-selected);
+.ssh-form__toggle-btn:hover:not(.ssh-form__toggle-btn--active) {
+  color: var(--sm-color-text-primary);
+  background: var(--sm-color-accent-05);
 }
 
-.ssh-form__toggle-btn:hover:not(.active) {
-  border-color: var(--sm-color-text-secondary);
+.ssh-form__toggle-btn--active {
+  border-color: var(--sm-color-border-accent);
+  background:
+    linear-gradient(180deg, var(--sm-color-accent-14), var(--sm-color-accent-08)),
+    var(--sm-color-surface-3);
+  color: var(--sm-color-text-selected);
+  font-weight: 600;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.08),
+    inset 0 0 0 1px var(--sm-color-accent-18);
+}
+
+.ssh-form__toggle-btn:focus-visible {
+  outline: none;
+  border-color: var(--sm-color-border-accent);
+  box-shadow: 0 0 0 var(--sm-focus-ring-size) var(--sm-focus-ring-color);
 }
 
 .ssh-form__input-row {

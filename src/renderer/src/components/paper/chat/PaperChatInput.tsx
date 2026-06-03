@@ -7,6 +7,7 @@ import type {
   UserInteractionRequest
 } from '@renderer/types'
 import type { PaperQuote } from '@shared/types/chat'
+import type { CapabilitySuggestionData } from '@renderer/stores/paperChatStreamStore'
 import SvgIcon from '@renderer/components/icons/SvgIcon'
 import {
   usePaperChatDocumentUploadStore,
@@ -61,6 +62,8 @@ interface PaperChatInputProps {
   quickReply?: PaperChatQuickReply | null
   userInteraction?: UserInteractionRequest | null
   showUserInteraction?: boolean
+  showCapabilitySuggestion?: boolean
+  capabilitySuggestion?: CapabilitySuggestionData | null
   onUpdateInput: (value: string) => void
   onUpdateSelectedModel: (value: string) => void
   onUpdateSelectedTools: (value: MCPTool[]) => void
@@ -70,6 +73,7 @@ interface PaperChatInputProps {
   onEnablePaperWebSearch?: () => Promise<boolean>
   onDismissQuickReply?: (messageId: string) => void
   onHideUserInteraction?: () => void
+  onHideCapabilitySuggestion?: () => void
   onSend: (
     content: string,
     attachedDocuments?: AttachedDocument[],
@@ -98,6 +102,8 @@ export default function PaperChatInput({
   quickReply,
   userInteraction,
   showUserInteraction,
+  showCapabilitySuggestion,
+  capabilitySuggestion,
   onUpdateInput,
   onUpdateSelectedModel,
   onUpdateSelectedTools,
@@ -107,6 +113,7 @@ export default function PaperChatInput({
   onEnablePaperWebSearch,
   onDismissQuickReply,
   onHideUserInteraction,
+  onHideCapabilitySuggestion,
   onSend,
   onStop
 }: PaperChatInputProps) {
@@ -135,6 +142,13 @@ export default function PaperChatInput({
     pendingDocuments.length > 0 || pendingImages.length > 0 || pendingQuotes.length > 0
   const totalAttachmentCount = pendingDocuments.length + pendingImages.length + pendingQuotes.length
   const canSend = Boolean(inputMessage.trim() || hasAttachments) && !disabled && !isSending
+  const showQuickReplyDock = Boolean(quickReply && quickReply.options.length > 0 && !isSending)
+  const showCapabilitySuggestionDock = Boolean(
+    showCapabilitySuggestion && capabilitySuggestion && !isSending
+  )
+  const showUserInteractionDock = Boolean(showUserInteraction && userInteraction && !isSending)
+  const showInteractionDock =
+    showQuickReplyDock || showCapabilitySuggestionDock || showUserInteractionDock
 
   useEffect(() => {
     if (!sessionId) return
@@ -185,6 +199,7 @@ export default function PaperChatInput({
     usePaperChatQuoteStore.getState().clearQuotes(sessionId)
     onDismissQuickReply?.(quickReply?.messageId || '')
     onHideUserInteraction?.()
+    onHideCapabilitySuggestion?.()
 
     await onSend(content, docs, images, quotes)
   }
@@ -202,62 +217,111 @@ export default function PaperChatInput({
 
   return (
     <>
-      {quickReply && quickReply.options.length > 0 && !isSending && (
-        <div className={inputStyles['paper-chat-input__quick-reply']}>
-          <div className={inputStyles['paper-chat-input__quick-reply-header']}>
-            <span className={inputStyles['paper-chat-input__quick-reply-title']}>
-              {quickReply.question || '\u9009\u62e9\u4e00\u4e2a\u56de\u590d'}
-            </span>
-            <button
-              className={inputStyles['paper-chat-input__quick-reply-custom-button']}
-              type="button"
-              onClick={() => onDismissQuickReply?.(quickReply.messageId)}
-            >
-              \u81ea\u5b9a\u4e49
-            </button>
-          </div>
-          <div className={toolbarStyles['paper-chat-input-toolbar']}>
-            {quickReply.options.map((option) => (
-              <button
-                key={option.id}
-                className="sm-button sm-button--secondary"
-                type="button"
-                onClick={() => handleSend(option.fullText)}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+      {showInteractionDock && (
+        <div className={inputStyles['paper-chat-input__interaction-dock']}>
+          {showQuickReplyDock && quickReply && (
+            <section className={inputStyles['paper-chat-input__interaction-card']}>
+              <div className={inputStyles['paper-chat-input__interaction-header']}>
+                <span className={inputStyles['paper-chat-input__interaction-title']}>
+                  {quickReply.question || '\u9009\u62e9\u4e00\u4e2a\u56de\u590d'}
+                </span>
+                <button
+                  className={inputStyles['paper-chat-input__interaction-button']}
+                  type="button"
+                  onClick={() => onDismissQuickReply?.(quickReply.messageId)}
+                >
+                  \u81ea\u5b9a\u4e49
+                </button>
+              </div>
+              <div className={toolbarStyles['paper-chat-input-toolbar']}>
+                {quickReply.options.map((option) => (
+                  <button
+                    key={option.id}
+                    className="sm-button sm-button--secondary"
+                    type="button"
+                    onClick={() => handleSend(option.fullText)}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
 
-      {showUserInteraction && userInteraction && !isSending && (
-        <div className={inputStyles['paper-chat-input__quick-reply']}>
-          <div className={inputStyles['paper-chat-input__quick-reply-header']}>
-            <span className={inputStyles['paper-chat-input__quick-reply-title']}>
-              {userInteraction.question}
-            </span>
-            <button
-              className={inputStyles['paper-chat-input__quick-reply-custom-button']}
-              type="button"
-              onClick={onHideUserInteraction}
-            >
-              \u7a0d\u540e
-            </button>
-          </div>
-          <div className={toolbarStyles['paper-chat-input-toolbar']}>
-            {userInteraction.options.map((option) => (
-              <button
-                key={option.value}
-                className="sm-button sm-button--secondary"
-                type="button"
-                title={option.description}
-                onClick={() => handleSend(`\u6211\u9009\u62e9\uff1a${option.label}`)}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
+          {showCapabilitySuggestionDock && capabilitySuggestion && (
+            <section className={inputStyles['paper-chat-input__interaction-card']}>
+              <div className={inputStyles['paper-chat-input__interaction-header']}>
+                <span className={inputStyles['paper-chat-input__interaction-title']}>
+                  建议开启能力
+                </span>
+                <button
+                  className={inputStyles['paper-chat-input__interaction-button']}
+                  type="button"
+                  onClick={() => {
+                    for (const cap of capabilitySuggestion.capabilities) {
+                      window.api.capability.respondSuggestion(sessionId, cap.id, false)
+                    }
+                    onHideCapabilitySuggestion?.()
+                  }}
+                >
+                  忽略
+                </button>
+              </div>
+              <div className={toolbarStyles['paper-chat-input-toolbar']}>
+                {capabilitySuggestion.capabilities.map((cap) => (
+                  <button
+                    key={cap.id}
+                    className="sm-button sm-button--primary"
+                    type="button"
+                    title={cap.description}
+                    onClick={() => {
+                      window.api.capability.respondSuggestion(sessionId, cap.id, true)
+                      onHideCapabilitySuggestion?.()
+                    }}
+                  >
+                    开启 {cap.displayName}
+                  </button>
+                ))}
+              </div>
+              {capabilitySuggestion.capabilities.map((cap) =>
+                cap.reason ? (
+                  <p key={cap.id} className={inputStyles['paper-chat-input__interaction-note']}>
+                    {cap.reason}
+                  </p>
+                ) : null
+              )}
+            </section>
+          )}
+
+          {showUserInteractionDock && userInteraction && (
+            <section className={inputStyles['paper-chat-input__interaction-card']}>
+              <div className={inputStyles['paper-chat-input__interaction-header']}>
+                <span className={inputStyles['paper-chat-input__interaction-title']}>
+                  {userInteraction.question}
+                </span>
+                <button
+                  className={inputStyles['paper-chat-input__interaction-button']}
+                  type="button"
+                  onClick={onHideUserInteraction}
+                >
+                  \u7a0d\u540e
+                </button>
+              </div>
+              <div className={toolbarStyles['paper-chat-input-toolbar']}>
+                {userInteraction.options.map((option) => (
+                  <button
+                    key={option.value}
+                    className="sm-button sm-button--secondary"
+                    type="button"
+                    title={option.description}
+                    onClick={() => handleSend(`\u6211\u9009\u62e9\uff1a${option.label}`)}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
         </div>
       )}
 

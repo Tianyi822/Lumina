@@ -19,6 +19,7 @@ export * from './toolStats'
 export * from './paperWebSearch'
 export * from './ssh'
 export * from './update'
+export * from './capability'
 export * from './customApi'
 
 // 全局 Window 接口声明

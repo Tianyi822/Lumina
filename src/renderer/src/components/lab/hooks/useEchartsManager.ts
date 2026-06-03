@@ -5,10 +5,13 @@ import type { MetricChart } from '../sshMonitorTypes'
 import {
   formatTooltip,
   getToneColor,
-  readCssVariable,
-  formatSampleTime,
-  calculateAxisInterval
+  readCssVariable
 } from '../sshMonitorFormatters'
+import {
+  MONITOR_CHART_MAX_POINTS,
+  buildFixedMetricSlots,
+  calculateFixedAxisLabelInterval
+} from '../monitorChartSeries'
 
 export interface UseEchartsManagerReturn {
   setChartElement: (key: string, element: HTMLElement | null) => void
@@ -27,11 +30,15 @@ export function useEchartsManager(metricCharts: MetricChart[]): UseEchartsManage
     const color = getToneColor(chart.tone)
     const axisColor = readCssVariable('--sm-color-text-tertiary', '#8b949e')
     const gridColor = readCssVariable('--sm-color-border-subtle', '#e5e7eb')
-    const labelData = chart.points.map((point) => formatSampleTime(point.time))
-    const valueData = chart.points.map((point) => point.value)
+    const { categories, values, slots } = buildFixedMetricSlots(
+      chart.points,
+      MONITOR_CHART_MAX_POINTS
+    )
 
     return {
-      animation: chart.points.length <= 80,
+      animation: false,
+      animationDuration: 0,
+      animationDurationUpdate: 250,
       grid: {
         left: 8,
         right: 8,
@@ -42,19 +49,19 @@ export function useEchartsManager(metricCharts: MetricChart[]): UseEchartsManage
       tooltip: {
         trigger: 'axis',
         confine: true,
-        formatter: (params: unknown) => formatTooltip(params, chart)
+        formatter: (params: unknown) => formatTooltip(params, chart, slots)
       },
       xAxis: {
         type: 'category',
         boundaryGap: false,
-        data: labelData,
+        data: categories,
         axisLine: { show: false },
         axisTick: { show: false },
         axisLabel: {
           color: axisColor,
           fontSize: 10,
           hideOverlap: true,
-          interval: calculateAxisInterval(chart.points.length)
+          interval: calculateFixedAxisLabelInterval(MONITOR_CHART_MAX_POINTS)
         },
         splitLine: { show: false }
       },
@@ -77,9 +84,10 @@ export function useEchartsManager(metricCharts: MetricChart[]): UseEchartsManage
       series: [
         {
           type: 'line',
-          data: valueData,
+          data: values,
+          connectNulls: false,
           smooth: true,
-          showSymbol: chart.points.length <= 24,
+          showSymbol: true,
           symbol: 'circle',
           symbolSize: 5,
           lineStyle: {
@@ -123,7 +131,10 @@ export function useEchartsManager(metricCharts: MetricChart[]): UseEchartsManage
       const instance =
         chartInstances.get(chart.key) ?? echarts.init(element, undefined, { renderer: 'canvas' })
       chartInstances.set(chart.key, instance)
-      instance.setOption(buildChartOption(chart), true)
+      instance.setOption(buildChartOption(chart), {
+        notMerge: true,
+        lazyUpdate: true
+      })
     }
   }, [buildChartOption])
 
@@ -185,10 +196,8 @@ export function useEchartsManager(metricCharts: MetricChart[]): UseEchartsManage
       instance.dispose()
     }
     chartInstancesRef.current.clear()
-    chartElementsRef.current.clear()
   }, [])
 
-  // Setup ResizeObserver and render on mount
   useEffect(() => {
     resizeObserverRef.current = new ResizeObserver(() => {
       resizeCharts()
@@ -203,7 +212,6 @@ export function useEchartsManager(metricCharts: MetricChart[]): UseEchartsManage
     }
   }, [resizeCharts, queueRenderCharts, disposeCharts])
 
-  // Re-render when metricCharts change
   useEffect(() => {
     queueRenderCharts()
   }, [metricCharts, queueRenderCharts])

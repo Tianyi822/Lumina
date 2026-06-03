@@ -4,7 +4,10 @@
  */
 
 /** 工具类别 */
-export type ToolStatsCategory = 'lab' | 'knowledge' | 'mcp' | 'paper' | 'paper_web'
+export type ToolCategory = 'lab' | 'knowledge' | 'mcp' | 'paper' | 'paper_web'
+
+/** @deprecated 使用 ToolCategory 替代 */
+export type ToolStatsCategory = ToolCategory
 
 /** 单次工具调用记录 */
 export interface ToolCallRecord {

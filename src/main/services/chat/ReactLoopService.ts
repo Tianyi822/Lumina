@@ -12,17 +12,35 @@ import type { LLMConfig } from '../../types/config'
 import { promptBuilder } from './PromptBuilder'
 import { formatMessagesWithKnowledge } from './message'
 import { ModelRetryHandler } from './ModelRetryHandler'
-import {
-  KnowledgeToolAdapter,
-  MCPToolAdapter,
-  PaperContextToolAdapter,
-  LabToolAdapter,
-  UnifiedToolExecutor,
-  UnifiedToolRegistry
-} from './tools'
+import { MCPToolAdapter, UnifiedToolExecutor, UnifiedToolRegistry } from './tools'
+import { ToolOrchestrator } from './tools/ToolOrchestrator'
+import { ToolResultEnricher } from './tools/ToolResultEnricher'
+import { ToolResultMerger } from './tools/ToolResultMerger'
+import type { PipelineContext, ToolPipeline } from './tools/PipelineTypes'
 import type { ReactLoopServiceOptions } from './chatInternal'
 import { StreamProcessor } from './StreamProcessor'
-import { paperWebSearchService, PaperWebSearchToolAdapter } from '../paper-web-search'
+import { CapabilityComposer } from './tools/orchestration/CapabilityComposer'
+import { capabilityRegistry } from './tools/capabilities/CapabilityRegistry'
+import { registerBuiltinCapabilities } from './tools/capabilities/registerBuiltinCapabilities'
+import { capabilityManager } from './tools/CapabilityManager'
+import { presetRegistry } from './tools/presets/PresetRegistry'
+import { CHAT_PAPER_PRESET, CHAT_DEFAULT_PRESET } from './tools/presets/builtinPresets'
+
+/**
+ * 从消息列表中提取最近一条用户的文本输入作为原始查询
+ * 用于管道编排中的 auto-trigger 查询构造
+ */
+export function extractOriginalQuery(
+  messages: ReadonlyArray<{ readonly role?: string; readonly content?: unknown }>
+): string {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const msg = messages[i]
+    if (msg.role === 'user' && typeof msg.content === 'string') {
+      return msg.content
+    }
+  }
+  return ''
+}
 
 interface ReactLoopRuntimeOptions {
   abortController?: AbortController
@@ -50,12 +68,15 @@ export class ReactLoopService {
   private readonly modelRetryHandler: ModelRetryHandler
   private readonly unifiedToolExecutor: UnifiedToolExecutor
   private readonly toolRegistry: UnifiedToolRegistry
-  private readonly labAdapter: LabToolAdapter
-  private readonly paperContextAdapter: PaperContextToolAdapter
-  private readonly paperWebSearchAdapter: PaperWebSearchToolAdapter
-  private readonly knowledgeAdapter: KnowledgeToolAdapter
   private readonly mcpAdapter: MCPToolAdapter | null
   private readonly streamProcessor: StreamProcessor
+  private readonly toolOrchestrator: ToolOrchestrator
+  private readonly capabilityComposer: CapabilityComposer
+  private currentPipeline?: ToolPipeline
+  private currentOriginalQuery?: string
+  private currentRequest?: ChatRequest
+  private capabilitySuggestTool?: OpenAI.Chat.Completions.ChatCompletionTool
+  private suggestableCapabilityMap?: Map<string, { displayName: string; description: string }>
 
   constructor(options: ReactLoopServiceOptions) {
     this.logger = options.logger
@@ -72,10 +93,6 @@ export class ReactLoopService {
     })
 
     this.toolRegistry = new UnifiedToolRegistry()
-    this.labAdapter = new LabToolAdapter()
-    this.paperContextAdapter = new PaperContextToolAdapter()
-    this.paperWebSearchAdapter = new PaperWebSearchToolAdapter(paperWebSearchService)
-    this.knowledgeAdapter = new KnowledgeToolAdapter()
     this.mcpAdapter = options.mcpService ? new MCPToolAdapter(options.mcpService) : null
 
     const pendingUserInteraction = new Set<string>()
@@ -91,6 +108,28 @@ export class ReactLoopService {
     })
 
     this.streamProcessor = new StreamProcessor(this.streamHandler)
+
+    registerBuiltinCapabilities()
+    presetRegistry.register(CHAT_PAPER_PRESET)
+    presetRegistry.register(CHAT_DEFAULT_PRESET)
+    this.capabilityComposer = new CapabilityComposer(capabilityRegistry)
+
+    const enricher = new ToolResultEnricher()
+    const merger = new ToolResultMerger()
+    this.toolOrchestrator = new ToolOrchestrator({
+      registry: this.toolRegistry,
+      enricher,
+      merger,
+      executeToolCalls: async (toolCalls, wc, sid, msgs, tid) =>
+        this.unifiedToolExecutor.executeToolCalls(
+          toolCalls,
+          wc,
+          sid,
+          msgs as OpenAI.Chat.Completions.ChatCompletionMessageParam[],
+          tid
+        ),
+      sendStreamEvent: (wc, event) => this.streamHandler.sendStreamEvent(wc, event)
+    })
   }
 
   /**
@@ -135,9 +174,23 @@ export class ReactLoopService {
     try {
       const client = this.createClient(llmConfig)
 
-      await this.buildToolRegistry(request, selectedKnowledgeBases, sessionId)
+      await this.buildToolRegistryWithComposer(request, selectedKnowledgeBases, sessionId)
+
+      // 保留知识库会话绑定（策略的 configureAdapter 已设置适配器，此处补充 stopController 状态）
+      if (selectedKnowledgeBases && selectedKnowledgeBases.length > 0 && sessionId) {
+        this.stopController.setSessionKnowledgeBases(
+          sessionId,
+          selectedKnowledgeBases.map((kb) => kb.id)
+        )
+      }
+
+      // pipeline 已在 buildToolRegistryWithComposer 中设置
+      this.currentOriginalQuery = extractOriginalQuery(request.messages)
 
       const tools = this.toolRegistry.buildOpenAITools()
+      if (this.capabilitySuggestTool) {
+        tools.push(this.capabilitySuggestTool)
+      }
 
       const allToolRefs = this.toolRegistry.getAllToolReferences()
       const systemPrompt = await promptBuilder.buildSystemPrompt(llmConfig, true, allToolRefs)
@@ -252,102 +305,128 @@ export class ReactLoopService {
   }
 
   /**
-   * 按请求刷新统一工具注册表
+   * 通过 CapabilityComposer 构建工具注册表
    */
-  private async buildToolRegistry(
+  private async buildToolRegistryWithComposer(
     request: ChatRequest,
     selectedKnowledgeBases?: KnowledgeBaseReference[],
     sessionId?: string
   ): Promise<MCPToolReference[]> {
-    const { selectedTools, enableLabTools } = request
+    const sid = sessionId ?? ''
+    const sessionType = request.sessionType ?? 'default'
 
-    this.toolRegistry.unregisterByCategory('lab')
-    this.toolRegistry.unregisterByCategory('knowledge')
-    this.toolRegistry.unregisterByCategory('mcp')
-    this.toolRegistry.unregisterByCategory('paper')
-    this.toolRegistry.unregisterByCategory('paper_web')
-
-    if (selectedTools && selectedTools.length > 0 && this.mcpAdapter) {
-      this.toolRegistry.registerBatch(selectedTools, this.mcpAdapter, 'mcp')
+    let capState = capabilityManager.getCapabilities(sid)
+    if (!capState) {
+      capState = capabilityManager.initCapabilitiesForSessionType(sid, sessionType)
     }
 
-    if (enableLabTools) {
-      const labTools = await this.labAdapter.getTools()
-      this.toolRegistry.registerBatch(labTools, this.labAdapter, 'lab')
-
-      this.logger.info('已添加实验室工具到工具列表', 'main', {
-        sessionId,
-        labToolCount: labTools.length,
-        totalToolCount: this.toolRegistry.size
-      })
+    if (request.enableLabTools && !capState.activeCapabilities.includes('lab')) {
+      capabilityManager.addCapability(sid, 'lab')
+    }
+    if (
+      request.enablePaperWebSearch &&
+      request.paperId &&
+      !capState.activeCapabilities.includes('paper_web')
+    ) {
+      capabilityManager.addCapability(sid, 'paper_web')
+    }
+    if (
+      request.selectedTools &&
+      request.selectedTools.length > 0 &&
+      !capState.activeCapabilities.includes('mcp')
+    ) {
+      capabilityManager.addCapability(sid, 'mcp')
     }
 
-    if (selectedKnowledgeBases && selectedKnowledgeBases.length > 0 && sessionId) {
-      const kbIds = selectedKnowledgeBases.map((kb) => kb.id)
-      this.stopController.setSessionKnowledgeBases(sessionId, kbIds)
+    capState = capabilityManager.getCapabilities(sid)!
 
-      this.knowledgeAdapter.setKnowledgeBaseIds(kbIds)
-      const knowledgeTools = await this.knowledgeAdapter.getTools()
-      this.toolRegistry.registerBatch(knowledgeTools, this.knowledgeAdapter, 'knowledge')
+    const preset = presetRegistry.get(capState.presetId)
+    const composition = preset?.defaultComposition ?? { stages: [] }
 
-      this.logger.info('已添加知识库工具到工具列表', 'main', {
-        sessionId,
-        knowledgeToolCount: knowledgeTools.length,
-        totalToolCount: this.toolRegistry.size,
-        selectedKnowledgeBases: selectedKnowledgeBases.map((kb) => kb.name)
-      })
+    const composerContext = {
+      paperId: request.paperId,
+      enableLabTools: request.enableLabTools,
+      enablePaperWebSearch: request.enablePaperWebSearch,
+      selectedKnowledgeBases,
+      selectedTools: request.selectedTools,
+      mcpService: this.mcpAdapter ? this.mcpAdapter.getMcpService() : undefined
     }
 
-    if (request.sessionType === 'paper' && request.paperId) {
-      this.paperContextAdapter.setPaperId(request.paperId)
-      const paperTools = await this.paperContextAdapter.getTools()
-      this.toolRegistry.registerBatch(paperTools, this.paperContextAdapter, 'paper')
+    const composed = await this.capabilityComposer.compose(
+      capState.activeCapabilities,
+      composition,
+      composerContext
+    )
 
-      this.logger.info('已添加论文上下文工具到工具列表', 'main', {
-        sessionId,
-        paperId: request.paperId,
-        paperToolCount: paperTools.length,
-        totalToolCount: this.toolRegistry.size
-      })
+    this.toolRegistry.clear()
+
+    const suggestable = this.capabilityComposer.getSuggestableCapabilities(
+      capState.activeCapabilities,
+      composerContext
+    )
+    promptBuilder.setSuggestableCapabilities(
+      suggestable.map((u) => ({
+        id: u.id,
+        displayName: u.displayName,
+        description: u.description
+      }))
+    )
+
+    this.suggestableCapabilityMap = new Map(
+      suggestable.map((u) => [u.id, { displayName: u.displayName, description: u.description }])
+    )
+
+    if (suggestable.length > 0) {
+      this.capabilitySuggestTool = {
+        type: 'function' as const,
+        function: {
+          name: 'capability__suggest',
+          description: '建议用户激活一个当前未启用的能力',
+          parameters: {
+            type: 'object',
+            properties: {
+              capabilityId: { type: 'string', description: '建议的能力 ID' },
+              reason: { type: 'string', description: '为什么建议开启（展示给用户）' }
+            },
+            required: ['capabilityId', 'reason']
+          }
+        }
+      }
     } else {
-      this.paperContextAdapter.setPaperId(undefined)
+      this.capabilitySuggestTool = undefined
     }
 
-    if (request.enablePaperWebSearch && request.sessionType === 'paper' && sessionId) {
-      const paperContext = this.buildPaperSearchContext(request)
-      this.paperWebSearchAdapter.setPaperContext(paperContext)
-      const paperWebTools = await this.paperWebSearchAdapter.getTools()
-      this.toolRegistry.registerBatch(paperWebTools, this.paperWebSearchAdapter, 'paper_web')
-
-      this.logger.info('已添加论文联网搜索工具到工具列表', 'main', {
-        sessionId,
-        paperWebToolCount: paperWebTools.length,
-        totalToolCount: this.toolRegistry.size
-      })
+    if (!composed) {
+      this.currentPipeline = { stages: [] }
+      this.currentRequest = request
+      promptBuilder.setPipeline(this.currentPipeline)
+      this.logger.info('CapabilityComposer: 无可用工具', 'main', { sessionId: sid })
+      return []
     }
+
+    for (const tool of composed.toolRegistry.getAllTools()) {
+      const refs: MCPToolReference[] = [
+        {
+          serverName: tool.serverName,
+          toolName: tool.functionDef.name,
+          description: tool.functionDef.description,
+          inputSchema: tool.functionDef.parameters
+        }
+      ]
+      this.toolRegistry.registerBatch(refs, tool.adapter, tool.category)
+    }
+
+    this.currentPipeline = composed.pipeline
+    this.currentRequest = request
+    promptBuilder.setPipeline(composed.pipeline)
+
+    this.logger.info('工具注册完成（通过 CapabilityComposer）', 'main', {
+      sessionId: sid,
+      toolCount: this.toolRegistry.size,
+      activeCapabilities: capState.activeCapabilities
+    })
 
     return this.toolRegistry.getAllToolReferences()
-  }
-
-  /**
-   * 构建论文搜索上下文
-   */
-  private buildPaperSearchContext(
-    request: ChatRequest
-  ): import('@shared/types/paper-web-search').PaperWebSearchContext {
-    const lastUserMessage = [...request.messages].reverse().find((m) => m.role === 'user')
-
-    return {
-      paperId: request.paperId || '',
-      fileName: '',
-      paperTitle: undefined,
-      paperAuthors: undefined,
-      paperKeywords: undefined,
-      selectedQuote: undefined,
-      selectedQuoteContext: undefined,
-      userQuestion: typeof lastUserMessage?.content === 'string' ? lastUserMessage.content : '',
-      referenceHints: undefined
-    }
   }
 
   /**
@@ -450,29 +529,102 @@ export class ReactLoopService {
     })
 
     const toolCallsArray = Array.from(state.toolCalls.values())
-    const assistantMessage: OpenAI.Chat.Completions.ChatCompletionMessageParam & {
-      reasoning_content?: string
-    } = {
-      role: 'assistant',
-      content: state.assistantContent || null,
-      tool_calls: toolCallsArray
-    }
 
-    if (state.assistantReasoningContent) {
-      assistantMessage.reasoning_content = state.assistantReasoningContent
-    }
-
-    conversationMessages.push(
-      assistantMessage as OpenAI.Chat.Completions.ChatCompletionMessageParam
+    const nonSuggestToolCalls = toolCallsArray.filter(
+      (tc) => tc.function.name !== 'capability__suggest'
     )
+    const hasSuggestCall = nonSuggestToolCalls.length < toolCallsArray.length
 
-    const toolExecution = await this.unifiedToolExecutor.executeToolCalls(
-      toolCallsArray,
+    if (hasSuggestCall) {
+      const suggestCall = toolCallsArray.find((tc) => tc.function.name === 'capability__suggest')!
+      try {
+        const args = JSON.parse(suggestCall.function.arguments) as {
+          capabilityId: string
+          reason: string
+        }
+        const capMeta = this.suggestableCapabilityMap?.get(args.capabilityId)
+        this.logger.info('模型建议开启能力', 'main', {
+          sessionId,
+          capabilityId: args.capabilityId,
+          reason: args.reason
+        })
+        this.streamHandler.sendStreamEvent(webContents, {
+          type: 'capability_suggestion',
+          sessionId,
+          turnId,
+          capabilitySuggestion: {
+            capabilities: [
+              {
+                id: args.capabilityId,
+                displayName: capMeta?.displayName ?? args.capabilityId,
+                description: capMeta?.description ?? '',
+                reason: args.reason
+              }
+            ]
+          }
+        })
+      } catch {
+        // 解析失败，忽略
+      }
+
+      if (nonSuggestToolCalls.length === 0) {
+        return { shouldBreak: true, toolErrors: [], toolResults: [], toolCallCount: 0 }
+      }
+    }
+
+    const pipelineContext: PipelineContext = {
+      sessionId,
+      request: this.currentRequest ?? ({} as ChatRequest),
+      modelToolCalls: nonSuggestToolCalls,
+      stageResults: new Map(),
+      originalQuery: this.currentOriginalQuery ?? ''
+    }
+
+    const orchestrationResult = await this.toolOrchestrator.orchestrate(
+      nonSuggestToolCalls,
+      this.currentPipeline ?? { stages: [] },
+      pipelineContext,
       webContents,
       sessionId,
-      conversationMessages,
       turnId
     )
+
+    const executedToolCalls = orchestrationResult.executedToolCalls
+    if (executedToolCalls.length > 0) {
+      const assistantMessage: OpenAI.Chat.Completions.ChatCompletionMessageParam & {
+        reasoning_content?: string
+      } = {
+        role: 'assistant',
+        content: state.assistantContent || null,
+        tool_calls: executedToolCalls
+      }
+
+      if (state.assistantReasoningContent) {
+        assistantMessage.reasoning_content = state.assistantReasoningContent
+      }
+
+      conversationMessages.push(
+        assistantMessage as OpenAI.Chat.Completions.ChatCompletionMessageParam
+      )
+    }
+
+    // 将工具结果追加到对话历史（编排器不直接修改 messages）
+    const executedToolCallIds = new Set(executedToolCalls.map((toolCall) => toolCall.id))
+    for (const result of orchestrationResult.results) {
+      if (!executedToolCallIds.has(result.toolCallId)) continue
+      conversationMessages.push({
+        role: 'tool' as const,
+        tool_call_id: result.toolCallId,
+        content: result.content
+      })
+    }
+
+    const toolExecution = {
+      needUserInteraction: orchestrationResult.needUserInteraction,
+      failedToolCount: orchestrationResult.results.filter((r) => !r.success).length,
+      errors: orchestrationResult.results.filter((r) => r.error).map((r) => r.error!),
+      results: orchestrationResult.results
+    }
 
     if (toolExecution.needUserInteraction) {
       this.logger.info('ReAct 循环暂停，等待用户交互', 'main', { sessionId, iterations })
@@ -480,7 +632,7 @@ export class ReactLoopService {
         shouldBreak: true,
         toolErrors: toolExecution.errors,
         toolResults: toolExecution.results,
-        toolCallCount: toolCallsArray.length
+        toolCallCount: executedToolCalls.length
       }
     }
 
@@ -488,7 +640,7 @@ export class ReactLoopService {
       shouldBreak: false,
       toolErrors: toolExecution.errors,
       toolResults: toolExecution.results,
-      toolCallCount: toolCallsArray.length
+      toolCallCount: executedToolCalls.length
     }
   }
 
