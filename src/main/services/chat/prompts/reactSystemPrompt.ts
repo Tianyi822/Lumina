@@ -114,3 +114,39 @@ export function buildKnowledgeEnhancedPrompt(): string {
 - 如果搜索结果不相关，告知用户并尝试用其他方式回答
 - 通用常识问题或简单问候无需搜索知识库`
 }
+
+const CATEGORY_DISPLAY_NAMES: Record<string, string> = {
+  paper: '论文上下文检索 (paper__search_context)',
+  knowledge: '知识库搜索 (knowledge__search)',
+  paper_web: '论文联网搜索 (paper_web__search)',
+  lab: '实验室工具',
+  mcp: 'MCP 工具'
+}
+
+export function buildToolCoordinationGuide(
+  stages: Array<{ category: string; execution: 'required' | 'conditional' }>
+): string {
+  if (stages.length === 0) return ''
+
+  const lines: string[] = [
+    '## 工具使用协调策略',
+    '',
+    '当回答问题时，请按以下优先级顺序使用工具：',
+    ''
+  ]
+
+  stages.forEach((stage, i) => {
+    const name = CATEGORY_DISPLAY_NAMES[stage.category] ?? stage.category
+    if (stage.execution === 'required') {
+      lines.push(`${i + 1}. **首先**使用 ${name} 检索相关内容`)
+    } else {
+      lines.push(`${i + 1}. **当前面结果不足以完整回答时**，使用 ${name} 补充`)
+    }
+  })
+
+  lines.push('')
+  lines.push('**回答时标注来源**：论文内容标注"根据论文原文"，知识库内容标注"根据知识库《文档名》"，联网搜索内容标注"根据搜索结果"。')
+  lines.push('通用常识问题无需调用工具，直接回答即可。')
+
+  return lines.join('\n')
+}

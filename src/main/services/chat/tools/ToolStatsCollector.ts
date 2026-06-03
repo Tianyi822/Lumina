@@ -3,7 +3,7 @@ import { mkdir, readFile, writeFile, readdir, unlink } from 'fs/promises'
 import { join } from 'path'
 import type {
   ToolCallRecord,
-  ToolStatsCategory,
+  ToolCategory,
   ToolStatsSummary,
   TimeRange
 } from '@shared/types/tool-stats'
@@ -55,7 +55,7 @@ export class ToolStatsCollector {
   }
 
   /** 按类别查询统计 */
-  getCategoryStats(category: ToolStatsCategory, timeRange?: TimeRange): ToolStatsSummary[] {
+  getCategoryStats(category: ToolCategory, timeRange?: TimeRange): ToolStatsSummary[] {
     const filtered = this.filterByTimeRange(this.records, timeRange).filter(
       (r) => r.category === category
     )

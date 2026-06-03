@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-import { buildReactSystemPrompt } from './reactSystemPrompt.ts'
+import { buildReactSystemPrompt, buildToolCoordinationGuide } from './reactSystemPrompt.ts'
 
 test('内置 ReAct 提示词不再注入 few-shot 示例或模板变量', () => {
   const prompt = buildReactSystemPrompt({ modelName: 'test-model' })
@@ -20,4 +20,40 @@ test('内置 ReAct 提示词保留实验室创建业务规则', () => {
   assert.match(prompt, /lab__create_lab/)
   assert.match(prompt, /dockerfile_content/)
   assert.match(prompt, /compose_content/)
+})
+
+// ===== buildToolCoordinationGuide =====
+
+test('buildToolCoordinationGuide 空 stages 返回空字符串', () => {
+  const result = buildToolCoordinationGuide([])
+  assert.equal(result, '')
+})
+
+test('buildToolCoordinationGuide 单个 required stage 应包含"首先"指令', () => {
+  const result = buildToolCoordinationGuide([
+    { category: 'paper', execution: 'required' }
+  ])
+  assert.ok(result.includes('首先'))
+  assert.ok(result.includes('paper'))
+  assert.ok(result.includes('工具使用协调策略'))
+})
+
+test('buildToolCoordinationGuide required + conditional 组合应有优先级顺序', () => {
+  const result = buildToolCoordinationGuide([
+    { category: 'paper', execution: 'required' },
+    { category: 'knowledge', execution: 'conditional' }
+  ])
+  const paperIndex = result.indexOf('paper')
+  const kbIndex = result.indexOf('knowledge')
+  assert.ok(paperIndex < kbIndex, 'paper 应在 knowledge 之前')
+  assert.ok(result.includes('不足'))
+})
+
+test('buildToolCoordinationGuide 包含来源标注提示', () => {
+  const result = buildToolCoordinationGuide([
+    { category: 'paper', execution: 'required' },
+    { category: 'knowledge', execution: 'conditional' }
+  ])
+  assert.ok(result.includes('根据论文原文'))
+  assert.ok(result.includes('根据知识库'))
 })

@@ -186,9 +186,9 @@
   width: var(--sm-theme-switch-width);
   height: var(--sm-theme-switch-height);
   padding: var(--sm-theme-switch-inset);
-  border: 1px solid var(--sm-color-border-default);
+  border: 1px solid var(--sm-primary-sidebar-theme-switch-border, var(--sm-color-border-subtle));
   border-radius: var(--sm-theme-switch-radius);
-  background: var(--sm-color-surface-hover);
+  background: var(--sm-primary-sidebar-theme-switch-track, var(--sm-color-surface-2));
   -webkit-app-region: no-drag;
 }
 
@@ -199,7 +199,7 @@
   width: calc(100% - 2 * var(--sm-theme-switch-inset));
   height: var(--sm-theme-switch-thumb-size);
   border-radius: var(--sm-theme-switch-inner-radius);
-  background: var(--sm-color-surface-1);
+  background: var(--sm-primary-sidebar-theme-switch-thumb, var(--sm-color-surface-1));
   box-shadow: var(--sm-shadow-sm);
   pointer-events: none;
   transition: transform var(--sm-transition-fast);
