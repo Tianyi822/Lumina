@@ -11,7 +11,7 @@ import { notifySuccess, notifyError } from '@renderer/composables/notificationCo
 import { useContainerStore } from './containerStore'
 import { useDockerConfigStore } from './configStore'
 import { useLabStore } from './labStore'
-import { useUIStateStore } from '../uiStateStore'
+import { useUIStateStore, type LabDetailTab } from '../uiStateStore'
 import { usePortMappingStore } from './portMappingStore'
 import { useComposeConfigStore } from './composeConfigStore'
 import { useDockerfileConfigStore } from './dockerfileConfigStore'
@@ -371,7 +371,7 @@ export const useLabCreatorStore = create<CreatorState>()((set, get) => ({
   // ==================== 创建实验室：从 Compose ====================
 
   createFromCompose: async (options) => {
-    const labStore = useLabStore()
+    const labStore = useLabStore.getState()
 
     set({ isCreating: true, createError: null, createPhase: 'metadata' })
 
@@ -543,7 +543,7 @@ export const useLabCreatorStore = create<CreatorState>()((set, get) => ({
   // ==================== 创建实验室：从 Dockerfile ====================
 
   createFromDockerfile: async () => {
-    const labStore = useLabStore()
+    const labStore = useLabStore.getState()
 
     set({ isCreating: true, createError: null, createPhase: 'metadata' })
 
@@ -708,7 +708,7 @@ export const useLabCreatorStore = create<CreatorState>()((set, get) => ({
   // ==================== 创建实验室：从已有容器 ====================
 
   createFromExisting: async (containerId) => {
-    const labStore = useLabStore()
+    const labStore = useLabStore.getState()
     const containerStore = useContainerStore.getState()
 
     try {
@@ -746,9 +746,31 @@ export const useLabCreatorStore = create<CreatorState>()((set, get) => ({
   // ==================== 统一创建入口 ====================
 
   handleCreate: async () => {
-    const labStore = useLabStore()
+    const labStore = useLabStore.getState()
     const uiStateStore = useUIStateStore.getState()
     const { createType, selectedContainerId, sshConfig } = get()
+
+    const completeSuccess = async (
+      labId: string | undefined,
+      tab: LabDetailTab = 'stats',
+      options: { silentLoad?: boolean } = {}
+    ): Promise<boolean> => {
+      if (labId) {
+        try {
+          await labStore.loadLab(labId, true, { silent: options.silentLoad ?? false })
+          uiStateStore.setLastLabId(labId)
+        } catch (error) {
+          window.api.logger.warn('[LabCreatorStore] 创建成功后加载实验室失败，仍将关闭创建窗口', {
+            labId,
+            error: error instanceof Error ? error.message : String(error)
+          })
+        }
+      }
+      uiStateStore.setLabDetailTab(tab)
+      uiStateStore.closeLabCreator()
+      get().reset()
+      return true
+    }
 
     switch (createType) {
       case 'compose': {
@@ -758,18 +780,14 @@ export const useLabCreatorStore = create<CreatorState>()((set, get) => ({
         })
 
         if (result?.success && result.lab?.labId) {
-          await labStore.loadLab(result.lab.labId)
-          uiStateStore.setLabDetailTab('stats')
-          return true
+          return completeSuccess(result.lab.labId, 'stats')
         }
         return false
       }
       case 'dockerfile': {
         const result = await get().createFromDockerfile()
         if (result?.success && result.lab?.labId) {
-          await labStore.loadLab(result.lab.labId)
-          uiStateStore.setLabDetailTab('stats')
-          return true
+          return completeSuccess(result.lab.labId, 'stats')
         }
         return false
       }
@@ -779,8 +797,7 @@ export const useLabCreatorStore = create<CreatorState>()((set, get) => ({
         const result = await get().createFromExisting(selectedContainerId)
         if (result?.success) {
           await useContainerStore.getState().loadContainerDetails(selectedContainerId)
-          uiStateStore.setLabDetailTab('stats')
-          return true
+          return completeSuccess(result.lab?.labId, 'stats')
         }
         return false
       }
@@ -813,9 +830,9 @@ export const useLabCreatorStore = create<CreatorState>()((set, get) => ({
           notifySuccess('SSH 实验室已创建', `已连接到 ${sshConfig.host}`, { source: 'lab' })
         }
 
-        await labStore.loadLab(labResult.lab.labId, true, { silent: true })
-        uiStateStore.setLabDetailTab(connected ? 'terminal' : 'stats')
-        return true
+        return completeSuccess(labResult.lab.labId, connected ? 'terminal' : 'stats', {
+          silentLoad: true
+        })
       }
       default:
         return false
