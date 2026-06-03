@@ -133,6 +133,13 @@ export interface SessionData extends SessionMeta {
   messages: SessionMessage[]
   /** 会话级选择状态 */
   selectionState?: SessionSelectionState
+  /** 活跃能力状态（可选，兼容旧会话） */
+  capabilities?: ActiveCapabilityState
+}
+
+export interface ActiveCapabilityState {
+  presetId: string
+  activeCapabilities: string[]
 }
 
 /**
