@@ -130,135 +130,139 @@ export default function ContainerDetailPanel({
 
   return (
     <div className={styles['container-detail-panel']}>
-      {/* 概览面板 */}
-      <section className={styles['overview-panel']}>
-        <div className={styles['overview-panel__copy']}>
-          <div className={styles['overview-panel__headline']}>
-            <div className={styles['header-title']}>
-              <span
-                className={`${styles['state-indicator']} ${styles[getStateClass(container.state)]}`}
-              ></span>
-              <h2>{headerTitle}</h2>
-              <span
-                className={`${styles['state-badge']} ${styles[getStateClass(container.state)]}`}
-              >
-                {getStateLabel(container.state)}
-              </span>
-            </div>
-            <div className={styles['header-actions']}>
-              <button className={styles['btn']} disabled={!isRunning} onClick={onOpenTerminal}>
-                终端
-              </button>
-              <button className={styles['btn']} onClick={onViewLogs}>
-                日志
-              </button>
-
-              {permissions.showLifecycleButtons ? (
-                <>
-                  {!isRunning ? (
-                    <button
-                      className={`${styles['btn']} ${styles['success']}`}
-                      disabled={isOperating}
-                      onClick={onStart}
-                    >
-                      {startingContainer && <SvgIcon name="loading" size={14} spin />}
-                      <span>{startingContainer ? '启动中...' : '启动'}</span>
-                    </button>
-                  ) : (
-                    <button
-                      className={`${styles['btn']} ${styles['warning']}`}
-                      disabled={isOperating}
-                      onClick={onStop}
-                    >
-                      {stoppingContainer && <SvgIcon name="loading" size={14} spin />}
-                      <span>{stoppingContainer ? '停止中...' : '停止'}</span>
-                    </button>
-                  )}
-                  <button className={styles['btn']} disabled={isOperating} onClick={onRestart}>
-                    {restartingContainer && <SvgIcon name="loading" size={14} spin />}
-                    <span>{restartingContainer ? '重启中...' : '重启'}</span>
-                  </button>
-                </>
-              ) : permissions.isReadOnly ? (
+      <div className={stats ? styles['container-detail-panel__summary'] : undefined}>
+        {/* 概览面板 */}
+        <section className={styles['overview-panel']}>
+          <div className={styles['overview-panel__copy']}>
+            <div className={styles['overview-panel__headline']}>
+              <div className={styles['header-title']}>
                 <span
-                  className={styles['read-only-hint']}
-                  title={permissions.typeMeta?.description}
+                  className={`${styles['state-indicator']} ${styles[getStateClass(container.state)]}`}
+                ></span>
+                <h2>{headerTitle}</h2>
+                <span
+                  className={`${styles['state-badge']} ${styles[getStateClass(container.state)]}`}
                 >
-                  <SvgIcon name="info" size={14} />
-                  只读模式
+                  {getStateLabel(container.state)}
                 </span>
-              ) : null}
+              </div>
+              <div className={styles['header-actions']}>
+                <button className={styles['btn']} disabled={!isRunning} onClick={onOpenTerminal}>
+                  终端
+                </button>
+                <button className={styles['btn']} onClick={onViewLogs}>
+                  日志
+                </button>
 
-              <button className={`${styles['btn']} ${styles['danger']}`} onClick={onRemove}>
-                删除
-              </button>
-            </div>
-          </div>
+                {permissions.showLifecycleButtons ? (
+                  <>
+                    {!isRunning ? (
+                      <button
+                        className={`${styles['btn']} ${styles['success']}`}
+                        disabled={isOperating}
+                        onClick={onStart}
+                      >
+                        {startingContainer && <SvgIcon name="loading" size={14} spin />}
+                        <span>{startingContainer ? '启动中...' : '启动'}</span>
+                      </button>
+                    ) : (
+                      <button
+                        className={`${styles['btn']} ${styles['warning']}`}
+                        disabled={isOperating}
+                        onClick={onStop}
+                      >
+                        {stoppingContainer && <SvgIcon name="loading" size={14} spin />}
+                        <span>{stoppingContainer ? '停止中...' : '停止'}</span>
+                      </button>
+                    )}
+                    <button className={styles['btn']} disabled={isOperating} onClick={onRestart}>
+                      {restartingContainer && <SvgIcon name="loading" size={14} spin />}
+                      <span>{restartingContainer ? '重启中...' : '重启'}</span>
+                    </button>
+                  </>
+                ) : permissions.isReadOnly ? (
+                  <span
+                    className={styles['read-only-hint']}
+                    title={permissions.typeMeta?.description}
+                  >
+                    <SvgIcon name="info" size={14} />
+                    只读模式
+                  </span>
+                ) : null}
 
-          <div className={styles['overview-meta']}>
-            <span className="badge">{creationTypeLabel}</span>
-            <span className={`badge ${styles['overview-meta__code']}`}>ID {container.shortId}</span>
-            <span className="badge">创建于 {formatCreated(container.created)}</span>
-          </div>
-        </div>
-      </section>
-
-      {/* 资源监控 */}
-      {stats && (
-        <section className={styles['detail-section']}>
-          <div className={styles['section-title-row']}>
-            <h3 className={styles['section-title']}>资源监控</h3>
-            <button
-              className={styles['btn-refresh']}
-              type="button"
-              title="刷新资源监控"
-              aria-label="刷新资源监控"
-              disabled={refreshingStats}
-              onClick={onRefreshStats}
-            >
-              <SvgIcon name="refresh" size={14} spin={!!refreshingStats} />
-            </button>
-          </div>
-          <div className={styles['stats-grid']}>
-            <div className={styles['stat-card']}>
-              <div className={styles['stat-label']}>CPU 使用率</div>
-              <div className={styles['stat-value']}>{formattedCpu}</div>
-              <div className={styles['stat-bar']}>
-                <div
-                  className={`${styles['stat-bar-fill']} ${styles['cpu']}`}
-                  style={{ width: Math.min(stats.cpu, 100) + '%' }}
-                ></div>
+                <button className={`${styles['btn']} ${styles['danger']}`} onClick={onRemove}>
+                  删除
+                </button>
               </div>
             </div>
-            <div className={styles['stat-card']}>
-              <div className={styles['stat-label']}>内存使用</div>
-              <div className={styles['stat-value']}>{formattedMemory}</div>
-              <div className={styles['stat-bar']}>
-                <div
-                  className={`${styles['stat-bar-fill']} ${styles['memory']}`}
-                  style={{ width: Math.min(stats.memory.percent, 100) + '%' }}
-                ></div>
-              </div>
-            </div>
-            <div className={styles['stat-card']}>
-              <div className={styles['stat-label']}>网络接收</div>
-              <div className={styles['stat-value']}>{formattedNetwork.rx}</div>
-            </div>
-            <div className={styles['stat-card']}>
-              <div className={styles['stat-label']}>网络发送</div>
-              <div className={styles['stat-value']}>{formattedNetwork.tx}</div>
-            </div>
-            <div className={styles['stat-card']}>
-              <div className={styles['stat-label']}>块设备读取</div>
-              <div className={styles['stat-value']}>{formattedBlockIO.read}</div>
-            </div>
-            <div className={styles['stat-card']}>
-              <div className={styles['stat-label']}>块设备写入</div>
-              <div className={styles['stat-value']}>{formattedBlockIO.write}</div>
+
+            <div className={styles['overview-meta']}>
+              <span className="badge">{creationTypeLabel}</span>
+              <span className={`badge ${styles['overview-meta__code']}`}>
+                ID {container.shortId}
+              </span>
+              <span className="badge">创建于 {formatCreated(container.created)}</span>
             </div>
           </div>
         </section>
-      )}
+
+        {/* 资源监控 */}
+        {stats && (
+          <section className={`${styles['detail-section']} ${styles['resource-monitor-section']}`}>
+            <div className={styles['section-title-row']}>
+              <h3 className={styles['section-title']}>资源监控</h3>
+              <button
+                className={styles['btn-refresh']}
+                type="button"
+                title="刷新资源监控"
+                aria-label="刷新资源监控"
+                disabled={refreshingStats}
+                onClick={onRefreshStats}
+              >
+                <SvgIcon name="refresh" size={14} spin={!!refreshingStats} />
+              </button>
+            </div>
+            <div className={styles['stats-grid']}>
+              <div className={styles['stat-card']}>
+                <div className={styles['stat-label']}>CPU 使用率</div>
+                <div className={styles['stat-value']}>{formattedCpu}</div>
+                <div className={styles['stat-bar']}>
+                  <div
+                    className={`${styles['stat-bar-fill']} ${styles['cpu']}`}
+                    style={{ width: Math.min(stats.cpu, 100) + '%' }}
+                  ></div>
+                </div>
+              </div>
+              <div className={styles['stat-card']}>
+                <div className={styles['stat-label']}>内存使用</div>
+                <div className={styles['stat-value']}>{formattedMemory}</div>
+                <div className={styles['stat-bar']}>
+                  <div
+                    className={`${styles['stat-bar-fill']} ${styles['memory']}`}
+                    style={{ width: Math.min(stats.memory.percent, 100) + '%' }}
+                  ></div>
+                </div>
+              </div>
+              <div className={styles['stat-card']}>
+                <div className={styles['stat-label']}>网络接收</div>
+                <div className={styles['stat-value']}>{formattedNetwork.rx}</div>
+              </div>
+              <div className={styles['stat-card']}>
+                <div className={styles['stat-label']}>网络发送</div>
+                <div className={styles['stat-value']}>{formattedNetwork.tx}</div>
+              </div>
+              <div className={styles['stat-card']}>
+                <div className={styles['stat-label']}>块设备读取</div>
+                <div className={styles['stat-value']}>{formattedBlockIO.read}</div>
+              </div>
+              <div className={styles['stat-card']}>
+                <div className={styles['stat-label']}>块设备写入</div>
+                <div className={styles['stat-value']}>{formattedBlockIO.write}</div>
+              </div>
+            </div>
+          </section>
+        )}
+      </div>
 
       {/* 基本信息 */}
       <section className={styles['detail-section']}>

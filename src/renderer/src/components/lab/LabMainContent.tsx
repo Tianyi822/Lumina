@@ -191,8 +191,10 @@ export default function LabMainContent({ currentLab, dockerStatus }: LabMainCont
 
   const hasLab = !!currentLab
   const showSshReconnectOnly = isSshLab && hasLab && !isSshConnected
-  const isSshStatsMonitorVisible =
-    isSshLab && labDetailTab === 'stats' && !showSshReconnectOnly && !showDockerReadOnlyState
+  const isStatsTabVisible =
+    labDetailTab === 'stats' && !showSshReconnectOnly && !showDockerReadOnlyState
+  const isSshStatsMonitorVisible = isSshLab && isStatsTabVisible
+  const isDockerStatsMonitorVisible = isDockerLab && isStatsTabVisible && !!selectedContainer
   const labCreationTypeLabel = useMemo(() => {
     const labelMap: Record<string, string> = {
       existing: '已有容器',
@@ -204,7 +206,8 @@ export default function LabMainContent({ currentLab, dockerStatus }: LabMainCont
   }, [currentLab])
   const contentBodyClassName = [
     styles['content-body'],
-    isSshStatsMonitorVisible && styles['content-body--ssh-monitor']
+    isSshStatsMonitorVisible && styles['content-body--ssh-monitor'],
+    isDockerStatsMonitorVisible && styles['content-body--docker-monitor']
   ]
     .filter(Boolean)
     .join(' ')
@@ -276,9 +279,7 @@ export default function LabMainContent({ currentLab, dockerStatus }: LabMainCont
                   onConnect={handleSshConnect}
                 />
               ) : (
-                !showDockerReadOnlyState && (
-                  <TabNavigation visible={hasLab} showLogs={!isSshLab} />
-                )
+                !showDockerReadOnlyState && <TabNavigation visible={hasLab} showLogs={!isSshLab} />
               )}
             </div>
           </header>

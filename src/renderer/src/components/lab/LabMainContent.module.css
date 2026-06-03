@@ -199,7 +199,8 @@
   position: relative;
 }
 
-.content-body.content-body--ssh-monitor {
+.content-body.content-body--ssh-monitor,
+.content-body.content-body--docker-monitor {
   padding-bottom: 0;
 }
 
