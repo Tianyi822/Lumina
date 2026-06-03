@@ -766,7 +766,9 @@ export const useLabCreatorStore = create<CreatorState>()((set, get) => ({
           })
         }
       }
-      uiStateStore.setLabDetailTab(tab)
+      if (labId) {
+        uiStateStore.setLabDetailTab(tab, labId)
+      }
       uiStateStore.closeLabCreator()
       get().reset()
       return true

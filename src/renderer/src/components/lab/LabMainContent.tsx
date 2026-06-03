@@ -26,7 +26,10 @@ export default function LabMainContent({ currentLab, dockerStatus }: LabMainCont
   const selectedContainer = useContainerStore((s) => s.selectedContainer) || null
   const containerStats = useContainerStore((s) => s.containerStats) || null
   const storeLoading = useContainerStore((s) => s.isLoading) || false
-  const labDetailTab = useUIStateStore((s) => s.labDetailTab)
+  const currentLabId = currentLab?.labId ?? null
+  const labDetailTab = useUIStateStore((s) =>
+    currentLabId ? (s.labDetailTabsByLabId[currentLabId] ?? 'stats') : 'stats'
+  )
   const setLabDetailTab = useUIStateStore((s) => s.setLabDetailTab)
 
   const isOrphan = currentLab?.isOrphan || false
@@ -68,10 +71,10 @@ export default function LabMainContent({ currentLab, dockerStatus }: LabMainCont
   }, [currentLab?.labId])
 
   useEffect(() => {
-    if (isSshLab && labDetailTab === 'logs') {
-      setLabDetailTab('stats')
+    if (isSshLab && currentLabId && labDetailTab === 'logs') {
+      setLabDetailTab('stats', currentLabId)
     }
-  }, [isSshLab, labDetailTab, setLabDetailTab])
+  }, [isSshLab, currentLabId, labDetailTab, setLabDetailTab])
 
   // 监听 SSH 连接状态
   useEffect(() => {
@@ -275,7 +278,9 @@ export default function LabMainContent({ currentLab, dockerStatus }: LabMainCont
                   onConnect={handleSshConnect}
                 />
               ) : (
-                !showDockerReadOnlyState && <TabNavigation visible={hasLab} showLogs={!isSshLab} />
+                !showDockerReadOnlyState && (
+                  <TabNavigation visible={hasLab} showLogs={!isSshLab} labId={currentLabId} />
+                )
               )}
             </div>
           </header>
@@ -347,8 +352,8 @@ export default function LabMainContent({ currentLab, dockerStatus }: LabMainCont
                     onStop={handleContainerStop}
                     onRestart={handleContainerRestart}
                     onRemove={handleDeleteLab}
-                    onOpenTerminal={() => setLabDetailTab('terminal')}
-                    onViewLogs={() => setLabDetailTab('logs')}
+                    onOpenTerminal={() => currentLabId && setLabDetailTab('terminal', currentLabId)}
+                    onViewLogs={() => currentLabId && setLabDetailTab('logs', currentLabId)}
                     onRefreshStats={() => void handleRefreshStats()}
                   />
                 </div>
