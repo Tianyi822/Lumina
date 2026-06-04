@@ -1,9 +1,25 @@
 .page {
-  --sm-paper-reader-top-inset: var(--sm-space-5);
+  /* 正文底部留白（对齐 Vue 版 paper-markdown-view scroll padding-bottom） */
+  --sm-paper-reader-edge-inset: var(--sm-space-6);
+  /* 正文从窗口顶部开始，顶部视觉交给自定义模糊层处理 */
+  --sm-paper-reader-content-top-inset: 0px;
+  /* 窗口拖拽/双击安全区（标题栏高度） */
+  --sm-paper-reader-chrome-top: var(--sm-titlebar-height);
+  /* 自定义顶部区域：标题栏 + 渐进模糊过渡 */
+  --sm-paper-reader-top-area-height: calc(var(--sm-titlebar-height) + var(--sm-space-6));
+  /* 目录/搜索定位仍避开顶部模糊区域 */
+  --sm-paper-reader-scroll-anchor-top-inset: var(--sm-paper-reader-top-area-height);
+  --sm-paper-reader-fade-height: var(--sm-paper-reader-top-area-height);
+  --sm-paper-reader-top-inset: var(--sm-paper-reader-edge-inset);
 
   position: relative;
   flex-direction: row;
   background: var(--sm-color-bg-canvas);
+}
+
+/* macOS 工作区已有 titlebar padding，缩小窗口拖拽带 */
+:global(.sm-workspace-page--mac) .page {
+  --sm-paper-reader-chrome-top: var(--sm-space-3);
 }
 
 .main {
@@ -79,9 +95,9 @@
   width: var(--paper-chat-panel-width);
   min-width: 340px;
   max-width: min(680px, 100vw);
-  height: calc(100% - var(--sm-paper-reader-top-inset) - var(--sm-space-2));
+  height: calc(100% - var(--sm-paper-toolbar-height) - var(--sm-space-2));
   min-height: 0;
-  margin-top: var(--sm-paper-reader-top-inset);
+  margin-top: var(--sm-paper-toolbar-height);
   margin-bottom: var(--sm-space-2);
   border: 1px solid var(--sm-color-border-default);
   border-radius: var(--sm-radius-lg);
@@ -137,7 +153,7 @@
 @media (max-width: 760px) {
   .chatSlot {
     position: absolute;
-    top: var(--sm-paper-reader-top-inset);
+    top: var(--sm-paper-toolbar-height);
     right: 0;
     bottom: var(--sm-space-2);
     z-index: 20;

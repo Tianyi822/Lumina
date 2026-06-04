@@ -568,6 +568,8 @@ export default function PaperOriginalPdfView({ paperId }: PaperOriginalPdfViewPr
 
   return (
     <div className={styles['paper-original-pdf-view']}>
+      <div className={styles['paper-original-pdf-view__top-fade']} aria-hidden="true" />
+      <div className={styles['paper-original-pdf-view__chrome-top']} aria-hidden="true" />
       <div
         ref={scrollContainerRef}
         className={styles['paper-original-pdf-view__scroll']}
