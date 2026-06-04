@@ -46,6 +46,11 @@
   right: var(--sm-window-controls-safe-width, 0px);
 }
 
+/* Windows：禁用顶部渐进模糊与透明渐变（保留 chrome-top 拖拽区） */
+:global(.sm-workspace-page--windows) .paper-markdown-view__top-fade {
+  display: none;
+}
+
 .paper-markdown-view__top-fade::before,
 .paper-markdown-view__top-fade::after {
   content: '';
@@ -175,7 +180,13 @@ mark:global(.paper-markdown-view__quote-highlight) * {
     0 16px 40px rgba(15, 23, 42, 0.18),
     inset 0 1px 0 rgba(255, 255, 255, 0.04);
   backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
   font-size: 13px;
+}
+
+:global(.sm-workspace-page--windows) .paper-markdown-view__search-bar {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 .paper-markdown-view__search-input {

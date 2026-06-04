@@ -45,6 +45,11 @@
   right: var(--sm-window-controls-safe-width, 0px);
 }
 
+/* Windows：禁用顶部渐进模糊与透明渐变（保留 chrome-top 拖拽区） */
+:global(.sm-workspace-page--windows) .paper-original-pdf-view__top-fade {
+  display: none;
+}
+
 .paper-original-pdf-view__top-fade::before,
 .paper-original-pdf-view__top-fade::after {
   content: '';

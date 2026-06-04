@@ -22,6 +22,14 @@
   --sm-paper-reader-chrome-top: var(--sm-space-3);
 }
 
+/* Windows：无顶部模糊层，正文顶部留白与标题栏拖拽区对齐 */
+:global(.sm-workspace-page--windows) .page {
+  --sm-paper-reader-top-area-height: var(--sm-paper-reader-chrome-top);
+  --sm-paper-reader-content-top-inset: var(--sm-paper-reader-chrome-top);
+  --sm-paper-reader-scroll-anchor-top-inset: var(--sm-paper-reader-chrome-top);
+  --sm-paper-reader-fade-height: var(--sm-paper-reader-chrome-top);
+}
+
 .main {
   flex: 1;
   display: flex;
