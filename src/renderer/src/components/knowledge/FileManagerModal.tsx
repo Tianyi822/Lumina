@@ -11,6 +11,7 @@ import FileListState from './file-manager/components/FileListState'
 import ConfirmDeleteDialog from './file-manager/components/ConfirmDeleteDialog'
 import { useFileDelete } from './hooks/useFileDelete'
 import FilePreviewDialog from './FilePreviewDialog'
+import ModalPortal from '@renderer/components/ui/ModalPortal'
 import styles from './FileManagerModal.module.css'
 
 interface FileManagerModalProps {
@@ -73,11 +74,12 @@ function FileManagerModal({ onClose }: FileManagerModalProps) {
   }, [])
 
   return (
-    <div className={`sm-modal__overlay ${styles['file-manager-overlay']}`} onClick={onClose}>
-      <div
-        className={`sm-modal__surface ${styles['file-manager-container']}`}
-        onClick={(e) => e.stopPropagation()}
-      >
+    <>
+      <ModalPortal onBackdropClick={onClose}>
+        <div
+          className={`sm-modal__surface ${styles['file-manager-container']}`}
+          onClick={(e) => e.stopPropagation()}
+        >
         <FileManagerHeader onClose={onClose} />
 
         <FileManagerToolbar />
@@ -97,7 +99,8 @@ function FileManagerModal({ onClose }: FileManagerModalProps) {
             />
           ))}
         </FileListState>
-      </div>
+        </div>
+      </ModalPortal>
 
       <ConfirmDeleteDialog
         show={showConfirmDialog}
@@ -108,7 +111,7 @@ function FileManagerModal({ onClose }: FileManagerModalProps) {
       />
 
       <FilePreviewDialog visible={showPreview} file={previewFile} onClose={handleClosePreview} />
-    </div>
+    </>
   )
 }
 

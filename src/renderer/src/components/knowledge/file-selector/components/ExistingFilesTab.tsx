@@ -1,6 +1,8 @@
 import { useMemo } from 'react'
 import { useFileStore } from '@renderer/stores'
 import type { FileItem } from '@renderer/types'
+import FileUploadZone from '../../shared/components/FileUploadZone'
+import type { UploadResult } from '../../hooks/useFileUpload'
 import FileItemRow from './FileItemRow'
 import FileSelectorBottomBar from './FileSelectorBottomBar'
 import styles from './ExistingFilesTab.module.css'
@@ -14,10 +16,12 @@ interface ExistingFilesTabProps {
   onSelectAll: (files: FileItem[]) => void
   onDeselectAll: () => void
   onLinkSelected: () => void
+  onUploadComplete: (result: UploadResult) => void
   onClose: () => void
 }
 
 export default function ExistingFilesTab({
+  kbId,
   linkedFileIds,
   selectedFileIds,
   linkingFileIds,
@@ -25,6 +29,7 @@ export default function ExistingFilesTab({
   onSelectAll,
   onDeselectAll,
   onLinkSelected,
+  onUploadComplete,
   onClose
 }: ExistingFilesTabProps) {
   const files = useFileStore((s) => s.files)
@@ -61,6 +66,15 @@ export default function ExistingFilesTab({
 
   return (
     <div className={styles['tab-content']}>
+      <div className={styles['upload-section']}>
+        <FileUploadZone
+          variant="compact"
+          autoLinkToKB
+          kbId={kbId}
+          onUploadComplete={onUploadComplete}
+        />
+      </div>
+
       <div className={styles['search-bar']}>
         <div className={styles['search-bar__copy']}>
           <span className={styles['search-bar__label']}>文件资源池</span>
@@ -86,7 +100,7 @@ export default function ExistingFilesTab({
             {searchQuery ? (
               <p>未找到匹配的文件</p>
             ) : (
-              <p>没有可添加的文件，请先上传文件或切换到&quot;上传新文件&quot;标签页</p>
+              <p>没有可添加的文件，请在上方拖放或选择文件上传</p>
             )}
           </div>
         ) : (
