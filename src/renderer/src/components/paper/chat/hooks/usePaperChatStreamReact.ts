@@ -261,7 +261,6 @@ export function usePaperChatStreamReact(
     usePaperChatStreamStore.getState().setupStreamListener(handleStreamEvent)
     return () => {
       const currentSessionId = sessionIdRef.current
-      const streamStore = usePaperChatStreamStore.getState()
 
       // 即使发送中也需要保留最新消息缓存
       if (currentSessionId) {
@@ -274,8 +273,11 @@ export function usePaperChatStreamReact(
           )
       }
 
-      // 始终清理流监听器，避免卸载后持有过期闭包
-      streamStore.cleanupStreamListener()
+      // 注意：不在此处清理流式 IPC 监听器。
+      // 保持监听器活跃，即使组件卸载（如切换视图），流式事件仍被处理并缓存。
+      // handler 闭包中的 ref 在卸载后仍持有有效值，可继续更新缓存和保存会话。
+      // 当组件重新挂载时，setupStreamListener 会自动替换为新的 handler。
+      // 仅在 setupStreamListener 内部（设置新 handler 前）才会清理旧监听器。
     }
   }, [handleStreamEvent, messagesRef])
 
