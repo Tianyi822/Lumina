@@ -4,6 +4,7 @@ import { uploadAndRenderPdf } from '@renderer/stores/paper'
 import { useKnowledgeStore } from '@renderer/stores'
 import { useUIStateStore } from '@renderer/stores/uiStateStore'
 import type { UIStateStore, ViewMode } from '@renderer/stores/uiStateStore'
+import WorkspaceToolbar from '@renderer/components/chrome/WorkspaceToolbar'
 import styles from './PrimarySidebar.module.css'
 
 const ICON_SIZE = 18
@@ -168,6 +169,8 @@ export default function PrimarySidebar({ onOpenSettings }: PrimarySidebarProps) 
       </div>
 
       <div className={styles['sm-primary-sidebar__footer']}>
+        <WorkspaceToolbar />
+
         <div
           className={[
             styles['sm-primary-sidebar__item-wrap'],

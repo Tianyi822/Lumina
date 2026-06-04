@@ -121,7 +121,7 @@ export default function TocPanel({
         disabled={!canOpenToc}
         onClick={onToggle}
       >
-        <SvgIcon name="toc" size={12} />
+        <SvgIcon name="toc" size={18} />
       </button>
 
       {showTocPanel && (

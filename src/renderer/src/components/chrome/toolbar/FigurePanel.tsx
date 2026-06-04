@@ -52,7 +52,7 @@ export default function FigurePanel({
         disabled={!canOpenFigurePanel}
         onClick={onToggle}
       >
-        <SvgIcon name="image" size={12} />
+        <SvgIcon name="image" size={18} />
       </button>
 
       {showFigurePanel && (
