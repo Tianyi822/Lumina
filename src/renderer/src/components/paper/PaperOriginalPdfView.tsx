@@ -1,138 +1,239 @@
-import { useState, useRef, useEffect, useLayoutEffect, useMemo, useCallback } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties
+} from 'react'
+import {
+  GlobalWorkerOptions,
+  getDocument,
+  type PDFDocumentProxy,
+  type RenderTask
+} from 'pdfjs-dist'
 import { usePaperViewStore } from '@renderer/stores/paper'
-import type { PaperPageAsset } from '@shared/types/paper'
 import { useZoomAnchor } from './composables/useZoomAnchor'
 import styles from './PaperOriginalPdfView.module.css'
 
+GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.mjs',
+  import.meta.url
+).toString()
+
 interface PaperOriginalPdfViewProps {
   paperId: string
-  pageAssets?: PaperPageAsset[]
-  pageCount?: number
 }
 
-interface OriginalPdfPage {
+interface PdfPageInfo {
   pageIndex: number
   width: number
   height: number
-  imageMimeType: string
-  available: boolean
 }
 
-interface PageLoadState {
-  status: 'idle' | 'loading' | 'loaded' | 'error'
-  dataUrl?: string
+interface PageRenderState {
+  status: 'idle' | 'loading' | 'rendered' | 'error'
+  renderScale?: number
   error?: string
 }
 
-export default function PaperOriginalPdfView({
-  paperId,
-  pageAssets,
-  pageCount
-}: PaperOriginalPdfViewProps) {
+type PdfDocumentState = { status: 'idle' | 'loading' | 'ready' | 'error'; error?: string }
+
+const PDF_RENDER_SCALE_MAX = 3
+const PDF_ZOOM_SETTLE_DELAY_MS = 140
+const PDF_OBSERVER_ROOT_MARGIN = '960px 0px'
+
+function buildSourcePdfUrl(targetPaperId: string): string {
+  return `lumina://paper/${targetPaperId}/source.pdf`
+}
+
+function formatError(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
+}
+
+function isRenderCancelled(error: unknown): boolean {
+  return error instanceof Error && error.name === 'RenderingCancelledException'
+}
+
+function getRenderScale(zoomLevel: number): number {
+  const pixelRatio =
+    typeof window === 'undefined' ? 1 : Math.min(Math.max(window.devicePixelRatio || 1, 1), 2)
+  return Math.min(PDF_RENDER_SCALE_MAX, Math.max(0.5, zoomLevel * pixelRatio))
+}
+
+export default function PaperOriginalPdfView({ paperId }: PaperOriginalPdfViewProps) {
   const zoomLevel = usePaperViewStore((state) => state.zoomLevel)
+  const handleWheelZoom = usePaperViewStore((state) => state.handleWheelZoom)
   const setOriginalPdfScrollPosition = usePaperViewStore(
     (state) => state.setOriginalPdfScrollPosition
   )
   const getOriginalPdfScrollPosition = usePaperViewStore(
     (state) => state.getOriginalPdfScrollPosition
   )
-  const handleWheelZoom = usePaperViewStore((state) => state.handleWheelZoom)
+
+  const [documentState, setDocumentState] = useState<PdfDocumentState>({ status: 'idle' })
+  const [pages, setPages] = useState<PdfPageInfo[]>([])
+  const [pageStates, setPageStates] = useState<Record<number, PageRenderState>>({})
 
   const scrollContainerRef = useRef<HTMLDivElement>(null)
-  const [pageStates, setPageStates] = useState<Record<number, PageLoadState>>({})
+  const pdfDocumentRef = useRef<PDFDocumentProxy | null>(null)
+  const canvasElementsRef = useRef<Map<number, HTMLCanvasElement>>(new Map())
   const pageElementsRef = useRef<Map<number, HTMLElement>>(new Map())
-  const observedPageIndexesRef = useRef<Set<number>>(new Set())
   const observerRef = useRef<IntersectionObserver | null>(null)
-  const isMountedRef = useRef(false)
+  const visiblePageIndexesRef = useRef<Set<number>>(new Set())
+  const renderTasksRef = useRef<Map<number, RenderTask>>(new Map())
+  const pageStatesRef = useRef<Record<number, PageRenderState>>({})
+  const pagesRef = useRef<PdfPageInfo[]>([])
   const paperIdRef = useRef(paperId)
-  paperIdRef.current = paperId
-
+  const zoomLevelRef = useRef(zoomLevel)
   const zoomAnchorRef = useRef(useZoomAnchor())
-  const zoomAnchor = zoomAnchorRef.current
-
-  // Zoom settle timer
-  const zoomSettleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const hasMountedZoomRef = useRef(false)
   const previousZoomLevelRef = useRef(zoomLevel)
+  const hasMountedZoomRef = useRef(false)
+  const zoomSettleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const zoomRenderTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const scrollRafIdRef = useRef<number | null>(null)
 
-  // useLayoutEffect 确保在浏览器绘制前同步修正滚动位置
-  useLayoutEffect(() => {
-    if (!hasMountedZoomRef.current) {
-      hasMountedZoomRef.current = true
-      previousZoomLevelRef.current = zoomLevel
-      return
+  const zoomAnchor = zoomAnchorRef.current
+  paperIdRef.current = paperId
+  zoomLevelRef.current = zoomLevel
+  pagesRef.current = pages
+
+  const sourcePdfUrl = useMemo(() => {
+    if (!paperId) {
+      return ''
     }
 
-    const prevLevel = previousZoomLevelRef.current
-    if (prevLevel === zoomLevel) {
-      return
+    return buildSourcePdfUrl(paperId)
+  }, [paperId])
+
+  const cancelRenderTasks = useCallback(() => {
+    for (const task of renderTasksRef.current.values()) {
+      task.cancel()
     }
+    renderTasksRef.current.clear()
+  }, [])
 
-    previousZoomLevelRef.current = zoomLevel
-
-    const container = scrollContainerRef.current
-    if (!container) return
-
-    if (!zoomAnchor.isZooming()) {
-      // 首次缩放步进：DOM 已更新缩放但 scrollTop 未变，需先用数学方式修正滚动位置
-      // 再捕获锚点，否则 beginZoom 捕获的是已偏移的错误锚点
-      const ratio = zoomLevel / prevLevel
-      const scrollTop = container.scrollTop
-      const clientHeight = container.clientHeight
-      container.scrollTop = scrollTop * ratio + (clientHeight / 2) * (ratio - 1)
-      zoomAnchor.beginZoom(container)
-    }
-
-    // 强制同步布局重计算
-    void container.offsetHeight
-
-    // 同步修正滚动位置（在浏览器绘制前完成，消除抖动）
-    zoomAnchor.applyZoomFrame(container)
-
-    if (zoomSettleTimerRef.current !== null) clearTimeout(zoomSettleTimerRef.current)
-    zoomSettleTimerRef.current = setTimeout(() => {
-      zoomSettleTimerRef.current = null
-      zoomAnchor.endZoom()
-    }, 150)
-  }, [zoomLevel, zoomAnchor])
-
-  const originalPages = useMemo<OriginalPdfPage[]>(() => {
-    const assets = [...(pageAssets || [])].sort((a, b) => a.pageIndex - b.pageIndex)
-    const assetByIndex = new Map(assets.map((asset) => [asset.pageIndex, asset]))
-    const totalPages = Math.max(pageCount || 0, assets.length)
-
-    return Array.from({ length: totalPages }, (_, pageIndex) => {
-      const asset = assetByIndex.get(pageIndex)
-      const width = asset?.sourceWidth || asset?.imageWidth || 612
-      const height = asset?.sourceHeight || asset?.imageHeight || 792
-
-      return {
-        pageIndex,
-        width: Math.max(width, 1),
-        height: Math.max(height, 1),
-        imageMimeType: asset?.imageMimeType || 'image/jpeg',
-        available: !!asset
+  const setPageRenderState = useCallback((pageIndex: number, state: PageRenderState) => {
+    setPageStates((prev) => {
+      const next = {
+        ...prev,
+        [pageIndex]: state
       }
+      pageStatesRef.current = next
+      return next
     })
-  }, [pageAssets, pageCount])
+  }, [])
 
-  const pageSignature = useMemo(() => {
-    return originalPages
-      .map((page) => `${page.pageIndex}:${page.width}:${page.height}:${page.available}`)
-      .join('|')
-  }, [originalPages])
+  const renderPage = useCallback(
+    async (page: PdfPageInfo, renderScale = getRenderScale(zoomLevelRef.current)) => {
+      const pdfDocument = pdfDocumentRef.current
+      const canvas = canvasElementsRef.current.get(page.pageIndex)
+      if (!pdfDocument || !canvas) {
+        return
+      }
 
-  const contentZoomStyle = useMemo(
-    () => ({
-      zoom: zoomLevel
-    }),
-    [zoomLevel]
+      const currentState = pageStatesRef.current[page.pageIndex]
+      if (
+        currentState?.renderScale === renderScale &&
+        (currentState.status === 'loading' || currentState.status === 'rendered')
+      ) {
+        return
+      }
+
+      renderTasksRef.current.get(page.pageIndex)?.cancel()
+      setPageRenderState(page.pageIndex, { status: 'loading', renderScale })
+
+      let renderTask: RenderTask | null = null
+      try {
+        const pdfPage = await pdfDocument.getPage(page.pageIndex + 1)
+        if (pdfDocumentRef.current !== pdfDocument) {
+          return
+        }
+
+        const viewport = pdfPage.getViewport({ scale: renderScale })
+        const canvasContext = canvas.getContext('2d', {
+          alpha: false,
+          willReadFrequently: false
+        })
+        if (!canvasContext) {
+          throw new Error('创建 Canvas 2D 上下文失败')
+        }
+
+        const nextWidth = Math.max(1, Math.floor(viewport.width))
+        const nextHeight = Math.max(1, Math.floor(viewport.height))
+        if (canvas.width !== nextWidth) {
+          canvas.width = nextWidth
+        }
+        if (canvas.height !== nextHeight) {
+          canvas.height = nextHeight
+        }
+
+        renderTask = pdfPage.render({
+          canvas,
+          canvasContext,
+          viewport
+        })
+        renderTasksRef.current.set(page.pageIndex, renderTask)
+        await renderTask.promise
+
+        if (renderTasksRef.current.get(page.pageIndex) === renderTask) {
+          renderTasksRef.current.delete(page.pageIndex)
+        }
+        if (pdfDocumentRef.current !== pdfDocument) {
+          return
+        }
+
+        setPageRenderState(page.pageIndex, { status: 'rendered', renderScale })
+      } catch (error) {
+        if (renderTask && renderTasksRef.current.get(page.pageIndex) === renderTask) {
+          renderTasksRef.current.delete(page.pageIndex)
+        }
+        if (isRenderCancelled(error) || pdfDocumentRef.current !== pdfDocument) {
+          return
+        }
+
+        setPageRenderState(page.pageIndex, {
+          status: 'error',
+          renderScale,
+          error: formatError(error)
+        })
+      }
+    },
+    [setPageRenderState]
   )
 
-  const hasPages = originalPages.length > 0
+  const renderPageByIndex = useCallback(
+    (pageIndex: number) => {
+      const page = pagesRef.current[pageIndex]
+      if (!page) {
+        return
+      }
 
-  // Scroll position recording
-  const scrollRafIdRef = useRef<number | null>(null)
+      void renderPage(page)
+    },
+    [renderPage]
+  )
+
+  const renderVisiblePages = useCallback(() => {
+    const visibleIndexes = Array.from(visiblePageIndexesRef.current)
+    const indexes = visibleIndexes.length > 0 ? visibleIndexes : [0]
+    for (const pageIndex of indexes) {
+      renderPageByIndex(pageIndex)
+    }
+  }, [renderPageByIndex])
+
+  const persistScrollPositionNow = useCallback(() => {
+    const container = scrollContainerRef.current
+    if (!paperIdRef.current || !container) {
+      return
+    }
+
+    setOriginalPdfScrollPosition(paperIdRef.current, {
+      scrollTop: container.scrollTop,
+      scrollLeft: container.scrollLeft
+    })
+  }, [setOriginalPdfScrollPosition])
 
   const recordScrollPosition = useCallback(() => {
     if (!paperIdRef.current || !scrollContainerRef.current || zoomAnchor.isZooming()) {
@@ -145,16 +246,16 @@ export default function PaperOriginalPdfView({
 
     scrollRafIdRef.current = requestAnimationFrame(() => {
       scrollRafIdRef.current = null
-      if (!paperIdRef.current || !scrollContainerRef.current) return
-      setOriginalPdfScrollPosition(paperIdRef.current, {
-        scrollTop: scrollContainerRef.current.scrollTop,
-        scrollLeft: scrollContainerRef.current.scrollLeft
-      })
+      if (zoomAnchor.isZooming()) {
+        return
+      }
+
+      persistScrollPositionNow()
     })
-  }, [setOriginalPdfScrollPosition, zoomAnchor])
+  }, [persistScrollPositionNow, zoomAnchor])
 
   const restoreScrollPosition = useCallback(
-    async (targetPaperId: string) => {
+    (targetPaperId: string) => {
       const position = getOriginalPdfScrollPosition(targetPaperId)
       if (!position) {
         return
@@ -172,185 +273,257 @@ export default function PaperOriginalPdfView({
     [getOriginalPdfScrollPosition]
   )
 
-  function getPageState(pageIndex: number): PageLoadState {
-    return pageStates[pageIndex] || { status: 'idle' }
-  }
-
-  function setPageState(pageIndex: number, state: PageLoadState): void {
-    setPageStates((prev) => ({
-      ...prev,
-      [pageIndex]: state
-    }))
-  }
-
-  function findPage(pageIndex: number): OriginalPdfPage | undefined {
-    return originalPages.find((page) => page.pageIndex === pageIndex)
-  }
-
-  const loadPage = useCallback(
-    (pageIndex: number): void => {
-      const page = findPage(pageIndex)
-      if (!page) {
-        return
-      }
-
-      const currentState = getPageState(pageIndex)
-      if (currentState.status === 'loading' || currentState.status === 'loaded') {
-        return
-      }
-
-      if (!page.available) {
-        setPageState(pageIndex, {
-          status: 'error',
-          error: '页图不存在'
-        })
-        return
-      }
-
-      const targetPaperId = paperIdRef.current
-      setPageState(pageIndex, { status: 'loading' })
-
-      // 使用 lumina:// 协议直接加载页面图片，避免 Base64 IPC 传输
-      const paddedIndex = String(pageIndex + 1).padStart(4, '0')
-      const imageUrl = `lumina://paper/${targetPaperId}/pages/page-${paddedIndex}.jpg`
-
-      if (paperIdRef.current !== targetPaperId) {
-        return
-      }
-
-      setPageState(pageIndex, {
-        status: 'loaded',
-        dataUrl: imageUrl
-      })
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [originalPages]
-  )
-
-  // Observer management
-  const disposeObserver = useCallback(() => {
-    observerRef.current?.disconnect()
-    observerRef.current = null
-    observedPageIndexesRef.current.clear()
-  }, [])
-
-  const createObserver = useCallback(() => {
-    if (
-      typeof window === 'undefined' ||
-      !('IntersectionObserver' in window) ||
-      !scrollContainerRef.current
-    ) {
+  const setCanvasElement = useCallback((pageIndex: number, element: HTMLCanvasElement | null) => {
+    if (element) {
+      canvasElementsRef.current.set(pageIndex, element)
       return
     }
 
-    observerRef.current = new IntersectionObserver(
+    canvasElementsRef.current.delete(pageIndex)
+  }, [])
+
+  const setPageElement = useCallback((pageIndex: number, element: HTMLElement | null) => {
+    const existingElement = pageElementsRef.current.get(pageIndex)
+    if (existingElement && observerRef.current) {
+      observerRef.current.unobserve(existingElement)
+    }
+
+    if (!element) {
+      pageElementsRef.current.delete(pageIndex)
+      visiblePageIndexesRef.current.delete(pageIndex)
+      return
+    }
+
+    pageElementsRef.current.set(pageIndex, element)
+    observerRef.current?.observe(element)
+  }, [])
+
+  const getPageStyle = useCallback(
+    (page: PdfPageInfo): CSSProperties =>
+      ({
+        '--paper-original-page-width': `${page.width * zoomLevel}px`,
+        '--paper-original-page-height': `${page.height * zoomLevel}px`
+      }) as CSSProperties,
+    [zoomLevel]
+  )
+
+  useEffect(() => {
+    pageStatesRef.current = pageStates
+  }, [pageStates])
+
+  useEffect(() => {
+    if (!sourcePdfUrl) {
+      cancelRenderTasks()
+      void pdfDocumentRef.current?.destroy()
+      pdfDocumentRef.current = null
+      setPages([])
+      setPageStates({})
+      pageStatesRef.current = {}
+      setDocumentState({ status: 'idle' })
+      return
+    }
+
+    let cancelled = false
+    let loadingTask: ReturnType<typeof getDocument> | null = null
+
+    cancelRenderTasks()
+    void pdfDocumentRef.current?.destroy()
+    pdfDocumentRef.current = null
+    canvasElementsRef.current.clear()
+    pageElementsRef.current.clear()
+    visiblePageIndexesRef.current.clear()
+    observerRef.current?.disconnect()
+    observerRef.current = null
+    setPages([])
+    setPageStates({})
+    pageStatesRef.current = {}
+    setDocumentState({ status: 'loading' })
+
+    const loadPdf = async (): Promise<void> => {
+      try {
+        const response = await fetch(sourcePdfUrl)
+        if (!response.ok) {
+          throw new Error(`PDF 请求失败: ${response.status}`)
+        }
+
+        const source = await response.arrayBuffer()
+        loadingTask = getDocument({
+          data: new Uint8Array(source),
+          useSystemFonts: true,
+          useWorkerFetch: false
+        })
+
+        const pdfDocument = await loadingTask.promise
+        loadingTask = null
+        if (cancelled) {
+          void pdfDocument.destroy()
+          return
+        }
+
+        const nextPages: PdfPageInfo[] = []
+        for (let pageNumber = 1; pageNumber <= pdfDocument.numPages; pageNumber += 1) {
+          const page = await pdfDocument.getPage(pageNumber)
+          const viewport = page.getViewport({ scale: 1 })
+          nextPages.push({
+            pageIndex: pageNumber - 1,
+            width: viewport.width,
+            height: viewport.height
+          })
+        }
+
+        if (cancelled) {
+          void pdfDocument.destroy()
+          return
+        }
+
+        pdfDocumentRef.current = pdfDocument
+        setPages(nextPages)
+        setDocumentState({ status: 'ready' })
+      } catch (error) {
+        if (cancelled) {
+          return
+        }
+
+        pdfDocumentRef.current = null
+        setPages([])
+        setDocumentState({
+          status: 'error',
+          error: formatError(error)
+        })
+      }
+    }
+
+    void loadPdf()
+
+    return () => {
+      cancelled = true
+      void loadingTask?.destroy()
+    }
+  }, [cancelRenderTasks, sourcePdfUrl])
+
+  useEffect(() => {
+    if (documentState.status !== 'ready' || pages.length === 0) {
+      return
+    }
+
+    const container = scrollContainerRef.current
+    if (!container || typeof IntersectionObserver === 'undefined') {
+      for (const page of pages) {
+        void renderPage(page)
+      }
+      return
+    }
+
+    const visiblePageIndexes = visiblePageIndexesRef.current
+    const observer = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
-          if (!entry.isIntersecting) {
-            continue
-          }
-
           const pageIndex = Number((entry.target as HTMLElement).dataset.pageIndex)
           if (!Number.isInteger(pageIndex)) {
             continue
           }
 
-          observerRef.current?.unobserve(entry.target)
-          observedPageIndexesRef.current.delete(pageIndex)
-          void loadPage(pageIndex)
+          if (entry.isIntersecting) {
+            visiblePageIndexes.add(pageIndex)
+            renderPageByIndex(pageIndex)
+          } else {
+            visiblePageIndexes.delete(pageIndex)
+          }
         }
       },
       {
-        root: scrollContainerRef.current,
-        rootMargin: '900px 0px',
+        root: container,
+        rootMargin: PDF_OBSERVER_ROOT_MARGIN,
         threshold: 0.01
       }
     )
-  }, [loadPage])
 
-  const observePage = useCallback(
-    (pageIndex: number, element: HTMLElement) => {
-      if (!observerRef.current || observedPageIndexesRef.current.has(pageIndex)) {
-        return
-      }
-
-      const state = pageStates[pageIndex] || { status: 'idle' }
-      if (state.status === 'loading' || state.status === 'loaded') {
-        return
-      }
-
-      observerRef.current.observe(element)
-      observedPageIndexesRef.current.add(pageIndex)
-    },
-    [pageStates]
-  )
-
-  const refreshObservedPages = useCallback(() => {
-    if (!observerRef.current) {
-      return
+    observerRef.current = observer
+    for (const element of pageElementsRef.current.values()) {
+      observer.observe(element)
     }
 
-    for (const [pageIndex, element] of pageElementsRef.current.entries()) {
-      observePage(pageIndex, element)
-    }
-  }, [observePage])
-
-  const resetPageLoading = useCallback(async () => {
-    setPageStates({})
-    disposeObserver()
-    // Wait for React to re-render
-    await new Promise((resolve) => setTimeout(resolve, 0))
-    createObserver()
-
-    // Load first 2 pages immediately
-    for (const page of originalPages.slice(0, 2)) {
-      void loadPage(page.pageIndex)
-    }
-
-    if (!observerRef.current) {
-      // No IntersectionObserver, load all pages
-      for (const page of originalPages.slice(2)) {
-        void loadPage(page.pageIndex)
-      }
-      await restoreScrollPosition(paperIdRef.current)
-      return
-    }
-
-    refreshObservedPages()
-    await restoreScrollPosition(paperIdRef.current)
-  }, [
-    originalPages,
-    loadPage,
-    disposeObserver,
-    createObserver,
-    refreshObservedPages,
-    restoreScrollPosition
-  ])
-
-  // Reset when paper or pages change
-  useEffect(() => {
-    if (isMountedRef.current) {
-      void resetPageLoading()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [paperId, pageSignature])
-
-  // Initial mount
-  useEffect(() => {
-    const currentPageElements = pageElementsRef.current
-    isMountedRef.current = true
-    void resetPageLoading()
+    const initialRenderRafId = requestAnimationFrame(renderVisiblePages)
 
     return () => {
-      recordScrollPosition()
-      isMountedRef.current = false
-      disposeObserver()
-      currentPageElements.clear()
+      cancelAnimationFrame(initialRenderRafId)
+      observer.disconnect()
+      if (observerRef.current === observer) {
+        observerRef.current = null
+      }
+      visiblePageIndexes.clear()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [documentState.status, pages, renderPage, renderPageByIndex, renderVisiblePages])
 
-  // Ctrl/⌘ + 滚轮缩放：非被动监听，避免 passive wheel 中 preventDefault 失效报错
+  useEffect(() => {
+    if (documentState.status !== 'ready' || pages.length === 0) {
+      return
+    }
+
+    restoreScrollPosition(paperId)
+  }, [documentState.status, pages.length, paperId, restoreScrollPosition])
+
+  useLayoutEffect(() => {
+    if (!hasMountedZoomRef.current) {
+      hasMountedZoomRef.current = true
+      previousZoomLevelRef.current = zoomLevel
+      return
+    }
+
+    const previousZoomLevel = previousZoomLevelRef.current
+    if (previousZoomLevel === zoomLevel) {
+      return
+    }
+
+    previousZoomLevelRef.current = zoomLevel
+
+    const container = scrollContainerRef.current
+    if (!container) {
+      return
+    }
+
+    if (!zoomAnchor.isZooming()) {
+      const ratio = zoomLevel / previousZoomLevel
+      container.scrollTop = container.scrollTop * ratio + (container.clientHeight / 2) * (ratio - 1)
+      container.scrollLeft =
+        container.scrollLeft * ratio + (container.clientWidth / 2) * (ratio - 1)
+      zoomAnchor.beginZoom(container)
+    }
+
+    void container.offsetHeight
+    zoomAnchor.applyZoomFrame(container)
+
+    if (zoomSettleTimerRef.current !== null) {
+      clearTimeout(zoomSettleTimerRef.current)
+    }
+    zoomSettleTimerRef.current = setTimeout(() => {
+      zoomSettleTimerRef.current = null
+      zoomAnchor.endZoom()
+      recordScrollPosition()
+    }, PDF_ZOOM_SETTLE_DELAY_MS)
+  }, [recordScrollPosition, zoomAnchor, zoomLevel])
+
+  useEffect(() => {
+    if (documentState.status !== 'ready' || pages.length === 0) {
+      return
+    }
+
+    if (zoomRenderTimerRef.current !== null) {
+      clearTimeout(zoomRenderTimerRef.current)
+    }
+    zoomRenderTimerRef.current = setTimeout(() => {
+      zoomRenderTimerRef.current = null
+      renderVisiblePages()
+    }, PDF_ZOOM_SETTLE_DELAY_MS)
+
+    return () => {
+      if (zoomRenderTimerRef.current !== null) {
+        clearTimeout(zoomRenderTimerRef.current)
+        zoomRenderTimerRef.current = null
+      }
+    }
+  }, [documentState.status, pages.length, renderVisiblePages, zoomLevel])
+
   useEffect(() => {
     const container = scrollContainerRef.current
     if (!container) {
@@ -365,30 +538,33 @@ export default function PaperOriginalPdfView({
     return () => container.removeEventListener('wheel', onWheel)
   }, [handleWheelZoom])
 
-  const setPageElement = useCallback(
-    (pageIndex: number, element: HTMLElement | null) => {
-      if (element) {
-        pageElementsRef.current.set(pageIndex, element)
-        observePage(pageIndex, element)
-        return
+  useEffect(() => {
+    return () => {
+      persistScrollPositionNow()
+      cancelRenderTasks()
+      void pdfDocumentRef.current?.destroy()
+      pdfDocumentRef.current = null
+      if (zoomSettleTimerRef.current !== null) {
+        clearTimeout(zoomSettleTimerRef.current)
       }
-
-      const existingElement = pageElementsRef.current.get(pageIndex)
-      if (existingElement && observerRef.current) {
-        observerRef.current.unobserve(existingElement)
+      if (zoomRenderTimerRef.current !== null) {
+        clearTimeout(zoomRenderTimerRef.current)
       }
-      pageElementsRef.current.delete(pageIndex)
-      observedPageIndexesRef.current.delete(pageIndex)
-    },
-    [observePage]
-  )
+      if (scrollRafIdRef.current !== null) {
+        cancelAnimationFrame(scrollRafIdRef.current)
+      }
+    }
+  }, [cancelRenderTasks, persistScrollPositionNow])
 
-  const getPageStyle = useCallback((page: OriginalPdfPage): React.CSSProperties => {
-    return {
-      '--paper-original-page-width': `${page.width}px`,
-      '--paper-original-page-aspect': `${page.width} / ${page.height}`
-    } as React.CSSProperties
-  }, [])
+  if (!sourcePdfUrl || documentState.status === 'error') {
+    return (
+      <div className={styles['paper-original-pdf-view']}>
+        <div className={styles['paper-original-pdf-view__empty']}>
+          <p>{sourcePdfUrl ? documentState.error || '加载 PDF 原件失败' : '未选择论文'}</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className={styles['paper-original-pdf-view']}>
@@ -397,58 +573,41 @@ export default function PaperOriginalPdfView({
         className={styles['paper-original-pdf-view__scroll']}
         onScroll={recordScrollPosition}
       >
-        {!hasPages ? (
-          <div className={styles['paper-original-pdf-view__empty']}>
-            <p>暂无 PDF 原件页图</p>
-          </div>
-        ) : (
-          <div className={styles['paper-original-pdf-view__content']} style={contentZoomStyle}>
-            {originalPages.map((page) => {
-              const state = getPageState(page.pageIndex)
+        {pages.length > 0 && (
+          <div className={styles['paper-original-pdf-view__content']}>
+            {pages.map((page) => {
+              const pageState = pageStates[page.pageIndex] || { status: 'idle' }
               return (
                 <section
                   key={page.pageIndex}
-                  ref={(el) => setPageElement(page.pageIndex, el)}
+                  ref={(element) => setPageElement(page.pageIndex, element)}
                   className={styles['paper-original-pdf-view__page']}
                   style={getPageStyle(page)}
                   data-page-index={page.pageIndex}
                 >
-                  {state.status === 'loaded' && state.dataUrl ? (
-                    <img
-                      className={styles['paper-original-pdf-view__image']}
-                      src={state.dataUrl}
-                      alt={`第 ${page.pageIndex + 1} 页原件`}
-                      onError={() =>
-                        setPageState(page.pageIndex, {
-                          status: 'error',
-                          error: '页图加载失败'
-                        })
-                      }
-                    />
-                  ) : state.status === 'error' ? (
-                    <div
-                      className={[
-                        styles['paper-original-pdf-view__state'],
-                        styles['paper-original-pdf-view__state--error']
-                      ].join(' ')}
-                    >
-                      {state.error}
-                    </div>
-                  ) : (
-                    <div className={styles['paper-original-pdf-view__state']}>
-                      正在加载第 {page.pageIndex + 1} 页
+                  <canvas
+                    ref={(element) => setCanvasElement(page.pageIndex, element)}
+                    className={styles['paper-original-pdf-view__canvas']}
+                    role="img"
+                    aria-label={`第 ${page.pageIndex + 1} 页 PDF 原件`}
+                  />
+                  {pageState.status === 'error' && (
+                    <div className={styles['paper-original-pdf-view__page-state']}>
+                      {pageState.error || '页面渲染失败'}
                     </div>
                   )}
-
-                  <div className={styles['paper-original-pdf-view__page-number']}>
-                    {page.pageIndex + 1}
-                  </div>
                 </section>
               )
             })}
           </div>
         )}
       </div>
+
+      {documentState.status === 'loading' && (
+        <div className={styles['paper-original-pdf-view__loading']}>
+          <p>正在加载 PDF 原件...</p>
+        </div>
+      )}
     </div>
   )
 }
