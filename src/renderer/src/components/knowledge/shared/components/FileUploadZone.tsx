@@ -3,12 +3,14 @@ import { useFileUpload, type UploadResult } from '../../hooks/useFileUpload'
 import styles from './FileUploadZone.module.css'
 
 interface FileUploadZoneProps {
+  variant?: 'default' | 'compact'
   autoLinkToKB?: boolean
   kbId?: string
   onUploadComplete?: (result: UploadResult) => void
 }
 
 export default function FileUploadZone({
+  variant = 'default',
   autoLinkToKB,
   kbId,
   onUploadComplete
@@ -22,6 +24,7 @@ export default function FileUploadZone({
 
   const zoneClass = [
     styles['upload-zone'],
+    variant === 'compact' && styles['upload-zone--compact'],
     isDragging && styles.dragging,
     isUploading && styles.uploading
   ]
@@ -37,8 +40,14 @@ export default function FileUploadZone({
     >
       {!isUploading ? (
         <div className={styles['upload-content']}>
-          <p className={styles['upload-text']}>拖放文件到这里，或点击选择文件</p>
-          <p className={styles['upload-hint']}>系统会自动校验格式与大小。</p>
+          <p className={styles['upload-text']}>
+            {variant === 'compact'
+              ? '拖放文件到此处上传，或点击选择文件'
+              : '拖放文件到这里，或点击选择文件'}
+          </p>
+          {variant === 'default' ? (
+            <p className={styles['upload-hint']}>系统会自动校验格式与大小。</p>
+          ) : null}
           <p className={styles['upload-types']}>支持 {SUPPORTED_DOCUMENT_LABEL}，最大 50MB</p>
         </div>
       ) : (

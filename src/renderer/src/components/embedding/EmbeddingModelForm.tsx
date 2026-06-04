@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import type { EmbeddingConfig } from '@shared/types/config'
+import { normalizeEmbeddingBaseUrl } from '@shared/utils/embeddingBaseUrl'
 import styles from './EmbeddingModelForm.module.css'
 
 interface EmbeddingModelFormProps {
@@ -78,7 +79,7 @@ export default function EmbeddingModelForm({
   function buildConfig(): EmbeddingConfig {
     return {
       provider,
-      baseUrl: baseUrl.trim(),
+      baseUrl: normalizeEmbeddingBaseUrl(baseUrl),
       apiKey: apiKey.trim(),
       model: modelName.trim(),
       dimensions: parseInt(dimensions, 10),
@@ -156,7 +157,7 @@ export default function EmbeddingModelForm({
           <input
             type="url"
             className="sm-input"
-            placeholder="https://api.openai.com/v1"
+            placeholder="http://127.0.0.1:1234/v1（填到 /v1，不要含 /embeddings）"
             value={baseUrl}
             onChange={(e) => setBaseUrl(e.target.value)}
           />

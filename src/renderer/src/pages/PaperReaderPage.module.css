@@ -6,7 +6,9 @@
   /* 窗口拖拽/双击安全区（标题栏高度） */
   --sm-paper-reader-chrome-top: var(--sm-titlebar-height);
   /* 自定义顶部区域：标题栏 + 渐进模糊过渡 */
-  --sm-paper-reader-top-area-height: calc(var(--sm-titlebar-height) + var(--sm-space-6));
+  --sm-paper-reader-top-area-height: calc(
+    var(--sm-titlebar-height) + var(--sm-space-6) + var(--sm-space-2)
+  );
   /* 目录/搜索定位仍避开顶部模糊区域 */
   --sm-paper-reader-scroll-anchor-top-inset: var(--sm-paper-reader-top-area-height);
   --sm-paper-reader-fade-height: var(--sm-paper-reader-top-area-height);
@@ -20,6 +22,14 @@
 /* macOS 工作区已有 titlebar padding，缩小窗口拖拽带 */
 :global(.sm-workspace-page--mac) .page {
   --sm-paper-reader-chrome-top: var(--sm-space-3);
+}
+
+/* Windows：无顶部模糊层，正文顶部留白与标题栏拖拽区对齐 */
+:global(.sm-workspace-page--windows) .page {
+  --sm-paper-reader-top-area-height: var(--sm-paper-reader-chrome-top);
+  --sm-paper-reader-content-top-inset: var(--sm-paper-reader-chrome-top);
+  --sm-paper-reader-scroll-anchor-top-inset: var(--sm-paper-reader-chrome-top);
+  --sm-paper-reader-fade-height: var(--sm-paper-reader-chrome-top);
 }
 
 .main {

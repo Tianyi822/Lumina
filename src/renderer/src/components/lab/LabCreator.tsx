@@ -9,6 +9,7 @@ import {
 } from '@renderer/stores'
 import { useNotification } from '@renderer/composables/useNotification'
 import { CssTransition } from '@renderer/components/motion/CssTransition'
+import ModalPortal from '@renderer/components/ui/ModalPortal'
 import { useContentHeightAnimation } from './hooks/useContentHeightAnimation'
 import ContainerSelector from './ContainerSelector'
 import ComposeEditor from './ComposeEditor'
@@ -177,11 +178,9 @@ export default function LabCreator({ visible, dockerStatus, onClose }: LabCreato
   return (
     <CssTransition name="sm-modal" show={visible} appear>
       {({ className, ref }) => (
-        <div
+        <ModalPortal
           ref={ref}
-          className={['sm-modal__overlay', 'lab-creator-overlay', className]
-            .filter(Boolean)
-            .join(' ')}
+          className={['lab-creator-overlay', className].filter(Boolean).join(' ')}
         >
           <div
             ref={creatorRef}
@@ -463,7 +462,7 @@ export default function LabCreator({ visible, dockerStatus, onClose }: LabCreato
               onSave={handleSaveConfig}
             />
           </div>
-        </div>
+        </ModalPortal>
       )}
     </CssTransition>
   )

@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, type ReactNode } from 'react'
 import SvgIcon from '@renderer/components/icons/SvgIcon'
+import ModalPortal from '@renderer/components/ui/ModalPortal'
 import type { DeleteLabOptions, LabCreationType } from '@renderer/types/lab'
 import { getDeleteDialogConfig } from '@renderer/utils/labPermissions'
 import styles from './DeleteConfirmDialog.module.css'
@@ -74,10 +75,9 @@ export default function DeleteConfirmDialog({
   const accentTheme = lab.metadataOnlyDelete ? 'danger' : dialogConfig.typeTheme
 
   return (
-    <div
-      className={`sm-modal__overlay ${styles.overlay}`}
-      onClick={isDeleting ? undefined : onClose}
-      role="presentation"
+    <ModalPortal
+      className={styles.overlay}
+      onBackdropClick={isDeleting ? undefined : onClose}
     >
       <div
         className={`sm-modal__surface ${styles.dialog}`}
@@ -140,6 +140,6 @@ export default function DeleteConfirmDialog({
           </button>
         </div>
       </div>
-    </div>
+    </ModalPortal>
   )
 }

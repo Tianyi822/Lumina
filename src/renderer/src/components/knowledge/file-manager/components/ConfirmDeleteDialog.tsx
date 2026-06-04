@@ -1,4 +1,5 @@
 import SvgIcon from '@renderer/components/icons/SvgIcon'
+import ModalPortal from '@renderer/components/ui/ModalPortal'
 import type { FileItem } from '@renderer/types'
 import styles from './ConfirmDeleteDialog.module.css'
 
@@ -20,7 +21,7 @@ export default function ConfirmDeleteDialog({
   if (!show) return null
 
   return (
-    <div className={`sm-modal__overlay ${styles['confirm-dialog-overlay']}`}>
+    <ModalPortal className={styles['confirm-dialog-overlay']}>
       <div className={`sm-modal__surface ${styles['confirm-dialog']}`}>
         <div className={styles['confirm-dialog-header']}>
           <div className={styles['confirm-dialog-title']}>
@@ -51,6 +52,6 @@ export default function ConfirmDeleteDialog({
           </button>
         </div>
       </div>
-    </div>
+    </ModalPortal>
   )
 }

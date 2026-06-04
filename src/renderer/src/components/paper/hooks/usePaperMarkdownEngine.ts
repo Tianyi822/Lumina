@@ -198,9 +198,9 @@ function resolvePaperImageUrl(src: string, basePath: string | undefined): string
   }
 
   // 从 basePath 提取 paperId（最后一个路径段）
-  const normalizedBase = basePath.endsWith('/') ? basePath.slice(0, -1) : basePath
-  const lastSlash = normalizedBase.lastIndexOf('/')
-  const paperId = lastSlash >= 0 ? normalizedBase.substring(lastSlash + 1) : ''
+  const normalizedBase = basePath.endsWith('/') || basePath.endsWith('\\') ? basePath.slice(0, -1) : basePath
+  const lastSep = Math.max(normalizedBase.lastIndexOf('/'), normalizedBase.lastIndexOf('\\'))
+  const paperId = lastSep >= 0 ? normalizedBase.substring(lastSep + 1) : ''
   if (!paperId) {
     return null
   }

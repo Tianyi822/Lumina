@@ -232,3 +232,65 @@ test('无配置时 testConnection 返回 success: false（错误包含"未配置
   assert.equal(result.success, false)
   assert.ok(result.error!.includes('未配置'))
 })
+
+test('testConnection 在 API 返回空 data 时给出明确错误而非读取 undefined[0]', async () => {
+  const service = new EmbeddingService({
+    clientFactory: () => ({
+      embeddings: {
+        create: async () => ({
+          object: 'list',
+          data: [],
+          model: 'test-model',
+          usage: { prompt_tokens: 0, total_tokens: 0 }
+        })
+      }
+    })
+  })
+
+  service.setConfig(TEST_CONFIG)
+  const result = await service.testConnection()
+
+  assert.equal(result.success, false)
+  assert.ok(result.error?.includes('返回数据为空'))
+})
+
+test('testConnection 在网关返回 error 字段时提示修正 baseUrl', async () => {
+  const service = new EmbeddingService({
+    clientFactory: () => ({
+      embeddings: {
+        create: async () =>
+          ({
+            error: 'Unexpected endpoint or method. (POST /v1/embeddings/embeddings)'
+          }) as Awaited<ReturnType<OpenAI['embeddings']['create']>>
+      }
+    })
+  })
+
+  service.setConfig(TEST_CONFIG)
+  const result = await service.testConnection()
+
+  assert.equal(result.success, false)
+  assert.ok(result.error?.includes('不要包含 /embeddings'))
+})
+
+test('testConnection 支持顶层 embedding 字段的兼容响应', async () => {
+  const service = new EmbeddingService({
+    clientFactory: () => ({
+      embeddings: {
+        create: async () =>
+          ({
+            object: 'list',
+            model: 'legacy-model',
+            embedding: [0.1, 0.2, 0.3]
+          }) as Awaited<ReturnType<OpenAI['embeddings']['create']>>
+      }
+    })
+  })
+
+  service.setConfig(TEST_CONFIG)
+  const result = await service.testConnection()
+
+  assert.equal(result.success, true)
+  assert.equal(result.model, 'legacy-model')
+  assert.equal(result.dimensions, 3)
+})
