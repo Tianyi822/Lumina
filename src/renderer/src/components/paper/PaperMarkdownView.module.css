@@ -41,6 +41,11 @@
   );
 }
 
+:global(.sm-workspace-page--windows) .paper-markdown-view__chrome-top,
+:global(.sm-workspace-page--windows) .paper-markdown-view__top-fade {
+  right: var(--sm-window-controls-safe-width, 0px);
+}
+
 .paper-markdown-view__top-fade::before,
 .paper-markdown-view__top-fade::after {
   content: '';
