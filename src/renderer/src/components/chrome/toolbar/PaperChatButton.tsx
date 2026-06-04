@@ -21,7 +21,7 @@ export default function PaperChatButton({ isActive, onClick }: PaperChatButtonPr
       type="button"
       onClick={onClick}
     >
-      <SvgIcon name="chat" size={12} />
+      <SvgIcon name="chat" size={18} />
     </button>
   )
 }

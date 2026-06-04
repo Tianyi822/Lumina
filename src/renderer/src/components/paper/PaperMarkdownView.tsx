@@ -651,6 +651,8 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
 
     return (
       <div className={[styles['paper-markdown-view'], 'paper-markdown-view'].join(' ')}>
+        <div className={styles['paper-markdown-view__top-fade']} aria-hidden="true" />
+        <div className={styles['paper-markdown-view__chrome-top']} aria-hidden="true" />
         {textSearch.isOpen && (
           <div
             className={[

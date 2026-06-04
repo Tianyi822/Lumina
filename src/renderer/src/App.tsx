@@ -4,11 +4,11 @@ import { useConfigStore } from '@renderer/stores/configStore'
 import { usePaperViewStore } from '@renderer/stores/paper'
 import { getRuntimePlatform } from '@renderer/composables/runtimePlatformCore'
 
+import { useForegroundUpdateCheck } from '@renderer/composables/useForegroundUpdateCheck'
 import NotificationCenter from '@renderer/components/NotificationCenter'
 import SettingsModal from '@renderer/components/SettingsModal'
 import WindowControls from '@renderer/components/chrome/WindowControls'
 import WorkspaceSidebarHost from '@renderer/components/chrome/WorkspaceSidebarHost'
-import WorkspaceToolbar from '@renderer/components/chrome/WorkspaceToolbar'
 import { CssSwitchTransition } from '@renderer/components/motion/CssTransition'
 import LabTerminalSessionHost from '@renderer/components/lab/LabTerminalSessionHost'
 
@@ -27,6 +27,7 @@ export default function App() {
   const { isMac, isWindows, usesCustomWindowControls } = useMemo(() => getRuntimePlatform(), [])
 
   const [showSettings, setShowSettings] = useState(false)
+  useForegroundUpdateCheck()
   const shouldFlushPaperReaderRight = currentView === 'paper' && !paperChatPanelOpen
 
   const workspacePageClasses = [
@@ -120,8 +121,6 @@ export default function App() {
         )}
 
         <WorkspaceSidebarHost onOpenSettings={openSettings} />
-
-        <WorkspaceToolbar />
 
         <div className="sm-workspace-main">
           <div className="sm-workspace-main__body sm-workspace-main__body--fill">

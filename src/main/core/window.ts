@@ -74,6 +74,8 @@ export function createMainWindow(): BrowserWindow {
     ...(!isMac ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
+      // Chromium 内置 PDF viewer 依赖插件开关，用于在论文阅读页内嵌 source.pdf。
+      plugins: true,
       sandbox: false
     }
   })

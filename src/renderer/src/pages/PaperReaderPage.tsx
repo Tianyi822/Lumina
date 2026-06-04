@@ -269,11 +269,7 @@ export default function PaperReaderPage() {
               </div>
             </div>
           ) : isOcrCompleted && originalPdfVisible && currentPaper ? (
-            <PaperOriginalPdfView
-              paperId={currentPaperId || ''}
-              pageAssets={currentPaper.pageAssets}
-              pageCount={currentPaper.pageCount}
-            />
+            <PaperOriginalPdfView paperId={currentPaperId || ''} />
           ) : isOcrCompleted ? (
             <PaperMarkdownView
               ref={markdownViewRef}
