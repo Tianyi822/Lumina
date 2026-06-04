@@ -1,3 +1,4 @@
+import { dirname } from 'path'
 import { appendFile, mkdir, readdir, readFile, writeFile, rm, access } from 'fs/promises'
 import { constants } from 'fs'
 import { logger } from '@main/services/logger'
@@ -16,6 +17,7 @@ import type {
 } from '@main/types/lab'
 import {
   getLabDirPath,
+  getLabInstancePath,
   getMetadataFilePath,
   getOperationLogPath,
   isValidLabId,
@@ -50,7 +52,7 @@ export class LabService {
    */
   private async ensureLabInstanceDir(labId: string): Promise<void> {
     const metadataPath = getMetadataFilePath(labId)
-    const instanceDir = metadataPath.substring(0, metadataPath.lastIndexOf('/'))
+    const instanceDir = dirname(metadataPath)
     try {
       await access(instanceDir, constants.F_OK)
     } catch {
@@ -606,7 +608,7 @@ export class LabService {
           })
         }
 
-        const labPath = getLabDirPath() + '/' + labId
+        const labPath = getLabInstancePath(labId)
         if (isPathInLabDir(labPath)) {
           try {
             await rm(labPath, { recursive: true, force: true })
@@ -828,7 +830,7 @@ export class LabService {
       }
 
       // 删除实验室元数据目录
-      const labPath = getLabDirPath() + '/' + labId
+      const labPath = getLabInstancePath(labId)
       if (isPathInLabDir(labPath)) {
         try {
           await rm(labPath, { recursive: true, force: true })
