@@ -6,7 +6,9 @@
   /* 窗口拖拽/双击安全区（标题栏高度） */
   --sm-paper-reader-chrome-top: var(--sm-titlebar-height);
   /* 自定义顶部区域：标题栏 + 渐进模糊过渡 */
-  --sm-paper-reader-top-area-height: calc(var(--sm-titlebar-height) + var(--sm-space-6));
+  --sm-paper-reader-top-area-height: calc(
+    var(--sm-titlebar-height) + var(--sm-space-6) + var(--sm-space-2)
+  );
   /* 目录/搜索定位仍避开顶部模糊区域 */
   --sm-paper-reader-scroll-anchor-top-inset: var(--sm-paper-reader-top-area-height);
   --sm-paper-reader-fade-height: var(--sm-paper-reader-top-area-height);
