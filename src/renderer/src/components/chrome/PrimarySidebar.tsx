@@ -169,7 +169,14 @@ export default function PrimarySidebar({ onOpenSettings }: PrimarySidebarProps) 
       </div>
 
       <div className={styles['sm-primary-sidebar__footer']}>
-        <WorkspaceToolbar />
+        <div
+          className={[
+            styles['sm-primary-sidebar__item-wrap'],
+            styles['sm-primary-sidebar__footer-paper-tools']
+          ].join(' ')}
+        >
+          <WorkspaceToolbar />
+        </div>
 
         <div
           className={[

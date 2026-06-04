@@ -1,23 +1,36 @@
-/* 论文工具栏：嵌入一级侧边栏，纵向排列于主题切换上方 */
+/* 论文工具栏：嵌入一级侧边栏，外观对齐主题切换轨道，内部为独立可点击按钮 */
+.sm-workspace-toolbar__sidebar-shell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+  width: var(--sm-theme-switch-width, 32px);
+  padding: var(--sm-theme-switch-inset, 2px);
+  border: 1px solid var(--sm-primary-sidebar-theme-switch-border, var(--sm-color-border-subtle));
+  border-radius: var(--sm-theme-switch-radius, var(--sm-radius-sm));
+  background: var(--sm-primary-sidebar-theme-switch-track, var(--sm-color-surface-2));
+  -webkit-app-region: no-drag;
+}
+
 .sm-workspace-toolbar__controls--sidebar {
   position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: var(--sm-theme-switch-gap, 2px);
-  width: var(--sm-theme-switch-width, 32px);
+  width: 100%;
   margin: 0;
   padding: 0;
   overflow: visible;
-  -webkit-app-region: no-drag;
   user-select: none;
 }
 
 .sm-workspace-toolbar__controls--sidebar .sm-workspace-toolbar__button,
 .sm-workspace-toolbar__controls--sidebar :global(.sm-icon-button).sm-workspace-toolbar__button {
-  width: var(--sm-theme-switch-thumb-size, 28px);
+  width: 100%;
   height: var(--sm-theme-switch-thumb-size, 28px);
-  border: 1px solid transparent;
+  padding: 0;
+  border: none;
   border-radius: var(--sm-theme-switch-inner-radius, 6px);
   background: transparent;
   box-shadow: none;
@@ -27,22 +40,21 @@
     background-color var(--sm-transition-fast),
     border-color var(--sm-transition-fast),
     color var(--sm-transition-fast),
-    box-shadow var(--sm-transition-fast);
+    box-shadow var(--sm-transition-fast),
+    opacity var(--sm-transition-fast);
+}
+
+.sm-workspace-toolbar__controls--sidebar .sm-workspace-toolbar__button svg {
+  display: block;
+  flex-shrink: 0;
 }
 
 .sm-workspace-toolbar__controls--sidebar .sm-workspace-toolbar__button:disabled {
   cursor: not-allowed;
-  opacity: 0.5;
+  opacity: 0.45;
 }
 
-.sm-workspace-toolbar__controls--sidebar .sm-workspace-toolbar__button.is-active,
-.sm-workspace-toolbar__controls--sidebar .sm-workspace-toolbar__button:hover:not(:disabled),
-.sm-workspace-toolbar__controls--sidebar
-  :global(.sm-icon-button).sm-workspace-toolbar__button.is-active,
-.sm-workspace-toolbar__controls--sidebar
-  :global(.sm-icon-button).sm-workspace-toolbar__button:hover:not(:disabled) {
-  background: var(--sm-color-surface-hover);
-  border-color: var(--sm-color-border-default);
+.sm-workspace-toolbar__controls--sidebar .sm-workspace-toolbar__button:hover:not(:disabled) {
   color: var(--sm-color-text-primary);
 }
 
@@ -50,8 +62,9 @@
 .sm-workspace-toolbar__controls--sidebar
   :global(.sm-icon-button).sm-workspace-toolbar__button.is-active {
   background: var(--sm-primary-sidebar-theme-switch-thumb, var(--sm-color-surface-1));
-  border-color: var(--sm-color-border-subtle);
+  border: none;
   box-shadow: var(--sm-shadow-sm);
+  color: var(--sm-color-text-primary);
 }
 
 .sm-workspace-toolbar__controls--sidebar .sm-workspace-toolbar__button.is-pending {
@@ -60,7 +73,12 @@
 
 .sm-workspace-toolbar__controls--sidebar .sm-workspace-toolbar__button:hover:disabled {
   background: transparent;
-  border-color: transparent;
+  opacity: 0.45;
+}
+
+.sm-workspace-toolbar__controls--sidebar .sm-workspace-toolbar__button:focus-visible {
+  outline: 1px solid var(--sm-color-border-accent);
+  outline-offset: 1px;
 }
 
 .sm-workspace-toolbar__controls--sidebar .sm-workspace-toolbar__toc-panel,
@@ -69,6 +87,11 @@
   left: calc(100% + var(--sm-space-2));
   right: auto;
   transform: translateY(-50%);
+}
+
+.sm-workspace-toolbar__controls--sidebar .sm-workspace-toolbar__toc,
+.sm-workspace-toolbar__controls--sidebar .sm-workspace-toolbar__figures {
+  width: 100%;
 }
 
 .sm-workspace-toolbar__toc {

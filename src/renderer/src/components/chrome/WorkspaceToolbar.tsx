@@ -272,13 +272,8 @@ export default function WorkspaceToolbar() {
   }
 
   return (
-    <div
-      className={[
-        styles['sm-workspace-toolbar__controls'],
-        styles['sm-workspace-toolbar__controls--sidebar']
-      ].join(' ')}
-      aria-label="论文工具"
-    >
+    <div className={styles['sm-workspace-toolbar__sidebar-shell']} role="toolbar" aria-label="论文工具">
+      <div className={styles['sm-workspace-toolbar__controls--sidebar']}>
       {isPaperView && currentPaperId && !originalPdfVisible && (
         <TranslationToggleButton
           isActive={translationVisible}
@@ -328,6 +323,7 @@ export default function WorkspaceToolbar() {
       {isPaperView && canOpenPaperChat && (
         <PaperChatButton isActive={paperChatPanelOpen} onClick={handleTogglePaperChat} />
       )}
+      </div>
     </div>
   )
 }
