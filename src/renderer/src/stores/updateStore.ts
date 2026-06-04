@@ -23,13 +23,37 @@ interface UpdateState {
   cleanupListeners: () => void
   openManualDownload: () => Promise<void>
   checkForUpdate: () => Promise<void>
+  checkForUpdateOnForeground: () => Promise<void>
   downloadUpdate: () => Promise<void>
   quitAndInstall: () => void
   fetchReleases: (currentVersion: string) => Promise<void>
 }
 
+/** 是否应在设置入口展示更新提示圆点 */
+export function hasPendingUpdateBadge(status: UpdateStatus): boolean {
+  return status === 'available' || status === 'downloaded'
+}
+
+function applyCheckResult(
+  result: Awaited<ReturnType<typeof window.api.update.checkForUpdate>>
+): Partial<UpdateState> {
+  const patch: Partial<UpdateState> = {}
+  if (result.version) patch.latestVersion = result.version
+  if (result.success && result.manualDownloadUrl) {
+    patch.manualDownloadUrl = result.manualDownloadUrl
+  }
+  if (!result.success) {
+    patch.status = 'error'
+    patch.errorMessage = result.message || result.error || '检查更新失败，请稍后重试'
+    patch.diagnosticCode = result.diagnosticCode || null
+    patch.manualDownloadUrl = result.manualDownloadUrl || null
+  }
+  return patch
+}
+
 let unsubscribeStatus: (() => void) | null = null
 let unsubscribeProgress: (() => void) | null = null
+let updateListenersAttached = false
 
 export const useUpdateStore = create<UpdateState>()((set, get) => ({
   status: 'idle',
@@ -45,6 +69,9 @@ export const useUpdateStore = create<UpdateState>()((set, get) => ({
   clearError: () => set({ errorMessage: null, diagnosticCode: null, manualDownloadUrl: null }),
 
   setupListeners: () => {
+    if (updateListenersAttached) return
+    updateListenersAttached = true
+
     unsubscribeStatus = window.api.update.onStatus((event: UpdateStatusEvent) => {
       const patch: Partial<UpdateState> = { status: event.status }
       if (event.version) {
@@ -80,8 +107,12 @@ export const useUpdateStore = create<UpdateState>()((set, get) => ({
   },
 
   cleanupListeners: () => {
+    if (!updateListenersAttached) return
+    updateListenersAttached = false
     unsubscribeStatus?.()
     unsubscribeProgress?.()
+    unsubscribeStatus = null
+    unsubscribeProgress = null
   },
 
   openManualDownload: async () => {
@@ -97,17 +128,17 @@ export const useUpdateStore = create<UpdateState>()((set, get) => ({
   checkForUpdate: async () => {
     set({ errorMessage: null, diagnosticCode: null, manualDownloadUrl: null, progress: null })
     const result = await window.api.update.checkForUpdate()
-    const patch: Partial<UpdateState> = {}
-    if (result.version) patch.latestVersion = result.version
-    if (result.success && result.manualDownloadUrl)
-      patch.manualDownloadUrl = result.manualDownloadUrl
-    if (!result.success) {
-      patch.status = 'error'
-      patch.errorMessage = result.message || result.error || '检查更新失败，请稍后重试'
-      patch.diagnosticCode = result.diagnosticCode || null
-      patch.manualDownloadUrl = result.manualDownloadUrl || null
+    set(applyCheckResult(result))
+  },
+
+  checkForUpdateOnForeground: async () => {
+    const { status } = get()
+    if (status === 'checking' || status === 'downloading' || status === 'installing') {
+      return
     }
-    set(patch)
+
+    const result = await window.api.update.checkForUpdate()
+    set(applyCheckResult(result))
   },
 
   downloadUpdate: async () => {

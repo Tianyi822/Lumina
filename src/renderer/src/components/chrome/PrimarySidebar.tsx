@@ -2,6 +2,7 @@ import { useCallback, useMemo } from 'react'
 import SvgIcon from '@renderer/components/icons/SvgIcon'
 import { uploadAndRenderPdf } from '@renderer/stores/paper'
 import { useKnowledgeStore } from '@renderer/stores'
+import { hasPendingUpdateBadge, useUpdateStore } from '@renderer/stores/updateStore'
 import { useUIStateStore } from '@renderer/stores/uiStateStore'
 import type { UIStateStore, ViewMode } from '@renderer/stores/uiStateStore'
 import WorkspaceToolbar from '@renderer/components/chrome/WorkspaceToolbar'
@@ -56,6 +57,8 @@ export default function PrimarySidebar({ onOpenSettings }: PrimarySidebarProps) 
   const setThemeMode = useUIStateStore((s) => s.setThemeMode)
   const openCreateForm = useKnowledgeStore((s) => s.openCreateForm)
   const openLabCreator = useUIStateStore((s) => s.openLabCreator)
+  const updateStatus = useUpdateStore((s) => s.status)
+  const showUpdateBadge = hasPendingUpdateBadge(updateStatus)
 
   const isDarkTheme = currentTheme === 'lumina-dark'
 
@@ -224,10 +227,20 @@ export default function PrimarySidebar({ onOpenSettings }: PrimarySidebarProps) 
             <button
               type="button"
               className={styles['sm-primary-sidebar__item']}
-              aria-label={BOTTOM_NAV_ITEM.label}
+              aria-label={
+                showUpdateBadge ? `${BOTTOM_NAV_ITEM.label}，有新版本可用` : BOTTOM_NAV_ITEM.label
+              }
               onClick={onOpenSettings}
             >
-              <SvgIcon name={BOTTOM_NAV_ITEM.icon} size={ICON_SIZE} />
+              <span className={styles['sm-primary-sidebar__icon-anchor']}>
+                <SvgIcon name={BOTTOM_NAV_ITEM.icon} size={ICON_SIZE} />
+                {showUpdateBadge ? (
+                  <span
+                    className={styles['sm-primary-sidebar__update-badge']}
+                    aria-hidden="true"
+                  />
+                ) : null}
+              </span>
             </button>
           </div>
         </div>

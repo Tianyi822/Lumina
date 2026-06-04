@@ -130,6 +130,25 @@
     color var(--sm-transition-fast);
 }
 
+.sm-primary-sidebar__icon-anchor {
+  position: relative;
+  display: flex;
+  flex-shrink: 0;
+  line-height: 0;
+}
+
+.sm-primary-sidebar__update-badge {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 8px;
+  height: 8px;
+  border: 1.5px solid var(--sm-color-surface-1);
+  border-radius: 50%;
+  background: var(--sm-color-error, #ef4444);
+  pointer-events: none;
+}
+
 .sm-primary-sidebar__item:hover {
   background: var(--sm-color-surface-hover);
   border-color: var(--sm-color-border-default);

@@ -4,6 +4,7 @@ import { useConfigStore } from '@renderer/stores/configStore'
 import { usePaperViewStore } from '@renderer/stores/paper'
 import { getRuntimePlatform } from '@renderer/composables/runtimePlatformCore'
 
+import { useForegroundUpdateCheck } from '@renderer/composables/useForegroundUpdateCheck'
 import NotificationCenter from '@renderer/components/NotificationCenter'
 import SettingsModal from '@renderer/components/SettingsModal'
 import WindowControls from '@renderer/components/chrome/WindowControls'
@@ -26,6 +27,7 @@ export default function App() {
   const { isMac, isWindows, usesCustomWindowControls } = useMemo(() => getRuntimePlatform(), [])
 
   const [showSettings, setShowSettings] = useState(false)
+  useForegroundUpdateCheck()
   const shouldFlushPaperReaderRight = currentView === 'paper' && !paperChatPanelOpen
 
   const workspacePageClasses = [

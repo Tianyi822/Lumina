@@ -16,8 +16,6 @@ export default function UpdateSettings() {
   const releasesError = useUpdateStore((s) => s.releasesError)
   const errorMessage = useUpdateStore((s) => s.errorMessage)
 
-  const setupListeners = useUpdateStore((s) => s.setupListeners)
-  const cleanupListeners = useUpdateStore((s) => s.cleanupListeners)
   const checkForUpdate = useUpdateStore((s) => s.checkForUpdate)
   const downloadUpdate = useUpdateStore((s) => s.downloadUpdate)
   const quitAndInstall = useUpdateStore((s) => s.quitAndInstall)
@@ -100,10 +98,8 @@ export default function UpdateSettings() {
   }, [])
 
   useEffect(() => {
-    setupListeners()
-    fetchReleases(currentVersion)
-    return () => cleanupListeners()
-  }, [setupListeners, cleanupListeners, fetchReleases])
+    void fetchReleases(currentVersion)
+  }, [fetchReleases])
 
   return (
     <div className={styles['update-settings']}>
