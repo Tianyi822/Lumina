@@ -81,6 +81,8 @@ export function usePaperChatStreamReact(
   const sessionIdRef = useRef(sessionId)
   sessionIdRef.current = sessionId
   const requestErrorReportedRef = useRef(false)
+  // 用于 rAF 节流的调度 ID，确保每帧最多一次 setMessages
+  const rafIdRef = useRef<number | null>(null)
 
   const reportRequestError = useCallback((message: string): void => {
     if (requestErrorReportedRef.current) return
@@ -101,26 +103,56 @@ export function usePaperChatStreamReact(
         return
       }
 
-      // 为流式消息创建新的对象引用及 reactIterations/reactSteps 数组引用，
-      // 确保 PaperChatReActSteps 中的 useMemo 能检测到内容变化
-      const nextMessages = current.messagesRef.current.map((msg) => {
-        if (!msg.isStreaming) return msg
-        return {
-          ...msg,
-          reactIterations: msg.reactIterations ? [...msg.reactIterations] : msg.reactIterations,
-          reactSteps: msg.reactSteps ? [...msg.reactSteps] : msg.reactSteps
-        }
-      })
-      current.setMessages(nextMessages)
-      usePaperChatMessageCacheStore
-        .getState()
-        .retainSessionMessages(currentSessionId, nextMessages, current.session?.title)
-
+      // done/error 事件必须同步处理：取消 pending rAF，立即 setMessages 并保存
       if (event.type === 'done' || event.type === 'error') {
+        if (rafIdRef.current !== null) {
+          cancelAnimationFrame(rafIdRef.current)
+          rafIdRef.current = null
+        }
         if (event.type === 'error' && event.error) {
           reportRequestError(event.error)
         }
+
+        const nextMessages = current.messagesRef.current.map((msg) => {
+          if (!msg.isStreaming) return msg
+          return {
+            ...msg,
+            reactIterations: msg.reactIterations ? [...msg.reactIterations] : msg.reactIterations,
+            reactSteps: msg.reactSteps ? [...msg.reactSteps] : msg.reactSteps
+          }
+        })
+        current.setMessages(nextMessages)
+        usePaperChatMessageCacheStore
+          .getState()
+          .retainSessionMessages(currentSessionId, nextMessages, current.session?.title)
+
         void current.saveCurrentSession()
+        return
+      }
+
+      // 使用 requestAnimationFrame 节流 setMessages 调用，避免高频 IPC 事件导致 React 重渲染风暴。
+      // 快速模型每秒可触发数十上百次 stream 事件，逐次 setMessages 会造成严重卡顿。
+      // rAF 确保每帧（~16ms）最多调用一次 setMessages，同时保证视觉更新不丢帧。
+      if (rafIdRef.current === null) {
+        rafIdRef.current = requestAnimationFrame(() => {
+          rafIdRef.current = null
+          const latestCurrent = latestRef.current
+
+          // 为流式消息创建新的对象引用及 reactIterations/reactSteps 数组引用，
+          // 确保 PaperChatReActSteps 中的 useMemo 能检测到内容变化
+          const nextMessages = latestCurrent.messagesRef.current.map((msg) => {
+            if (!msg.isStreaming) return msg
+            return {
+              ...msg,
+              reactIterations: msg.reactIterations ? [...msg.reactIterations] : msg.reactIterations,
+              reactSteps: msg.reactSteps ? [...msg.reactSteps] : msg.reactSteps
+            }
+          })
+          latestCurrent.setMessages(nextMessages)
+          usePaperChatMessageCacheStore
+            .getState()
+            .retainSessionMessages(currentSessionId, nextMessages, latestCurrent.session?.title)
+        })
       }
     },
     [reportRequestError]
