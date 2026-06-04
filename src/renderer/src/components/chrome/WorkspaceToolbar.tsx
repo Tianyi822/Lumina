@@ -71,9 +71,7 @@ export default function WorkspaceToolbar() {
   )
 
   const isPaperView = currentView === 'paper'
-  const isKnowledgeView = currentView === 'knowledge'
   const isPaperToolbar = isPaperView && Boolean(currentPaperId)
-  const isKnowledgeToolbar = isKnowledgeView
   const canOpenToc = Boolean(currentPaperId)
   const canOpenFigurePanel = Boolean(currentPaperId)
   const canOpenPaperChat = Boolean(currentPaperId && isOcrCompleted)
@@ -269,16 +267,13 @@ export default function WorkspaceToolbar() {
     }
   }, [handleClickOutside, handleKeyDown])
 
+  if (!isPaperToolbar) {
+    return null
+  }
+
   return (
-    <div
-      className={[
-        styles['sm-workspace-toolbar__controls'],
-        isPaperToolbar && styles['sm-workspace-toolbar__controls--paper'],
-        isKnowledgeToolbar && !isPaperToolbar && styles['sm-workspace-toolbar__controls--knowledge']
-      ]
-        .filter(Boolean)
-        .join(' ')}
-    >
+    <div className={styles['sm-workspace-toolbar__sidebar-shell']} role="toolbar" aria-label="论文工具">
+      <div className={styles['sm-workspace-toolbar__controls--sidebar']}>
       {isPaperView && currentPaperId && !originalPdfVisible && (
         <TranslationToggleButton
           isActive={translationVisible}
@@ -328,6 +323,7 @@ export default function WorkspaceToolbar() {
       {isPaperView && canOpenPaperChat && (
         <PaperChatButton isActive={paperChatPanelOpen} onClick={handleTogglePaperChat} />
       )}
+      </div>
     </div>
   )
 }

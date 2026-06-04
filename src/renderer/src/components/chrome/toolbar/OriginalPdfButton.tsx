@@ -1,3 +1,4 @@
+import SvgIcon from '@renderer/components/icons/SvgIcon'
 import styles from '../WorkspaceToolbar.module.css'
 
 interface OriginalPdfButtonProps {
@@ -20,7 +21,7 @@ export default function OriginalPdfButton({ isActive, onClick }: OriginalPdfButt
       type="button"
       onClick={onClick}
     >
-      <span className={styles['sm-workspace-toolbar__original-text']}>原</span>
+      <SvgIcon name="file-pdf" size={18} />
     </button>
   )
 }

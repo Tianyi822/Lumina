@@ -5,6 +5,7 @@
   height: var(--sm-titlebar-height);
   line-height: 1;
   overflow: hidden;
+  background: var(--sm-color-bg-canvas);
   -webkit-app-region: no-drag;
   user-select: none;
 }
@@ -19,7 +20,7 @@
   line-height: 1;
   border: 0;
   border-radius: 0;
-  background: transparent;
+  background: var(--sm-color-bg-canvas);
   color: var(--sm-color-text-secondary);
   cursor: pointer;
   -webkit-app-region: no-drag;
@@ -30,13 +31,13 @@
 
 .sm-window-controls__button:hover,
 .sm-window-controls__button:focus-visible {
-  background: color-mix(in srgb, var(--sm-color-text-primary) 10%, transparent);
+  background: color-mix(in srgb, var(--sm-color-text-primary) 10%, var(--sm-color-bg-canvas));
   color: var(--sm-color-text-primary);
   outline: none;
 }
 
 .sm-window-controls__button:active {
-  background: color-mix(in srgb, var(--sm-color-text-primary) 16%, transparent);
+  background: color-mix(in srgb, var(--sm-color-text-primary) 16%, var(--sm-color-bg-canvas));
 }
 
 .sm-window-controls__button--close:hover,
