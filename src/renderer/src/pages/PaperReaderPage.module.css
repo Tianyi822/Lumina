@@ -1,8 +1,8 @@
 .page {
   /* 正文底部留白（对齐 Vue 版 paper-markdown-view scroll padding-bottom） */
   --sm-paper-reader-edge-inset: var(--sm-space-6);
-  /* 正文从窗口顶部开始，顶部视觉交给自定义模糊层处理 */
-  --sm-paper-reader-content-top-inset: 0px;
+  /* 正文顶部留白：滚回顶部时标题不被顶部模糊层遮住 */
+  --sm-paper-reader-content-top-inset: var(--sm-paper-reader-top-area-height);
   /* 窗口拖拽/双击安全区（标题栏高度） */
   --sm-paper-reader-chrome-top: var(--sm-titlebar-height);
   /* 自定义顶部区域：标题栏 + 渐进模糊过渡 */
