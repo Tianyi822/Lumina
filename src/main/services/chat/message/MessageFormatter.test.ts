@@ -151,6 +151,33 @@ test('formatMessagesWithKnowledge 只保留有 tool 响应的 tool_calls 且不�
   assert.equal(JSON.stringify(messages), original)
 })
 
+test('formatMessagesWithKnowledge 不向模型发送历史 reasoning_content', () => {
+  const messages: ChatMessage[] = [
+    {
+      role: 'assistant',
+      content: '可见回答',
+      reasoning_content: '内部思考'
+    },
+    {
+      role: 'assistant',
+      content: '',
+      reasoning_content: '仅思考'
+    },
+    {
+      role: 'user',
+      content: '继续'
+    }
+  ]
+
+  const formatted = formatMessagesWithKnowledge(messages)
+
+  assert.deepEqual(
+    formatted.map((msg) => msg.role),
+    ['assistant', 'user']
+  )
+  assert.equal('reasoning_content' in (formatted[0] as unknown as Record<string, unknown>), false)
+})
+
 test('formatMessagesWithKnowledge 追加新 user 时保持历史前缀不变', () => {
   const baseMessages: ChatMessage[] = [
     { role: 'user', content: '第一轮问题' },

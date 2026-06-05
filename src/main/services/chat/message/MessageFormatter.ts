@@ -163,8 +163,7 @@ function cloneChatMessage(msg: ChatMessage): ChatMessage {
 function shouldKeepAssistantMessage(msg: ChatMessage): boolean {
   const hasContent = msg.content && msg.content.trim().length > 0
   const hasToolCalls = msg.tool_calls && msg.tool_calls.length > 0
-  const hasReasoning = msg.reasoning_content && msg.reasoning_content.trim().length > 0
-  return Boolean(hasContent || hasToolCalls || hasReasoning)
+  return Boolean(hasContent || hasToolCalls)
 }
 
 /**
@@ -301,25 +300,12 @@ export function formatMessagesWithKnowledge(
     }
 
     if (msg.role === 'assistant' && msg.tool_calls) {
-      const assistantMsg: OpenAI.Chat.Completions.ChatCompletionAssistantMessageParam & {
-        reasoning_content?: string
-      } = {
+      const assistantMsg: OpenAI.Chat.Completions.ChatCompletionAssistantMessageParam = {
         role: 'assistant' as const,
         content: msg.content || null,
         tool_calls: msg.tool_calls
       }
-      if (msg.reasoning_content) {
-        assistantMsg.reasoning_content = msg.reasoning_content
-      }
       return assistantMsg as OpenAI.Chat.Completions.ChatCompletionMessageParam
-    }
-
-    if (msg.role === 'assistant' && msg.reasoning_content) {
-      return {
-        role: 'assistant' as const,
-        content: msg.content || '',
-        reasoning_content: msg.reasoning_content
-      } as OpenAI.Chat.Completions.ChatCompletionMessageParam
     }
 
     return {

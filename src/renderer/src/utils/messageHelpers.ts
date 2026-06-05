@@ -94,9 +94,6 @@ export function buildChatMessages(messages: Message[]): ChatMessage[] {
       if (msg.tool_call_id) {
         result.tool_call_id = msg.tool_call_id
       }
-      if (msg.reasoning) {
-        result.reasoning_content = msg.reasoning
-      }
       if (msg.attachedDocuments && msg.attachedDocuments.length > 0) {
         result.attachedDocuments = msg.attachedDocuments
       }

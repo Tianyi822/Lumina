@@ -12,11 +12,6 @@ export function sessionToChatMessage(msg: SessionMessage): ChatMessage {
     content: msg.content
   }
 
-  // 如果有思考过程，添加到消息中
-  if (msg.reasoning) {
-    chatMsg.reasoning_content = msg.reasoning
-  }
-
   if (msg.attachedDocuments?.length) {
     chatMsg.attachedDocuments = msg.attachedDocuments
   }

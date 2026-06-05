@@ -612,21 +612,13 @@ export class ReactLoopService {
 
     const executedToolCalls = orchestrationResult.executedToolCalls
     if (executedToolCalls.length > 0) {
-      const assistantMessage: OpenAI.Chat.Completions.ChatCompletionMessageParam & {
-        reasoning_content?: string
-      } = {
+      const assistantMessage: OpenAI.Chat.Completions.ChatCompletionMessageParam = {
         role: 'assistant',
         content: state.assistantContent || null,
         tool_calls: executedToolCalls
       }
 
-      if (state.assistantReasoningContent) {
-        assistantMessage.reasoning_content = state.assistantReasoningContent
-      }
-
-      conversationMessages.push(
-        assistantMessage as OpenAI.Chat.Completions.ChatCompletionMessageParam
-      )
+      conversationMessages.push(assistantMessage)
     }
 
     // 将工具结果追加到对话历史（编排器不直接修改 messages）
