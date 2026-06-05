@@ -13,7 +13,6 @@ import styles from './PaperChatMessage.module.css'
 
 interface PaperChatMessageProps {
   message: Message
-  currentModelName?: string
   isReasoningExpanded?: boolean
   currentChatId?: string
   onToggleReasoning: (messageId: string) => void
@@ -48,7 +47,6 @@ function hasToolActivity(message: Message): boolean {
 
 export default function PaperChatMessage({
   message,
-  currentModelName,
   isReasoningExpanded,
   onToggleReasoning,
   onQuoteClick
@@ -114,9 +112,6 @@ export default function PaperChatMessage({
       ? `输入: 约 ${formatTokenCount(estimateTokenCount(message.content))}`
       : ''
 
-  const senderName =
-    message.role === 'user' ? '用户' : message.modelName || currentModelName || 'AI'
-
   if (!shouldRender) {
     return null
   }
@@ -176,9 +171,6 @@ export default function PaperChatMessage({
 
         {!isVisuallyStreaming && (
           <div className={styles['paper-chat-message__meta-row']}>
-            {message.role === 'assistant' && (
-              <span className={styles['paper-chat-message__meta-sender']}>{senderName}</span>
-            )}
             <PaperChatTokenStats
               usage={message.role === 'assistant' ? message.usage : undefined}
               userTokenLabel={message.role === 'user' ? userTokenUsageLabel : undefined}

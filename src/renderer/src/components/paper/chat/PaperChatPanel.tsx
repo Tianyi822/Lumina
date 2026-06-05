@@ -213,7 +213,6 @@ export default function PaperChatPanel({ paper }: PaperChatPanelProps) {
         <PaperChatMessageList
           ref={messageListRef}
           messages={sessionState.messages}
-          currentModelName={sessionState.selectedModel}
           currentChatId={sessionState.sessionId}
           onQuoteClick={scrollToQuote || undefined}
           onScrollButtonChange={setShowScrollButton}

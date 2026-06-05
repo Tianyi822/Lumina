@@ -28,7 +28,6 @@ export interface PaperChatMessageListHandle {
 
 interface PaperChatMessageListProps {
   messages: Message[]
-  currentModelName?: string
   currentChatId?: string
   onQuoteClick?: (quote: PaperQuote) => void
   onScrollButtonChange?: (visible: boolean) => void
@@ -36,7 +35,7 @@ interface PaperChatMessageListProps {
 
 const PaperChatMessageList = memo(
   forwardRef<PaperChatMessageListHandle, PaperChatMessageListProps>(function PaperChatMessageList(
-    { messages, currentModelName, currentChatId, onQuoteClick, onScrollButtonChange },
+    { messages, currentChatId, onQuoteClick, onScrollButtonChange },
     ref
   ) {
     const listRef = useRef<HTMLDivElement>(null)
@@ -217,7 +216,6 @@ const PaperChatMessageList = memo(
               <PaperChatMessage
                 key={message.id}
                 message={message}
-                currentModelName={currentModelName}
                 currentChatId={currentChatId}
                 isReasoningExpanded={expandedReasoningIds.has(message.id)}
                 onToggleReasoning={toggleReasoning}
