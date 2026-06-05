@@ -1,5 +1,11 @@
 import OpenAI from 'openai'
 import type { Logger } from '../logger'
+import {
+  hasPromptCacheParameters,
+  isPromptCacheParameterUnsupportedError,
+  markPromptCacheOptionsUnsupported,
+  stripPromptCacheOptions
+} from './PromptCacheOptimizer'
 
 const RETRYABLE_MODEL_STATUS_CODES = new Set([408, 429, 500, 502, 503, 504])
 const MODEL_REQUEST_MAX_ATTEMPTS = 3
@@ -142,12 +148,13 @@ export class ModelRetryHandler {
     scene: string
   ): Promise<AsyncIterable<OpenAI.Chat.Completions.ChatCompletionChunk>> {
     let lastError: unknown
+    let activeParams = params
 
     for (let attempt = 0; attempt < MODEL_REQUEST_MAX_ATTEMPTS; attempt++) {
       this.checkStopped(sessionId)
 
       try {
-        return await client.chat.completions.create(params, {
+        return await client.chat.completions.create(activeParams, {
           signal: abortController.signal
         })
       } catch (error) {
@@ -161,6 +168,21 @@ export class ModelRetryHandler {
           const abortError = new Error('Request was stopped by user')
           abortError.name = 'AbortError'
           throw abortError
+        }
+
+        if (
+          hasPromptCacheParameters(activeParams) &&
+          isPromptCacheParameterUnsupportedError(error)
+        ) {
+          markPromptCacheOptionsUnsupported(activeParams)
+          activeParams = stripPromptCacheOptions(activeParams)
+          this.logger.warn('模型服务不支持 Prompt Cache 参数，已自动降级重试', 'main', {
+            sessionId,
+            scene,
+            status: this.getModelErrorStatus(error),
+            error: this.getModelErrorMessage(error)
+          })
+          continue
         }
 
         const shouldRetry =

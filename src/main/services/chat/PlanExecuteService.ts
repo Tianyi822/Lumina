@@ -15,6 +15,17 @@ import type { StreamHandler } from './StreamHandler'
 import type { ReactLoopService } from './ReactLoopService'
 import { promptBuilder } from './PromptBuilder'
 import { formatMessagesWithKnowledge } from './message'
+import {
+  addTokenUsage,
+  applyPromptCacheOptions,
+  createEmptyTokenUsage,
+  extractTokenUsage,
+  hasPromptCacheParameters,
+  isPromptCacheParameterUnsupportedError,
+  markPromptCacheOptionsUnsupported,
+  recordPromptCacheDiagnostics,
+  stripPromptCacheOptions
+} from './PromptCacheOptimizer'
 
 /**
  * PlanExecuteService 配置选项
@@ -35,6 +46,11 @@ export interface PlanExecuteServiceOptions {
 
 interface ParsedPlan {
   steps: Array<{ title: string; description: string }>
+}
+
+interface PlanGenerationResult {
+  steps: PlanStep[]
+  usage?: ChatResult['usage']
 }
 
 interface PlanStepExecutionResult {
@@ -102,11 +118,7 @@ export class PlanExecuteService {
     }
 
     const abortController = this.stopController.getOrCreateAbortController(sessionId)
-    const totalUsage: NonNullable<ChatResult['usage']> = {
-      prompt_tokens: 0,
-      completion_tokens: 0,
-      total_tokens: 0
-    }
+    const totalUsage = createEmptyTokenUsage()
     const previousResults: string[] = []
     let planSteps: PlanStep[] = []
     let currentStepIndex = -1
@@ -121,7 +133,11 @@ export class PlanExecuteService {
         turnId
       )
 
-      planSteps = await this.generatePlan(request, llmConfig, abortController)
+      const planResult = await this.generatePlan(request, llmConfig, abortController)
+      planSteps = planResult.steps
+      if (planResult.usage) {
+        addTokenUsage(totalUsage, planResult.usage)
+      }
       this.stopController.checkStopped(sessionId)
 
       if (!planSteps || planSteps.length === 0) {
@@ -181,13 +197,7 @@ export class PlanExecuteService {
 
         // 累加 token 使用量
         if (stepResult.usage) {
-          totalUsage.prompt_tokens += stepResult.usage.prompt_tokens
-          totalUsage.completion_tokens += stepResult.usage.completion_tokens
-          totalUsage.total_tokens += stepResult.usage.total_tokens
-          if (stepResult.usage.reasoning_tokens) {
-            totalUsage.reasoning_tokens =
-              (totalUsage.reasoning_tokens ?? 0) + stepResult.usage.reasoning_tokens
-          }
+          addTokenUsage(totalUsage, stepResult.usage)
         }
 
         if (stepResult.success) {
@@ -300,11 +310,12 @@ export class PlanExecuteService {
     request: ChatRequest,
     llmConfig: LLMConfig,
     abortController: AbortController
-  ): Promise<PlanStep[]> {
+  ): Promise<PlanGenerationResult> {
     const client = this.createClient(llmConfig)
+    const planningTools = this.buildPlanningTools(request)
 
     const planPrompt = promptBuilder.buildPlanSystemPrompt(
-      this.buildPlanningTools(request),
+      planningTools,
       this.hasPaperContext(request)
         ? '论文上下文检索工具已启用，可通过工具按需获取论文内容'
         : undefined
@@ -312,35 +323,74 @@ export class PlanExecuteService {
 
     const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
       { role: 'system', content: planPrompt },
-      ...formatMessagesWithKnowledge(request.messages.slice(-4))
+      ...formatMessagesWithKnowledge(request.messages)
     ]
 
-    const response = await client.chat.completions.create(
+    const requestParams = applyPromptCacheOptions(
       {
         model: llmConfig.model_name,
         messages,
         temperature: 1
       },
-      { signal: abortController.signal }
+      { llmConfig, request, toolSignature: planningTools }
+    )
+
+    let response: OpenAI.Chat.Completions.ChatCompletion
+    try {
+      response = await client.chat.completions.create(requestParams, {
+        signal: abortController.signal
+      })
+    } catch (error) {
+      if (
+        hasPromptCacheParameters(requestParams) &&
+        isPromptCacheParameterUnsupportedError(error)
+      ) {
+        markPromptCacheOptionsUnsupported(requestParams)
+        const strippedParams = stripPromptCacheOptions(requestParams)
+        this.logger.warn('模型服务不支持 Prompt Cache 参数，规划阶段已自动降级重试', 'main', {
+          sessionId: request.sessionId,
+          status:
+            error && typeof error === 'object' && 'status' in error
+              ? (error as { status?: number }).status
+              : undefined,
+          error: error instanceof Error ? error.message : String(error)
+        })
+        response = await client.chat.completions.create(strippedParams, {
+          signal: abortController.signal
+        })
+      } else {
+        throw error
+      }
+    }
+
+    const usage = extractTokenUsage(response.usage)
+    recordPromptCacheDiagnostics(
+      `${request.sessionId}:${request.modelKey}:plan_generation`,
+      requestParams,
+      usage,
+      this.logger
     )
 
     const content = response.choices[0]?.message?.content
     if (!content) {
-      return []
+      return { steps: [], usage }
     }
 
     const parsed = this.parsePlanResponse(content)
     if (!parsed) {
-      return []
+      return { steps: [], usage }
     }
 
-    return parsed.steps.map((step, index) => ({
-      index,
-      title: step.title,
-      description: step.description,
-      status: 'pending' as PlanStepStatus,
-      maxAttempts: PLAN_STEP_MAX_ATTEMPTS
-    }))
+    return {
+      steps: parsed.steps.map((step, index) => ({
+        index,
+        title: step.title,
+        description: step.description,
+        status: 'pending' as PlanStepStatus,
+        maxAttempts: PLAN_STEP_MAX_ATTEMPTS
+      })),
+      usage
+    }
   }
 
   /**

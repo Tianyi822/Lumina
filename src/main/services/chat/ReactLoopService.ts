@@ -25,6 +25,13 @@ import { registerBuiltinCapabilities } from './tools/capabilities/registerBuilti
 import { capabilityManager } from './tools/CapabilityManager'
 import { presetRegistry } from './tools/presets/PresetRegistry'
 import { CHAT_PAPER_PRESET, CHAT_DEFAULT_PRESET } from './tools/presets/builtinPresets'
+import type { TokenUsage } from '../../types/chat'
+import {
+  addTokenUsage,
+  applyPromptCacheOptions,
+  createEmptyTokenUsage,
+  recordPromptCacheDiagnostics
+} from './PromptCacheOptimizer'
 
 /**
  * 从消息列表中提取最近一条用户的文本输入作为原始查询
@@ -220,6 +227,7 @@ export class ReactLoopService {
           llmConfig,
           sessionId,
           webContents,
+          request,
           conversationMessages,
           totalUsage,
           tools,
@@ -265,6 +273,7 @@ export class ReactLoopService {
             llmConfig,
             sessionId,
             webContents,
+            request,
             conversationMessages,
             totalUsage,
             iterations: toolIterations,
@@ -437,8 +446,9 @@ export class ReactLoopService {
     llmConfig: LLMConfig
     sessionId: string
     webContents: WebContents
+    request: ChatRequest
     conversationMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[]
-    totalUsage: { prompt_tokens: number; completion_tokens: number; total_tokens: number }
+    totalUsage: TokenUsage
     tools: OpenAI.Chat.Completions.ChatCompletionTool[]
     iterations: number
     maxReactIterations: number
@@ -456,6 +466,7 @@ export class ReactLoopService {
       llmConfig,
       sessionId,
       webContents,
+      request,
       conversationMessages,
       totalUsage,
       tools,
@@ -480,8 +491,8 @@ export class ReactLoopService {
       })
     }
 
-    const response = await this.modelRetryHandler.createChatCompletionWithRetry(
-      client,
+    const scene = `react_iteration_${iterations + 1}`
+    const requestParams = applyPromptCacheOptions(
       {
         model: llmConfig.model_name,
         messages: conversationMessages,
@@ -490,9 +501,15 @@ export class ReactLoopService {
         stream: true,
         stream_options: { include_usage: true }
       },
+      { llmConfig, request, toolSignature: tools }
+    )
+
+    const response = await this.modelRetryHandler.createChatCompletionWithRetry(
+      client,
+      requestParams,
       abortController,
       sessionId,
-      `react_iteration_${iterations + 1}`
+      scene
     )
 
     const { state, totalUsage: iterationUsage } = await this.streamProcessor.processStream(
@@ -502,9 +519,13 @@ export class ReactLoopService {
       turnId
     )
 
-    totalUsage.prompt_tokens += iterationUsage.prompt_tokens
-    totalUsage.completion_tokens += iterationUsage.completion_tokens
-    totalUsage.total_tokens += iterationUsage.total_tokens
+    addTokenUsage(totalUsage, iterationUsage)
+    recordPromptCacheDiagnostics(
+      `${sessionId}:${request.modelKey}:${scene}`,
+      requestParams,
+      iterationUsage,
+      this.logger
+    )
 
     if (!state.hasToolCalls || state.toolCalls.size === 0) {
       this.logger.info('ReAct 循环完成，模型已给出最终答案', 'main', {
@@ -652,8 +673,9 @@ export class ReactLoopService {
     llmConfig: LLMConfig
     sessionId: string
     webContents: WebContents
+    request: ChatRequest
     conversationMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[]
-    totalUsage: { prompt_tokens: number; completion_tokens: number; total_tokens: number }
+    totalUsage: TokenUsage
     iterations: number
     abortController: AbortController
     turnId?: string
@@ -663,6 +685,7 @@ export class ReactLoopService {
       llmConfig,
       sessionId,
       webContents,
+      request,
       conversationMessages,
       totalUsage,
       iterations,
@@ -683,14 +706,19 @@ export class ReactLoopService {
       content: REACT_MAX_ITERATIONS_FINAL_PROMPT
     })
 
-    const response = await this.modelRetryHandler.createChatCompletionWithRetry(
-      client,
+    const requestParams = applyPromptCacheOptions(
       {
         model: llmConfig.model_name,
         messages: conversationMessages,
         stream: true,
         stream_options: { include_usage: true }
       },
+      { llmConfig, request }
+    )
+
+    const response = await this.modelRetryHandler.createChatCompletionWithRetry(
+      client,
+      requestParams,
       abortController,
       sessionId,
       'react_finalization'
@@ -703,9 +731,13 @@ export class ReactLoopService {
       turnId
     )
 
-    totalUsage.prompt_tokens += finalUsage.prompt_tokens
-    totalUsage.completion_tokens += finalUsage.completion_tokens
-    totalUsage.total_tokens += finalUsage.total_tokens
+    addTokenUsage(totalUsage, finalUsage)
+    recordPromptCacheDiagnostics(
+      `${sessionId}:${request.modelKey}:react_finalization`,
+      requestParams,
+      finalUsage,
+      this.logger
+    )
 
     const finalContent = state.assistantContent.trim() || REACT_EMPTY_FINAL_FALLBACK
     if (state.assistantContent.trim().length === 0) {
@@ -724,16 +756,8 @@ export class ReactLoopService {
   /**
    * 创建初始 Token 使用统计
    */
-  private createInitialTokenUsage(): {
-    prompt_tokens: number
-    completion_tokens: number
-    total_tokens: number
-  } {
-    return {
-      prompt_tokens: 0,
-      completion_tokens: 0,
-      total_tokens: 0
-    }
+  private createInitialTokenUsage(): TokenUsage {
+    return createEmptyTokenUsage()
   }
 
   private normalizeMaxReactIterations(maxReactIterations?: number): number {
