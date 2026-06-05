@@ -88,97 +88,112 @@ export default function LabCreator({ visible, onClose }: LabCreatorProps) {
       {({ className, ref }) => (
         <ModalPortal
           ref={ref}
-          className={['lab-creator-overlay', className].filter(Boolean).join(' ')}
+          className={[styles.overlay, className].filter(Boolean).join(' ')}
+          onBackdropClick={isCreating ? undefined : onClose}
         >
           <div
             ref={creatorRef}
-            className="sm-modal__surface lab-creator"
+            className={`sm-modal__surface ${styles.dialog}`}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="creator-header">
+            <header className={`sm-pane-header ${styles.header}`}>
               <h2>SSH 连接</h2>
-              <button className="close-btn" onClick={onClose}>
-                ×
+              <button
+                type="button"
+                className="sm-icon-button"
+                aria-label="关闭"
+                disabled={isCreating}
+                onClick={onClose}
+              >
+                ✕
               </button>
-            </div>
+            </header>
 
             <div
               ref={contentShellRef}
-              className={['creator-content-shell', isContentMeasured && 'is-measured']
-                .filter(Boolean)
-                .join(' ')}
+              className={styles['content-shell']}
               onTransitionEnd={handleContentShellTransitionEnd}
             >
               <div
                 ref={contentInnerRef}
-                className={['creator-content-inner', isContentVisible && 'is-visible']
+                className={[
+                  styles['content-inner'],
+                  isContentVisible && styles['content-inner-visible']
+                ]
                   .filter(Boolean)
                   .join(' ')}
               >
                 {isCreating && (
-                  <div className="create-progress">
-                    <div className="progress-header">
-                      <span className="progress-text">{createPhaseText}</span>
-                      <span className="progress-percent">{createProgress}%</span>
+                  <div className={styles['create-progress']}>
+                    <div className={styles['progress-header']}>
+                      <span className={styles['progress-text']}>{createPhaseText}</span>
+                      <span className={styles['progress-percent']}>{createProgress}%</span>
                     </div>
-                    <div className="progress-bar">
-                      <div className="progress-fill" style={{ width: `${createProgress}%` }}></div>
+                    <div className={styles['progress-bar']}>
+                      <div
+                        className={styles['progress-fill']}
+                        style={{ width: `${createProgress}%` }}
+                      />
                     </div>
                   </div>
                 )}
 
                 {createError && !isCreating && (
-                  <div className="create-error">
-                    <div className="error-header">
-                      <span className="error-icon">⚠</span>
-                      <span className="error-title">创建失败</span>
+                  <div className={styles['create-error']}>
+                    <div className={styles['error-header']}>
+                      <span aria-hidden="true">⚠</span>
+                      <span className={styles['error-title']}>创建失败</span>
                       <button
-                        className="error-close"
+                        type="button"
+                        className={styles['error-close']}
+                        aria-label="关闭错误提示"
                         onClick={() => creatorStore.clearCreateError()}
                       >
                         ×
                       </button>
                     </div>
-                    <div className="error-message">{createError}</div>
+                    <div className={styles['error-message']}>{createError}</div>
                   </div>
                 )}
 
-                <div className={`${styles['ssh-form']} creator-section`}>
-                  <div className={styles['ssh-form__field']}>
-                    <label className="form-label">
-                      主机地址 <span className="required">*</span>
+                <div className={styles['form-body']}>
+                  <div className="form-group">
+                    <label htmlFor="ssh-host">
+                      主机地址 <span className={styles.required}>*</span>
                     </label>
                     <input
+                      id="ssh-host"
                       value={sshConfig?.host || ''}
                       type="text"
-                      className="form-input"
+                      className="sm-input"
                       placeholder="192.168.1.100"
                       onChange={(e) => creatorStore.updateSshConfig({ host: e.target.value })}
                     />
                   </div>
-                  <div
-                    className={`${styles['ssh-form__field']} ${styles['ssh-form__field--inline']}`}
-                  >
-                    <div className={styles['ssh-form__field-half']}>
-                      <label className="form-label">端口</label>
+
+                  <div className={styles['field-row']}>
+                    <div className="form-group">
+                      <label htmlFor="ssh-port">端口</label>
                       <input
+                        id="ssh-port"
                         value={sshConfig?.port || 22}
                         type="number"
-                        className="form-input"
+                        className="sm-input"
                         placeholder="22"
                         onChange={(e) =>
                           creatorStore.updateSshConfig({ port: Number(e.target.value) })
                         }
                       />
                     </div>
-                    <div className={styles['ssh-form__field-half']}>
-                      <label className="form-label">
-                        用户名 <span className="required">*</span>
+                    <div className="form-group">
+                      <label htmlFor="ssh-username">
+                        用户名 <span className={styles.required}>*</span>
                       </label>
                       <input
+                        id="ssh-username"
                         value={sshConfig?.username || ''}
                         type="text"
-                        className="form-input"
+                        className="sm-input"
                         placeholder="root"
                         onChange={(e) =>
                           creatorStore.updateSshConfig({ username: e.target.value })
@@ -186,12 +201,11 @@ export default function LabCreator({ visible, onClose }: LabCreatorProps) {
                       />
                     </div>
                   </div>
-                  <div className={styles['ssh-form__field']}>
-                    <label className="form-label" id="ssh-auth-type-label">
-                      认证方式
-                    </label>
+
+                  <div className="form-group">
+                    <label id="ssh-auth-type-label">认证方式</label>
                     <div
-                      className={styles['ssh-form__toggle']}
+                      className={styles['auth-toggle']}
                       role="radiogroup"
                       aria-labelledby="ssh-auth-type-label"
                     >
@@ -200,8 +214,8 @@ export default function LabCreator({ visible, onClose }: LabCreatorProps) {
                         role="radio"
                         aria-checked={sshConfig?.authType === 'password'}
                         className={[
-                          styles['ssh-form__toggle-btn'],
-                          sshConfig?.authType === 'password' && styles['ssh-form__toggle-btn--active']
+                          styles['auth-toggle-btn'],
+                          sshConfig?.authType === 'password' && styles['auth-toggle-btn-active']
                         ]
                           .filter(Boolean)
                           .join(' ')}
@@ -214,8 +228,8 @@ export default function LabCreator({ visible, onClose }: LabCreatorProps) {
                         role="radio"
                         aria-checked={sshConfig?.authType === 'key'}
                         className={[
-                          styles['ssh-form__toggle-btn'],
-                          sshConfig?.authType === 'key' && styles['ssh-form__toggle-btn--active']
+                          styles['auth-toggle-btn'],
+                          sshConfig?.authType === 'key' && styles['auth-toggle-btn-active']
                         ]
                           .filter(Boolean)
                           .join(' ')}
@@ -227,12 +241,13 @@ export default function LabCreator({ visible, onClose }: LabCreatorProps) {
                   </div>
 
                   {sshConfig?.authType === 'password' ? (
-                    <div className={styles['ssh-form__field']}>
-                      <label className="form-label">密码</label>
+                    <div className="form-group">
+                      <label htmlFor="ssh-password">密码</label>
                       <input
+                        id="ssh-password"
                         value={sshConfig?.password || ''}
                         type="password"
-                        className="form-input"
+                        className="sm-input"
                         placeholder="输入 SSH 密码"
                         onChange={(e) =>
                           creatorStore.updateSshConfig({ password: e.target.value })
@@ -241,27 +256,29 @@ export default function LabCreator({ visible, onClose }: LabCreatorProps) {
                     </div>
                   ) : (
                     <>
-                      <div className={styles['ssh-form__field']}>
-                        <label className="form-label">
-                          密钥名称 <span className="required">*</span>
+                      <div className="form-group">
+                        <label htmlFor="ssh-key-name">
+                          密钥名称 <span className={styles.required}>*</span>
                         </label>
                         <input
+                          id="ssh-key-name"
                           value={sshConfig?.keyName || ''}
                           type="text"
-                          className="form-input"
+                          className="sm-input"
                           placeholder="my-key"
                           onChange={(e) =>
                             creatorStore.updateSshConfig({ keyName: e.target.value })
                           }
                         />
                       </div>
-                      <div className={styles['ssh-form__field']}>
-                        <label className="form-label">
-                          密钥内容 <span className="required">*</span>
+                      <div className="form-group">
+                        <label htmlFor="ssh-key-content">
+                          密钥内容 <span className={styles.required}>*</span>
                         </label>
                         <textarea
+                          id="ssh-key-content"
                           value={sshConfig?.keyContent || ''}
-                          className={`form-input ${styles['ssh-form__key-textarea']}`}
+                          className={`sm-textarea ${styles['key-textarea']}`}
                           placeholder={
                             '-----BEGIN OPENSSH PRIVATE KEY-----\n...\n-----END OPENSSH PRIVATE KEY-----'
                           }
@@ -269,16 +286,14 @@ export default function LabCreator({ visible, onClose }: LabCreatorProps) {
                           onChange={(e) =>
                             creatorStore.updateSshConfig({ keyContent: e.target.value })
                           }
-                        ></textarea>
+                        />
                       </div>
                     </>
                   )}
+
                   <button
-                    className={[
-                      'sm-button',
-                      'sm-button--secondary',
-                      styles['ssh-form__test-btn']
-                    ].join(' ')}
+                    type="button"
+                    className={`sm-button sm-button--secondary ${styles['test-btn']}`}
                     disabled={isTestingSsh}
                     onClick={testSshConnection}
                   >
@@ -288,8 +303,9 @@ export default function LabCreator({ visible, onClose }: LabCreatorProps) {
               </div>
             </div>
 
-            <div className="creator-actions">
+            <div className={`form-actions with-border ${styles.actions}`}>
               <button
+                type="button"
                 className="sm-button sm-button--secondary"
                 onClick={onClose}
                 disabled={isCreating}
@@ -297,6 +313,7 @@ export default function LabCreator({ visible, onClose }: LabCreatorProps) {
                 取消
               </button>
               <button
+                type="button"
                 className="sm-button sm-button--primary"
                 disabled={!canCreate || isCreating}
                 onClick={() => void creatorStore.handleCreate()}
