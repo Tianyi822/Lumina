@@ -13,6 +13,14 @@ test('内置 ReAct 提示词不再注入 few-shot 示例或模板变量', () => 
   assert.doesNotMatch(prompt, /动态变量/)
 })
 
+test('内置 ReAct 提示词不注入当前时间且连续构建保持稳定', () => {
+  const firstPrompt = buildReactSystemPrompt({ modelName: 'test-model' })
+  const secondPrompt = buildReactSystemPrompt({ modelName: 'test-model' })
+
+  assert.equal(firstPrompt, secondPrompt)
+  assert.doesNotMatch(firstPrompt, /当前时间/)
+})
+
 test('内置 ReAct 提示词保留实验室创建业务规则', () => {
   const prompt = buildReactSystemPrompt()
 

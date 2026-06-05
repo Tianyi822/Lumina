@@ -4,7 +4,8 @@ import type {
   PlanStep,
   PlanStepStatus,
   ReactIterationStatus,
-  StreamEvent
+  StreamEvent,
+  TokenUsage
 } from '../../types/chat'
 
 /**
@@ -56,12 +57,7 @@ export class StreamHandler {
   sendDone(
     webContents: WebContents,
     sessionId: string,
-    usage?: {
-      prompt_tokens: number
-      completion_tokens: number
-      total_tokens: number
-      reasoning_tokens?: number
-    },
+    usage?: TokenUsage,
     turnId?: string,
     finalStatus?: StreamEvent['finalStatus']
   ): void {

@@ -57,16 +57,7 @@ const REMINDERS = `# 重要提醒
 - 直接基于已有信息和工具结果给出完整回答，不要反问用户`
 
 export function buildReactSystemPrompt(options: PromptBuildOptions = {}): string {
-  const currentTime = new Date().toLocaleString('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    weekday: 'long'
-  })
-
-  const modelLine = options.modelName ? `\n当前模型: ${options.modelName}` : ''
+  const modelLine = options.modelName ? `\n\n当前模型: ${options.modelName}` : ''
 
   return `${CORE_INSTRUCTIONS}
 
@@ -79,8 +70,7 @@ ${ERROR_HANDLING}
 ${LAB_MANAGEMENT}
 
 ${REMINDERS}
-
-当前时间: ${currentTime}${modelLine}
+${modelLine}
 
 现在，请根据用户的问题开始你的工作。`.trim()
 }
