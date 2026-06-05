@@ -6,6 +6,15 @@ import SvgIcon from '@renderer/components/icons/SvgIcon'
 import { CssTransitionGroup } from '@renderer/components/motion/CssTransition'
 import { getSidebarListItemMotionStyle } from '@renderer/utils/sidebarListMotion'
 
+/** 侧栏展示名：SSH 实验室去掉「用户名@」前缀，仅保留主机地址 */
+function getLabDisplayName(lab: LabListItem): string {
+  if (lab.creationType !== 'ssh') return lab.name
+
+  const atIndex = lab.name.indexOf('@')
+  if (atIndex === -1) return lab.name
+  return lab.name.slice(atIndex + 1)
+}
+
 function getStatusLabel(status: LabStatus): string {
   const sshLabels: Record<LabStatus, string> = {
     creating: '连接中',
@@ -51,7 +60,9 @@ export default function LabList({
             onClick={() => onSelect(lab.labId)}
           >
             <div className={styles['lab-info']}>
-              <div className={styles['lab-name']}>{lab.name}</div>
+              <div className={styles['lab-name']} title={getLabDisplayName(lab)}>
+                {getLabDisplayName(lab)}
+              </div>
               <div className={styles['lab-meta']}>
                 <span className={`${styles['lab-status']} ${styles[`status-${lab.status}`]}`}>
                   {getStatusLabel(lab.status)}
