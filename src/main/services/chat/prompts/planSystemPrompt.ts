@@ -53,7 +53,15 @@ ${contextSection}
 
 function buildToolSummary(tools: MCPToolReference[]): string {
   const grouped = new Map<string, MCPToolReference[]>()
-  for (const tool of tools) {
+  const sortedTools = [...tools].sort((a, b) => {
+    const serverCompare = a.serverName.localeCompare(b.serverName)
+    if (serverCompare !== 0) return serverCompare
+    const toolCompare = a.toolName.localeCompare(b.toolName)
+    if (toolCompare !== 0) return toolCompare
+    return a.description.localeCompare(b.description)
+  })
+
+  for (const tool of sortedTools) {
     const existing = grouped.get(tool.serverName) ?? []
     existing.push(tool)
     grouped.set(tool.serverName, existing)

@@ -4,6 +4,7 @@ import assert from 'node:assert/strict'
 import { PromptBuilder } from './PromptBuilder.ts'
 import type { ToolPipeline } from './tools/PipelineTypes'
 import type { CapabilityUnit } from './tools/capabilities/CapabilityUnit'
+import type { MCPToolReference } from '../../types/chat'
 
 test('PromptBuilder 不再注入 Skill 指令', async () => {
   const builder = new PromptBuilder()
@@ -120,6 +121,37 @@ test('setPipeline(undefined) 清除管道，不应生成协调指南', async () 
   )
 
   assert.doesNotMatch(prompt, /工具使用协调策略/)
+})
+
+test('buildPlanSystemPrompt 对同一组工具生成稳定摘要顺序', () => {
+  const builder = new PromptBuilder()
+  const tools: MCPToolReference[] = [
+    {
+      serverName: 'paper',
+      toolName: 'summarize',
+      description: '总结论文',
+      inputSchema: {}
+    },
+    {
+      serverName: 'knowledge',
+      toolName: 'search',
+      description: '检索知识库',
+      inputSchema: {}
+    },
+    {
+      serverName: 'paper',
+      toolName: 'search_context',
+      description: '检索论文上下文',
+      inputSchema: {}
+    }
+  ]
+
+  const prompt = builder.buildPlanSystemPrompt(tools)
+  const reorderedPrompt = builder.buildPlanSystemPrompt([tools[2], tools[0], tools[1]])
+
+  assert.equal(prompt, reorderedPrompt)
+  assert.ok(prompt.indexOf('**knowledge**') < prompt.indexOf('**paper**'))
+  assert.ok(prompt.indexOf('- search_context:') < prompt.indexOf('- summarize:'))
 })
 
 // ===== buildCapabilitySuggestionPrompt =====

@@ -1,3 +1,4 @@
+import { createHash } from 'crypto'
 import type { WebContents } from 'electron'
 import type {
   ToolPipeline,
@@ -157,13 +158,18 @@ export class ToolOrchestrator {
       : `${stage.category}__${stage.autoTrigger!.toolName}`
 
     const args = stage.autoTrigger!.queryTransform(originalQuery, context)
+    const serializedArgs = stableStringify(args)
+    const idHash = createHash('sha256')
+      .update(stableStringify({ category: stage.category, toolName, args }))
+      .digest('hex')
+      .slice(0, 12)
 
     return {
-      id: `auto_${stage.category}_${Date.now()}`,
+      id: `auto_${stage.category}_${idHash}`,
       type: 'function',
       function: {
         name: toolName,
-        arguments: JSON.stringify(args)
+        arguments: serializedArgs
       }
     }
   }
@@ -205,4 +211,26 @@ export class ToolOrchestrator {
       })
     })
   }
+}
+
+function stableStringify(value: unknown): string {
+  return JSON.stringify(normalizeForStableStringify(value)) ?? 'null'
+}
+
+function normalizeForStableStringify(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map((item) => normalizeForStableStringify(item))
+  }
+
+  if (value && typeof value === 'object') {
+    const record = value as Record<string, unknown>
+    return Object.keys(record)
+      .sort()
+      .reduce<Record<string, unknown>>((normalized, key) => {
+        normalized[key] = normalizeForStableStringify(record[key])
+        return normalized
+      }, {})
+  }
+
+  return value
 }
