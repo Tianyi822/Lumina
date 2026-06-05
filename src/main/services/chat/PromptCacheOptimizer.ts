@@ -196,11 +196,18 @@ export function deepSortPromptCacheValue(value: unknown): unknown {
 
 export function buildPromptCacheKey(options: PromptCacheOptions): string {
   const providerHost = getBaseUrlHost(options.llmConfig.base_url)
+  const cacheScope =
+    options.request.sessionType === 'paper' && options.request.paperId
+      ? { scope: 'paper', paperId: options.request.paperId }
+      : {
+          scope: 'session',
+          sessionId: options.request.sessionId,
+          sessionType: options.request.sessionType ?? 'default'
+        }
   const signature = {
     model: options.llmConfig.model_name,
     providerHost,
-    sessionId: options.request.sessionId,
-    sessionType: options.request.sessionType ?? 'default',
+    cacheScope,
     tools: buildToolSelectionSignature(options.request, options.toolSignature)
   }
 

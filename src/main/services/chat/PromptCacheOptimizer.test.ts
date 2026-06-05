@@ -46,9 +46,56 @@ test('追加消息不会改变同一会话的 Prompt Cache key', () => {
   assert.equal(firstKey, secondKey)
 })
 
-test('模型或工具签名变化时 Prompt Cache key 会变化', () => {
+test('论文会话同一论文不同会话复用 Prompt Cache key', () => {
+  const firstKey = buildPromptCacheKey({
+    llmConfig,
+    request: {
+      ...createRequest([{ role: 'user', content: '第一轮问题' }]),
+      sessionId: 'session-a'
+    }
+  })
+  const secondKey = buildPromptCacheKey({
+    llmConfig,
+    request: {
+      ...createRequest([{ role: 'user', content: '第一轮问题' }]),
+      sessionId: 'session-b'
+    }
+  })
+
+  assert.equal(firstKey, secondKey)
+})
+
+test('非论文会话不同会话保持 Prompt Cache key 隔离', () => {
+  const baseRequest = createRequest([{ role: 'user', content: '同一个问题' }])
+  const firstKey = buildPromptCacheKey({
+    llmConfig,
+    request: {
+      ...baseRequest,
+      sessionId: 'session-a',
+      sessionType: 'default',
+      paperId: undefined
+    }
+  })
+  const secondKey = buildPromptCacheKey({
+    llmConfig,
+    request: {
+      ...baseRequest,
+      sessionId: 'session-b',
+      sessionType: 'default',
+      paperId: undefined
+    }
+  })
+
+  assert.notEqual(firstKey, secondKey)
+})
+
+test('论文、模型或工具签名变化时 Prompt Cache key 会变化', () => {
   const request = createRequest([{ role: 'user', content: '同一个问题' }])
   const baseKey = buildPromptCacheKey({ llmConfig, request })
+  const paperChangedKey = buildPromptCacheKey({
+    llmConfig,
+    request: { ...request, paperId: 'paper-002' }
+  })
   const modelChangedKey = buildPromptCacheKey({
     llmConfig: { ...llmConfig, model_name: 'gpt-5.1' },
     request
@@ -68,6 +115,7 @@ test('模型或工具签名变化时 Prompt Cache key 会变化', () => {
     }
   })
 
+  assert.notEqual(baseKey, paperChangedKey)
   assert.notEqual(baseKey, modelChangedKey)
   assert.notEqual(baseKey, toolChangedKey)
 })
