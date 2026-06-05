@@ -45,7 +45,10 @@ export function messageToSessionMessage(msg: Message): SessionMessage {
           prompt_tokens: msg.usage.prompt_tokens,
           completion_tokens: msg.usage.completion_tokens,
           total_tokens: msg.usage.total_tokens,
-          reasoning_tokens: msg.usage.reasoning_tokens
+          reasoning_tokens: msg.usage.reasoning_tokens,
+          cached_prompt_tokens: msg.usage.cached_prompt_tokens,
+          uncached_prompt_tokens: msg.usage.uncached_prompt_tokens,
+          prompt_cache_hit_rate: msg.usage.prompt_cache_hit_rate
         }
       : undefined,
     tool_calls: msg.tool_calls,

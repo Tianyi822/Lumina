@@ -1,13 +1,9 @@
 import { formatTokenCount } from '@renderer/utils/tokenEstimate'
+import type { TokenUsage } from '@shared/types/chat'
 import styles from './PaperChatTokenStats.module.css'
 
 interface PaperChatTokenStatsProps {
-  usage?: {
-    prompt_tokens: number
-    completion_tokens: number
-    total_tokens: number
-    reasoning_tokens?: number
-  }
+  usage?: TokenUsage
   userTokenLabel?: string
 }
 
@@ -17,6 +13,10 @@ function formatTokenUsage(usage: NonNullable<PaperChatTokenStatsProps['usage']>)
   )} | 总计: ${formatTokenCount(usage.total_tokens)}`
   if (usage.reasoning_tokens) {
     result += ` | 思考: ${formatTokenCount(usage.reasoning_tokens)}`
+  }
+  if (usage.cached_prompt_tokens && usage.cached_prompt_tokens > 0) {
+    const hitRate = Math.round((usage.prompt_cache_hit_rate ?? 0) * 100)
+    result += ` | 缓存输入: ${formatTokenCount(usage.cached_prompt_tokens)} (${hitRate}%)`
   }
   return result
 }
