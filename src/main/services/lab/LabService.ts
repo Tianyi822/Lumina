@@ -9,11 +9,7 @@ import type {
   LabLogEntry,
   CreateLabRequest,
   CreateLabResult,
-  DeleteLabResult,
-  DeleteLabOptions,
-  LabContainerStatus,
-  ContainerState,
-  ContainerInfo
+  DeleteLabResult
 } from '@main/types/lab'
 import {
   getLabDirPath,
@@ -25,7 +21,6 @@ import {
   generateLabId,
   sanitizeFileName
 } from './labPaths'
-import { labPermissionService } from './LabPermissionService'
 
 /**
  * 实验室服务
@@ -141,8 +136,13 @@ export class LabService {
       }
 
       const lab = JSON.parse(content) as LabData
-      if (!lab.backendType) {
-        lab.backendType = 'docker'
+
+      // 类型降级：旧数据中的 Docker 类型统一修正为 ssh
+      if (!lab.backendType || lab.backendType !== 'ssh') {
+        lab.backendType = 'ssh'
+      }
+      if (!lab.creationType || lab.creationType !== 'ssh') {
+        lab.creationType = 'ssh'
       }
 
       if (!options?.silent) {
@@ -226,31 +226,7 @@ export class LabService {
   }
 
   /**
-   * 根据容器 ID 查找关联实验室
-   */
-  async findLabByContainerId(containerId: string): Promise<LabData | null> {
-    try {
-      for (const lab of await this.loadAllLabs()) {
-        if (
-          lab.primaryContainerId === containerId ||
-          lab.containerIds.some((id) => id === containerId)
-        ) {
-          return lab
-        }
-      }
-
-      return null
-    } catch (error) {
-      logger.error('根据容器 ID 查找实验室失败', 'main', {
-        containerId,
-        error: error instanceof Error ? error.message : String(error)
-      })
-      return null
-    }
-  }
-
-  /**
-   * 列出所有实验室（包含容器实时状态）
+   * 列出所有实验室
    */
   async listLabs(): Promise<LabListItem[]> {
     try {
@@ -262,20 +238,6 @@ export class LabService {
         return []
       }
       const labs: LabListItem[] = []
-
-      // 导入 DockerService 并一次性获取所有容器（避免循环内重复调用）
-      const { getDockerService } = await import('./docker/DockerService')
-      const dockerService = await getDockerService()
-      let allContainers: ContainerInfo[] = []
-      let dockerSnapshotAvailable = false
-      try {
-        allContainers = await dockerService.listContainers({ state: 'all' })
-        dockerSnapshotAvailable = true
-      } catch (error) {
-        logger.warn('获取 Docker 容器快照失败，保留实验室元数据状态', 'main', {
-          error: error instanceof Error ? error.message : String(error)
-        })
-      }
 
       for (const dir of dirs) {
         if (!dir.isDirectory()) {
@@ -290,65 +252,16 @@ export class LabService {
         try {
           const lab = await this.loadLab(labId)
           if (lab) {
-            if (lab.backendType === 'ssh') {
-              const resolvedLab = await this.reconcileSshRuntimeState(lab, { silent: true })
-              labs.push({
-                labId: resolvedLab.labId,
-                name: resolvedLab.name,
-                status: resolvedLab.status,
-                createdAt: resolvedLab.createdAt,
-                updatedAt: resolvedLab.updatedAt,
-                creationType: resolvedLab.creationType,
-                containerCount: 0,
-                isOrphan: false
-              })
-              continue
-            }
-
-            // 获取容器的实时状态
-            let realTimeStatus = lab.status
-            let isOrphan = lab.isOrphan
-            const containerId = lab.primaryContainerId || lab.containerIds?.[0]
-            if (containerId && dockerSnapshotAvailable) {
-              try {
-                const container = allContainers.find((c) => c.id === containerId)
-                if (container) {
-                  if (container.state === 'running') {
-                    realTimeStatus = 'running'
-                  } else {
-                    realTimeStatus = 'stopped'
-                  }
-                  // 容器重新出现，清除孤儿标记
-                  if (isOrphan) {
-                    isOrphan = false
-                    lab.isOrphan = false
-                    lab.status = realTimeStatus
-                    await this.saveLab(lab, { silent: true })
-                  }
-                } else {
-                  // 容器在 Docker 中不存在，标记为孤儿并持久化
-                  realTimeStatus = 'stopped'
-                  if (!isOrphan) {
-                    isOrphan = true
-                    lab.isOrphan = true
-                    lab.status = 'stopped'
-                    await this.saveLab(lab, { silent: true })
-                  }
-                }
-              } catch {
-                // 查找容器失败，使用元数据中的状态
-              }
-            }
-
+            const resolvedLab = await this.reconcileSshRuntimeState(lab, { silent: true })
             labs.push({
-              labId: lab.labId,
-              name: lab.name,
-              status: realTimeStatus,
-              createdAt: lab.createdAt,
-              updatedAt: lab.updatedAt,
-              creationType: lab.creationType,
-              containerCount: lab.containerIds.length,
-              isOrphan
+              labId: resolvedLab.labId,
+              name: resolvedLab.name,
+              status: resolvedLab.status,
+              createdAt: resolvedLab.createdAt,
+              updatedAt: resolvedLab.updatedAt,
+              creationType: resolvedLab.creationType,
+              containerCount: 0,
+              isOrphan: false
             })
           }
         } catch {
@@ -464,116 +377,62 @@ export class LabService {
   // ==================== 实验室管理 ====================
 
   /**
-   * 创建实验室（带类型指定）
-   * 支持三种创建类型：existing、compose、dockerfile
+   * 创建 SSH 实验室
    */
   async createLab(request: CreateLabRequest): Promise<CreateLabResult> {
     try {
-      // 验证请求参数
       if (!request.name || request.name.trim() === '') {
         return { success: false, error: '实验室名称不能为空' }
       }
 
-      // 根据 creationType 验证必需参数
-      if (request.creationType === 'existing' && !request.existingContainerId) {
-        return { success: false, error: 'existing 类型需要提供容器 ID' }
+      if (!request.sshHost) {
+        return { success: false, error: 'SSH 实验室需要提供 sshHost' }
       }
-      // 注意：compose 和 dockerfile 类型的 configId 是可选的
-      // 用户可以直接输入内容而不保存配置，实际的 Docker 操作在 IPC 处理器中完成
 
-      // 导入 DockerService（延迟导入避免循环依赖）
-      const { getDockerService } = await import('./docker/DockerService')
-      const dockerService = getDockerService()
+      if (!request.sshUsername) {
+        return { success: false, error: 'SSH 实验室需要提供 sshUsername' }
+      }
 
       const labId = generateLabId()
       const now = new Date().toISOString()
 
       const lab: LabData = {
         labId,
-        name: sanitizeFileName(request.name) || '未命名实验室',
+        name: request.name.trim(),
         description: request.description,
-        status: 'creating',
+        status: 'stopped',
         createdAt: now,
         updatedAt: now,
-        creationType: request.creationType,
+        creationType: 'ssh',
         containerIds: [],
-        isOrphan: false,
-        backendType: 'docker'
-      }
-
-      // 根据创建类型处理
-      let containerIds: string[] = []
-
-      switch (request.creationType) {
-        case 'existing': {
-          // 关联已有容器
-          const containerId = request.existingContainerId!
-          const containers = await dockerService.listContainers()
-          const container = containers.find((c) => c.id === containerId)
-
-          if (!container) {
-            return { success: false, error: '指定的容器不存在' }
-          }
-
-          containerIds = [containerId]
-          lab.containerIds = [containerId]
-          lab.primaryContainerId = containerId
-          lab.status = container.state === 'running' ? 'running' : 'stopped'
-          break
-        }
-
-        case 'compose': {
-          // 这里只创建元数据，实际容器启动由其他流程处理
-          lab.composeProjectName = request.projectName || `lab-${labId.substring(4, 12)}`
-          lab.composeFilePath = request.composeConfigId
-          lab.status = 'stopped'
-          break
-        }
-
-        case 'dockerfile': {
-          // 这里只创建元数据，实际容器启动由其他流程处理
-          lab.dockerfileConfigId = request.dockerfileConfigId
-          lab.status = 'stopped'
-          break
-        }
-
-        case 'ssh': {
-          // SSH 实验室：后端类型应为 'ssh'，不涉及任何容器操作
-          if (!request.sshHost || !request.sshUsername) {
-            return { success: false, error: 'SSH 实验室需要提供 sshHost 和 sshUsername' }
-          }
-          lab.backendType = 'ssh'
-          lab.ssh = {
-            host: request.sshHost,
-            port: request.sshPort || 22,
-            username: request.sshUsername,
-            authType: request.sshAuthType || 'password',
-            keyName: request.sshKeyName
-          }
-          lab.status = 'stopped'
-          break
+        backendType: 'ssh',
+        ssh: {
+          host: request.sshHost,
+          port: request.sshPort || 22,
+          username: request.sshUsername,
+          authType: request.sshAuthType || 'password',
+          keyName: request.sshKeyName
         }
       }
 
-      // 保存实验室元数据
       await this.ensureLabInstanceDir(labId)
       const saveResult = await this.saveLab(lab)
       if (!saveResult.success) {
         return { success: false, error: saveResult.error || '保存实验室失败' }
       }
 
-      await this.logOperation(labId, `实验室创建成功 (类型: ${request.creationType})`, 'info')
+      await this.logOperation(labId, '实验室创建成功 (类型: ssh)', 'info')
 
       logger.info('实验室创建成功', 'main', {
         labId,
         name: lab.name,
-        creationType: request.creationType
+        creationType: 'ssh'
       })
 
       return {
         success: true,
         lab,
-        containerIds
+        containerIds: []
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
@@ -583,253 +442,30 @@ export class LabService {
   }
 
   /**
-   * 删除实验室（带选项）
-   * 根据实验室类型和选项执行不同的删除策略
+   * 删除实验室
    */
-  async deleteLab(labId: string, options?: DeleteLabOptions): Promise<DeleteLabResult> {
+  async deleteLab(labId: string): Promise<DeleteLabResult> {
     try {
       if (!isValidLabId(labId)) {
         return { success: false, error: '无效的实验室 ID' }
       }
 
-      // 加载实验室元数据
       const lab = await this.loadLab(labId)
       if (!lab) {
         return { success: false, error: '实验室不存在' }
       }
 
-      if (lab.backendType === 'ssh') {
-        const { sshService: sshInstance } = await import('./ssh/SshService')
-        const disconnectResult = await sshInstance.disconnect(labId)
-        if (!disconnectResult.success) {
-          logger.warn('SSH 断开连接失败，继续清理元数据', 'main', {
-            labId,
-            error: disconnectResult.error
-          })
-        }
-
-        const labPath = getLabInstancePath(labId)
-        if (isPathInLabDir(labPath)) {
-          try {
-            await rm(labPath, { recursive: true, force: true })
-          } catch {
-            // 目录不存在时忽略
-          }
-        }
-
-        await this.logOperation(labId, 'SSH 实验室已删除', 'info')
-        return {
-          success: true,
-          removedContainers: [],
-          removedWorkspace: false
-        }
-      }
-
-      const removedContainers: string[] = []
-      const clearedContainerIds = new Set<string>()
-      let removedWorkspace = false
-      const force = options?.force || false
-
-      // 导入 DockerService 和权限服务
-      const { getDockerService } = await import('./docker/DockerService')
-      const dockerService = getDockerService()
-
-      // 使用权限服务验证删除选项
-      const deletePolicy = labPermissionService.validateDeleteOptions(
-        lab.creationType,
-        options?.deleteContainers
-      )
-      const shouldDeleteWorkspace = options?.deleteWorkspace === true
-      const volumeName = lab.frontend?.volumeName
-      const hasWorkspace = lab.frontend?.storageType === 'docker-volume' && !!volumeName
-
-      if (shouldDeleteWorkspace && hasWorkspace && !deletePolicy.shouldDeleteContainers) {
-        return {
-          success: false,
-          removedContainers,
-          removedWorkspace: false,
-          keptWorkspace: true,
-          error: '删除前端工作区前必须同时删除关联容器'
-        }
-      }
-
-      // 如果需要删除容器（且类型允许）
-      const failedContainers: Array<{ id: string; reason: string }> = []
-
-      if (deletePolicy.shouldDeleteContainers && lab.containerIds.length > 0) {
-        const dockerAvailability = await dockerService.checkAvailable()
-        if (!dockerAvailability.available) {
-          return {
-            success: false,
-            removedContainers,
-            removedWorkspace: false,
-            keptWorkspace: hasWorkspace,
-            error: `Docker 不可用，无法确认或删除关联容器: ${dockerAvailability.error || '未知错误'}`
-          }
-        }
-
-        for (const containerId of lab.containerIds) {
-          try {
-            // 先获取容器详情检查状态
-            const containerDetails = await dockerService.getContainerDetails(containerId)
-            const containerName =
-              containerDetails?.names?.[0]?.replace(/^\//, '') || containerId.substring(0, 12)
-
-            if (!containerDetails) {
-              clearedContainerIds.add(containerId)
-              await this.logOperation(
-                labId,
-                `关联容器已不存在，按已清理处理: ${containerId.substring(0, 12)}`,
-                'warn'
-              )
-              continue
-            }
-
-            const isRunning = containerDetails.state === 'running'
-
-            // 如果容器正在运行，先停止它
-            if (isRunning) {
-              logger.info('容器正在运行，先停止容器', 'main', {
-                containerId: containerId.substring(0, 12)
-              })
-              const stopResult = await dockerService.stopContainer(containerId, 10)
-              if (!stopResult.success) {
-                logger.warn('停止容器失败，将尝试强制删除', 'main', {
-                  containerId: containerId.substring(0, 12),
-                  error: stopResult.error
-                })
-              }
-            }
-
-            // 删除容器（如果停止失败或容器已停止，使用 force 强制删除）
-            const result = await dockerService.removeContainer(containerId, force || isRunning)
-            if (result.success) {
-              removedContainers.push(containerId)
-              clearedContainerIds.add(containerId)
-              await this.logOperation(labId, `删除容器: ${containerId.substring(0, 12)}`, 'info')
-            } else {
-              // 分析删除失败原因
-              let reason = result.error || '删除失败'
-              if (
-                result.error?.includes('HTTP code 409') ||
-                result.error?.includes('container is running')
-              ) {
-                reason = `容器「${containerName}」正在运行，请先停止容器后再删除`
-              } else if (this.isContainerMissingError(result.error)) {
-                reason = `容器「${containerName}」不存在，可能已被手动删除`
-                clearedContainerIds.add(containerId)
-                await this.logOperation(
-                  labId,
-                  `关联容器已不存在，按已清理处理: ${containerId.substring(0, 12)}`,
-                  'warn'
-                )
-              } else if (result.error?.includes('permission denied')) {
-                reason = `权限不足，无法删除容器「${containerName}」`
-              }
-
-              if (!clearedContainerIds.has(containerId)) {
-                failedContainers.push({ id: containerId, reason })
-                logger.warn('删除容器失败', 'main', {
-                  containerId: containerId.substring(0, 12),
-                  reason
-                })
-              }
-            }
-          } catch (error) {
-            const errorMsg = error instanceof Error ? error.message : String(error)
-            let reason = '删除失败'
-            if (errorMsg.includes('HTTP code 409') || errorMsg.includes('container is running')) {
-              reason = '容器正在运行，请先停止容器后再删除'
-            } else if (this.isContainerMissingError(errorMsg)) {
-              reason = '容器不存在，可能已被手动删除'
-              clearedContainerIds.add(containerId)
-              await this.logOperation(
-                labId,
-                `关联容器已不存在，按已清理处理: ${containerId.substring(0, 12)}`,
-                'warn'
-              )
-            }
-
-            if (!clearedContainerIds.has(containerId)) {
-              failedContainers.push({ id: containerId, reason })
-              logger.warn('删除容器失败', 'main', {
-                containerId: containerId.substring(0, 12),
-                error: errorMsg
-              })
-            }
-          }
-        }
-      } else if (deletePolicy.warning) {
-        // 记录警告信息（如 existing 类型强制保留容器）
-        await this.logOperation(labId, deletePolicy.warning, 'warn')
-        logger.info(deletePolicy.warning, 'main', {
+      // SSH 断开连接
+      const { sshService: sshInstance } = await import('./ssh/SshService')
+      const disconnectResult = await sshInstance.disconnect(labId)
+      if (!disconnectResult.success) {
+        logger.warn('SSH 断开连接失败，继续清理元数据', 'main', {
           labId,
-          creationType: lab.creationType
+          error: disconnectResult.error
         })
       }
 
-      if (failedContainers.length > 0) {
-        this.removeClearedContainersFromLab(lab, clearedContainerIds)
-
-        lab.status = 'error'
-        lab.updatedAt = new Date().toISOString()
-        await this.saveLab(lab)
-
-        logger.warn('部分容器删除失败，保留实验室元数据以便后续处理', 'main', {
-          labId,
-          failedCount: failedContainers.length,
-          reasons: failedContainers.map((f) => f.reason)
-        })
-
-        return {
-          success: false,
-          removedContainers,
-          removedWorkspace: false,
-          keptWorkspace: hasWorkspace,
-          error: failedContainers.map((f) => f.reason).join('; ')
-        }
-      }
-
-      if (shouldDeleteWorkspace && hasWorkspace && volumeName) {
-        const ownedByLab = await dockerService.isVolumeOwnedByLab(volumeName, labId)
-        if (!ownedByLab) {
-          this.removeClearedContainersFromLab(lab, clearedContainerIds)
-
-          lab.status = 'error'
-          lab.updatedAt = new Date().toISOString()
-          await this.saveLab(lab)
-
-          return {
-            success: false,
-            removedContainers,
-            removedWorkspace: false,
-            keptWorkspace: true,
-            error: `工作区 volume 不属于当前实验室: ${volumeName}`
-          }
-        }
-
-        const removeWorkspaceResult = await dockerService.removeVolume(volumeName, { force })
-        if (!removeWorkspaceResult.success) {
-          this.removeClearedContainersFromLab(lab, clearedContainerIds)
-
-          lab.status = 'error'
-          lab.updatedAt = new Date().toISOString()
-          await this.saveLab(lab)
-
-          return {
-            success: false,
-            removedContainers,
-            removedWorkspace: false,
-            keptWorkspace: true,
-            error: removeWorkspaceResult.error || '删除前端工作区失败'
-          }
-        }
-
-        removedWorkspace = true
-        await this.logOperation(labId, `删除工作区: ${volumeName}`, 'info')
-      }
-
-      // 删除实验室元数据目录
+      // 删除实验室目录
       const labPath = getLabInstancePath(labId)
       if (isPathInLabDir(labPath)) {
         try {
@@ -839,275 +475,16 @@ export class LabService {
         }
       }
 
-      // 构建返回结果
-      const keptCount = lab.containerIds.length - clearedContainerIds.size
-      const success = keptCount === 0 || !deletePolicy.shouldDeleteContainers
-
-      logger.info('实验室删除完成', 'main', {
-        labId,
-        creationType: lab.creationType,
-        removedContainers: removedContainers.length,
-        removedWorkspace,
-        keptWorkspace: hasWorkspace && !removedWorkspace,
-        keptContainers: keptCount,
-        failedContainers: 0
-      })
+      await this.logOperation(labId, 'SSH 实验室已删除', 'info')
 
       return {
-        success,
-        removedContainers,
-        removedWorkspace,
-        keptWorkspace: hasWorkspace && !removedWorkspace
+        success: true,
+        removedContainers: [],
+        removedWorkspace: false
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
       logger.error('删除实验室失败', 'main', { error: errorMessage, labId })
-      return { success: false, error: errorMessage }
-    }
-  }
-
-  /**
-   * 检查实验室关联的容器状态
-   */
-  async checkContainerStatus(labId: string): Promise<LabContainerStatus | null> {
-    try {
-      if (!isValidLabId(labId)) {
-        logger.warn('无效的实验室 ID', 'main', { labId })
-        return null
-      }
-
-      const lab = await this.loadLab(labId)
-      if (!lab) {
-        return null
-      }
-
-      // 导入 DockerService
-      const { getDockerService } = await import('./docker/DockerService')
-      const dockerService = getDockerService()
-
-      // 获取所有容器列表。失败时不把临时 Docker 异常误判为容器丢失。
-      let containers: ContainerInfo[]
-      try {
-        containers = await dockerService.listContainers({ state: 'all' })
-      } catch (error) {
-        logger.warn('检查容器状态时获取 Docker 容器列表失败', 'main', {
-          error: error instanceof Error ? error.message : String(error),
-          labId
-        })
-        return null
-      }
-      const containerMap = new Map(containers.map((c) => [c.id, c]))
-
-      const containerStates: Array<{
-        containerId: string
-        exists: boolean
-        state?: ContainerState
-        status: 'running' | 'stopped' | 'not_found'
-      }> = []
-
-      let isOrphan = false
-
-      for (const containerId of lab.containerIds) {
-        const container = containerMap.get(containerId)
-        const exists = !!container
-
-        if (!exists) {
-          isOrphan = true
-        }
-
-        containerStates.push({
-          containerId,
-          exists,
-          state: container?.state,
-          status: container?.state === 'running' ? 'running' : container ? 'stopped' : 'not_found'
-        })
-      }
-
-      const result: LabContainerStatus = {
-        labId,
-        creationType: lab.creationType,
-        containerIds: lab.containerIds,
-        isOrphan,
-        containerStates,
-        checkedAt: new Date().toISOString()
-      }
-
-      // 如果是孤儿实验室，更新元数据
-      if (isOrphan && !lab.isOrphan) {
-        lab.isOrphan = true
-        lab.status = 'error'
-        await this.saveLab(lab)
-        await this.logOperation(labId, '检测到容器丢失，标记为孤儿实验室', 'warn')
-      } else if (!isOrphan && lab.isOrphan) {
-        const hasRunningContainer = containerStates.some((state) => state.status === 'running')
-        lab.isOrphan = false
-        lab.status = hasRunningContainer ? 'running' : 'stopped'
-        await this.saveLab(lab)
-        await this.logOperation(labId, '关联容器已恢复，清除孤儿实验室标记', 'info')
-      }
-
-      return result
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error)
-      logger.error('检查容器状态失败', 'main', { error: errorMessage, labId })
-      return null
-    }
-  }
-
-  /**
-   * 批量检查所有实验室的容器状态
-   */
-  async checkAllLabContainerStatus(): Promise<LabContainerStatus[]> {
-    try {
-      const labs = await this.listLabs()
-      const results: LabContainerStatus[] = []
-
-      for (const lab of labs) {
-        const status = await this.checkContainerStatus(lab.labId)
-        if (status) {
-          results.push(status)
-        }
-      }
-
-      return results
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error)
-      logger.error('批量检查容器状态失败', 'main', { error: errorMessage })
-      return []
-    }
-  }
-
-  /**
-   * 清理孤儿实验室
-   * 删除容器已丢失的实验室元数据
-   */
-  async cleanupOrphanLab(labId: string): Promise<LabResult> {
-    try {
-      if (!isValidLabId(labId)) {
-        return { success: false, error: '无效的实验室 ID' }
-      }
-
-      const lab = await this.loadLab(labId)
-      if (!lab) {
-        return { success: false, error: '实验室不存在' }
-      }
-
-      // 检查是否为孤儿实验室
-      const status = await this.checkContainerStatus(labId)
-      if (!status || !status.isOrphan) {
-        return { success: false, error: '该实验室不是孤儿实验室' }
-      }
-
-      const deleteResult = await this.deleteLab(labId, {
-        deleteContainers: true,
-        deleteWorkspace: false,
-        force: true
-      })
-
-      if (!deleteResult.success) {
-        return {
-          success: false,
-          error: deleteResult.error || '清理孤儿实验室失败'
-        }
-      }
-
-      logger.info('孤儿实验室清理成功', 'main', {
-        labId,
-        keptWorkspace: deleteResult.keptWorkspace
-      })
-
-      return { success: true }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error)
-      logger.error('清理孤儿实验室失败', 'main', { error: errorMessage, labId })
-      return { success: false, error: errorMessage }
-    }
-  }
-
-  private isContainerMissingError(errorMessage?: string): boolean {
-    if (!errorMessage) {
-      return false
-    }
-
-    return (
-      errorMessage.includes('HTTP code 404') ||
-      errorMessage.includes('No such container') ||
-      errorMessage.includes('容器不存在') ||
-      errorMessage.includes('未找到容器详情')
-    )
-  }
-
-  private removeClearedContainersFromLab(
-    lab: LabData,
-    clearedContainerIds: Iterable<string>
-  ): void {
-    const clearedContainerIdSet = new Set(clearedContainerIds)
-    if (clearedContainerIdSet.size === 0) {
-      return
-    }
-
-    lab.containerIds = lab.containerIds.filter(
-      (containerId) => !clearedContainerIdSet.has(containerId)
-    )
-
-    if (lab.primaryContainerId && clearedContainerIdSet.has(lab.primaryContainerId)) {
-      lab.primaryContainerId = lab.containerIds[0]
-    }
-  }
-
-  /**
-   * 恢复孤儿实验室
-   * 将丢失的容器替换为新容器
-   */
-  async recoverOrphanLab(labId: string, newContainerId: string): Promise<LabResult> {
-    try {
-      if (!isValidLabId(labId)) {
-        return { success: false, error: '无效的实验室 ID' }
-      }
-
-      const lab = await this.loadLab(labId)
-      if (!lab) {
-        return { success: false, error: '实验室不存在' }
-      }
-
-      // 导入 DockerService
-      const { getDockerService } = await import('./docker/DockerService')
-      const dockerService = getDockerService()
-
-      // 验证新容器是否存在
-      const containers = await dockerService.listContainers()
-      const newContainer = containers.find((c) => c.id === newContainerId)
-      if (!newContainer) {
-        return { success: false, error: '新容器不存在' }
-      }
-
-      // 更新实验室元数据
-      lab.containerIds = [newContainerId]
-      lab.primaryContainerId = newContainerId
-      lab.isOrphan = false
-      lab.status = newContainer.state === 'running' ? 'running' : 'stopped'
-      lab.updatedAt = new Date().toISOString()
-
-      const saveResult = await this.saveLab(lab)
-      if (!saveResult.success) {
-        return { success: false, error: '保存实验室失败' }
-      }
-
-      await this.logOperation(
-        labId,
-        `孤儿实验室恢复成功，新容器: ${newContainerId.substring(0, 12)}`,
-        'info'
-      )
-
-      logger.info('孤儿实验室恢复成功', 'main', {
-        labId,
-        newContainerId: newContainerId.substring(0, 12)
-      })
-
-      return { success: true }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error)
-      logger.error('恢复孤儿实验室失败', 'main', { error: errorMessage, labId })
       return { success: false, error: errorMessage }
     }
   }
