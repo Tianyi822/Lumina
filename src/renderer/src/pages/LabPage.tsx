@@ -70,7 +70,7 @@ export default function LabPage() {
             isDeleting={deleteConfirmState.isDeleting}
             lab={deleteDialogLab}
             onClose={() => labStore.hideDeleteConfirm()}
-            onConfirm={(_labId) => labStore.confirmDelete()}
+            onConfirm={() => labStore.confirmDelete()}
           />
         </>
       )}

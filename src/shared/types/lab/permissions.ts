@@ -39,6 +39,7 @@ export const LAB_TYPE_PERMISSIONS: Record<LabCreationType, LabPermissionPolicy> 
  * 检查是否为受管实验室类型
  */
 export function isManagedLab(_type: LabCreationType): boolean {
+  void _type
   return false
 }
 
@@ -46,6 +47,7 @@ export function isManagedLab(_type: LabCreationType): boolean {
  * 检查是否为只读实验室类型
  */
 export function isReadOnlyLab(_type: LabCreationType): boolean {
+  void _type
   return true
 }
 

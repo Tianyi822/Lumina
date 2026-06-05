@@ -94,8 +94,8 @@ export interface DeleteDialogOptions {
 export function getDeleteDialogConfig(
   type: LabCreationType,
   _containerCount: number,
-  labName: string,
-  _options: DeleteDialogOptions = {}
+  labName: string
+
 ): DeleteDialogConfig {
   switch (type) {
     case 'ssh':
