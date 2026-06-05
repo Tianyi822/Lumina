@@ -390,6 +390,12 @@ export interface TokenUsage {
   total_tokens: number
   /** 思考过程使用的 Token 数量 */
   reasoning_tokens?: number
+  /** 命中 Prompt Cache 的输入 Token 数量 */
+  cached_prompt_tokens?: number
+  /** 未命中 Prompt Cache 的输入 Token 数量 */
+  uncached_prompt_tokens?: number
+  /** Prompt Cache 命中率，范围 0-1 */
+  prompt_cache_hit_rate?: number
 }
 
 /**
@@ -470,6 +476,9 @@ export interface ChatResult {
     completion_tokens: number
     total_tokens: number
     reasoning_tokens?: number
+    cached_prompt_tokens?: number
+    uncached_prompt_tokens?: number
+    prompt_cache_hit_rate?: number
   }
 }
 
