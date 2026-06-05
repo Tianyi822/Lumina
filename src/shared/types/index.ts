@@ -44,16 +44,9 @@ export * from './paper-web-search'
 // 实验室相关的类型
 export * from './lab/core'
 export * from './lab/container'
-export * from './lab/compose'
-export * from './lab/config'
 export * from './lab/file'
-export * from './lab/frontend'
 export * from './lab/permissions'
-export {
-  type ProjectTemplate,
-  type TemplateFile,
-  type TemplateVariables as LabTemplateVariables
-} from './lab/template'
+export * from './lab/ssh'
 
 // 自动更新相关的类型
 export * from './update'
