@@ -1,80 +1,32 @@
 import { useState, useEffect, useMemo } from 'react'
-import { useContainerStore, useLabStore } from '@renderer/stores'
+import { useLabStore } from '@renderer/stores'
 import { useUIStateStore } from '@renderer/stores/uiStateStore'
-import { useNotification } from '@renderer/composables/useNotification'
-import OrphanLabAlert from './OrphanLabAlert'
 import SshReconnectPrompt from './SshReconnectPrompt'
 import TabNavigation from './lab-detail/TabNavigation'
-import LabDetailEmptyState from './LabDetailEmptyState'
-import LabStatsTab from './LabStatsTab'
+import SshServerMonitorPanel from './SshServerMonitorPanel'
 import LabTerminalTab from './LabTerminalTab'
-import LabLogsTab from './LabLogsTab'
-import { useLabAutoRefresh } from './hooks/useLabAutoRefresh'
-import type { LabData, DockerStatus } from '@renderer/types/lab'
+import type { LabData } from '@renderer/types/lab'
 import styles from './LabMainContent.module.css'
 
 interface LabMainContentProps {
   currentLab: LabData | null
-  dockerStatus?: DockerStatus | null
 }
 
-export default function LabMainContent({ currentLab, dockerStatus }: LabMainContentProps) {
-  const containerStore = useContainerStore()
+export default function LabMainContent({ currentLab }: LabMainContentProps) {
   const labStore = useLabStore()
-  const notify = useNotification()
 
-  const selectedContainer = useContainerStore((s) => s.selectedContainer) || null
-  const containerStats = useContainerStore((s) => s.containerStats) || null
-  const storeLoading = useContainerStore((s) => s.isLoading) || false
   const currentLabId = currentLab?.labId ?? null
   const labDetailTab = useUIStateStore((s) =>
     currentLabId ? (s.labDetailTabsByLabId[currentLabId] ?? 'stats') : 'stats'
   )
-  const setLabDetailTab = useUIStateStore((s) => s.setLabDetailTab)
 
-  const isOrphan = currentLab?.isOrphan || false
-  const isLabFrontend = !!currentLab?.frontend
-  const isSshLab = currentLab?.backendType === 'ssh'
-  const isDockerLab = !!currentLab && !isSshLab
-  const isDockerReady = dockerStatus?.available ?? false
-  const showDockerReadOnlyState = isDockerLab && dockerStatus?.available === false
   const isSshConnected = currentLab?.status === 'running'
-
-  const showFrontendRecoveryBanner = isLabFrontend && currentLab?.status === 'error' && !isOrphan
-
-  const frontendRecoveryMessage = useMemo(() => {
-    const frontend = currentLab?.frontend
-    if (!frontend) return ''
-    return (
-      frontend.bootstrapError || '前端服务尚未恢复，请重试初始化；如果运行容器已损坏，可直接重建。'
-    )
-  }, [currentLab?.frontend])
-
-  const [isStartingContainer, setIsStartingContainer] = useState(false)
-  const [isStoppingContainer, setIsStoppingContainer] = useState(false)
-  const [isRestartingContainer, setIsRestartingContainer] = useState(false)
-  const [isRetryingFrontend, setIsRetryingFrontend] = useState(false)
-  const [isRebuildingFrontend, setIsRebuildingFrontend] = useState(false)
   const [isConnectingSsh, setIsConnectingSsh] = useState(false)
   const [sshReconnectPassword, setSshReconnectPassword] = useState('')
-
-  const autoRefresh = useLabAutoRefresh({
-    currentLab,
-    selectedContainer,
-    labDetailTab,
-    isOrphan,
-    isLabFrontend
-  })
 
   useEffect(() => {
     setSshReconnectPassword('')
   }, [currentLab?.labId])
-
-  useEffect(() => {
-    if (isSshLab && currentLabId && labDetailTab === 'logs') {
-      setLabDetailTab('stats', currentLabId)
-    }
-  }, [isSshLab, currentLabId, labDetailTab, setLabDetailTab])
 
   // 监听 SSH 连接状态
   useEffect(() => {
@@ -88,65 +40,10 @@ export default function LabMainContent({ currentLab, dockerStatus }: LabMainCont
     }
   }, [currentLab?.labId, labStore])
 
-  async function handleContainerStart(): Promise<void> {
-    if (!isDockerReady) return
-    setIsStartingContainer(true)
-    try {
-      if (selectedContainer?.id) await containerStore.startContainer(selectedContainer.id)
-    } finally {
-      setIsStartingContainer(false)
-    }
-  }
-
-  async function handleContainerStop(): Promise<void> {
-    if (!isDockerReady) return
-    setIsStoppingContainer(true)
-    try {
-      if (selectedContainer?.id) await containerStore.stopContainer(selectedContainer.id)
-    } finally {
-      setIsStoppingContainer(false)
-    }
-  }
-
-  async function handleContainerRestart(): Promise<void> {
-    if (!isDockerReady) return
-    setIsRestartingContainer(true)
-    try {
-      if (selectedContainer?.id) await containerStore.restartContainer(selectedContainer.id)
-    } finally {
-      setIsRestartingContainer(false)
-    }
-  }
-
-  async function handleRetryFrontend(): Promise<void> {
-    if (!currentLab?.labId || isRetryingFrontend) return
-    setIsRetryingFrontend(true)
-    try {
-      await labStore.retryFrontendInitialization(currentLab.labId)
-    } finally {
-      setIsRetryingFrontend(false)
-    }
-  }
-
-  async function handleRebuildFrontend(): Promise<void> {
-    if (!currentLab?.labId || isRebuildingFrontend) return
-    setIsRebuildingFrontend(true)
-    try {
-      await labStore.rebuildFrontendRuntime(currentLab.labId)
-    } finally {
-      setIsRebuildingFrontend(false)
-    }
-  }
-
   async function handleSshConnect(): Promise<void> {
     const labId = currentLab?.labId
     const ssh = currentLab?.ssh
     if (!labId || !ssh) return
-
-    if (ssh.authType === 'password' && !sshReconnectPassword.trim()) {
-      notify.warning('请输入 SSH 密码', '密码认证的连接需要重新输入密码后再连接', { source: 'lab' })
-      return
-    }
 
     setIsConnectingSsh(true)
     try {
@@ -167,19 +64,8 @@ export default function LabMainContent({ currentLab, dockerStatus }: LabMainCont
     }
   }
 
-  async function handleCleanupOrphan(labId: string): Promise<void> {
-    await labStore.handleDeleteLab(labId)
-  }
-
-  function handleDeleteLab(): void {
-    if (currentLab) labStore.handleDeleteLab(currentLab.labId)
-  }
-
   function formatDateTime(value?: string): string {
-    if (!value) {
-      return '-'
-    }
-
+    if (!value) return '-'
     return new Date(value).toLocaleString('zh-CN', {
       month: '2-digit',
       day: '2-digit',
@@ -188,21 +74,15 @@ export default function LabMainContent({ currentLab, dockerStatus }: LabMainCont
     })
   }
 
-  async function handleRefreshStats(): Promise<void> {
-    await autoRefresh.handleRefreshStats()
-  }
-
   const hasLab = !!currentLab
-  const showSshReconnectOnly = isSshLab && hasLab && !isSshConnected
-  const isTabbedDetailVisible = hasLab && !showSshReconnectOnly && !showDockerReadOnlyState
+  const showSshReconnectOnly = hasLab && !isSshConnected
+  const isTabbedDetailVisible = hasLab && !showSshReconnectOnly
   const labCreationTypeLabel = useMemo(() => {
+    if (!currentLab) return ''
     const labelMap: Record<string, string> = {
-      existing: '已有容器',
-      compose: 'Docker Compose',
-      dockerfile: 'Dockerfile',
       ssh: 'SSH 远程服务器'
     }
-    return currentLab ? labelMap[currentLab.creationType] || '' : ''
+    return labelMap[currentLab.creationType] || ''
   }, [currentLab])
   const contentBodyClassName = [
     styles['content-body'],
@@ -216,12 +96,8 @@ export default function LabMainContent({ currentLab, dockerStatus }: LabMainCont
       {!hasLab ? (
         <div className={styles['lab-empty-state']}>
           <div className={`sm-empty ${styles['lab-empty-card']}`}>
-            <h2>{isDockerReady ? '选择一个实验室开始' : '通过 SSH 连接远程服务器'}</h2>
-            <p>
-              {isDockerReady
-                ? '从左侧接管现有环境，或创建一个实验室以进入容器监控、终端和日志工作流。'
-                : '从左侧发起 SSH 连接，填写远程主机信息后进入终端和监控工作流。'}
-            </p>
+            <h2>通过 SSH 连接远程服务器</h2>
+            <p>从左侧发起 SSH 连接，填写远程主机信息后进入终端和监控工作流。</p>
           </div>
         </div>
       ) : (
@@ -233,30 +109,20 @@ export default function LabMainContent({ currentLab, dockerStatus }: LabMainCont
                   <h1>{currentLab.name}</h1>
                   <div className={styles['workspace-header__badges']}>
                     <span className="sm-badge">{labCreationTypeLabel}</span>
-                    {!isSshLab && (
-                      <span className="sm-badge">
-                        {currentLab.containerIds?.length || 0} 个容器
-                      </span>
-                    )}
-                    {isSshLab && currentLab.ssh?.authType && (
+                    {currentLab.ssh?.authType && (
                       <span className="sm-badge">
                         {currentLab.ssh.authType === 'password' ? '密码认证' : '密钥认证'}
                       </span>
                     )}
                     <span className={`sm-badge ${styles[`status-${currentLab.status}`]}`}>
-                      {isSshLab
-                        ? {
-                            creating: '连接中',
-                            running: '已连接',
-                            stopped: '未连接',
-                            error: '连接失败'
-                          }[currentLab.status]
-                        : {
-                            creating: '创建中',
-                            running: '运行中',
-                            stopped: '已停止',
-                            error: '异常'
-                          }[currentLab.status]}
+                      {
+                        {
+                          creating: '连接中',
+                          running: '已连接',
+                          stopped: '未连接',
+                          error: '连接失败'
+                        }[currentLab.status]
+                      }
                     </span>
                   </div>
                 </div>
@@ -278,83 +144,21 @@ export default function LabMainContent({ currentLab, dockerStatus }: LabMainCont
                   onConnect={handleSshConnect}
                 />
               ) : (
-                !showDockerReadOnlyState && (
-                  <TabNavigation visible={hasLab} showLogs={!isSshLab} labId={currentLabId} />
-                )
+                <TabNavigation visible={hasLab} showLogs={false} labId={currentLabId} />
               )}
             </div>
           </header>
 
           <div className={contentBodyClassName}>
-            {showDockerReadOnlyState ? (
-              <div className={styles['tab-content']}>
-                <LabDetailEmptyState
-                  title="实验室记录已保留"
-                  message="当前仅展示这个实验室的历史信息，不提供本地运行环境操作。远程 SSH 实验室仍可正常连接和使用。"
-                />
-              </div>
-            ) : showSshReconnectOnly ? null : (
+            {showSshReconnectOnly ? null : (
               <>
-                <OrphanLabAlert
-                  visible={isOrphan}
-                  lab={currentLab}
-                  isReloading={isRebuildingFrontend}
-                  canRecover={isLabFrontend}
-                  recoverLabel={isLabFrontend ? '重建运行容器' : '重新关联容器'}
-                  onRecover={handleRebuildFrontend}
-                  onCleanup={handleCleanupOrphan}
-                />
-
-                {showFrontendRecoveryBanner && (
-                  <div className={styles['frontend-recovery-banner']}>
-                    <div className={styles['frontend-recovery-copy']}>
-                      <span className={styles['frontend-recovery-copy__eyebrow']}>恢复提示</span>
-                      <h3>前端服务未就绪</h3>
-                      <p>{frontendRecoveryMessage}</p>
-                    </div>
-                    <div className={styles['frontend-recovery-actions']}>
-                      <button
-                        className="sm-button sm-button--secondary"
-                        disabled={isRetryingFrontend || isRebuildingFrontend}
-                        onClick={handleRetryFrontend}
-                      >
-                        {isRetryingFrontend ? '重试中...' : '重试初始化'}
-                      </button>
-                      <button
-                        className="sm-button sm-button--primary"
-                        disabled={isRetryingFrontend || isRebuildingFrontend}
-                        onClick={handleRebuildFrontend}
-                      >
-                        {isRebuildingFrontend ? '重建中...' : '重建运行容器'}
-                      </button>
-                    </div>
-                  </div>
-                )}
-
                 <div
                   className={`${styles['tab-content']} ${labDetailTab === 'stats' ? styles['tab-content--active'] : ''}`}
                 >
-                  <LabStatsTab
-                    isSshLab={isSshLab}
-                    isDockerReady={isDockerReady}
-                    isStatsTabActive={labDetailTab === 'stats'}
-                    currentLab={currentLab}
-                    selectedContainer={selectedContainer}
-                    containerStats={containerStats}
-                    storeLoading={storeLoading}
-                    isManualRefreshingStats={autoRefresh.isManualRefreshingStats}
-                    startingContainer={isStartingContainer}
-                    stoppingContainer={isStoppingContainer}
-                    restartingContainer={isRestartingContainer}
-                    creationType={currentLab.creationType}
-                    labName={currentLab.name}
-                    onStart={handleContainerStart}
-                    onStop={handleContainerStop}
-                    onRestart={handleContainerRestart}
-                    onRemove={handleDeleteLab}
-                    onOpenTerminal={() => currentLabId && setLabDetailTab('terminal', currentLabId)}
-                    onViewLogs={() => currentLabId && setLabDetailTab('logs', currentLabId)}
-                    onRefreshStats={() => void handleRefreshStats()}
+                  <SshServerMonitorPanel
+                    labId={currentLabId!}
+                    connected={isSshConnected}
+                    active={labDetailTab === 'stats'}
                   />
                 </div>
 
@@ -362,25 +166,12 @@ export default function LabMainContent({ currentLab, dockerStatus }: LabMainCont
                   className={`${styles['tab-content']} ${labDetailTab === 'terminal' ? styles['tab-content--active'] : ''}`}
                 >
                   <LabTerminalTab
-                    isSshLab={isSshLab}
-                    isDockerReady={isDockerReady}
+                    isSshLab={true}
                     currentLab={currentLab}
-                    selectedContainer={selectedContainer}
                     isSshConnected={isSshConnected}
                     labDetailTab={labDetailTab as string}
                   />
                 </div>
-
-                {!isSshLab && (
-                  <div
-                    className={`${styles['tab-content']} ${labDetailTab === 'logs' ? styles['tab-content--active'] : ''}`}
-                  >
-                    <LabLogsTab
-                      isDockerReady={isDockerReady}
-                      selectedContainerId={selectedContainer?.id}
-                    />
-                  </div>
-                )}
               </>
             )}
           </div>

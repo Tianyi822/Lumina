@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import type { LabCreationType, LabData, CreateLabRequest, CreateLabResult } from '@renderer/types/lab'
-import { notifySuccess, notifyError } from '@renderer/composables/notificationCore'
+import { notifyError } from '@renderer/composables/notificationCore'
 import { labApi } from '@renderer/services/labApi'
 import { useLabListStore } from './labListStore'
 import { useLabOperationStore } from './labOperationStore'

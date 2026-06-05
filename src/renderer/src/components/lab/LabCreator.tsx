@@ -1,44 +1,22 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import {
-  useContainerStore,
-  useLabCreatorStore,
-  useComposeConfigStore,
-  useDockerfileConfigStore,
-  useDockerConfigStore,
-  usePortMappingStore
-} from '@renderer/stores'
+import { useLabCreatorStore } from '@renderer/stores'
 import { useNotification } from '@renderer/composables/useNotification'
 import { CssTransition } from '@renderer/components/motion/CssTransition'
 import ModalPortal from '@renderer/components/ui/ModalPortal'
 import { useContentHeightAnimation } from './hooks/useContentHeightAnimation'
-import ContainerSelector from './ContainerSelector'
-import ComposeEditor from './ComposeEditor'
-import DockerfileEditor from './DockerfileEditor'
-import SaveConfigDialog from './SaveConfigDialog'
-import CreateTypeSelector from './creator/CreateTypeSelector'
-import CreateActions from './creator/CreateActions'
-import PortMappingSection from './creator/PortMappingSection'
-import type { DockerStatus } from '@renderer/types/lab'
-import './creator/lab-creator.css'
 import styles from './LabCreator.module.css'
-
-const DOCKER_CREATE_TYPES = new Set(['compose', 'dockerfile', 'existing'])
 
 interface LabCreatorProps {
   visible: boolean
-  dockerStatus?: DockerStatus | null
   onClose: () => void
 }
 
-export default function LabCreator({ visible, dockerStatus, onClose }: LabCreatorProps) {
+export default function LabCreator({ visible, onClose }: LabCreatorProps) {
   const creatorStore = useLabCreatorStore()
-  const composeConfigStore = useComposeConfigStore()
-  const dockerfileConfigStore = useDockerfileConfigStore()
   const notify = useNotification()
 
   const [isTestingSsh, setIsTestingSsh] = useState(false)
   const wasVisibleRef = useRef(false)
-  const dockerReady = dockerStatus?.available !== false
 
   const {
     creatorRef,
@@ -50,10 +28,6 @@ export default function LabCreator({ visible, dockerStatus, onClose }: LabCreato
     requestHeightTransition
   } = useContentHeightAnimation(visible)
 
-  const clearCreateError = (): void => {
-    creatorStore.clearCreateError()
-  }
-
   useEffect(() => {
     if (!visible) {
       wasVisibleRef.current = false
@@ -64,45 +38,10 @@ export default function LabCreator({ visible, dockerStatus, onClose }: LabCreato
     wasVisibleRef.current = true
 
     const creatorState = useLabCreatorStore.getState()
-    const initialCreateType = dockerReady ? 'compose' : 'ssh'
-
-    creatorState.setCreateType(initialCreateType)
-    creatorState.setComposeContent(creatorState.getComposeTemplate('mixed'))
-    creatorState.setDockerfileContent(
-      `FROM node:18-alpine\n\nWORKDIR /app\n\nCOPY package*.json ./\nRUN npm install\n\nCOPY . .\n\nEXPOSE 3000\n\nCMD ["npm", "start"]\n`
-    )
-    creatorState.setDockerfileContext('')
-    creatorState.setComposeProjectName('')
-    creatorState.setDockerfileProjectName('')
-    creatorState.setSelectedComposeId(null)
-    creatorState.setSelectedDockerfileId(null)
+    creatorState.setCreateType('ssh')
     creatorState.resetSshConfig()
     creatorState.clearCreateError()
-
-    if (dockerReady) {
-      const containerState = useContainerStore.getState()
-      const configState = useDockerConfigStore.getState()
-      void Promise.all([
-        containerState.loadContainers(),
-        configState.loadDockerfileConfigs(),
-        configState.loadComposeConfigs()
-      ])
-    }
-  }, [dockerReady, visible])
-
-  useEffect(() => {
-    if (!visible || dockerReady) return
-
-    const creatorState = useLabCreatorStore.getState()
-    if (DOCKER_CREATE_TYPES.has(creatorState.createType)) {
-      creatorState.setCreateType('ssh')
-    }
-  }, [dockerReady, visible])
-
-  async function handleSaveConfig(name: string): Promise<void> {
-    useLabCreatorStore.setState({ saveConfigName: name.trim() })
-    await creatorStore.handleSaveConfig()
-  }
+  }, [visible])
 
   async function testSshConnection(): Promise<void> {
     const ssh = creatorStore.sshConfig
@@ -132,48 +71,17 @@ export default function LabCreator({ visible, dockerStatus, onClose }: LabCreato
     }
   }
 
-  // 从各 store 获取响应式数据
-  const createType = creatorStore.createType || 'compose'
-  const showSaveDialog = creatorStore.showSaveDialog || false
-  const isCreating = creatorStore.isCreating || false
   const createError = creatorStore.createError || ''
+  const isCreating = creatorStore.isCreating || false
   const createPhaseText = creatorStore.getCreatePhaseText() || ''
   const createProgress = creatorStore.getCreateProgress()
-  const containerSelectHint = creatorStore.getContainerSelectHint()
   const canCreate = creatorStore.getCanCreate()
-  const composeContent = composeConfigStore.composeContent || ''
-  const composeProjectName = composeConfigStore.composeProjectName || ''
-  const dockerfileContent = dockerfileConfigStore.dockerfileContent || ''
-  const dockerfileContext = dockerfileConfigStore.dockerfileContext || ''
-  const dockerfileProjectName = dockerfileConfigStore.dockerfileProjectName || ''
-  const portMappings = usePortMappingStore((s) => s.portMappings)
   const sshConfig = creatorStore.sshConfig
-
-  const renderPortMappingSection = (type: 'compose' | 'dockerfile') => (
-    <PortMappingSection
-      createType={type}
-      portMappings={portMappings}
-      onRefresh={() => creatorStore.refreshPorts()}
-      onAdd={() => creatorStore.addPortMapping()}
-      onUpdate={(i, p) => creatorStore.updatePortMapping(i, p)}
-      onRemove={(i) => creatorStore.removePortMapping(i)}
-    />
-  )
 
   useLayoutEffect(() => {
     if (!visible || !isContentMeasured) return
     requestHeightTransition()
-  }, [
-    containerSelectHint,
-    createError,
-    createType,
-    isContentMeasured,
-    isCreating,
-    portMappings.length,
-    sshConfig?.authType,
-    requestHeightTransition,
-    visible
-  ])
+  }, [createError, isContentMeasured, isCreating, sshConfig?.authType, requestHeightTransition, visible])
 
   return (
     <CssTransition name="sm-modal" show={visible} appear>
@@ -188,21 +96,11 @@ export default function LabCreator({ visible, dockerStatus, onClose }: LabCreato
             onClick={(e) => e.stopPropagation()}
           >
             <div className="creator-header">
-              <h2>{dockerReady ? '创建实验室' : 'SSH 连接'}</h2>
+              <h2>SSH 连接</h2>
               <button className="close-btn" onClick={onClose}>
                 ×
               </button>
             </div>
-
-            {dockerReady && (
-              <CreateTypeSelector
-                createType={createType}
-                dockerReady={dockerReady}
-                onChange={(t) => {
-                  creatorStore.setCreateType(t)
-                }}
-              />
-            )}
 
             <div
               ref={contentShellRef}
@@ -217,10 +115,6 @@ export default function LabCreator({ visible, dockerStatus, onClose }: LabCreato
                   .filter(Boolean)
                   .join(' ')}
               >
-                {createType === 'existing' && <ContainerSelector />}
-
-                {containerSelectHint && <div className="container-hint">{containerSelectHint}</div>}
-
                 {isCreating && (
                   <div className="create-progress">
                     <div className="progress-header">
@@ -238,7 +132,10 @@ export default function LabCreator({ visible, dockerStatus, onClose }: LabCreato
                     <div className="error-header">
                       <span className="error-icon">⚠</span>
                       <span className="error-title">创建失败</span>
-                      <button className="error-close" onClick={clearCreateError}>
+                      <button
+                        className="error-close"
+                        onClick={() => creatorStore.clearCreateError()}
+                      >
                         ×
                       </button>
                     </div>
@@ -246,221 +143,167 @@ export default function LabCreator({ visible, dockerStatus, onClose }: LabCreato
                   </div>
                 )}
 
-                {createType === 'compose' && (
-                  <ComposeEditor
-                    modelValue={composeContent}
-                    projectName={composeProjectName}
-                    onUpdateModelValue={(v) => {
-                      creatorStore.setComposeContent(v)
-                    }}
-                    onUpdateProjectName={(v) => {
-                      creatorStore.setComposeProjectName(v)
-                    }}
-                    onSaveConfig={() => {
-                      creatorStore.openSaveDialog('compose')
-                    }}
-                  />
-                )}
-
-                {createType === 'dockerfile' && (
-                  <>
-                    <div className="project-name-section">
-                      <label className="form-label">
-                        实验室名称 <span className="required">*</span>
-                      </label>
-                      <input
-                        value={dockerfileProjectName}
-                        type="text"
-                        className="form-input"
-                        placeholder="请输入实验室名称"
-                        onChange={(e) => {
-                          creatorStore.setDockerfileProjectName(e.target.value)
-                        }}
-                      />
-                    </div>
-                    <DockerfileEditor
-                      modelValue={dockerfileContent}
-                      context={dockerfileContext}
-                      onUpdateModelValue={(v) => {
-                        creatorStore.setDockerfileContent(v)
-                      }}
-                      onUpdateContext={(v) => {
-                        creatorStore.setDockerfileContext(v)
-                      }}
-                      onSaveConfig={() => {
-                        creatorStore.openSaveDialog('dockerfile')
-                      }}
+                <div className={`${styles['ssh-form']} creator-section`}>
+                  <div className={styles['ssh-form__field']}>
+                    <label className="form-label">
+                      主机地址 <span className="required">*</span>
+                    </label>
+                    <input
+                      value={sshConfig?.host || ''}
+                      type="text"
+                      className="form-input"
+                      placeholder="192.168.1.100"
+                      onChange={(e) => creatorStore.updateSshConfig({ host: e.target.value })}
                     />
-                  </>
-                )}
-
-                {createType === 'ssh' && (
-                  <div className={`${styles['ssh-form']} creator-section`}>
-                    <div className={styles['ssh-form__field']}>
-                      <label className="form-label">
-                        主机地址 <span className="required">*</span>
-                      </label>
+                  </div>
+                  <div
+                    className={`${styles['ssh-form__field']} ${styles['ssh-form__field--inline']}`}
+                  >
+                    <div className={styles['ssh-form__field-half']}>
+                      <label className="form-label">端口</label>
                       <input
-                        value={sshConfig?.host || ''}
-                        type="text"
+                        value={sshConfig?.port || 22}
+                        type="number"
                         className="form-input"
-                        placeholder="192.168.1.100"
-                        onChange={(e) => creatorStore.updateSshConfig({ host: e.target.value })}
+                        placeholder="22"
+                        onChange={(e) =>
+                          creatorStore.updateSshConfig({ port: Number(e.target.value) })
+                        }
                       />
                     </div>
+                    <div className={styles['ssh-form__field-half']}>
+                      <label className="form-label">
+                        用户名 <span className="required">*</span>
+                      </label>
+                      <input
+                        value={sshConfig?.username || ''}
+                        type="text"
+                        className="form-input"
+                        placeholder="root"
+                        onChange={(e) =>
+                          creatorStore.updateSshConfig({ username: e.target.value })
+                        }
+                      />
+                    </div>
+                  </div>
+                  <div className={styles['ssh-form__field']}>
+                    <label className="form-label" id="ssh-auth-type-label">
+                      认证方式
+                    </label>
                     <div
-                      className={`${styles['ssh-form__field']} ${styles['ssh-form__field--inline']}`}
+                      className={styles['ssh-form__toggle']}
+                      role="radiogroup"
+                      aria-labelledby="ssh-auth-type-label"
                     >
-                      <div className={styles['ssh-form__field-half']}>
-                        <label className="form-label">端口</label>
-                        <input
-                          value={sshConfig?.port || 22}
-                          type="number"
-                          className="form-input"
-                          placeholder="22"
-                          onChange={(e) =>
-                            creatorStore.updateSshConfig({ port: Number(e.target.value) })
-                          }
-                        />
-                      </div>
-                      <div className={styles['ssh-form__field-half']}>
+                      <button
+                        type="button"
+                        role="radio"
+                        aria-checked={sshConfig?.authType === 'password'}
+                        className={[
+                          styles['ssh-form__toggle-btn'],
+                          sshConfig?.authType === 'password' && styles['ssh-form__toggle-btn--active']
+                        ]
+                          .filter(Boolean)
+                          .join(' ')}
+                        onClick={() => creatorStore.updateSshConfig({ authType: 'password' })}
+                      >
+                        密码
+                      </button>
+                      <button
+                        type="button"
+                        role="radio"
+                        aria-checked={sshConfig?.authType === 'key'}
+                        className={[
+                          styles['ssh-form__toggle-btn'],
+                          sshConfig?.authType === 'key' && styles['ssh-form__toggle-btn--active']
+                        ]
+                          .filter(Boolean)
+                          .join(' ')}
+                        onClick={() => creatorStore.updateSshConfig({ authType: 'key' })}
+                      >
+                        密钥
+                      </button>
+                    </div>
+                  </div>
+
+                  {sshConfig?.authType === 'password' ? (
+                    <div className={styles['ssh-form__field']}>
+                      <label className="form-label">密码</label>
+                      <input
+                        value={sshConfig?.password || ''}
+                        type="password"
+                        className="form-input"
+                        placeholder="输入 SSH 密码"
+                        onChange={(e) =>
+                          creatorStore.updateSshConfig({ password: e.target.value })
+                        }
+                      />
+                    </div>
+                  ) : (
+                    <>
+                      <div className={styles['ssh-form__field']}>
                         <label className="form-label">
-                          用户名 <span className="required">*</span>
+                          密钥名称 <span className="required">*</span>
                         </label>
                         <input
-                          value={sshConfig?.username || ''}
+                          value={sshConfig?.keyName || ''}
                           type="text"
                           className="form-input"
-                          placeholder="root"
+                          placeholder="my-key"
                           onChange={(e) =>
-                            creatorStore.updateSshConfig({ username: e.target.value })
+                            creatorStore.updateSshConfig({ keyName: e.target.value })
                           }
                         />
                       </div>
-                    </div>
-                    <div className={styles['ssh-form__field']}>
-                      <label className="form-label" id="ssh-auth-type-label">
-                        认证方式
-                      </label>
-                      <div
-                        className={styles['ssh-form__toggle']}
-                        role="radiogroup"
-                        aria-labelledby="ssh-auth-type-label"
-                      >
-                        <button
-                          type="button"
-                          role="radio"
-                          aria-checked={sshConfig?.authType === 'password'}
-                          className={[
-                            styles['ssh-form__toggle-btn'],
-                            sshConfig?.authType === 'password' && styles['ssh-form__toggle-btn--active']
-                          ]
-                            .filter(Boolean)
-                            .join(' ')}
-                          onClick={() => creatorStore.updateSshConfig({ authType: 'password' })}
-                        >
-                          密码
-                        </button>
-                        <button
-                          type="button"
-                          role="radio"
-                          aria-checked={sshConfig?.authType === 'key'}
-                          className={[
-                            styles['ssh-form__toggle-btn'],
-                            sshConfig?.authType === 'key' && styles['ssh-form__toggle-btn--active']
-                          ]
-                            .filter(Boolean)
-                            .join(' ')}
-                          onClick={() => creatorStore.updateSshConfig({ authType: 'key' })}
-                        >
-                          密钥
-                        </button>
-                      </div>
-                    </div>
-
-                    {sshConfig?.authType === 'password' ? (
                       <div className={styles['ssh-form__field']}>
-                        <label className="form-label">密码</label>
-                        <input
-                          value={sshConfig?.password || ''}
-                          type="password"
-                          className="form-input"
-                          placeholder="输入 SSH 密码"
-                          onChange={(e) =>
-                            creatorStore.updateSshConfig({ password: e.target.value })
+                        <label className="form-label">
+                          密钥内容 <span className="required">*</span>
+                        </label>
+                        <textarea
+                          value={sshConfig?.keyContent || ''}
+                          className={`form-input ${styles['ssh-form__key-textarea']}`}
+                          placeholder={
+                            '-----BEGIN OPENSSH PRIVATE KEY-----\n...\n-----END OPENSSH PRIVATE KEY-----'
                           }
-                        />
+                          rows={6}
+                          onChange={(e) =>
+                            creatorStore.updateSshConfig({ keyContent: e.target.value })
+                          }
+                        ></textarea>
                       </div>
-                    ) : (
-                      <>
-                        <div className={styles['ssh-form__field']}>
-                          <label className="form-label">
-                            密钥名称 <span className="required">*</span>
-                          </label>
-                          <input
-                            value={sshConfig?.keyName || ''}
-                            type="text"
-                            className="form-input"
-                            placeholder="my-key"
-                            onChange={(e) =>
-                              creatorStore.updateSshConfig({ keyName: e.target.value })
-                            }
-                          />
-                        </div>
-                        <div className={styles['ssh-form__field']}>
-                          <label className="form-label">
-                            密钥内容 <span className="required">*</span>
-                          </label>
-                          <textarea
-                            value={sshConfig?.keyContent || ''}
-                            className={`form-input ${styles['ssh-form__key-textarea']}`}
-                            placeholder={
-                              '-----BEGIN OPENSSH PRIVATE KEY-----\n...\n-----END OPENSSH PRIVATE KEY-----'
-                            }
-                            rows={6}
-                            onChange={(e) =>
-                              creatorStore.updateSshConfig({ keyContent: e.target.value })
-                            }
-                          ></textarea>
-                        </div>
-                      </>
-                    )}
-                    <button
-                      className={[
-                        'sm-button',
-                        'sm-button--secondary',
-                        styles['ssh-form__test-btn']
-                      ].join(' ')}
-                      disabled={isTestingSsh}
-                      onClick={testSshConnection}
-                    >
-                      {isTestingSsh ? '测试连接中...' : '测试连接'}
-                    </button>
-                  </div>
-                )}
+                    </>
+                  )}
+                  <button
+                    className={[
+                      'sm-button',
+                      'sm-button--secondary',
+                      styles['ssh-form__test-btn']
+                    ].join(' ')}
+                    disabled={isTestingSsh}
+                    onClick={testSshConnection}
+                  >
+                    {isTestingSsh ? '测试连接中...' : '测试连接'}
+                  </button>
+                </div>
               </div>
             </div>
-            {(createType === 'compose' || createType === 'dockerfile') &&
-              renderPortMappingSection(createType)}
 
-            <CreateActions
-              createType={createType}
-              isCreating={isCreating}
-              canCreate={canCreate}
-              createPhaseText={createPhaseText}
-              onClose={onClose}
-              onCreate={() => {
-                void creatorStore.handleCreate()
-              }}
-            />
-
-            <SaveConfigDialog
-              visible={showSaveDialog}
-              onClose={() => {
-                creatorStore.closeSaveDialog()
-              }}
-              onSave={handleSaveConfig}
-            />
+            <div className="creator-actions">
+              <button
+                className="sm-button sm-button--secondary"
+                onClick={onClose}
+                disabled={isCreating}
+              >
+                取消
+              </button>
+              <button
+                className="sm-button sm-button--primary"
+                disabled={!canCreate || isCreating}
+                onClick={() => void creatorStore.handleCreate()}
+              >
+                {isCreating ? createPhaseText || '创建中...' : '创建连接'}
+              </button>
+            </div>
           </div>
         </ModalPortal>
       )}

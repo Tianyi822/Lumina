@@ -1,5 +1,4 @@
 import { create } from 'zustand'
-import type { CreateLabRequest, CreateLabResult } from '@renderer/types/lab'
 import { notifySuccess, notifyError } from '@renderer/composables/notificationCore'
 import { useLabStore } from './labStore'
 import { useUIStateStore, type LabDetailTab } from '../uiStateStore'
