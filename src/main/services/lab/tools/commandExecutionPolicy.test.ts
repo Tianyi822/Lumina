@@ -1,11 +1,9 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import type { LabData } from '@shared/types/lab'
 import { getCommandExecutionPolicy } from './commandExecutionPolicy'
 import {
   formatExecCommandToolResult,
-  resolveProjectRootForWrite,
-  selectReusableFrontendLab
+  resolveProjectRootForWrite
 } from './toolHelpers'
 
 test('实验室沙箱命令策略允许容器内命令直接执行', () => {
@@ -53,95 +51,11 @@ test('lab__exec_command 非零退出码保留结构化输出且不视为工具�
   assert.match(payload.stderr, /No such file or directory/)
 })
 
-test('前端实验室写文件默认复用自身项目根目录', () => {
-  const projectRoot = resolveProjectRootForWrite({
-    backendType: 'docker',
-    frontend: {
-      framework: 'react',
-      storageType: 'docker-volume',
-      volumeName: 'lab-volume',
-      mountPath: '/workspace',
-      projectRoot: '/workspace',
-      packageManager: 'bun',
-      runtime: 'bun',
-      builder: 'bun',
-      bootstrapStatus: 'runtime-ready',
-      workspaceInitialized: true,
-      dependenciesInstalled: true,
-      buildValidated: false,
-      containerPort: 5173,
-      hostPort: 35173,
-      previewUrl: 'http://127.0.0.1:35173'
-    }
-  })
-
-  assert.equal(projectRoot, '/workspace')
+// SSH 后端 resolveProjectRootForWrite 仅返回显式传入的路径
+test('SSH 后端 resolveProjectRootForWrite 返回显式传入的 projectRoot', () => {
   assert.equal(
-    resolveProjectRootForWrite({ frontend: undefined, backendType: 'docker' }, '/app'),
+    resolveProjectRootForWrite({ backendType: 'ssh' }, '/app'),
     '/app'
   )
-})
-
-test('同名同框架前端实验室默认选择最新可复用实例', () => {
-  const baseLab = {
-    name: 'Tianyi-Blog',
-    status: 'running',
-    createdAt: '2026-05-04T16:05:07.906Z',
-    updatedAt: '2026-05-04T16:05:27.316Z',
-    creationType: 'dockerfile',
-    containerIds: ['container-1'],
-    isOrphan: false,
-    primaryContainerId: 'container-1',
-    backendType: 'docker'
-  } satisfies Omit<LabData, 'labId' | 'frontend'>
-
-  const labs = [
-    {
-      ...baseLab,
-      labId: 'lab-new',
-      frontend: {
-        framework: 'react',
-        storageType: 'docker-volume',
-        volumeName: 'volume-new',
-        mountPath: '/workspace',
-        projectRoot: '/workspace',
-        packageManager: 'bun',
-        runtime: 'bun',
-        builder: 'bun',
-        bootstrapStatus: 'runtime-ready',
-        workspaceInitialized: true,
-        dependenciesInstalled: true,
-        buildValidated: false,
-        containerPort: 5173,
-        hostPort: 35174,
-        previewUrl: 'http://127.0.0.1:35174'
-      }
-    },
-    {
-      ...baseLab,
-      labId: 'lab-vanilla',
-      frontend: {
-        framework: 'vanilla',
-        storageType: 'docker-volume',
-        volumeName: 'volume-vanilla',
-        mountPath: '/workspace',
-        projectRoot: '/workspace',
-        packageManager: 'bun',
-        runtime: 'bun',
-        builder: 'bun',
-        bootstrapStatus: 'runtime-ready',
-        workspaceInitialized: true,
-        dependenciesInstalled: true,
-        buildValidated: false,
-        containerPort: 5173,
-        hostPort: 35175,
-        previewUrl: 'http://127.0.0.1:35175'
-      }
-    }
-  ] satisfies LabData[]
-
-  const match = selectReusableFrontendLab(labs, 'Tianyi-Blog', 'react')
-
-  assert.equal(match?.labId, 'lab-new')
-  assert.equal(selectReusableFrontendLab(labs, 'Other-Blog', 'vanilla'), null)
+  assert.equal(resolveProjectRootForWrite({ backendType: 'ssh' }), undefined)
 })
