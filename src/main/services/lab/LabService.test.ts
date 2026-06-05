@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { existsSync, rmSync } from 'node:fs'
 import { LabService } from './LabService'
 import { getLabDirPath } from './labPaths'
-import type { LabData } from '@shared/types/lab'
+import type { LabData, LabBackendType, LabCreationType } from '@shared/types/lab'
 
 function createSshLab(overrides: Partial<LabData> = {}): LabData {
   return {
@@ -56,7 +56,7 @@ test('LabService.loadLab 修正旧数据中的非 ssh 类型为 ssh', async (t) 
   t.after(() => resetLabDir())
 
   const service = new LabService()
-  const lab = createSshLab({ backendType: 'docker' as any, creationType: 'existing' as any })
+  const lab = createSshLab({ backendType: 'docker' as LabBackendType, creationType: 'existing' as LabCreationType })
   await service.saveLab(lab, { silent: true })
 
   const loaded = await service.loadLab(lab.labId, { silent: true })
