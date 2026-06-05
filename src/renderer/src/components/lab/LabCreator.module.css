@@ -111,15 +111,11 @@
 }
 
 .auth-toggle-btn-active {
-  border-color: var(--sm-color-border-accent);
-  background:
-    linear-gradient(180deg, var(--sm-color-accent-14), var(--sm-color-accent-08)),
-    var(--sm-color-surface-3);
+  border-color: transparent;
+  background: var(--sm-color-surface-3);
   color: var(--sm-color-text-selected);
   font-weight: 600;
-  box-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.08),
-    inset 0 0 0 1px var(--sm-color-accent-18);
+  box-shadow: var(--sm-shadow-sm);
 }
 
 .auth-toggle-btn:focus-visible {
