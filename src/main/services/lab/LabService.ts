@@ -259,9 +259,7 @@ export class LabService {
               status: resolvedLab.status,
               createdAt: resolvedLab.createdAt,
               updatedAt: resolvedLab.updatedAt,
-              creationType: resolvedLab.creationType,
-              containerCount: 0,
-              isOrphan: false
+              creationType: resolvedLab.creationType
             })
           }
         } catch {
@@ -431,8 +429,7 @@ export class LabService {
 
       return {
         success: true,
-        lab,
-        containerIds: []
+        lab
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
@@ -478,9 +475,7 @@ export class LabService {
       await this.logOperation(labId, 'SSH 实验室已删除', 'info')
 
       return {
-        success: true,
-        removedContainers: [],
-        removedWorkspace: false
+        success: true
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)

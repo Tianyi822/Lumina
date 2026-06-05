@@ -5,8 +5,8 @@ import { LabToolAdapter } from '../adapters/LabToolAdapter'
 export class LabCapability implements CapabilityUnit {
   id = 'lab'
   displayName = '实验室工具'
-  description = '代码执行、容器操作、实验复现'
-  tags = ['代码执行', '容器', '实验复现', 'SSH']
+  description = '远程命令执行、文件操作、SSH 连接管理'
+  tags = ['命令执行', '文件操作', 'SSH']
 
   createAdapter(): ToolAdapter | null {
     return new LabToolAdapter()
@@ -16,7 +16,7 @@ export class LabCapability implements CapabilityUnit {
     return [
       {
         name: 'lab__exec_command',
-        description: '在容器中执行命令',
+        description: '在远程服务器中执行命令',
         tags: this.tags
       }
     ]
