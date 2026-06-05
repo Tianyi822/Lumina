@@ -150,3 +150,37 @@ test('formatMessagesWithKnowledge 只保留有 tool 响应的 tool_calls 且不�
   )
   assert.equal(JSON.stringify(messages), original)
 })
+
+test('formatMessagesWithKnowledge 追加新 user 时保持历史前缀不变', () => {
+  const baseMessages: ChatMessage[] = [
+    { role: 'user', content: '第一轮问题' },
+    { role: 'assistant', content: '第一轮回答' },
+    { role: 'user', content: '第二轮问题' }
+  ]
+  const extendedMessages: ChatMessage[] = [
+    ...baseMessages,
+    { role: 'assistant', content: '第二轮回答' },
+    {
+      role: 'user',
+      content: '第三轮问题',
+      attachedDocuments: [
+        {
+          fileName: 'note.md',
+          fileType: 'md',
+          fileSize: 12,
+          parsedContent: '动态附件内容'
+        }
+      ]
+    }
+  ]
+
+  const baseFormatted = formatMessagesWithKnowledge(baseMessages)
+  const extendedFormatted = formatMessagesWithKnowledge(extendedMessages)
+
+  assert.equal(
+    JSON.stringify(extendedFormatted.slice(0, baseFormatted.length)),
+    JSON.stringify(baseFormatted)
+  )
+  assert.match(String(extendedFormatted.at(-1)?.content), /动态附件内容/)
+  assert.doesNotMatch(String(extendedFormatted[0].content), /动态附件内容/)
+})
