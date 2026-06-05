@@ -160,3 +160,5 @@ export interface SshServerStatsResult {
   stats?: SshServerStats
   error?: string
 }
+
+export type { ExecCommand, ExecResult, ExecCommandResult } from './container'
