@@ -27,12 +27,13 @@ interface PromptCacheFingerprint {
   model: string
   system: string
   tools: string
-  messages: string
   toolChoice: string
+  messageHashes: string[]
 }
 
 interface PromptCacheDiagnosticEntry {
   fingerprint: PromptCacheFingerprint
+  commonPrefixWarmupCount: number
 }
 
 interface ChatCompletionUsageLike {
@@ -40,6 +41,8 @@ interface ChatCompletionUsageLike {
   completion_tokens?: number
   total_tokens?: number
   reasoning_tokens?: number
+  prompt_cache_hit_tokens?: number
+  prompt_cache_miss_tokens?: number
   prompt_tokens_details?: {
     cached_tokens?: number
   }
@@ -47,6 +50,23 @@ interface ChatCompletionUsageLike {
     reasoning_tokens?: number
   }
 }
+
+export interface PromptCacheDiagnosticOptions {
+  llmConfig: LLMConfig
+  request: ChatRequest
+  mode: 'direct' | 'react' | 'react_finalization' | 'plan_generation'
+  scene?: string
+}
+
+export type PromptCacheRelationship =
+  | 'model_changed'
+  | 'system_changed'
+  | 'tools_changed'
+  | 'tool_choice_changed'
+  | 'append_only'
+  | 'common_prefix_warmup'
+  | 'history_rewritten'
+  | 'unchanged'
 
 const unsupportedPromptCacheProviders = new Set<string>()
 const promptCacheDiagnostics = new Map<string, PromptCacheDiagnosticEntry>()
@@ -134,21 +154,31 @@ function hasPromptCacheOptions(params: PromptCacheParams): boolean {
 
 function normalizeUsage(usage: TokenUsage): TokenUsage {
   const cachedPromptTokens = usage.cached_prompt_tokens ?? 0
-  if (usage.prompt_tokens <= 0) {
+  const explicitUncachedPromptTokens = usage.uncached_prompt_tokens
+  const inferredPromptTokens = cachedPromptTokens + (explicitUncachedPromptTokens ?? 0)
+  const promptTokens = usage.prompt_tokens > 0 ? usage.prompt_tokens : inferredPromptTokens
+
+  if (promptTokens <= 0) {
     return {
       ...usage,
+      prompt_tokens: 0,
       cached_prompt_tokens: cachedPromptTokens,
       uncached_prompt_tokens: 0,
       prompt_cache_hit_rate: 0
     }
   }
 
-  const uncachedPromptTokens = Math.max(usage.prompt_tokens - cachedPromptTokens, 0)
+  const uncachedPromptTokens =
+    explicitUncachedPromptTokens ?? Math.max(promptTokens - cachedPromptTokens, 0)
+  const cacheMeasuredPromptTokens = cachedPromptTokens + uncachedPromptTokens
   return {
     ...usage,
+    prompt_tokens: promptTokens,
     cached_prompt_tokens: cachedPromptTokens,
     uncached_prompt_tokens: uncachedPromptTokens,
-    prompt_cache_hit_rate: cachedPromptTokens / usage.prompt_tokens
+    prompt_cache_hit_rate:
+      cachedPromptTokens /
+      (cacheMeasuredPromptTokens > 0 ? cacheMeasuredPromptTokens : promptTokens)
   }
 }
 
@@ -163,7 +193,9 @@ function extractSystemMessages(messages: unknown): unknown {
 }
 
 function createPromptCacheFingerprint(params: PromptCacheParams): PromptCacheFingerprint {
-  const normalizedMessages = stableNormalize(params.messages)
+  const normalizedMessages = Array.isArray(params.messages)
+    ? params.messages.filter((message) => !isPlainRecord(message) || message.role !== 'system')
+    : []
   const normalizedTools = stableNormalize('tools' in params ? params.tools : undefined)
   const normalizedToolChoice = stableNormalize(
     'tool_choice' in params ? params.tool_choice : undefined
@@ -173,21 +205,46 @@ function createPromptCacheFingerprint(params: PromptCacheParams): PromptCacheFin
     model: hashStableValue(params.model),
     system: hashStableValue(extractSystemMessages(params.messages)),
     tools: hashStableValue(normalizedTools),
-    messages: hashStableValue(normalizedMessages),
-    toolChoice: hashStableValue(normalizedToolChoice)
+    toolChoice: hashStableValue(normalizedToolChoice),
+    messageHashes: normalizedMessages.map((message) => hashStableValue(message))
   }
 }
 
-function findPromptCacheDrift(
+function commonPrefixLength(previous: string[], current: string[]): number {
+  const maxLength = Math.min(previous.length, current.length)
+  let length = 0
+  while (length < maxLength && previous[length] === current[length]) {
+    length++
+  }
+  return length
+}
+
+function findPromptCacheRelationship(
   previous: PromptCacheFingerprint,
   current: PromptCacheFingerprint
-): string | null {
+): PromptCacheRelationship {
   if (previous.model !== current.model) return 'model_changed'
   if (previous.system !== current.system) return 'system_changed'
   if (previous.tools !== current.tools) return 'tools_changed'
   if (previous.toolChoice !== current.toolChoice) return 'tool_choice_changed'
-  if (previous.messages !== current.messages) return 'messages_changed'
-  return null
+
+  const prefixLength = commonPrefixLength(previous.messageHashes, current.messageHashes)
+  if (
+    prefixLength === previous.messageHashes.length &&
+    current.messageHashes.length > previous.messageHashes.length
+  ) {
+    return 'append_only'
+  }
+  if (
+    prefixLength === previous.messageHashes.length &&
+    prefixLength === current.messageHashes.length
+  ) {
+    return 'unchanged'
+  }
+  if (prefixLength > 0) {
+    return 'common_prefix_warmup'
+  }
+  return 'history_rewritten'
 }
 
 export function deepSortPromptCacheValue(value: unknown): unknown {
@@ -218,6 +275,10 @@ export function applyPromptCacheOptions<T extends PromptCacheParams>(
   params: T,
   options: PromptCacheOptions
 ): T {
+  if (!isOfficialOpenAIProvider(options.llmConfig)) {
+    return params
+  }
+
   const providerKey = getProviderKey(options.llmConfig)
   if (unsupportedPromptCacheProviders.has(providerKey)) {
     return params
@@ -227,7 +288,7 @@ export function applyPromptCacheOptions<T extends PromptCacheParams>(
   const nextParams = {
     ...params,
     prompt_cache_key: promptCacheKey,
-    ...(isOfficialOpenAIProvider(options.llmConfig) ? { prompt_cache_retention: '24h' } : {})
+    prompt_cache_retention: '24h'
   } as T
 
   return attachPromptCacheProviderKey(nextParams, providerKey)
@@ -277,9 +338,13 @@ export function isPromptCacheParameterUnsupportedError(error: unknown): boolean 
 }
 
 export function extractTokenUsage(usage?: ChatCompletionUsageLike | null): TokenUsage {
-  const promptTokens = usage?.prompt_tokens ?? 0
+  const deepSeekCachedPromptTokens = usage?.prompt_cache_hit_tokens
+  const deepSeekUncachedPromptTokens = usage?.prompt_cache_miss_tokens
+  const promptTokens =
+    usage?.prompt_tokens ?? (deepSeekCachedPromptTokens ?? 0) + (deepSeekUncachedPromptTokens ?? 0)
   const completionTokens = usage?.completion_tokens ?? 0
-  const cachedPromptTokens = usage?.prompt_tokens_details?.cached_tokens ?? 0
+  const cachedPromptTokens =
+    deepSeekCachedPromptTokens ?? usage?.prompt_tokens_details?.cached_tokens ?? 0
   const reasoningTokens =
     usage?.reasoning_tokens ?? usage?.completion_tokens_details?.reasoning_tokens
 
@@ -288,7 +353,8 @@ export function extractTokenUsage(usage?: ChatCompletionUsageLike | null): Token
     completion_tokens: completionTokens,
     total_tokens: usage?.total_tokens ?? promptTokens + completionTokens,
     reasoning_tokens: reasoningTokens,
-    cached_prompt_tokens: cachedPromptTokens
+    cached_prompt_tokens: cachedPromptTokens,
+    uncached_prompt_tokens: deepSeekUncachedPromptTokens
   })
 }
 
@@ -307,6 +373,8 @@ export function addTokenUsage(target: TokenUsage, delta: TokenUsage): void {
   target.total_tokens += delta.total_tokens
   target.cached_prompt_tokens =
     (target.cached_prompt_tokens ?? 0) + (delta.cached_prompt_tokens ?? 0)
+  target.uncached_prompt_tokens =
+    (target.uncached_prompt_tokens ?? 0) + (delta.uncached_prompt_tokens ?? 0)
 
   if (delta.reasoning_tokens) {
     target.reasoning_tokens = (target.reasoning_tokens ?? 0) + delta.reasoning_tokens
@@ -319,16 +387,35 @@ export function addTokenUsage(target: TokenUsage, delta: TokenUsage): void {
 }
 
 export function recordPromptCacheDiagnostics(
-  scope: string,
+  options: PromptCacheDiagnosticOptions,
   params: PromptCacheParams,
   usage: TokenUsage,
   logger: Logger
 ): void {
+  const scope = buildPromptCacheDiagnosticScope(options)
   const currentFingerprint = createPromptCacheFingerprint(params)
   const previousEntry = promptCacheDiagnostics.get(scope)
-  promptCacheDiagnostics.set(scope, { fingerprint: currentFingerprint })
 
-  if (!previousEntry || usage.prompt_tokens < PROMPT_CACHE_MIN_TOKENS) {
+  if (!previousEntry) {
+    promptCacheDiagnostics.set(scope, {
+      fingerprint: currentFingerprint,
+      commonPrefixWarmupCount: 0
+    })
+    return
+  }
+
+  const relationship = findPromptCacheRelationship(previousEntry.fingerprint, currentFingerprint)
+  const commonPrefixWarmupCount =
+    relationship === 'common_prefix_warmup' ? previousEntry.commonPrefixWarmupCount + 1 : 0
+  promptCacheDiagnostics.set(scope, {
+    fingerprint: currentFingerprint,
+    commonPrefixWarmupCount
+  })
+
+  if (
+    usage.prompt_tokens < PROMPT_CACHE_MIN_TOKENS ||
+    (relationship === 'common_prefix_warmup' && commonPrefixWarmupCount < 2)
+  ) {
     return
   }
 
@@ -337,12 +424,40 @@ export function recordPromptCacheDiagnostics(
     return
   }
 
-  const driftType = findPromptCacheDrift(previousEntry.fingerprint, currentFingerprint)
+  const prefixMessageCount = commonPrefixLength(
+    previousEntry.fingerprint.messageHashes,
+    currentFingerprint.messageHashes
+  )
   logger.warn('Prompt Cache 命中率较低', 'main', {
     scope,
-    driftType: driftType ?? 'cache_entry_missing_or_expired',
+    scene: options.scene,
+    relationship,
+    previousMessageCount: previousEntry.fingerprint.messageHashes.length,
+    currentMessageCount: currentFingerprint.messageHashes.length,
+    prefixMessageCount,
+    systemHash: currentFingerprint.system,
+    toolsHash: currentFingerprint.tools,
     promptTokens: usage.prompt_tokens,
     cachedPromptTokens: usage.cached_prompt_tokens ?? 0,
+    uncachedPromptTokens: usage.uncached_prompt_tokens ?? 0,
     hitRate
   })
+}
+
+export function buildPromptCacheDiagnosticScope(options: PromptCacheDiagnosticOptions): string {
+  const cacheScope =
+    options.request.sessionType === 'paper' && options.request.paperId
+      ? `paper:${options.request.paperId}`
+      : `session:${options.request.sessionId}`
+  return `${getBaseUrlHost(options.llmConfig.base_url)}:${options.llmConfig.model_name}:${cacheScope}:${options.mode}`
+}
+
+export function classifyPromptCacheRelationship(
+  previous: PromptCacheParams,
+  current: PromptCacheParams
+): PromptCacheRelationship {
+  return findPromptCacheRelationship(
+    createPromptCacheFingerprint(previous),
+    createPromptCacheFingerprint(current)
+  )
 }

@@ -51,3 +51,31 @@ test('StreamProcessor 聚合 Prompt Cache usage 字段', async () => {
   assert.equal(result.totalUsage.uncached_prompt_tokens, 500)
   assert.equal(result.totalUsage.prompt_cache_hit_rate, 1000 / 1500)
 })
+
+test('StreamProcessor 聚合 DeepSeek 顶层 Prompt Cache usage 字段', async () => {
+  const processor = new StreamProcessor({} as StreamHandler)
+  const deepSeekChunk = {
+    id: 'deepseek-usage',
+    object: 'chat.completion.chunk',
+    created: 1,
+    model: 'deepseek-chat',
+    choices: [],
+    usage: {
+      prompt_tokens: 1000,
+      completion_tokens: 100,
+      total_tokens: 1100,
+      prompt_cache_hit_tokens: 750,
+      prompt_cache_miss_tokens: 250
+    }
+  } as unknown as StreamChunk
+
+  const result = await processor.processStream(
+    createUsageStream([deepSeekChunk]),
+    {} as WebContents,
+    'session-deepseek-cache-usage'
+  )
+
+  assert.equal(result.totalUsage.cached_prompt_tokens, 750)
+  assert.equal(result.totalUsage.uncached_prompt_tokens, 250)
+  assert.equal(result.totalUsage.prompt_cache_hit_rate, 0.75)
+})

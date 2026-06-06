@@ -365,7 +365,7 @@ export class PlanExecuteService {
 
     const usage = extractTokenUsage(response.usage)
     recordPromptCacheDiagnostics(
-      `${request.sessionId}:${request.modelKey}:plan_generation`,
+      { llmConfig, request, mode: 'plan_generation', scene: 'plan_generation' },
       requestParams,
       usage,
       this.logger

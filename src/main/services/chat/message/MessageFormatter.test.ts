@@ -211,3 +211,27 @@ test('formatMessagesWithKnowledge 追加新 user 时保持历史前缀不变', (
   assert.match(String(extendedFormatted.at(-1)?.content), /动态附件内容/)
   assert.doesNotMatch(String(extendedFormatted[0].content), /动态附件内容/)
 })
+
+test('历史用户附件在追加新轮次后保持已发送前缀不变', () => {
+  const attachedUser: ChatMessage = {
+    role: 'user',
+    content: '分析附件',
+    attachedDocuments: [
+      {
+        fileName: 'paper.md',
+        fileType: 'md',
+        fileSize: 16,
+        parsedContent: '稳定附件内容'
+      }
+    ]
+  }
+  const baseFormatted = formatMessagesWithKnowledge([attachedUser])
+  const extendedFormatted = formatMessagesWithKnowledge([
+    attachedUser,
+    { role: 'assistant', content: '附件分析结果' },
+    { role: 'user', content: '继续' }
+  ])
+
+  assert.equal(JSON.stringify(extendedFormatted[0]), JSON.stringify(baseFormatted[0]))
+  assert.match(String(extendedFormatted[0].content), /稳定附件内容/)
+})

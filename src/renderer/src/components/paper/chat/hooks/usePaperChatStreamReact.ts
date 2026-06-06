@@ -263,6 +263,21 @@ export function usePaperChatStreamReact(
           })
         )
 
+        if (result.modelTranscript && result.modelTranscript.length > 0) {
+          const completedAssistant = messagesRef.current.find(
+            (message) => message.id === assistantMessage.id
+          )
+          if (completedAssistant) {
+            completedAssistant.modelTranscript = deepClone(result.modelTranscript)
+            messageCache.retainSessionMessages(
+              currentSessionId,
+              messagesRef.current,
+              targetSession.title
+            )
+            await selected.saveCurrentSession()
+          }
+        }
+
         if (!result.success && result.error) {
           reportRequestError(result.error)
         }

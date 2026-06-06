@@ -67,6 +67,8 @@ export interface SessionMessage {
   tool_calls?: ToolCallMessage[]
   /** 工具调用的 ID，仅 tool 消息会有 */
   tool_call_id?: string
+  /** 当前助手轮次实际产生的模型消息序列 */
+  modelTranscript?: import('./chat').ChatMessage[]
   /** ReAct 推理步骤，仅 assistant 消息会有 */
   reactSteps?: ReActStepData[]
   /** ReAct 迭代分组数据，仅 assistant 消息会有 */

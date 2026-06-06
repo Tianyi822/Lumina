@@ -209,7 +209,7 @@ export class ChatService {
       this.streamHandler.sendDone(webContents, sessionId, usage, turnId, 'completed')
       if (usage) {
         recordPromptCacheDiagnostics(
-          `${sessionId}:${modelKey}:direct`,
+          { llmConfig, request, mode: 'direct', scene: 'direct' },
           requestParams,
           usage,
           logger

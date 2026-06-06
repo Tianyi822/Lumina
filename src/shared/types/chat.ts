@@ -470,6 +470,8 @@ export interface ChatResult {
   finalContent?: string
   /** 工具执行结果摘要，用于规划模式步骤间保留关键上下文 */
   toolResults?: ChatToolExecutionResult[]
+  /** 当前轮实际发送给模型并由模型产生的消息序列，用于后续轮次保持严格前缀 */
+  modelTranscript?: ChatMessage[]
   /** 该次调用消耗的 token 统计 */
   usage?: {
     prompt_tokens: number

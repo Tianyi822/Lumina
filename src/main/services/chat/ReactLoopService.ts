@@ -3,9 +3,9 @@ import type { WebContents } from 'electron'
 import type {
   ChatRequest,
   ChatResult,
+  ChatMessage,
   ChatToolExecutionResult,
-  KnowledgeSearchResult,
-  MCPToolReference
+  KnowledgeSearchResult
 } from '../../types/chat'
 import type { KnowledgeBaseReference } from '@shared/types/knowledge'
 import type { LLMConfig } from '../../types/config'
@@ -55,6 +55,18 @@ interface ReactLoopRuntimeOptions {
   suppressFinalEvents?: boolean
 }
 
+interface ReactRequestRuntime {
+  toolRegistry: UnifiedToolRegistry
+  toolExecutor: UnifiedToolExecutor
+  toolOrchestrator: ToolOrchestrator
+  pipeline: ToolPipeline
+  request: ChatRequest
+  originalQuery: string
+  tools: OpenAI.Chat.Completions.ChatCompletionTool[]
+  suggestableCapabilities: Array<{ id: string; displayName: string; description: string }>
+  suggestableCapabilityMap: Map<string, { displayName: string; description: string }>
+}
+
 const DEFAULT_REACT_MAX_ITERATIONS = 30
 const MIN_REACT_MAX_ITERATIONS = 1
 const REACT_MAX_ITERATIONS_FINAL_PROMPT =
@@ -73,17 +85,9 @@ export class ReactLoopService {
   private readonly createClient: ReactLoopServiceOptions['createClient']
   private readonly validateAndGetLLMConfig: ReactLoopServiceOptions['validateAndGetLLMConfig']
   private readonly modelRetryHandler: ModelRetryHandler
-  private readonly unifiedToolExecutor: UnifiedToolExecutor
-  private readonly toolRegistry: UnifiedToolRegistry
   private readonly mcpAdapter: MCPToolAdapter | null
   private readonly streamProcessor: StreamProcessor
-  private readonly toolOrchestrator: ToolOrchestrator
   private readonly capabilityComposer: CapabilityComposer
-  private currentPipeline?: ToolPipeline
-  private currentOriginalQuery?: string
-  private currentRequest?: ChatRequest
-  private capabilitySuggestTool?: OpenAI.Chat.Completions.ChatCompletionTool
-  private suggestableCapabilityMap?: Map<string, { displayName: string; description: string }>
 
   constructor(options: ReactLoopServiceOptions) {
     this.logger = options.logger
@@ -99,20 +103,7 @@ export class ReactLoopService {
         this.stopController.delayWithAbort(ms, sessionId, signal)
     })
 
-    this.toolRegistry = new UnifiedToolRegistry()
     this.mcpAdapter = options.mcpService ? new MCPToolAdapter(options.mcpService) : null
-
-    const pendingUserInteraction = new Set<string>()
-    this.unifiedToolExecutor = new UnifiedToolExecutor({
-      logger: this.logger,
-      registry: this.toolRegistry,
-      checkStopped: (sessionId) => this.stopController.checkStopped(sessionId),
-      withTimeoutAndStopCheck: (promise, sessionId, timeoutMs, operationName) =>
-        this.stopController.withTimeoutAndStopCheck(promise, sessionId, timeoutMs, operationName),
-      sendStreamEvent: (webContents, event) =>
-        this.streamHandler.sendStreamEvent(webContents, event),
-      pendingUserInteraction
-    })
 
     this.streamProcessor = new StreamProcessor(this.streamHandler)
 
@@ -120,23 +111,6 @@ export class ReactLoopService {
     presetRegistry.register(CHAT_PAPER_PRESET)
     presetRegistry.register(CHAT_DEFAULT_PRESET)
     this.capabilityComposer = new CapabilityComposer(capabilityRegistry)
-
-    const enricher = new ToolResultEnricher()
-    const merger = new ToolResultMerger()
-    this.toolOrchestrator = new ToolOrchestrator({
-      registry: this.toolRegistry,
-      enricher,
-      merger,
-      executeToolCalls: async (toolCalls, wc, sid, msgs, tid) =>
-        this.unifiedToolExecutor.executeToolCalls(
-          toolCalls,
-          wc,
-          sid,
-          msgs as OpenAI.Chat.Completions.ChatCompletionMessageParam[],
-          tid
-        ),
-      sendStreamEvent: (wc, event) => this.streamHandler.sendStreamEvent(wc, event)
-    })
   }
 
   /**
@@ -181,7 +155,11 @@ export class ReactLoopService {
     try {
       const client = this.createClient(llmConfig)
 
-      await this.buildToolRegistryWithComposer(request, selectedKnowledgeBases, sessionId)
+      const reactRuntime = await this.buildRequestRuntime(
+        request,
+        selectedKnowledgeBases,
+        sessionId
+      )
 
       // 保留知识库会话绑定（策略的 configureAdapter 已设置适配器，此处补充 stopController 状态）
       if (selectedKnowledgeBases && selectedKnowledgeBases.length > 0 && sessionId) {
@@ -191,20 +169,19 @@ export class ReactLoopService {
         )
       }
 
-      // pipeline 已在 buildToolRegistryWithComposer 中设置
-      this.currentOriginalQuery = extractOriginalQuery(request.messages)
-
-      const tools = this.toolRegistry.buildOpenAITools()
-      if (this.capabilitySuggestTool) {
-        tools.push(this.capabilitySuggestTool)
-      }
-
-      const allToolRefs = this.toolRegistry.getAllToolReferences()
-      const systemPrompt = await promptBuilder.buildSystemPrompt(llmConfig, true, allToolRefs)
+      const systemPrompt = await promptBuilder.buildSystemPrompt(
+        true,
+        reactRuntime.toolRegistry.getAllToolReferences(),
+        {
+          pipeline: reactRuntime.pipeline,
+          suggestableCapabilities: reactRuntime.suggestableCapabilities
+        }
+      )
       const conversationMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
         { role: 'system', content: systemPrompt },
         ...formatMessagesWithKnowledge(messages, knowledgeResults)
       ]
+      const modelTranscript: ChatMessage[] = []
 
       const totalUsage = this.createInitialTokenUsage()
       let toolIterations = 0
@@ -228,9 +205,10 @@ export class ReactLoopService {
           sessionId,
           webContents,
           request,
+          reactRuntime,
           conversationMessages,
+          modelTranscript,
           totalUsage,
-          tools,
           iterations: toolIterations,
           maxReactIterations,
           abortController,
@@ -275,6 +253,7 @@ export class ReactLoopService {
             webContents,
             request,
             conversationMessages,
+            modelTranscript,
             totalUsage,
             iterations: toolIterations,
             abortController,
@@ -299,7 +278,14 @@ export class ReactLoopService {
         usage: totalUsage
       })
 
-      return { success: true, toolErrors, finalContent, toolResults, usage: totalUsage }
+      return {
+        success: true,
+        toolErrors,
+        finalContent,
+        toolResults,
+        usage: totalUsage,
+        modelTranscript
+      }
     } catch (error) {
       return this.handleReactError(error, webContents, sessionId, turnId, runtimeOptions)
     } finally {
@@ -316,11 +302,11 @@ export class ReactLoopService {
   /**
    * 通过 CapabilityComposer 构建工具注册表
    */
-  private async buildToolRegistryWithComposer(
+  private async buildRequestRuntime(
     request: ChatRequest,
     selectedKnowledgeBases?: KnowledgeBaseReference[],
     sessionId?: string
-  ): Promise<MCPToolReference[]> {
+  ): Promise<ReactRequestRuntime> {
     const sid = sessionId ?? ''
     const sessionType = request.sessionType ?? 'default'
 
@@ -367,26 +353,24 @@ export class ReactLoopService {
       composerContext
     )
 
-    this.toolRegistry.clear()
-
     const suggestable = this.capabilityComposer.getSuggestableCapabilities(
       capState.activeCapabilities,
       composerContext
     )
-    promptBuilder.setSuggestableCapabilities(
-      suggestable.map((u) => ({
+    const suggestableCapabilities = suggestable
+      .map((u) => ({
         id: u.id,
         displayName: u.displayName,
         description: u.description
       }))
-    )
-
-    this.suggestableCapabilityMap = new Map(
+      .sort((a, b) => a.id.localeCompare(b.id))
+    const suggestableCapabilityMap = new Map(
       suggestable.map((u) => [u.id, { displayName: u.displayName, description: u.description }])
     )
 
+    let capabilitySuggestTool: OpenAI.Chat.Completions.ChatCompletionTool | undefined
     if (suggestable.length > 0) {
-      this.capabilitySuggestTool = {
+      capabilitySuggestTool = {
         type: 'function' as const,
         function: {
           name: 'capability__suggest',
@@ -401,41 +385,66 @@ export class ReactLoopService {
           }
         }
       }
-    } else {
-      this.capabilitySuggestTool = undefined
     }
+
+    const toolRegistry = composed?.toolRegistry ?? new UnifiedToolRegistry()
+    const pipeline = composed?.pipeline ?? { stages: [] }
+    const tools = toolRegistry.buildOpenAITools()
+    if (capabilitySuggestTool) {
+      tools.push(capabilitySuggestTool)
+    }
+
+    const toolExecutor = new UnifiedToolExecutor({
+      logger: this.logger,
+      registry: toolRegistry,
+      checkStopped: (activeSessionId) => this.stopController.checkStopped(activeSessionId),
+      withTimeoutAndStopCheck: (promise, activeSessionId, timeoutMs, operationName) =>
+        this.stopController.withTimeoutAndStopCheck(
+          promise,
+          activeSessionId,
+          timeoutMs,
+          operationName
+        ),
+      sendStreamEvent: (webContents, event) =>
+        this.streamHandler.sendStreamEvent(webContents, event),
+      pendingUserInteraction: new Set<string>()
+    })
+    const toolOrchestrator = new ToolOrchestrator({
+      registry: toolRegistry,
+      enricher: new ToolResultEnricher(),
+      merger: new ToolResultMerger(),
+      executeToolCalls: async (toolCalls, wc, activeSessionId, msgs, tid) =>
+        toolExecutor.executeToolCalls(
+          toolCalls,
+          wc,
+          activeSessionId,
+          msgs as OpenAI.Chat.Completions.ChatCompletionMessageParam[],
+          tid
+        ),
+      sendStreamEvent: (wc, event) => this.streamHandler.sendStreamEvent(wc, event)
+    })
 
     if (!composed) {
-      this.currentPipeline = { stages: [] }
-      this.currentRequest = request
-      promptBuilder.setPipeline(this.currentPipeline)
       this.logger.info('CapabilityComposer: 无可用工具', 'main', { sessionId: sid })
-      return []
     }
-
-    for (const tool of composed.toolRegistry.getAllTools()) {
-      const refs: MCPToolReference[] = [
-        {
-          serverName: tool.serverName,
-          toolName: tool.functionDef.name,
-          description: tool.functionDef.description,
-          inputSchema: tool.functionDef.parameters
-        }
-      ]
-      this.toolRegistry.registerBatch(refs, tool.adapter, tool.category)
-    }
-
-    this.currentPipeline = composed.pipeline
-    this.currentRequest = request
-    promptBuilder.setPipeline(composed.pipeline)
 
     this.logger.info('工具注册完成（通过 CapabilityComposer）', 'main', {
       sessionId: sid,
-      toolCount: this.toolRegistry.size,
+      toolCount: toolRegistry.size,
       activeCapabilities: capState.activeCapabilities
     })
 
-    return this.toolRegistry.getAllToolReferences()
+    return {
+      toolRegistry,
+      toolExecutor,
+      toolOrchestrator,
+      pipeline,
+      request,
+      originalQuery: extractOriginalQuery(request.messages),
+      tools,
+      suggestableCapabilities,
+      suggestableCapabilityMap
+    }
   }
 
   /**
@@ -447,9 +456,10 @@ export class ReactLoopService {
     sessionId: string
     webContents: WebContents
     request: ChatRequest
+    reactRuntime: ReactRequestRuntime
     conversationMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[]
+    modelTranscript: ChatMessage[]
     totalUsage: TokenUsage
-    tools: OpenAI.Chat.Completions.ChatCompletionTool[]
     iterations: number
     maxReactIterations: number
     abortController: AbortController
@@ -467,9 +477,10 @@ export class ReactLoopService {
       sessionId,
       webContents,
       request,
+      reactRuntime,
       conversationMessages,
+      modelTranscript,
       totalUsage,
-      tools,
       iterations,
       maxReactIterations,
       abortController,
@@ -496,12 +507,12 @@ export class ReactLoopService {
       {
         model: llmConfig.model_name,
         messages: conversationMessages,
-        tools: tools.length > 0 ? tools : undefined,
-        tool_choice: tools.length > 0 ? 'auto' : undefined,
+        tools: reactRuntime.tools.length > 0 ? reactRuntime.tools : undefined,
+        tool_choice: reactRuntime.tools.length > 0 ? 'auto' : undefined,
         stream: true,
         stream_options: { include_usage: true }
       },
-      { llmConfig, request, toolSignature: tools }
+      { llmConfig, request, toolSignature: reactRuntime.tools }
     )
 
     const response = await this.modelRetryHandler.createChatCompletionWithRetry(
@@ -521,13 +532,16 @@ export class ReactLoopService {
 
     addTokenUsage(totalUsage, iterationUsage)
     recordPromptCacheDiagnostics(
-      `${sessionId}:${request.modelKey}:${scene}`,
+      { llmConfig, request, mode: 'react', scene },
       requestParams,
       iterationUsage,
       this.logger
     )
 
     if (!state.hasToolCalls || state.toolCalls.size === 0) {
+      if (state.assistantContent) {
+        modelTranscript.push({ role: 'assistant', content: state.assistantContent })
+      }
       this.logger.info('ReAct 循环完成，模型已给出最终答案', 'main', {
         sessionId,
         iterations: iterations + 1,
@@ -563,7 +577,7 @@ export class ReactLoopService {
           capabilityId: string
           reason: string
         }
-        const capMeta = this.suggestableCapabilityMap?.get(args.capabilityId)
+        const capMeta = reactRuntime.suggestableCapabilityMap.get(args.capabilityId)
         this.logger.info('模型建议开启能力', 'main', {
           sessionId,
           capabilityId: args.capabilityId,
@@ -595,15 +609,15 @@ export class ReactLoopService {
 
     const pipelineContext: PipelineContext = {
       sessionId,
-      request: this.currentRequest ?? ({} as ChatRequest),
+      request: reactRuntime.request,
       modelToolCalls: nonSuggestToolCalls,
       stageResults: new Map(),
-      originalQuery: this.currentOriginalQuery ?? ''
+      originalQuery: reactRuntime.originalQuery
     }
 
-    const orchestrationResult = await this.toolOrchestrator.orchestrate(
+    const orchestrationResult = await reactRuntime.toolOrchestrator.orchestrate(
       nonSuggestToolCalls,
-      this.currentPipeline ?? { stages: [] },
+      reactRuntime.pipeline,
       pipelineContext,
       webContents,
       sessionId,
@@ -619,6 +633,11 @@ export class ReactLoopService {
       }
 
       conversationMessages.push(assistantMessage)
+      modelTranscript.push({
+        role: 'assistant',
+        content: state.assistantContent || null,
+        tool_calls: executedToolCalls
+      })
     }
 
     // 将工具结果追加到对话历史（编排器不直接修改 messages）
@@ -627,6 +646,11 @@ export class ReactLoopService {
       if (!executedToolCallIds.has(result.toolCallId)) continue
       conversationMessages.push({
         role: 'tool' as const,
+        tool_call_id: result.toolCallId,
+        content: result.content
+      })
+      modelTranscript.push({
+        role: 'tool',
         tool_call_id: result.toolCallId,
         content: result.content
       })
@@ -667,6 +691,7 @@ export class ReactLoopService {
     webContents: WebContents
     request: ChatRequest
     conversationMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[]
+    modelTranscript: ChatMessage[]
     totalUsage: TokenUsage
     iterations: number
     abortController: AbortController
@@ -679,6 +704,7 @@ export class ReactLoopService {
       webContents,
       request,
       conversationMessages,
+      modelTranscript,
       totalUsage,
       iterations,
       abortController,
@@ -697,6 +723,7 @@ export class ReactLoopService {
       role: 'user',
       content: REACT_MAX_ITERATIONS_FINAL_PROMPT
     })
+    modelTranscript.push({ role: 'user', content: REACT_MAX_ITERATIONS_FINAL_PROMPT })
 
     const requestParams = applyPromptCacheOptions(
       {
@@ -725,13 +752,14 @@ export class ReactLoopService {
 
     addTokenUsage(totalUsage, finalUsage)
     recordPromptCacheDiagnostics(
-      `${sessionId}:${request.modelKey}:react_finalization`,
+      { llmConfig, request, mode: 'react_finalization', scene: 'react_finalization' },
       requestParams,
       finalUsage,
       this.logger
     )
 
     const finalContent = state.assistantContent.trim() || REACT_EMPTY_FINAL_FALLBACK
+    modelTranscript.push({ role: 'assistant', content: finalContent })
     if (state.assistantContent.trim().length === 0) {
       this.streamHandler.sendContent(webContents, sessionId, finalContent, turnId)
     }
