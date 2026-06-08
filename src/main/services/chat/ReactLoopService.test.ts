@@ -21,6 +21,7 @@ interface HarnessOptions {
   streams: AsyncIterable<StreamChunk>[]
   createStreamForParams?: (params: StreamingParams) => AsyncIterable<StreamChunk>
   toolResult?: MCPToolCallResult
+  callTool?: () => Promise<MCPToolCallResult>
   abortController?: AbortController
   errors?: unknown[]
   llmConfig?: LLMConfig
@@ -42,6 +43,45 @@ async function* createStream(chunks: StreamChunk[]): AsyncIterable<StreamChunk> 
 
 function createToolCallStream(index: number): AsyncIterable<StreamChunk> {
   return createNamedToolCallStream(index, 'mock__lookup')
+}
+
+function createReasoningToolCallStream(
+  index: number,
+  reasoningContent: string
+): AsyncIterable<StreamChunk> {
+  return createStream([
+    {
+      id: `chunk-reasoning-${index}`,
+      object: 'chat.completion.chunk',
+      created: index,
+      model: 'model',
+      choices: [{ index: 0, delta: { reasoning_content: reasoningContent } }]
+    } as unknown as StreamChunk,
+    {
+      id: `chunk-tool-${index}`,
+      object: 'chat.completion.chunk',
+      created: index,
+      model: 'model',
+      choices: [
+        {
+          index: 0,
+          delta: {
+            tool_calls: [
+              {
+                index: 0,
+                id: `call-${index}`,
+                type: 'function',
+                function: {
+                  name: 'mock__lookup',
+                  arguments: '{}'
+                }
+              }
+            ]
+          }
+        }
+      ]
+    } as StreamChunk
+  ])
 }
 
 function createNamedToolCallStream(index: number, name: string): AsyncIterable<StreamChunk> {
@@ -142,7 +182,9 @@ function createHarness(options: HarnessOptions): Harness {
       }
     ],
     callTool: async (): Promise<MCPToolCallResult> =>
-      options.toolResult ?? { success: true, content: { ok: true } }
+      options.callTool
+        ? options.callTool()
+        : (options.toolResult ?? { success: true, content: { ok: true } })
   } as unknown as MCPService
 
   const createClient = (): OpenAI =>
@@ -278,6 +320,68 @@ test('模型正常给出最终回复时不额外触发收尾调用', async () =>
     harness.createParams.every((params) => Array.isArray(params.tools)),
     true
   )
+})
+
+test('ReAct 工具调用将原生 reasoning_content 回传并保存到 modelTranscript', async () => {
+  const harness = createHarness({
+    streams: [createReasoningToolCallStream(0, '工具调用前思考'), createContentStream('完成')]
+  })
+
+  const result = await harness.service.sendMessageWithReact(
+    harness.request,
+    createWebContents(harness.events)
+  )
+
+  const secondRequestAssistant = harness.createParams[1].messages.find(
+    (message) => message.role === 'assistant'
+  ) as unknown as { reasoning_content?: string }
+
+  assert.equal(result.success, true, result.error)
+  assert.equal(secondRequestAssistant.reasoning_content, '工具调用前思考')
+  assert.equal(result.modelTranscript?.[0].reasoning_content, '工具调用前思考')
+})
+
+test('ReAct 必须等待工具结果后才开始下一轮模型请求', async () => {
+  let resolveToolResult: ((result: MCPToolCallResult) => void) | undefined
+  let notifyToolStarted: (() => void) | undefined
+  const toolStarted = new Promise<void>((resolve) => {
+    notifyToolStarted = resolve
+  })
+  const pendingToolResult = new Promise<MCPToolCallResult>((resolve) => {
+    resolveToolResult = resolve
+  })
+  const harness = createHarness({
+    streams: [createToolCallStream(0), createContentStream('工具完成后回答')],
+    callTool: async () => {
+      notifyToolStarted?.()
+      return pendingToolResult
+    }
+  })
+
+  const pendingResult = harness.service.sendMessageWithReact(
+    harness.request,
+    createWebContents(harness.events)
+  )
+
+  await toolStarted
+  assert.equal(harness.createParams.length, 1)
+  assert.equal(
+    harness.events.some((event) => event.type === 'tool_result'),
+    false
+  )
+
+  resolveToolResult?.({ success: true, content: { ok: true } })
+  const result = await pendingResult
+
+  assert.equal(result.success, true, result.error)
+  assert.equal(harness.createParams.length, 2)
+
+  const toolResultIndex = harness.events.findIndex((event) => event.type === 'tool_result')
+  const nextIterationIndex = harness.events.findIndex(
+    (event) => event.type === 'react_iteration_start' && event.content === '1'
+  )
+  assert.ok(toolResultIndex >= 0)
+  assert.ok(nextIterationIndex > toolResultIndex)
 })
 
 test('等待用户交互时不触发上限收尾回复', async () => {
@@ -417,11 +521,7 @@ test('paper 会话通过 capabilityManager 初始化能力状态', async () => {
   const capState = capabilityManager.getCapabilities('react-loop-paper')
   assert.ok(capState, 'capabilityManager 应有该会话的能力状态')
   assert.equal(capState!.presetId, 'chat.paper', 'paper 会话应使用 chat.paper preset')
-  assert.deepEqual(
-    capState!.activeCapabilities,
-    ['paper', 'knowledge'],
-    'paper 会话应仅激活 paper 和 knowledge'
-  )
+  assert.deepEqual(capState!.activeCapabilities, ['paper'], 'paper 会话默认应仅激活 paper')
 })
 
 test('default 会话通过 capabilityManager 初始化能力状态', async () => {
@@ -634,8 +734,8 @@ test('模型调用 capability__suggest 时发送 capability_suggestion 流事件
   assert.match(suggestEvent!.capabilitySuggestion?.capabilities?.[0]?.reason ?? '', /需要代码执行/)
 })
 
-test('自动触发 knowledge 搜索时下一轮请求保持 assistant/tool 配对', async () => {
-  capabilityManager.clearSession('react-loop-auto-knowledge')
+test('选择知识库后注册 knowledge 工具，但论文结果不足时不自动搜索', async () => {
+  capabilityManager.clearSession('react-loop-on-demand-knowledge')
 
   const originalPaperSearch = paperContextSearchToolService.search
   const originalKnowledgeGetTools = knowledgeToolService.getTools
@@ -668,7 +768,7 @@ test('自动触发 knowledge 搜索时下一轮请求保持 assistant/tool 配�
 
     const request: ChatRequest = {
       ...harness.request,
-      sessionId: 'react-loop-auto-knowledge',
+      sessionId: 'react-loop-on-demand-knowledge',
       sessionType: 'paper',
       paperId: 'paper-001',
       selectedTools: undefined
@@ -684,6 +784,11 @@ test('自动触发 knowledge 搜索时下一轮请求保持 assistant/tool 配�
     assert.equal(result.success, true)
     assert.equal(result.finalContent, '综合回答')
     assert.equal(harness.createParams.length, 2)
+    assert.ok(
+      harness.createParams[0].tools?.some(
+        (tool) => tool.type === 'function' && tool.function.name === 'knowledge__search'
+      )
+    )
 
     const secondMessages = harness.createParams[1].messages
     const assistantMessage = secondMessages.find((message) => message.role === 'assistant') as
@@ -701,8 +806,14 @@ test('自动触发 knowledge 搜索时下一轮请求保持 assistant/tool 配�
       toolCallIds,
       toolMessages.map((message) => message.tool_call_id)
     )
-    assert.ok(toolCallIds.includes('call-0'))
-    assert.ok(toolCallIds.some((id) => id.startsWith('auto_knowledge_')))
+    assert.deepEqual(toolCallIds, ['call-0'])
+    assert.equal(
+      harness.events.some((event) => event.type === 'knowledge_search'),
+      false
+    )
+
+    const capState = capabilityManager.getCapabilities('react-loop-on-demand-knowledge')
+    assert.ok(capState?.activeCapabilities.includes('knowledge'))
   } finally {
     paperContextSearchToolService.search = originalPaperSearch
     knowledgeToolService.getTools = originalKnowledgeGetTools

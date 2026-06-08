@@ -35,7 +35,10 @@ export interface ReactLoopServiceOptions {
  */
 export interface StreamAccumulatorState {
   assistantContent: string
+  /** 用于 UI 展示的完整推理内容，包含原生字段和 <think> 标签内容 */
   assistantReasoningContent: string
+  /** 仅包含模型原生 reasoning_content，用于工具调用后的 API 回放 */
+  assistantApiReasoningContent: string
   toolCalls: Map<
     number,
     { id: string; type: 'function'; function: { name: string; arguments: string } }
@@ -50,6 +53,7 @@ export function createStreamAccumulatorState(): StreamAccumulatorState {
   return {
     assistantContent: '',
     assistantReasoningContent: '',
+    assistantApiReasoningContent: '',
     toolCalls: new Map(),
     hasToolCalls: false
   }

@@ -2,7 +2,6 @@ import type {
   SessionToolConfig,
   ToolRegistrationRule,
   RegistrationContext,
-  PipelineContext,
   ToolPipeline
 } from './PipelineTypes'
 import type { ToolAdapter, ToolCategory } from './UnifiedToolRegistry'
@@ -14,25 +13,9 @@ const PAPER_PIPELINE: ToolPipeline = {
     {
       category: 'paper' as ToolCategory,
       execution: 'required'
-    },
-    {
-      category: 'knowledge' as ToolCategory,
-      execution: 'conditional',
-      condition: (ctx: PipelineContext) => {
-        const paperResults = ctx.stageResults.get('paper' as ToolCategory)
-        return (
-          !paperResults ||
-          paperResults.length === 0 ||
-          paperResults.some((r) => r.metadata.coverage === 'low')
-        )
-      },
-      autoTrigger: {
-        toolName: 'search',
-        queryTransform: (originalQuery: string) => ({ query: originalQuery })
-      }
     }
   ],
-  mergeStrategy: 'smart_merge'
+  mergeStrategy: 'none'
 }
 
 // ========== paper 会话工具注册规则 ==========
@@ -62,23 +45,14 @@ const PAPER_TOOL_RULES: ToolRegistrationRule[] = [
   {
     category: 'knowledge' as ToolCategory,
     basePriority: 20,
-    condition: (ctx: RegistrationContext) => hasPaperId(ctx) || hasKnowledgeBases(ctx),
+    condition: hasKnowledgeBases,
     adapterResolver: (ctx: RegistrationContext) => ctx.adapters.knowledge,
     configureAdapter: (adapter: ToolAdapter, ctx: RegistrationContext) => {
       const kbAdapter = adapter as unknown as {
         setKnowledgeBaseIds: (ids: string[] | undefined) => void
-        setSemanticContext?: (ctx: unknown) => void
       }
       const userKbIds = ctx.selectedKnowledgeBases?.map((kb) => kb.id) ?? []
       kbAdapter.setKnowledgeBaseIds(userKbIds.length > 0 ? userKbIds : undefined)
-      if (ctx.request.paperId && kbAdapter.setSemanticContext) {
-        kbAdapter.setSemanticContext({
-          paperId: ctx.request.paperId,
-          title: '',
-          keywords: [],
-          domain: '综合'
-        })
-      }
     }
   },
   {

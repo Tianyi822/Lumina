@@ -36,7 +36,7 @@ export class KnowledgeToolService {
     return [
       {
         name: 'knowledge__search',
-        description: `在知识库中搜索相关内容。${kbDescription}。当用户问题需要参考知识库中的特定信息时使用此工具。使用精确的搜索词可以获得更好的结果。`,
+        description: `在用户显式选择的知识库中搜索相关内容。${kbDescription}。仅当用户明确要求使用知识库、跨文档比较或补充当前论文之外的资料时使用；不要把它作为当前论文检索不足时的自动兜底。使用精确的搜索词可以获得更好的结果。`,
         inputSchema: {
           type: 'object',
           properties: {

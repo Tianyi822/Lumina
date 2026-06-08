@@ -300,10 +300,15 @@ export function formatMessagesWithKnowledge(
     }
 
     if (msg.role === 'assistant' && msg.tool_calls) {
-      const assistantMsg: OpenAI.Chat.Completions.ChatCompletionAssistantMessageParam = {
+      const assistantMsg: OpenAI.Chat.Completions.ChatCompletionAssistantMessageParam & {
+        reasoning_content?: string
+      } = {
         role: 'assistant' as const,
         content: msg.content || null,
         tool_calls: msg.tool_calls
+      }
+      if (msg.reasoning_content) {
+        assistantMsg.reasoning_content = msg.reasoning_content
       }
       return assistantMsg as OpenAI.Chat.Completions.ChatCompletionMessageParam
     }

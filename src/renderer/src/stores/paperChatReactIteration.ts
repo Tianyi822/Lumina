@@ -206,6 +206,11 @@ export function useReactIterationManager(): ReactIterationManager {
     toolResult: NonNullable<StreamEvent['toolResult']>
   ): boolean {
     const timestamp = new Date().toISOString()
+    const resultStep: ReActStep = {
+      type: 'tool_result',
+      toolResult,
+      timestamp
+    }
 
     const existingLegacyStep = message.reactSteps?.find(
       (step) => step.type === 'tool_result' && step.toolResult?.id === toolResult.id
@@ -213,6 +218,12 @@ export function useReactIterationManager(): ReactIterationManager {
     if (existingLegacyStep) {
       existingLegacyStep.toolResult = toolResult
       existingLegacyStep.timestamp = timestamp
+    } else if (
+      message.reactSteps?.some(
+        (step) => step.type === 'tool_call' && step.toolCall?.id === toolResult.id
+      )
+    ) {
+      message.reactSteps.push(resultStep)
     }
 
     let updatedIteration = false
@@ -224,10 +235,25 @@ export function useReactIterationManager(): ReactIterationManager {
         existingIterationStep.toolResult = toolResult
         existingIterationStep.timestamp = timestamp
         updatedIteration = true
+        continue
+      }
+
+      const ownsToolCall = iteration.steps.some(
+        (step) => step.type === 'tool_call' && step.toolCall?.id === toolResult.id
+      )
+      if (ownsToolCall) {
+        iteration.steps.push(resultStep)
+        updatedIteration = true
       }
     }
 
-    return Boolean(existingLegacyStep || updatedIteration)
+    return Boolean(
+      existingLegacyStep ||
+      message.reactSteps?.some(
+        (step) => step.type === 'tool_result' && step.toolResult?.id === toolResult.id
+      ) ||
+      updatedIteration
+    )
   }
 
   function deleteIterationIndex(sessionId: string): void {

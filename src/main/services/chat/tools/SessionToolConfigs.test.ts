@@ -48,16 +48,15 @@ describe('SESSION_TOOL_CONFIGS', () => {
       assert.equal(first.execution, 'required')
     })
 
-    it('第二个 stage 应为 knowledge 且 conditional，带 condition 和 autoTrigger', () => {
-      const second = paper.pipeline.stages[1]
-      assert.equal(second.category, 'knowledge')
-      assert.equal(second.execution, 'conditional')
-      assert.ok(second.condition)
-      assert.ok(second.autoTrigger)
+    it('管道不应自动编排 knowledge 搜索', () => {
+      assert.equal(
+        paper.pipeline.stages.some((stage) => stage.category === 'knowledge'),
+        false
+      )
     })
 
-    it('合并策略应为 smart_merge', () => {
-      assert.equal(paper.pipeline.mergeStrategy, 'smart_merge')
+    it('单一论文阶段无需结果融合', () => {
+      assert.equal(paper.pipeline.mergeStrategy, 'none')
     })
 
     it('toolRules 应包含 paper、knowledge、paper_web、mcp、lab 规则', () => {
@@ -74,14 +73,15 @@ describe('SESSION_TOOL_CONFIGS', () => {
       assert.equal(sorted[0].category, 'paper')
     })
 
-    it('knowledge 规则在 paperId 存在时 condition 返回 true', () => {
+    it('knowledge 规则在仅有 paperId 时 condition 返回 false', () => {
       const knowledgeRule = paper.toolRules.find((r) => r.category === 'knowledge')!
-      assert.ok(
+      assert.equal(
         knowledgeRule.condition(
           makeRegistrationContext({
             request: makeChatRequest({ paperId: 'p1' })
           })
-        )
+        ),
+        false
       )
     })
 
