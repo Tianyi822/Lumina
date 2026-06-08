@@ -136,22 +136,29 @@
 .sm-settings-panel__body {
   flex: 1;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sm-space-3);
   overflow: auto;
   scrollbar-gutter: stable;
   padding: var(--sm-space-5);
 }
 
 .sm-settings-page {
-  min-height: 100%;
   display: flex;
   flex-direction: column;
-  gap: var(--sm-space-5);
+  gap: var(--sm-space-3);
+}
+
+.sm-settings-panel__body > .sm-settings-page:only-child {
+  min-height: 100%;
 }
 
 .sm-settings-page__header {
   display: flex;
   flex-direction: column;
   gap: var(--sm-space-2);
+  padding-left: var(--sm-space-3);
 }
 
 .sm-settings-page__meta {
@@ -163,7 +170,7 @@
 .sm-settings-page__section {
   display: flex;
   flex-direction: column;
-  gap: var(--sm-space-4);
+  gap: var(--sm-space-3);
   padding: var(--sm-space-5);
   border: 1px solid var(--sm-color-border-default);
   border-radius: var(--sm-radius-lg);
@@ -172,9 +179,16 @@
 
 .sm-settings-page__section-header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: var(--sm-space-4);
+}
+
+.sm-settings-page__section-title-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sm-space-2);
 }
 
 .sm-settings-page__section-title {

@@ -162,20 +162,11 @@ export default function PaperReaderSettings() {
   return (
     <div className={['sm-settings-page', styles['paper-reader-settings']].join(' ')}>
       <header className="sm-settings-page__header">
-        <h2 className="sm-settings-page__title">论文阅读配置</h2>
-        <p className="sm-settings-page__description">配置论文 OCR 识别服务与翻译模型。</p>
+        <h2 className="sm-settings-page__title">OCR 配置</h2>
+        <p className="sm-settings-page__description">选择 OCR 服务提供商并配置对应的凭据。</p>
       </header>
 
       <section className="sm-settings-page__section">
-        <div className="sm-settings-page__section-header">
-          <div>
-            <h3 className="sm-settings-page__section-title">OCR 服务配置</h3>
-            <p className="sm-settings-page__section-description">
-              选择 OCR 服务提供商并配置对应的凭据。
-            </p>
-          </div>
-        </div>
-
         <div className={[styles['form-group'], styles['field-card']].join(' ')}>
           <label className={styles['form-label']} htmlFor="paper-ocr-provider">
             OCR 服务
@@ -267,16 +258,14 @@ export default function PaperReaderSettings() {
         </div>
       </section>
 
-      <section className="sm-settings-page__section">
-        <div className="sm-settings-page__section-header">
-          <div>
-            <h3 className="sm-settings-page__section-title">翻译模型配置</h3>
-            <p className="sm-settings-page__section-description">
-              选择用于论文翻译的 LLM 模型。翻译需要上下文关联能力，只能从已配置的对话模型中选择。
-            </p>
-          </div>
-        </div>
+      <header className="sm-settings-page__header">
+        <h2 className="sm-settings-page__title">翻译模型配置</h2>
+        <p className="sm-settings-page__description">
+          选择用于论文翻译的 LLM 模型。翻译需要上下文关联能力，只能从已配置的对话模型中选择。
+        </p>
+      </header>
 
+      <section className="sm-settings-page__section">
         <div className={[styles['form-group'], styles['field-card']].join(' ')}>
           <label className={styles['form-label']} htmlFor="paper-translation-model">
             翻译模型
