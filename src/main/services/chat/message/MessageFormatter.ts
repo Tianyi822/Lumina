@@ -163,8 +163,7 @@ function cloneChatMessage(msg: ChatMessage): ChatMessage {
 function shouldKeepAssistantMessage(msg: ChatMessage): boolean {
   const hasContent = msg.content && msg.content.trim().length > 0
   const hasToolCalls = msg.tool_calls && msg.tool_calls.length > 0
-  const hasReasoning = msg.reasoning_content && msg.reasoning_content.trim().length > 0
-  return Boolean(hasContent || hasToolCalls || hasReasoning)
+  return Boolean(hasContent || hasToolCalls)
 }
 
 /**
@@ -240,8 +239,8 @@ export function sanitizeToolMessagePairs(messages: ChatMessage[]): ChatMessage[]
 
 /**
  * 格式化消息为 OpenAI 格式
- * 过滤掉空内容的助手消息，将知识库结果和附加文档附加到最后一条用户消息
- * 如果最后一条用户消息包含图片，则使用多模态 content 格式
+ * 过滤掉空内容的助手消息，将每条用户消息的附件稳定展开。
+ * 知识库结果只附加到最后一条用户消息。
  */
 export function formatMessagesWithKnowledge(
   messages: ChatMessage[],
@@ -251,9 +250,9 @@ export function formatMessagesWithKnowledge(
   const filteredMessages = sanitizeToolMessagePairs(messages)
 
   return filteredMessages.map((msg, index) => {
-    if (msg.role === 'user' && index === filteredMessages.length - 1) {
+    if (msg.role === 'user') {
       let textContent = msg.content || ''
-      if (knowledgeContext) {
+      if (knowledgeContext && index === filteredMessages.length - 1) {
         textContent += knowledgeContext
       }
       if (msg.attachedDocuments && msg.attachedDocuments.length > 0) {
@@ -301,25 +300,12 @@ export function formatMessagesWithKnowledge(
     }
 
     if (msg.role === 'assistant' && msg.tool_calls) {
-      const assistantMsg: OpenAI.Chat.Completions.ChatCompletionAssistantMessageParam & {
-        reasoning_content?: string
-      } = {
+      const assistantMsg: OpenAI.Chat.Completions.ChatCompletionAssistantMessageParam = {
         role: 'assistant' as const,
         content: msg.content || null,
         tool_calls: msg.tool_calls
       }
-      if (msg.reasoning_content) {
-        assistantMsg.reasoning_content = msg.reasoning_content
-      }
       return assistantMsg as OpenAI.Chat.Completions.ChatCompletionMessageParam
-    }
-
-    if (msg.role === 'assistant' && msg.reasoning_content) {
-      return {
-        role: 'assistant' as const,
-        content: msg.content || '',
-        reasoning_content: msg.reasoning_content
-      } as OpenAI.Chat.Completions.ChatCompletionMessageParam
     }
 
     return {

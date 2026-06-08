@@ -4,13 +4,11 @@ import assert from 'node:assert/strict'
 import { PromptBuilder } from './PromptBuilder.ts'
 import type { ToolPipeline } from './tools/PipelineTypes'
 import type { CapabilityUnit } from './tools/capabilities/CapabilityUnit'
+import type { MCPToolReference } from '../../types/chat'
 
 test('PromptBuilder 不再注入 Skill 指令', async () => {
   const builder = new PromptBuilder()
-  const prompt = await builder.buildSystemPrompt(
-    { base_url: 'http://localhost', api_key: 'key', model_name: 'model' },
-    false
-  )
+  const prompt = await builder.buildSystemPrompt(false)
 
   assert.doesNotMatch(prompt, /自动匹配的 Skill 指令/)
   assert.doesNotMatch(prompt, /Skill 工具使用指南/)
@@ -19,18 +17,14 @@ test('PromptBuilder 不再注入 Skill 指令', async () => {
 
 test('PromptBuilder 不会为名为 skill 的 MCP 服务注入内置指南', async () => {
   const builder = new PromptBuilder()
-  const prompt = await builder.buildSystemPrompt(
-    { base_url: 'http://localhost', api_key: 'key', model_name: 'model' },
-    true,
-    [
-      {
-        serverName: 'skill',
-        toolName: 'list',
-        description: '列出 Skill 摘要',
-        inputSchema: { type: 'object', properties: {}, required: [] }
-      }
-    ]
-  )
+  const prompt = await builder.buildSystemPrompt(true, [
+    {
+      serverName: 'skill',
+      toolName: 'list',
+      description: '列出 Skill 摘要',
+      inputSchema: { type: 'object', properties: {}, required: [] }
+    }
+  ])
 
   assert.doesNotMatch(prompt, /Skill 工具使用指南/)
   assert.doesNotMatch(prompt, /skill__read/)
@@ -39,27 +33,23 @@ test('PromptBuilder 不会为名为 skill 的 MCP 服务注入内置指南', asy
 
 test('PromptBuilder 为论文联网搜索注入主动搜索指南', async () => {
   const builder = new PromptBuilder()
-  const prompt = await builder.buildSystemPrompt(
-    { base_url: 'http://localhost', api_key: 'key', model_name: 'model' },
-    true,
-    [
-      {
-        serverName: 'paper_web',
-        toolName: 'search',
-        description: '搜索学术资料',
-        inputSchema: { type: 'object', properties: {}, required: [] }
-      }
-    ]
-  )
+  const prompt = await builder.buildSystemPrompt(true, [
+    {
+      serverName: 'paper_web',
+      toolName: 'search',
+      description: '搜索学术资料',
+      inputSchema: { type: 'object', properties: {}, required: [] }
+    }
+  ])
 
   assert.match(prompt, /主动搜索/)
   assert.match(prompt, /无需等待用户明确说“搜索”/)
   assert.match(prompt, /应主动搜索的场景/)
 })
 
-// ===== setPipeline + buildSystemPrompt =====
+// ===== pipeline + buildSystemPrompt =====
 
-test('setPipeline 设置多 stage 管道后 buildSystemPrompt 应包含协调指南', async () => {
+test('多 stage 管道上下文应生成协调指南', async () => {
   const builder = new PromptBuilder()
   const pipeline: ToolPipeline = {
     stages: [
@@ -69,12 +59,10 @@ test('setPipeline 设置多 stage 管道后 buildSystemPrompt 应包含协调指
     mergeStrategy: 'smart_merge'
   }
 
-  builder.setPipeline(pipeline)
-
   const prompt = await builder.buildSystemPrompt(
-    { base_url: 'http://localhost', api_key: 'key', model_name: 'test-model' },
     true,
-    [{ serverName: 'paper', toolName: 'search_context', description: '', inputSchema: {} }]
+    [{ serverName: 'paper', toolName: 'search_context', description: '', inputSchema: {} }],
+    { pipeline }
   )
 
   assert.match(prompt, /工具使用协调策略/)
@@ -89,37 +77,54 @@ test('单 stage 管道不应生成协调指南', async () => {
     mergeStrategy: 'none'
   }
 
-  builder.setPipeline(pipeline)
-
   const prompt = await builder.buildSystemPrompt(
-    { base_url: 'http://localhost', api_key: 'key', model_name: 'test-model' },
     true,
-    [{ serverName: 'paper', toolName: 'search_context', description: '', inputSchema: {} }]
+    [{ serverName: 'paper', toolName: 'search_context', description: '', inputSchema: {} }],
+    { pipeline }
   )
 
   assert.doesNotMatch(prompt, /工具使用协调策略/)
 })
 
-test('setPipeline(undefined) 清除管道，不应生成协调指南', async () => {
+test('未传入管道时不应生成协调指南', async () => {
   const builder = new PromptBuilder()
-  const pipeline: ToolPipeline = {
-    stages: [
-      { category: 'paper', execution: 'required' },
-      { category: 'knowledge', execution: 'conditional' }
-    ],
-    mergeStrategy: 'smart_merge'
-  }
 
-  builder.setPipeline(pipeline)
-  builder.setPipeline(undefined)
-
-  const prompt = await builder.buildSystemPrompt(
-    { base_url: 'http://localhost', api_key: 'key', model_name: 'test-model' },
-    true,
-    [{ serverName: 'paper', toolName: 'search_context', description: '', inputSchema: {} }]
-  )
+  const prompt = await builder.buildSystemPrompt(true, [
+    { serverName: 'paper', toolName: 'search_context', description: '', inputSchema: {} }
+  ])
 
   assert.doesNotMatch(prompt, /工具使用协调策略/)
+})
+
+test('buildPlanSystemPrompt 对同一组工具生成稳定摘要顺序', () => {
+  const builder = new PromptBuilder()
+  const tools: MCPToolReference[] = [
+    {
+      serverName: 'paper',
+      toolName: 'summarize',
+      description: '总结论文',
+      inputSchema: {}
+    },
+    {
+      serverName: 'knowledge',
+      toolName: 'search',
+      description: '检索知识库',
+      inputSchema: {}
+    },
+    {
+      serverName: 'paper',
+      toolName: 'search_context',
+      description: '检索论文上下文',
+      inputSchema: {}
+    }
+  ]
+
+  const prompt = builder.buildPlanSystemPrompt(tools)
+  const reorderedPrompt = builder.buildPlanSystemPrompt([tools[2], tools[0], tools[1]])
+
+  assert.equal(prompt, reorderedPrompt)
+  assert.ok(prompt.indexOf('**knowledge**') < prompt.indexOf('**paper**'))
+  assert.ok(prompt.indexOf('- search_context:') < prompt.indexOf('- summarize:'))
 })
 
 // ===== buildCapabilitySuggestionPrompt =====
@@ -180,34 +185,30 @@ test('buildCapabilitySuggestionPrompt 多个能力都包含在提示词中', () 
   assert.match(prompt, /lab/)
 })
 
-// ===== setSuggestableCapabilities + buildSystemPrompt 集成 =====
+// ===== suggestableCapabilities + buildSystemPrompt 集成 =====
 
-test('setSuggestableCapabilities 空列表不应在系统提示词中注入建议引导', async () => {
+test('空建议列表不应在系统提示词中注入建议引导', async () => {
   const builder = new PromptBuilder()
 
-  builder.setSuggestableCapabilities([])
-
   const prompt = await builder.buildSystemPrompt(
-    { base_url: 'http://localhost', api_key: 'key', model_name: 'test-model' },
     true,
-    [{ serverName: 'paper', toolName: 'search_context', description: '', inputSchema: {} }]
+    [{ serverName: 'paper', toolName: 'search_context', description: '', inputSchema: {} }],
+    { suggestableCapabilities: [] }
   )
 
   assert.doesNotMatch(prompt, /可建议的能力/)
   assert.doesNotMatch(prompt, /capability__suggest/)
 })
 
-test('setSuggestableCapabilities 非空列表应在系统提示词中注入能力建议引导', async () => {
+test('非空建议列表应在系统提示词中注入能力建议引导', async () => {
   const builder = new PromptBuilder()
 
-  builder.setSuggestableCapabilities([
-    { id: 'lab', displayName: '实验室工具', description: '执行代码' }
-  ])
-
   const prompt = await builder.buildSystemPrompt(
-    { base_url: 'http://localhost', api_key: 'key', model_name: 'test-model' },
     true,
-    [{ serverName: 'paper', toolName: 'search_context', description: '', inputSchema: {} }]
+    [{ serverName: 'paper', toolName: 'search_context', description: '', inputSchema: {} }],
+    {
+      suggestableCapabilities: [{ id: 'lab', displayName: '实验室工具', description: '执行代码' }]
+    }
   )
 
   assert.match(prompt, /可建议的能力/)
@@ -215,19 +216,20 @@ test('setSuggestableCapabilities 非空列表应在系统提示词中注入能�
   assert.match(prompt, /执行代码/)
 })
 
-test('setSuggestableCapabilities 随后设空后不注入建议引导', async () => {
+test('每次构建使用独立的建议能力上下文', async () => {
   const builder = new PromptBuilder()
 
-  builder.setSuggestableCapabilities([
-    { id: 'lab', displayName: '实验室工具', description: '执行代码' }
-  ])
-  builder.setSuggestableCapabilities([])
-
-  const prompt = await builder.buildSystemPrompt(
-    { base_url: 'http://localhost', api_key: 'key', model_name: 'test-model' },
+  await builder.buildSystemPrompt(
     true,
-    [{ serverName: 'paper', toolName: 'search_context', description: '', inputSchema: {} }]
+    [{ serverName: 'paper', toolName: 'search_context', description: '', inputSchema: {} }],
+    {
+      suggestableCapabilities: [{ id: 'lab', displayName: '实验室工具', description: '执行代码' }]
+    }
   )
+
+  const prompt = await builder.buildSystemPrompt(true, [
+    { serverName: 'paper', toolName: 'search_context', description: '', inputSchema: {} }
+  ])
 
   assert.doesNotMatch(prompt, /可建议的能力/)
 })

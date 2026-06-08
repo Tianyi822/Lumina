@@ -83,7 +83,7 @@ describe('LabCapability', () => {
   it('元数据正确', () => {
     assert.equal(cap.id, 'lab')
     assert.equal(cap.displayName, '实验室工具')
-    assert.ok(cap.tags.includes('代码执行'))
+    assert.ok(cap.tags.includes('命令执行'))
   })
 
   it('createAdapter 始终返回非 null（无上下文依赖）', () => {

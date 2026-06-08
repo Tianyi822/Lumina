@@ -3,17 +3,15 @@ import type { WebContents } from 'electron'
 import type { StreamAccumulatorState } from './chatInternal'
 import { createThinkParserState, flushThinkParserState, splitThinkTaggedContent } from './message'
 import type { StreamHandler } from './StreamHandler'
+import type { TokenUsage } from '../../types/chat'
+import { addTokenUsage, createEmptyTokenUsage, extractTokenUsage } from './PromptCacheOptimizer'
 
 /**
  * 流式响应处理结果
  */
 export interface StreamProcessResult {
   state: StreamAccumulatorState
-  totalUsage: {
-    prompt_tokens: number
-    completion_tokens: number
-    total_tokens: number
-  }
+  totalUsage: TokenUsage
 }
 
 /**
@@ -43,11 +41,7 @@ export class StreamProcessor {
       hasToolCalls: false
     }
     const thinkParserState = createThinkParserState()
-    const totalUsage = {
-      prompt_tokens: 0,
-      completion_tokens: 0,
-      total_tokens: 0
-    }
+    const totalUsage = createEmptyTokenUsage()
 
     for await (const chunk of stream) {
       this.processChunk(chunk, state, thinkParserState, totalUsage, webContents, sessionId, turnId)
@@ -65,15 +59,13 @@ export class StreamProcessor {
     chunk: OpenAI.Chat.Completions.ChatCompletionChunk,
     state: StreamAccumulatorState,
     thinkParserState: ReturnType<typeof createThinkParserState>,
-    totalUsage: { prompt_tokens: number; completion_tokens: number; total_tokens: number },
+    totalUsage: TokenUsage,
     webContents: WebContents,
     sessionId: string,
     turnId?: string
   ): void {
     if (chunk.usage) {
-      totalUsage.prompt_tokens += chunk.usage.prompt_tokens
-      totalUsage.completion_tokens += chunk.usage.completion_tokens
-      totalUsage.total_tokens += chunk.usage.total_tokens
+      addTokenUsage(totalUsage, extractTokenUsage(chunk.usage))
     }
 
     const choice = chunk.choices?.[0]

@@ -268,20 +268,24 @@ export default function ModelSettings() {
 
       <section className="sm-settings-page__section">
         <div className="sm-settings-page__section-header">
-          <div>
+          <div className="sm-settings-page__section-title-row">
             <h3 className="sm-settings-page__section-title">模型列表</h3>
-            <p className="sm-settings-page__section-description">
-              当前共 {llmConfigs.length} 个模型，默认模型会同步到会话工作区的模型选择器。
-            </p>
+            <span
+              className={['sm-settings-chip', llmConfigs.length > 0 && 'sm-settings-chip--accent']
+                .filter(Boolean)
+                .join(' ')}
+            >
+              默认模型: {defaultModel || '未设置'}
+            </span>
           </div>
 
-          <span
-            className={['sm-settings-chip', llmConfigs.length > 0 && 'sm-settings-chip--accent']
-              .filter(Boolean)
-              .join(' ')}
+          <button
+            className="sm-button sm-button--primary"
+            disabled={saving}
+            onClick={() => void handleSave()}
           >
-            默认模型: {defaultModel || '未设置'}
-          </span>
+            {saving ? '保存中...' : '保存配置'}
+          </button>
         </div>
 
         <div className={styles['model-list']}>
@@ -447,16 +451,6 @@ export default function ModelSettings() {
           </button>
         )}
       </section>
-
-      <div className={styles['save-actions']}>
-        <button
-          className="sm-button sm-button--primary"
-          disabled={saving}
-          onClick={() => void handleSave()}
-        >
-          {saving ? '保存中...' : '保存配置'}
-        </button>
-      </div>
     </div>
   )
 }

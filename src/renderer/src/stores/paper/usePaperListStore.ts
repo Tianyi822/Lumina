@@ -112,9 +112,9 @@ export const usePaperListStore = create<PaperListState>()((set, get) => {
       const s = get()
       const paper = s.papers.find((p) => p.id === s.currentPaperId)
       if (!paper?.filePath) return null
-      const lastSlash = paper.filePath.lastIndexOf('/')
-      if (lastSlash < 0) return null
-      return paper.filePath.substring(0, lastSlash)
+      const lastSep = Math.max(paper.filePath.lastIndexOf('/'), paper.filePath.lastIndexOf('\\'))
+      if (lastSep < 0) return null
+      return paper.filePath.substring(0, lastSep)
     },
 
     // -----------------------------------------------------------------------

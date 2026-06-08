@@ -1,3 +1,4 @@
+import { basename } from 'path'
 import { ipcMain, dialog, net, BrowserWindow } from 'electron'
 import {
   paperStorageService,
@@ -228,7 +229,7 @@ export function registerPaperHandlers(): void {
       const stats = statSync(filePath)
       return {
         path: filePath,
-        name: filePath.split('/').pop() || 'unknown.pdf',
+        name: basename(filePath) || 'unknown.pdf',
         size: stats.size
       }
     } catch (error) {

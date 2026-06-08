@@ -17,6 +17,11 @@ import { StopController } from './StopController'
 import { StreamHandler } from './StreamHandler'
 import { ReactLoopService } from './ReactLoopService'
 import { shouldUsePlanExecute } from './chatRouting'
+import {
+  applyPromptCacheOptions,
+  extractTokenUsage,
+  recordPromptCacheDiagnostics
+} from './PromptCacheOptimizer'
 
 /**
  * 聊天服务
@@ -134,15 +139,19 @@ export class ChatService {
     try {
       const client = this.createClient(llmConfig)
       const formattedMessages = formatMessagesWithKnowledge(messages, knowledgeResults)
-
-      const stream = await this.modelRetryHandler.createChatCompletionWithRetry(
-        client,
+      const requestParams = applyPromptCacheOptions(
         {
           model: llmConfig.model_name,
           messages: formattedMessages,
           stream: true,
           stream_options: { include_usage: true }
         },
+        { llmConfig, request }
+      )
+
+      const stream = await this.modelRetryHandler.createChatCompletionWithRetry(
+        client,
+        requestParams,
         abortController,
         sessionId,
         'direct'
@@ -153,12 +162,7 @@ export class ChatService {
 
       for await (const chunk of stream) {
         if (chunk.usage) {
-          usage = {
-            prompt_tokens: chunk.usage.prompt_tokens,
-            completion_tokens: chunk.usage.completion_tokens,
-            total_tokens: chunk.usage.total_tokens,
-            reasoning_tokens: (chunk.usage as { reasoning_tokens?: number }).reasoning_tokens
-          }
+          usage = extractTokenUsage(chunk.usage)
         }
 
         const choice = chunk.choices?.[0]
@@ -203,6 +207,14 @@ export class ChatService {
       }
 
       this.streamHandler.sendDone(webContents, sessionId, usage, turnId, 'completed')
+      if (usage) {
+        recordPromptCacheDiagnostics(
+          { llmConfig, request, mode: 'direct', scene: 'direct' },
+          requestParams,
+          usage,
+          logger
+        )
+      }
 
       logger.info('聊天消息发送完成', 'main', { usage })
 

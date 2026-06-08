@@ -4,13 +4,21 @@ import assert from 'node:assert/strict'
 import { buildReactSystemPrompt, buildToolCoordinationGuide } from './reactSystemPrompt.ts'
 
 test('内置 ReAct 提示词不再注入 few-shot 示例或模板变量', () => {
-  const prompt = buildReactSystemPrompt({ modelName: 'test-model' })
+  const prompt = buildReactSystemPrompt()
 
   assert.doesNotMatch(prompt, /few-shot/i)
   assert.doesNotMatch(prompt, /Few-shot/)
   assert.doesNotMatch(prompt, /\{\{[^}]+}}/)
   assert.doesNotMatch(prompt, /自定义变量/)
   assert.doesNotMatch(prompt, /动态变量/)
+})
+
+test('内置 ReAct 提示词不注入当前时间且连续构建保持稳定', () => {
+  const firstPrompt = buildReactSystemPrompt()
+  const secondPrompt = buildReactSystemPrompt()
+
+  assert.equal(firstPrompt, secondPrompt)
+  assert.doesNotMatch(firstPrompt, /当前时间/)
 })
 
 test('内置 ReAct 提示词保留实验室创建业务规则', () => {

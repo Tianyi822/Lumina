@@ -25,7 +25,6 @@ function TerminalSessionInstance({ sessionKey }: { sessionKey: string }): ReactE
   return (
     <div ref={wrapperRef} className={styles['terminal-session-shell']}>
       <InteractiveTerminalPanel
-        backend={session.backend}
         targetId={session.targetId}
         title={session.title}
         subtitle={session.subtitle}

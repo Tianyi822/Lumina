@@ -4,6 +4,7 @@ import type { MCPToolCallResult } from '@shared/types/mcp'
 import type { ToolCategory } from '@shared/types/tool-stats'
 import { enhanceToolDescriptions } from './ToolDescriptionEnhancer'
 import type { ToolDescriptionLevel } from '../prompts/types'
+import { deepSortPromptCacheValue } from '../PromptCacheOptimizer'
 
 function getDescriptionLevelByToolCount(toolCount: number): ToolDescriptionLevel {
   if (toolCount > 20) {
@@ -151,7 +152,9 @@ export class UnifiedToolRegistry {
    * 获取所有已注册工具
    */
   getAllTools(): RegisteredTool[] {
-    return Array.from(this.tools.values())
+    return Array.from(this.tools.values()).sort((a, b) =>
+      this.getOpenAIToolName(a).localeCompare(this.getOpenAIToolName(b))
+    )
   }
 
   /**
@@ -171,13 +174,17 @@ export class UnifiedToolRegistry {
    * 替代 ToolExecutor.buildOpenAITools()，从注册表中直接生成
    */
   buildOpenAITools(): OpenAI.Chat.Completions.ChatCompletionTool[] {
-    const allRefs = this.getAllToolReferences()
+    const allRefs = this.getAllToolReferences().map((tool) => ({
+      ...tool,
+      inputSchema: deepSortPromptCacheValue(tool.inputSchema) as Record<string, unknown>
+    }))
     const descriptionLevel = getDescriptionLevelByToolCount(allRefs.length)
     const enhancedDescriptions = this.enhanceDescriptionsByCategory(allRefs, descriptionLevel)
     const openAITools: OpenAI.Chat.Completions.ChatCompletionTool[] = []
 
-    for (const rt of this.tools.values()) {
+    for (const rt of this.getAllTools()) {
       const { name, description, parameters } = rt.functionDef
+      const stableParameters = deepSortPromptCacheValue(parameters) as Record<string, unknown>
 
       if (rt.category === 'lab') {
         openAITools.push({
@@ -185,7 +192,7 @@ export class UnifiedToolRegistry {
           function: {
             name: `lab__${name}`,
             description,
-            parameters
+            parameters: stableParameters
           }
         })
         continue
@@ -197,7 +204,7 @@ export class UnifiedToolRegistry {
           function: {
             name: `knowledge__${name}`,
             description,
-            parameters
+            parameters: stableParameters
           }
         })
         continue
@@ -209,7 +216,7 @@ export class UnifiedToolRegistry {
           function: {
             name: `paper_web__${name}`,
             description,
-            parameters
+            parameters: stableParameters
           }
         })
         continue
@@ -221,7 +228,7 @@ export class UnifiedToolRegistry {
           function: {
             name: `paper__${name}`,
             description,
-            parameters
+            parameters: stableParameters
           }
         })
         continue
@@ -236,7 +243,7 @@ export class UnifiedToolRegistry {
         function: {
           name: this.sanitizeName(rt.serverName, name),
           description: enhancedDescription,
-          parameters
+          parameters: stableParameters
         }
       })
     }
@@ -281,6 +288,18 @@ export class UnifiedToolRegistry {
    */
   private buildFullName(serverName: string, toolName: string): string {
     return `${serverName}__${toolName}`
+  }
+
+  /**
+   * 获取最终发给 OpenAI 的工具名称，用于稳定排序
+   */
+  private getOpenAIToolName(tool: RegisteredTool): string {
+    const { name } = tool.functionDef
+    if (tool.category === 'lab') return `lab__${name}`
+    if (tool.category === 'knowledge') return `knowledge__${name}`
+    if (tool.category === 'paper') return `paper__${name}`
+    if (tool.category === 'paper_web') return `paper_web__${name}`
+    return this.sanitizeName(tool.serverName, name)
   }
 
   /**

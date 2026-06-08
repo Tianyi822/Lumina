@@ -28,6 +28,25 @@
   pointer-events: none;
 }
 
+.upload-zone--compact {
+  min-height: 88px;
+  padding: var(--sm-space-4) var(--sm-space-5);
+}
+
+.upload-zone--compact .upload-content {
+  gap: var(--sm-space-1);
+  max-width: none;
+}
+
+.upload-zone--compact .upload-text {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.upload-zone--compact .upload-types {
+  font-size: 11px;
+}
+
 .upload-content {
   display: flex;
   flex-direction: column;

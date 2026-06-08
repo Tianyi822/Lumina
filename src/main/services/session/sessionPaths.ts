@@ -59,7 +59,7 @@ export function isPathInDataDir(filePath: string): boolean {
 
   // 确保文件名不包含路径分隔符（防止子目录遍历）
   const fileName = basename(normalizedPath)
-  if (fileName !== basename(filePath.split('/').pop() || '')) {
+  if (fileName !== basename(filePath)) {
     return false
   }
 

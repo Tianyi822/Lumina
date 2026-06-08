@@ -1,5 +1,5 @@
 .confirm-dialog-overlay {
-  z-index: 1100;
+  z-index: 1300;
   padding-top: calc(var(--sm-titlebar-height) + 48px);
 }
 

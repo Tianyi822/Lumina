@@ -390,6 +390,12 @@ export interface TokenUsage {
   total_tokens: number
   /** 思考过程使用的 Token 数量 */
   reasoning_tokens?: number
+  /** 命中 Prompt Cache 的输入 Token 数量 */
+  cached_prompt_tokens?: number
+  /** 未命中 Prompt Cache 的输入 Token 数量 */
+  uncached_prompt_tokens?: number
+  /** Prompt Cache 命中率，范围 0-1 */
+  prompt_cache_hit_rate?: number
 }
 
 /**
@@ -464,12 +470,17 @@ export interface ChatResult {
   finalContent?: string
   /** 工具执行结果摘要，用于规划模式步骤间保留关键上下文 */
   toolResults?: ChatToolExecutionResult[]
+  /** 当前轮实际发送给模型并由模型产生的消息序列，用于后续轮次保持严格前缀 */
+  modelTranscript?: ChatMessage[]
   /** 该次调用消耗的 token 统计 */
   usage?: {
     prompt_tokens: number
     completion_tokens: number
     total_tokens: number
     reasoning_tokens?: number
+    cached_prompt_tokens?: number
+    uncached_prompt_tokens?: number
+    prompt_cache_hit_rate?: number
   }
 }
 

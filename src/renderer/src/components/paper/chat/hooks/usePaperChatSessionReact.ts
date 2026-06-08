@@ -64,6 +64,7 @@ export function usePaperChatSessionReact(
   const paperRef = useRef(paper)
   const sessionRef = useRef<SessionData | null>(session)
   const messagesRef = useRef<Message[]>(messages)
+  const saveQueueRef = useRef<Promise<void>>(Promise.resolve())
   const selectionRef = useRef({
     selectedModel,
     selectedMCPTools,
@@ -94,34 +95,43 @@ export function usePaperChatSessionReact(
   }, [])
 
   const saveCurrentSession = useCallback(async (): Promise<boolean> => {
-    const currentSession = sessionRef.current
-    if (!currentSession) {
-      return false
-    }
-
-    const selection = selectionRef.current
-    const sessionToSave: SessionData = {
-      ...currentSession,
-      messages: messagesRef.current.map(messageToSessionMessage),
-      selectionState: {
-        selectedMCPTools: selection.selectedMCPTools,
-        selectedKnowledgeBases: selection.selectedKnowledgeBases,
-        enableLabTools: selection.enableLabTools,
-        selectedModel: selection.selectedModel,
-        enablePaperWebSearch: selection.enablePaperWebSearch
+    const saveTask = saveQueueRef.current.then(async () => {
+      const currentSession = sessionRef.current
+      if (!currentSession) {
+        return false
       }
-    }
 
-    const plainSessionToSave = toPlainSessionData(sessionToSave)
-    const result = await window.api.session.save(plainSessionToSave)
-    if (!result.success) {
-      setErrorState(result.error || '保存论文聊天会话失败')
-      return false
-    }
+      const selection = selectionRef.current
+      const sessionToSave: SessionData = {
+        ...currentSession,
+        messages: messagesRef.current.map(messageToSessionMessage),
+        selectionState: {
+          selectedMCPTools: selection.selectedMCPTools,
+          selectedKnowledgeBases: selection.selectedKnowledgeBases,
+          enableLabTools: selection.enableLabTools,
+          selectedModel: selection.selectedModel,
+          enablePaperWebSearch: selection.enablePaperWebSearch
+        }
+      }
 
-    sessionRef.current = plainSessionToSave
-    setSession(plainSessionToSave)
-    return true
+      const plainSessionToSave = toPlainSessionData(sessionToSave)
+      const result = await window.api.session.save(plainSessionToSave)
+      if (!result.success) {
+        setErrorState(result.error || '保存论文聊天会话失败')
+        return false
+      }
+
+      sessionRef.current = plainSessionToSave
+      setSession(plainSessionToSave)
+      return true
+    })
+
+    // 串行保存，避免 done 事件快照覆盖随后补写 modelTranscript 的快照。
+    saveQueueRef.current = saveTask.then(
+      () => undefined,
+      () => undefined
+    )
+    return saveTask
   }, [])
 
   const applySessionData = useCallback(

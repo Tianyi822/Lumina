@@ -5,7 +5,6 @@
 
 import type { LabCreationType, LabPermissionPolicy } from '@shared/types/lab'
 import { LAB_TYPE_PERMISSIONS } from '@shared/types/lab'
-import { logger } from '@main/services/logger'
 
 /**
  * 权限检查结果
@@ -54,11 +53,8 @@ export class LabPermissionService {
   /**
    * 获取操作被拒绝的原因文案
    */
-  private getDisabledReason(type: LabCreationType, operation: string): string {
-    if (type === 'ssh') {
-      return `SSH 远程服务器类型的实验室不允许${operation}操作，容器生命周期由远程服务器管理`
-    }
-    return `${type} 类型的实验室不允许${operation}容器操作，请使用 Docker 命令行管理容器生命周期`
+  private getDisabledReason(operation: string): string {
+    return `SSH 远程服务器类型的实验室不允许${operation}操作，容器生命周期由远程服务器管理`
   }
 
   /**
@@ -71,7 +67,7 @@ export class LabPermissionService {
     }
     return {
       allowed: false,
-      reason: this.getDisabledReason(type, '启动')
+      reason: this.getDisabledReason('启动')
     }
   }
 
@@ -85,7 +81,7 @@ export class LabPermissionService {
     }
     return {
       allowed: false,
-      reason: this.getDisabledReason(type, '停止')
+      reason: this.getDisabledReason('停止')
     }
   }
 
@@ -99,7 +95,7 @@ export class LabPermissionService {
     }
     return {
       allowed: false,
-      reason: this.getDisabledReason(type, '重启')
+      reason: this.getDisabledReason('重启')
     }
   }
 
@@ -121,7 +117,6 @@ export class LabPermissionService {
 
   /**
    * 验证删除选项是否符合权限策略
-   * 返回最终的 deleteContainers 值
    */
   validateDeleteOptions(
     type: LabCreationType,
@@ -129,21 +124,13 @@ export class LabPermissionService {
   ): { shouldDeleteContainers: boolean; warning?: string } {
     const policy = this.getDeleteContainerPolicy(type)
 
-    // existing 和 ssh 类型强制不删除容器（保护用户原有容器/远程服务器）
     if (policy.forceKeep) {
-      if (requestedDeleteContainers === true) {
-        logger.warn(`${type} 类型实验室不允许删除容器，已强制保留`, 'main', {
-          requestedDeleteContainers
-        })
-      }
-      const label = type === 'ssh' ? 'SSH' : 'existing'
       return {
         shouldDeleteContainers: false,
-        warning: `${label} 类型实验室仅删除元数据，关联容器/连接不受影响`
+        warning: 'SSH 类型实验室仅删除元数据，关联连接不受影响'
       }
     }
 
-    // compose 和 dockerfile 类型，使用用户选择或默认值
     return {
       shouldDeleteContainers: requestedDeleteContainers ?? policy.defaultValue
     }

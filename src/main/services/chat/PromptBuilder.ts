@@ -1,6 +1,9 @@
-import type { LLMConfig } from '@main/types/config'
 import type { MCPToolReference } from '@main/types/chat'
-import { buildReactSystemPrompt, buildKnowledgeEnhancedPrompt, buildToolCoordinationGuide } from './prompts/reactSystemPrompt'
+import {
+  buildReactSystemPrompt,
+  buildKnowledgeEnhancedPrompt,
+  buildToolCoordinationGuide
+} from './prompts/reactSystemPrompt'
 import { buildPlanSystemPrompt, buildStepExecutionPrompt } from './prompts/planSystemPrompt'
 import type { ToolPipeline } from './tools/PipelineTypes'
 
@@ -10,27 +13,20 @@ export interface SuggestableCapability {
   description: string
 }
 
+export interface PromptBuildContext {
+  pipeline?: ToolPipeline
+  suggestableCapabilities?: SuggestableCapability[]
+}
+
 /**
  * PromptBuilder 只负责选择内置系统提示词。
  * 工具调用能力依赖 OpenAI tools schema，避免通过用户配置堆叠额外提示词。
  */
 export class PromptBuilder {
-  private currentPipeline?: ToolPipeline
-  private suggestableCapabilities: SuggestableCapability[] = []
-
-  /** 设置当前管道配置（由 ReactLoopService 在每次请求时调用） */
-  setPipeline(pipeline: ToolPipeline | undefined): void {
-    this.currentPipeline = pipeline
-  }
-
-  /** 设置可建议但未激活的能力列表（由 ReactLoopService 在每次请求时调用） */
-  setSuggestableCapabilities(caps: SuggestableCapability[]): void {
-    this.suggestableCapabilities = caps
-  }
   async buildSystemPrompt(
-    modelConfig: LLMConfig,
     hasTools: boolean,
-    selectedTools?: MCPToolReference[]
+    selectedTools?: MCPToolReference[],
+    context: PromptBuildContext = {}
   ): Promise<string> {
     const hasSelectedTools = hasTools || (selectedTools?.length ?? 0) > 0
 
@@ -38,9 +34,7 @@ export class PromptBuilder {
       return this.getBasicSystemPrompt()
     }
 
-    let prompt = buildReactSystemPrompt({
-      modelName: modelConfig.model_name
-    })
+    let prompt = buildReactSystemPrompt()
 
     // 当存在知识库工具时，追加知识库使用指南
     const hasKnowledgeTools = selectedTools?.some((t) => t.serverName === 'knowledge')
@@ -58,12 +52,15 @@ export class PromptBuilder {
     }
 
     // 多 stage 管道时追加工具协调指南
-    if (this.currentPipeline && this.currentPipeline.stages.length > 1) {
-      prompt += '\n\n' + buildToolCoordinationGuide(this.currentPipeline.stages)
+    if (context.pipeline && context.pipeline.stages.length > 1) {
+      prompt += '\n\n' + buildToolCoordinationGuide(context.pipeline.stages)
     }
 
-    if (this.suggestableCapabilities.length > 0) {
-      prompt += '\n\n' + this.buildCapabilitySuggestionPrompt(this.suggestableCapabilities)
+    const suggestableCapabilities = [...(context.suggestableCapabilities ?? [])].sort((a, b) =>
+      a.id.localeCompare(b.id)
+    )
+    if (suggestableCapabilities.length > 0) {
+      prompt += '\n\n' + this.buildCapabilitySuggestionPrompt(suggestableCapabilities)
     }
 
     return prompt

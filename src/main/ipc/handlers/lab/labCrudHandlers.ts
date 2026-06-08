@@ -6,9 +6,7 @@ import type {
   LabResult,
   LabLogEntry,
   CreateLabRequest,
-  CreateLabResult,
-  DeleteLabOptions,
-  LabContainerStatus
+  CreateLabResult
 } from '@shared/types/lab'
 import { getLabServices } from './shared'
 
@@ -51,30 +49,8 @@ export function registerLabCrudHandlers(): void {
 
   ipcMain.handle(
     'lab:delete',
-    async (_event, labId: string, options?: DeleteLabOptions): Promise<DeleteLabResult> => {
-      return labService.deleteLab(labId, options)
-    }
-  )
-
-  ipcMain.handle(
-    'lab:checkContainerStatus',
-    async (_event, labId: string): Promise<LabContainerStatus | null> => {
-      return labService.checkContainerStatus(labId)
-    }
-  )
-
-  ipcMain.handle('lab:checkAllContainerStatus', async (): Promise<LabContainerStatus[]> => {
-    return labService.checkAllLabContainerStatus()
-  })
-
-  ipcMain.handle('lab:cleanupOrphan', async (_event, labId: string): Promise<LabResult> => {
-    return labService.cleanupOrphanLab(labId)
-  })
-
-  ipcMain.handle(
-    'lab:recoverOrphan',
-    async (_event, labId: string, newContainerId: string): Promise<LabResult> => {
-      return labService.recoverOrphanLab(labId, newContainerId)
+    async (_event, labId: string): Promise<DeleteLabResult> => {
+      return labService.deleteLab(labId)
     }
   )
 }

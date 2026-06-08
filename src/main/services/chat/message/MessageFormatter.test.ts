@@ -150,3 +150,88 @@ test('formatMessagesWithKnowledge 只保留有 tool 响应的 tool_calls 且不�
   )
   assert.equal(JSON.stringify(messages), original)
 })
+
+test('formatMessagesWithKnowledge 不向模型发送历史 reasoning_content', () => {
+  const messages: ChatMessage[] = [
+    {
+      role: 'assistant',
+      content: '可见回答',
+      reasoning_content: '内部思考'
+    },
+    {
+      role: 'assistant',
+      content: '',
+      reasoning_content: '仅思考'
+    },
+    {
+      role: 'user',
+      content: '继续'
+    }
+  ]
+
+  const formatted = formatMessagesWithKnowledge(messages)
+
+  assert.deepEqual(
+    formatted.map((msg) => msg.role),
+    ['assistant', 'user']
+  )
+  assert.equal('reasoning_content' in (formatted[0] as unknown as Record<string, unknown>), false)
+})
+
+test('formatMessagesWithKnowledge 追加新 user 时保持历史前缀不变', () => {
+  const baseMessages: ChatMessage[] = [
+    { role: 'user', content: '第一轮问题' },
+    { role: 'assistant', content: '第一轮回答' },
+    { role: 'user', content: '第二轮问题' }
+  ]
+  const extendedMessages: ChatMessage[] = [
+    ...baseMessages,
+    { role: 'assistant', content: '第二轮回答' },
+    {
+      role: 'user',
+      content: '第三轮问题',
+      attachedDocuments: [
+        {
+          fileName: 'note.md',
+          fileType: 'md',
+          fileSize: 12,
+          parsedContent: '动态附件内容'
+        }
+      ]
+    }
+  ]
+
+  const baseFormatted = formatMessagesWithKnowledge(baseMessages)
+  const extendedFormatted = formatMessagesWithKnowledge(extendedMessages)
+
+  assert.equal(
+    JSON.stringify(extendedFormatted.slice(0, baseFormatted.length)),
+    JSON.stringify(baseFormatted)
+  )
+  assert.match(String(extendedFormatted.at(-1)?.content), /动态附件内容/)
+  assert.doesNotMatch(String(extendedFormatted[0].content), /动态附件内容/)
+})
+
+test('历史用户附件在追加新轮次后保持已发送前缀不变', () => {
+  const attachedUser: ChatMessage = {
+    role: 'user',
+    content: '分析附件',
+    attachedDocuments: [
+      {
+        fileName: 'paper.md',
+        fileType: 'md',
+        fileSize: 16,
+        parsedContent: '稳定附件内容'
+      }
+    ]
+  }
+  const baseFormatted = formatMessagesWithKnowledge([attachedUser])
+  const extendedFormatted = formatMessagesWithKnowledge([
+    attachedUser,
+    { role: 'assistant', content: '附件分析结果' },
+    { role: 'user', content: '继续' }
+  ])
+
+  assert.equal(JSON.stringify(extendedFormatted[0]), JSON.stringify(baseFormatted[0]))
+  assert.match(String(extendedFormatted[0].content), /稳定附件内容/)
+})

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react'
 import { useUIStateStore } from '@renderer/stores/uiStateStore'
 import { useConfigStore } from '@renderer/stores/configStore'
+import { isAnyLabDisciplineEnabled } from '@shared/utils/labFeatures'
 import { usePaperViewStore } from '@renderer/stores/paper'
 import { getRuntimePlatform } from '@renderer/composables/runtimePlatformCore'
 
@@ -23,6 +24,8 @@ export default function App() {
   const isCurrentSidebarCollapsed = useUIStateStore((s) => s.isCurrentSidebarCollapsed())
   const paperChatPanelOpen = useUIStateStore((s) => s.paperChatPanelOpen)
   const loadConfigStatus = useUIStateStore((s) => s.loadConfigStatus)
+
+  const labFeaturesLabEnabled = useConfigStore((s) => isAnyLabDisciplineEnabled(s.labFeatures))
 
   const { isMac, isWindows, usesCustomWindowControls } = useMemo(() => getRuntimePlatform(), [])
 
@@ -77,6 +80,16 @@ export default function App() {
     }
   }, [])
 
+  // lab 禁用时同步视图状态
+  useEffect(() => {
+    if (!labFeaturesLabEnabled) {
+      const currentViewState = useUIStateStore.getState().currentView
+      if (currentViewState === 'lab') {
+        useUIStateStore.getState().setCurrentView('paper')
+      }
+    }
+  }, [labFeaturesLabEnabled])
+
   const openSettings = useCallback(() => setShowSettings(true), [])
   const closeSettings = useCallback(() => setShowSettings(false), [])
 
@@ -99,6 +112,15 @@ export default function App() {
           <KnowledgePage key="knowledge" />
         </Suspense>
       )
+    // lab 禁用时 fallback 渲染 PaperReaderPage
+    const labEnabled = isAnyLabDisciplineEnabled(useConfigStore.getState().labFeatures)
+    if (!labEnabled) {
+      return (
+        <Suspense fallback={fallback}>
+          <PaperReaderPage key="paper" />
+        </Suspense>
+      )
+    }
     return (
       <Suspense fallback={fallback}>
         <LabPage key="lab" />

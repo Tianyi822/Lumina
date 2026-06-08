@@ -1,10 +1,8 @@
-.file-manager-overlay {
-  z-index: 1000;
-}
-
 .file-manager-container {
   width: min(960px, calc(100vw - 72px));
+  height: min(820px, calc(100vh - 104px));
   max-height: min(820px, calc(100vh - 104px));
+  min-height: min(520px, 60vh);
   display: flex;
   flex-direction: column;
   overflow: hidden;

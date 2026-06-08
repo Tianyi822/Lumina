@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import type { EmbeddingConfig } from '@shared/types/config'
+import ModalPortal from '@renderer/components/ui/ModalPortal'
 import styles from './KnowledgeForm.module.css'
 
 const chunkStrategies = [
@@ -145,7 +146,7 @@ export default function KnowledgeForm({ onSubmit, onCancel }: KnowledgeFormProps
   }, [onCancel, resetForm])
 
   return (
-    <div className={`sm-modal__overlay ${styles['form-overlay']}`} onClick={handleCancel}>
+    <ModalPortal onBackdropClick={handleCancel}>
       <div
         className={`sm-modal__surface ${styles['form-container']}`}
         onClick={(e) => e.stopPropagation()}
@@ -303,6 +304,6 @@ export default function KnowledgeForm({ onSubmit, onCancel }: KnowledgeFormProps
           </div>
         </form>
       </div>
-    </div>
+    </ModalPortal>
   )
 }

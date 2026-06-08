@@ -115,18 +115,12 @@
   color: var(--sm-color-status-danger);
 }
 
-.save-actions {
-  display: flex;
-  justify-content: flex-end;
-}
-
 @media (max-width: 720px) {
   .model-header {
     flex-wrap: wrap;
   }
 
-  .model-actions,
-  .save-actions {
+  .model-actions {
     width: 100%;
     justify-content: flex-end;
   }

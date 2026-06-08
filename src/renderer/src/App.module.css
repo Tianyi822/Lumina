@@ -82,6 +82,11 @@
   margin-top: calc(var(--sm-paper-reader-window-top-overlap) * -1);
 }
 
+.workspacePage:global(.sm-workspace-page--paper).windows :global(.sm-workspace-main) {
+  height: 100%;
+  margin-top: 0;
+}
+
 .workspacePage:global(.sm-workspace-page--paper).windows :global(.sm-workspace-main)::before {
   top: 0;
 }

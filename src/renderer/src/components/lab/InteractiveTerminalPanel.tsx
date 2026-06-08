@@ -1,14 +1,10 @@
 import { useEffect, useRef, useState, useMemo, useCallback } from 'react'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
-import type { IDisposable } from '@xterm/xterm'
 import '@xterm/xterm/css/xterm.css'
-import { labApi } from '@renderer/services/labApi'
-import type { DockerTerminalDataEvent, DockerTerminalExitEvent } from '@renderer/types/lab'
-import styles from './InteractiveTerminalPanel.module.css'
 import { useSshTerminal } from './hooks/useSshTerminal'
+import styles from './InteractiveTerminalPanel.module.css'
 
-type TerminalBackend = 'docker' | 'ssh'
 type TerminalStatus = 'opening' | 'connected' | 'closed' | 'error'
 
 interface TerminalSize {
@@ -17,7 +13,6 @@ interface TerminalSize {
 }
 
 interface InteractiveTerminalPanelProps {
-  backend: TerminalBackend
   targetId: string
   title: string
   subtitle?: string
@@ -29,7 +24,6 @@ function readCssVar(name: string, fallback: string): string {
 }
 
 export default function InteractiveTerminalPanel({
-  backend,
   targetId,
   title,
   subtitle
@@ -37,10 +31,7 @@ export default function InteractiveTerminalPanel({
   const terminalHostRef = useRef<HTMLDivElement>(null)
   const terminalRef = useRef<Terminal | null>(null)
   const fitAddonRef = useRef<FitAddon | null>(null)
-  const dockerSessionIdRef = useRef<string | null>(null)
-  const inputDisposableRef = useRef<IDisposable | null>(null)
-  const removeDataListenerRef = useRef<(() => void) | null>(null)
-  const removeExitListenerRef = useRef<(() => void) | null>(null)
+  const inputDisposableRef = useRef<ReturnType<Terminal['onData']> | null>(null)
   const resizeObserverRef = useRef<ResizeObserver | null>(null)
   const resizeFrameRef = useRef(0)
   const lastSizeRef = useRef<TerminalSize | null>(null)
@@ -60,7 +51,6 @@ export default function InteractiveTerminalPanel({
   }, [status])
 
   const statusClass = useMemo(() => `status-${status}`, [status])
-  const backendLabel = useMemo(() => (backend === 'ssh' ? 'SSH 终端' : 'Docker 终端'), [backend])
 
   const readTerminalSize = useCallback((): TerminalSize => {
     const terminal = terminalRef.current
@@ -71,7 +61,6 @@ export default function InteractiveTerminalPanel({
   }, [])
 
   const markClosed = useCallback((reason?: string): void => {
-    dockerSessionIdRef.current = null
     setStatus((prev) => (prev !== 'error' ? 'closed' : prev))
     setStatusMessage(reason || '终端已关闭')
   }, [])
@@ -84,7 +73,7 @@ export default function InteractiveTerminalPanel({
     sessionId: sshSessionIdRef
   } = useSshTerminal({
     targetId,
-    enabled: backend === 'ssh',
+    enabled: true,
     onData: useCallback((data: string): void => {
       terminalRef.current?.write(data)
     }, []),
@@ -98,27 +87,14 @@ export default function InteractiveTerminalPanel({
 
   const resizeRemoteTerminal = useCallback(
     async (size: TerminalSize): Promise<void> => {
-      if (backend === 'ssh') {
-        if (!sshSessionIdRef.current) return
-        const result = await sshResize(size)
-        if (result && !result.success) {
-          setStatus('error')
-          setStatusMessage(result.error || '终端尺寸同步失败')
-        }
-        return
-      }
-
-      const sid = dockerSessionIdRef.current
-      if (!sid) return
-
-      const result = await labApi.terminal.resize(sid, size)
-
-      if (!result.success) {
+      if (!sshSessionIdRef.current) return
+      const result = await sshResize(size)
+      if (result && !result.success) {
         setStatus('error')
         setStatusMessage(result.error || '终端尺寸同步失败')
       }
     },
-    [backend, sshResize, sshSessionIdRef]
+    [sshResize, sshSessionIdRef]
   )
 
   const fitTerminal = useCallback(() => {
@@ -146,27 +122,14 @@ export default function InteractiveTerminalPanel({
 
   const writeRemoteTerminal = useCallback(
     async (data: string): Promise<void> => {
-      if (backend === 'ssh') {
-        if (!sshSessionIdRef.current) return
-        const result = await sshWrite(data)
-        if (result && !result.success) {
-          setStatus('error')
-          setStatusMessage(result.error || '终端写入失败')
-        }
-        return
-      }
-
-      const sid = dockerSessionIdRef.current
-      if (!sid) return
-
-      const result = await labApi.terminal.write(sid, data)
-
-      if (!result.success) {
+      if (!sshSessionIdRef.current) return
+      const result = await sshWrite(data)
+      if (result && !result.success) {
         setStatus('error')
         setStatusMessage(result.error || '终端写入失败')
       }
     },
-    [backend, sshWrite, sshSessionIdRef]
+    [sshWrite, sshSessionIdRef]
   )
 
   const focusTerminal = useCallback((): void => {
@@ -175,33 +138,12 @@ export default function InteractiveTerminalPanel({
     })
   }, [])
 
-  const handleDockerData = useCallback((event: DockerTerminalDataEvent): void => {
-    if (event.sessionId !== dockerSessionIdRef.current) return
-    terminalRef.current?.write(event.data)
-  }, [])
-
-  const handleDockerExit = useCallback(
-    (event: DockerTerminalExitEvent): void => {
-      if (event.sessionId !== dockerSessionIdRef.current) return
-      markClosed(event.reason)
-    },
-    [markClosed]
-  )
-
   const disposeTerminal = useCallback(
     (closeRemote: boolean): void => {
       if (resizeFrameRef.current) {
         window.cancelAnimationFrame(resizeFrameRef.current)
         resizeFrameRef.current = 0
       }
-
-      const currentDockerSessionId = dockerSessionIdRef.current
-      dockerSessionIdRef.current = null
-
-      removeDataListenerRef.current?.()
-      removeExitListenerRef.current?.()
-      removeDataListenerRef.current = null
-      removeExitListenerRef.current = null
 
       resizeObserverRef.current?.disconnect()
       resizeObserverRef.current = null
@@ -215,14 +157,10 @@ export default function InteractiveTerminalPanel({
       lastSizeRef.current = null
 
       if (closeRemote) {
-        if (backend === 'ssh') {
-          void sshClose()
-        } else if (currentDockerSessionId) {
-          void labApi.terminal.close(currentDockerSessionId)
-        }
+        void sshClose()
       }
     },
-    [backend, sshClose]
+    [sshClose]
   )
 
   // 初始化终端
@@ -234,7 +172,6 @@ export default function InteractiveTerminalPanel({
     setStatus('opening')
     setStatusMessage('')
 
-    // 创建终端实例
     const terminal = new Terminal({
       cursorBlink: true,
       allowTransparency: true,
@@ -258,31 +195,17 @@ export default function InteractiveTerminalPanel({
     terminalRef.current = terminal
     fitAddonRef.current = fitAddon
 
-    // 键盘输入 → 远程写入
     inputDisposableRef.current = terminal.onData((data) => {
       void writeRemoteTerminal(data)
     })
 
-    // 监听容器尺寸变化
     const observer = new ResizeObserver(() => scheduleFitAndResize())
     observer.observe(host)
     resizeObserverRef.current = observer
 
-    // 监听远程数据/退出
-    if (backend !== 'ssh') {
-      removeDataListenerRef.current = labApi.terminal.onData(handleDockerData)
-      removeExitListenerRef.current = labApi.terminal.onExit(handleDockerExit)
-    }
-
-    // 打开远程终端
     const size: TerminalSize = { cols: terminal.cols, rows: terminal.rows }
     ;(async () => {
-      let result: { success: boolean; sessionId?: string; error?: string }
-      if (backend === 'ssh') {
-        result = await sshOpen(size)
-      } else {
-        result = await labApi.terminal.open(targetId, size)
-      }
+      const result = await sshOpen(size)
 
       if (disposedRef.current) return
 
@@ -292,9 +215,6 @@ export default function InteractiveTerminalPanel({
         return
       }
 
-      if (backend !== 'ssh') {
-        dockerSessionIdRef.current = result.sessionId
-      }
       setStatus('connected')
       setStatusMessage('')
       focusTerminal()
@@ -306,13 +226,12 @@ export default function InteractiveTerminalPanel({
       disposeTerminal(true)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [backend, targetId])
+  }, [targetId])
 
   const handleRestart = useCallback(async () => {
     disposeTerminal(true)
     disposedRef.current = false
-    // 重新触发 useEffect 需要 key 变化，由父组件控制
-    // 此处直接重新初始化
+
     const host = terminalHostRef.current
     if (!host) return
 
@@ -350,18 +269,8 @@ export default function InteractiveTerminalPanel({
     observer.observe(host)
     resizeObserverRef.current = observer
 
-    if (backend !== 'ssh') {
-      removeDataListenerRef.current = labApi.terminal.onData(handleDockerData)
-      removeExitListenerRef.current = labApi.terminal.onExit(handleDockerExit)
-    }
-
     const size: TerminalSize = { cols: terminal.cols, rows: terminal.rows }
-    let result: { success: boolean; sessionId?: string; error?: string }
-    if (backend === 'ssh') {
-      result = await sshOpen(size)
-    } else {
-      result = await labApi.terminal.open(targetId, size)
-    }
+    const result = await sshOpen(size)
 
     if (disposedRef.current) return
 
@@ -371,32 +280,17 @@ export default function InteractiveTerminalPanel({
       return
     }
 
-    if (backend !== 'ssh') {
-      dockerSessionIdRef.current = result.sessionId
-    }
     setStatus('connected')
     setStatusMessage('')
     focusTerminal()
     await resizeRemoteTerminal(readTerminalSize())
-  }, [
-    backend,
-    targetId,
-    disposeTerminal,
-    writeRemoteTerminal,
-    scheduleFitAndResize,
-    handleDockerData,
-    handleDockerExit,
-    resizeRemoteTerminal,
-    readTerminalSize,
-    focusTerminal,
-    sshOpen
-  ])
+  }, [targetId, disposeTerminal, writeRemoteTerminal, scheduleFitAndResize, resizeRemoteTerminal, readTerminalSize, focusTerminal, sshOpen])
 
   return (
     <section className={styles['sm-interactive-terminal-panel']}>
       <header className={styles['sm-interactive-terminal-panel__header']}>
         <div className={styles['sm-interactive-terminal-panel__copy']}>
-          <span className={styles['sm-interactive-terminal-panel__eyebrow']}>{backendLabel}</span>
+          <span className={styles['sm-interactive-terminal-panel__eyebrow']}>SSH 终端</span>
           <div className={styles['sm-interactive-terminal-panel__headline']}>
             <h2>{title}</h2>
             <span className={`sm-badge ${styles[statusClass]}`}>{statusLabel}</span>

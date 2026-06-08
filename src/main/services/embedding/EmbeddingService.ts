@@ -4,6 +4,7 @@ import { encode } from 'gpt-tokenizer/encoding/cl100k_base'
 import { logger } from '@main/services/logger'
 import type { EmbeddingConfig } from '@main/types/config'
 import { EMBEDDING_WORKER_TIMEOUT } from '@main/constants/timeouts'
+import { normalizeEmbeddingBaseUrl } from '@shared/utils/embeddingBaseUrl'
 
 const EMBEDDING_MAX_REQUESTS_PER_SECOND = 20
 const EMBEDDING_MAX_TOKENS_PER_MINUTE = 1_200_000
@@ -16,6 +17,57 @@ const EMBEDDING_SUSTAINABLE_TOKENS_PER_REQUEST = Math.max(
 )
 
 type EmbeddingResponse = Awaited<ReturnType<OpenAI['embeddings']['create']>>
+type EmbeddingDataItem = EmbeddingResponse['data'][number]
+
+const EMPTY_EMBEDDING_DATA_ERROR =
+  '嵌入 API 返回数据为空，请检查 baseUrl、模型名称及接口是否兼容 OpenAI /v1/embeddings 格式'
+
+/**
+ * 从嵌入 API 响应中解析向量列表
+ * 兼容 OpenAI 标准 data 数组，以及部分网关返回的顶层 embedding 字段
+ */
+function formatEmbeddingApiError(error: unknown): string {
+  if (typeof error === 'string') {
+    return error
+  }
+  if (typeof error === 'object' && error !== null && 'message' in error) {
+    return String((error as { message: unknown }).message)
+  }
+  return String(error)
+}
+
+function getEmbeddingDataItems(response: EmbeddingResponse): EmbeddingDataItem[] {
+  const errorField = (response as EmbeddingResponse & { error?: unknown }).error
+  if (errorField !== undefined && errorField !== null && errorField !== '') {
+    const message = formatEmbeddingApiError(errorField)
+    if (message.includes('/embeddings/embeddings')) {
+      throw new Error(
+        `${message}。API 基础 URL 应填写到 /v1 为止（例如 http://127.0.0.1:1234/v1），不要包含 /embeddings`
+      )
+    }
+    if (message.includes('POST /embeddings') && !message.includes('/v1/')) {
+      throw new Error(`${message}。API 基础 URL 需包含 /v1（例如 http://127.0.0.1:1234/v1）`)
+    }
+    throw new Error(message)
+  }
+
+  if (Array.isArray(response.data) && response.data.length > 0) {
+    return response.data
+  }
+
+  const legacyResponse = response as EmbeddingResponse & { embedding?: number[] }
+  if (Array.isArray(legacyResponse.embedding) && legacyResponse.embedding.length > 0) {
+    return [
+      {
+        object: 'embedding',
+        embedding: legacyResponse.embedding,
+        index: 0
+      } as EmbeddingDataItem
+    ]
+  }
+
+  throw new Error(EMPTY_EMBEDDING_DATA_ERROR)
+}
 
 interface EmbeddingClient {
   embeddings: {
@@ -384,7 +436,14 @@ export class EmbeddingService {
    * 设置嵌入模型配置
    */
   setConfig(config: EmbeddingConfig): void {
-    this.config = config
+    const baseUrl = normalizeEmbeddingBaseUrl(config.baseUrl)
+    if (baseUrl !== config.baseUrl.trim()) {
+      logger.info('已自动修正嵌入 API 基础 URL', 'main', {
+        from: config.baseUrl,
+        to: baseUrl
+      })
+    }
+    this.config = { ...config, baseUrl }
     this.initializeClient()
   }
 
@@ -430,7 +489,7 @@ export class EmbeddingService {
         input: 'test'
       })
 
-      const embedding = response.data[0]
+      const embedding = getEmbeddingDataItems(response)[0]
       return {
         success: true,
         model: response.model,
@@ -456,6 +515,9 @@ export class EmbeddingService {
     try {
       const result = await this.embedBatchInternal([text], config)
       const embedding = result.embeddings[0]
+      if (!embedding) {
+        return { success: false, error: EMPTY_EMBEDDING_DATA_ERROR }
+      }
 
       return {
         embedding,
@@ -605,7 +667,7 @@ export class EmbeddingService {
         )
         responseModel = response.model
 
-        const sortedData = [...response.data].sort((a, b) => a.index - b.index)
+        const sortedData = [...getEmbeddingDataItems(response)].sort((a, b) => a.index - b.index)
         const batchEmbeddings = sortedData.map((item) => item.embedding)
 
         if (batchEmbeddings.length !== batchTexts.length) {

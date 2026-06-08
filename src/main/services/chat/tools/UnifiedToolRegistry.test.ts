@@ -88,3 +88,62 @@ test('名为 skill 的 MCP 服务按普通 MCP 工具处理', () => {
   assert.equal(getFunctionTool(tools[0]).function.description, 'List remote server data.')
   assert.equal(registry.getTool('skill__list')?.category, 'mcp')
 })
+
+test('OpenAI tools 输出不受注册顺序和 schema key 顺序影响', () => {
+  const lookupTool: MCPToolReference = {
+    serverName: 'mock',
+    toolName: 'lookup',
+    description: 'Lookup data.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        zeta: { type: 'string', description: '后置参数' },
+        alpha: { type: 'string', description: '前置参数' }
+      },
+      required: ['alpha']
+    }
+  }
+  const searchTool: MCPToolReference = {
+    serverName: 'mock',
+    toolName: 'search',
+    description: 'Search data.',
+    inputSchema: {
+      required: ['query'],
+      properties: {
+        query: { description: '查询词', type: 'string' },
+        limit: { description: '数量', type: 'number' }
+      },
+      type: 'object'
+    }
+  }
+  const lookupToolReordered: MCPToolReference = {
+    ...lookupTool,
+    inputSchema: {
+      required: ['alpha'],
+      properties: {
+        alpha: { description: '前置参数', type: 'string' },
+        zeta: { description: '后置参数', type: 'string' }
+      },
+      type: 'object'
+    }
+  }
+  const searchToolReordered: MCPToolReference = {
+    ...searchTool,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        limit: { type: 'number', description: '数量' },
+        query: { type: 'string', description: '查询词' }
+      },
+      required: ['query']
+    }
+  }
+
+  const firstRegistry = new UnifiedToolRegistry()
+  firstRegistry.registerBatch([lookupTool, searchTool], adapter, 'mcp')
+
+  const secondRegistry = new UnifiedToolRegistry()
+  secondRegistry.registerBatch([searchToolReordered, lookupToolReordered], adapter, 'mcp')
+
+  assert.deepEqual(firstRegistry.buildOpenAITools(), secondRegistry.buildOpenAITools())
+})

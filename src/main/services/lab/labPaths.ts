@@ -80,7 +80,7 @@ export function isPathInLabDir(filePath: string): boolean {
   }
 
   const fileName = basename(normalizedPath)
-  if (fileName !== basename(filePath.split('/').pop() || '')) {
+  if (fileName !== basename(filePath)) {
     return false
   }
 

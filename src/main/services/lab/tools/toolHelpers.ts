@@ -1,5 +1,5 @@
 import type { MCPToolCallResult } from '@shared/types/mcp'
-import type { ExecResult, FrontendFramework, LabData } from '@shared/types/lab'
+import type { ExecResult, LabData } from '@shared/types/lab'
 
 interface ExecCommandToolPayload {
   command: string
@@ -42,28 +42,8 @@ export function formatExecCommandToolResult(
 }
 
 export function resolveProjectRootForWrite(
-  lab: Pick<LabData, 'frontend' | 'backendType'>,
+  _lab: Pick<LabData, 'backendType'>,
   explicitProjectRoot?: string
 ): string | undefined {
-  if (explicitProjectRoot) return explicitProjectRoot
-  if (lab.frontend?.projectRoot) return lab.frontend.projectRoot
-  return undefined
-}
-
-export function selectReusableFrontendLab(
-  labs: LabData[],
-  name: string,
-  framework: FrontendFramework
-): LabData | null {
-  const normalizedName = name.trim().toLowerCase()
-
-  return (
-    labs.find(
-      (lab) =>
-        lab.name.trim().toLowerCase() === normalizedName &&
-        lab.frontend?.framework === framework &&
-        lab.primaryContainerId &&
-        !lab.isOrphan
-    ) || null
-  )
+  return explicitProjectRoot
 }

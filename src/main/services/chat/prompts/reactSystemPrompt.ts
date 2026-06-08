@@ -1,5 +1,3 @@
-import type { PromptBuildOptions } from './types'
-
 const CORE_INSTRUCTIONS = `# 角色
 
 你是 Lumina 的论文阅读辅助助手。你的主要任务是帮助用户理解论文、整理证据、设计复现实验，并在需要时调用 MCP、知识库或实验室工具获取上下文或执行验证。
@@ -56,18 +54,7 @@ const REMINDERS = `# 重要提醒
 - 严禁调用 lab__ask_user，除非用户明确要求选择或创建实验室环境
 - 直接基于已有信息和工具结果给出完整回答，不要反问用户`
 
-export function buildReactSystemPrompt(options: PromptBuildOptions = {}): string {
-  const currentTime = new Date().toLocaleString('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    weekday: 'long'
-  })
-
-  const modelLine = options.modelName ? `\n当前模型: ${options.modelName}` : ''
-
+export function buildReactSystemPrompt(): string {
   return `${CORE_INSTRUCTIONS}
 
 ${REACT_PROCESS}
@@ -79,8 +66,6 @@ ${ERROR_HANDLING}
 ${LAB_MANAGEMENT}
 
 ${REMINDERS}
-
-当前时间: ${currentTime}${modelLine}
 
 现在，请根据用户的问题开始你的工作。`.trim()
 }

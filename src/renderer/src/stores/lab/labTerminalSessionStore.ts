@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-export type LabTerminalBackend = 'docker' | 'ssh'
+export type LabTerminalBackend = 'ssh'
 
 export interface LabTerminalSessionConfig {
   key: string
