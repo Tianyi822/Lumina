@@ -1,31 +1,12 @@
 import type { ConsumerPreset } from './ConsumerPreset'
-import type { PipelineContext } from '../PipelineTypes'
-import type { ToolCategory } from '../UnifiedToolRegistry'
-
-function paperKnowledgeCondition(ctx: PipelineContext): boolean {
-  const paperResults = ctx.stageResults.get('paper' as ToolCategory)
-  return (
-    !paperResults ||
-    paperResults.length === 0 ||
-    paperResults.some((r) => r.metadata.coverage === 'low')
-  )
-}
 
 export const CHAT_PAPER_PRESET: ConsumerPreset = {
   id: 'chat.paper',
-  defaultCapabilities: ['paper', 'knowledge'],
+  defaultCapabilities: ['paper'],
   defaultComposition: {
     stages: [
       { capabilityId: 'paper', mode: 'required' },
-      {
-        capabilityId: 'knowledge',
-        mode: 'conditional',
-        condition: paperKnowledgeCondition,
-        autoTrigger: {
-          toolName: 'search',
-          queryTransform: (query: string) => ({ query })
-        }
-      }
+      { capabilityId: 'knowledge', mode: 'on_demand' }
     ],
     mergeStrategy: 'smart_merge'
   }

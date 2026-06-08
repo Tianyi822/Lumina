@@ -51,9 +51,8 @@ describe('KnowledgeCapability', () => {
     assert.equal(cap.createAdapter({}), null)
   })
 
-  it('有 paperId 时 createAdapter 返回非 null', () => {
-    const adapter = cap.createAdapter({ paperId: 'test-paper-id' })
-    assert.notEqual(adapter, null)
+  it('仅有 paperId、未选择知识库时 createAdapter 返回 null', () => {
+    assert.equal(cap.createAdapter({ paperId: 'test-paper-id' }), null)
   })
 
   it('有 selectedKnowledgeBases 时 createAdapter 返回非 null', () => {
@@ -71,7 +70,10 @@ describe('KnowledgeCapability', () => {
 
   it('describeTools 反映知识库数量', () => {
     const withKbTools = cap.describeTools({
-      selectedKnowledgeBases: [{ id: 'kb1', documentCount: 1 }, { id: 'kb2', documentCount: 2 }]
+      selectedKnowledgeBases: [
+        { id: 'kb1', documentCount: 1 },
+        { id: 'kb2', documentCount: 2 }
+      ]
     })
     assert.ok(withKbTools.length > 0)
   })
@@ -135,7 +137,9 @@ describe('McpCapability', () => {
 
   it('无 mcpService 时 createAdapter 返回 null', () => {
     assert.equal(
-      cap.createAdapter({ selectedTools: [{ serverName: 's', toolName: 't', description: 'd', inputSchema: {} }] }),
+      cap.createAdapter({
+        selectedTools: [{ serverName: 's', toolName: 't', description: 'd', inputSchema: {} }]
+      }),
       null
     )
   })

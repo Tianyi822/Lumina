@@ -332,6 +332,13 @@ export class ReactLoopService {
     ) {
       capabilityManager.addCapability(sid, 'mcp')
     }
+    if (
+      selectedKnowledgeBases &&
+      selectedKnowledgeBases.length > 0 &&
+      !capState.activeCapabilities.includes('knowledge')
+    ) {
+      capabilityManager.addCapability(sid, 'knowledge')
+    }
 
     capState = capabilityManager.getCapabilities(sid)!
 
@@ -626,17 +633,25 @@ export class ReactLoopService {
 
     const executedToolCalls = orchestrationResult.executedToolCalls
     if (executedToolCalls.length > 0) {
-      const assistantMessage: OpenAI.Chat.Completions.ChatCompletionMessageParam = {
+      const assistantMessage: OpenAI.Chat.Completions.ChatCompletionAssistantMessageParam & {
+        reasoning_content?: string
+      } = {
         role: 'assistant',
         content: state.assistantContent || null,
         tool_calls: executedToolCalls
       }
+      if (state.assistantApiReasoningContent) {
+        assistantMessage.reasoning_content = state.assistantApiReasoningContent
+      }
 
-      conversationMessages.push(assistantMessage)
+      conversationMessages.push(
+        assistantMessage as OpenAI.Chat.Completions.ChatCompletionMessageParam
+      )
       modelTranscript.push({
         role: 'assistant',
         content: state.assistantContent || null,
-        tool_calls: executedToolCalls
+        tool_calls: executedToolCalls,
+        reasoning_content: state.assistantApiReasoningContent || undefined
       })
     }
 

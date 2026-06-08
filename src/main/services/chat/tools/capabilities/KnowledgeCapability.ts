@@ -3,7 +3,6 @@ import type { ToolAdapter } from '../UnifiedToolRegistry'
 import { KnowledgeToolAdapter } from '../adapters/KnowledgeToolAdapter'
 
 interface KnowledgeCapabilityContext {
-  paperId?: string
   selectedKnowledgeBases?: Array<{ id: string; name?: string; documentCount?: number }>
 }
 
@@ -16,21 +15,10 @@ export class KnowledgeCapability implements CapabilityUnit {
   createAdapter(context: unknown): ToolAdapter | null {
     const ctx = context as KnowledgeCapabilityContext
     const hasKb = (ctx.selectedKnowledgeBases?.length ?? 0) > 0
-    const hasPaper = !!ctx.paperId
-    if (!hasKb && !hasPaper) return null
+    if (!hasKb) return null
 
     const kbIds = ctx.selectedKnowledgeBases?.map((kb) => kb.id)
-    const adapter = new KnowledgeToolAdapter(kbIds)
-
-    if (ctx.paperId) {
-      adapter.setSemanticContext({
-        paperId: ctx.paperId,
-        title: '',
-        keywords: []
-      })
-    }
-
-    return adapter
+    return new KnowledgeToolAdapter(kbIds)
   }
 
   describeTools(context: unknown): ToolDescriptor[] {

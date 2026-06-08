@@ -20,21 +20,17 @@ describe('PresetRegistry', () => {
 })
 
 describe('builtinPresets', () => {
-  it('chat.paper 预设包含 paper 和 knowledge 能力', () => {
-    assert.deepEqual(CHAT_PAPER_PRESET.defaultCapabilities, ['paper', 'knowledge'])
+  it('chat.paper 默认仅激活 paper 能力', () => {
+    assert.deepEqual(CHAT_PAPER_PRESET.defaultCapabilities, ['paper'])
   })
 
-  it('chat.paper 预设有两阶段组合', () => {
+  it('chat.paper 中 knowledge 为按需能力', () => {
     assert.equal(CHAT_PAPER_PRESET.defaultComposition.stages.length, 2)
     assert.equal(CHAT_PAPER_PRESET.defaultComposition.stages[0].capabilityId, 'paper')
     assert.equal(CHAT_PAPER_PRESET.defaultComposition.stages[0].mode, 'required')
     assert.equal(CHAT_PAPER_PRESET.defaultComposition.stages[1].capabilityId, 'knowledge')
-    assert.equal(CHAT_PAPER_PRESET.defaultComposition.stages[1].mode, 'conditional')
-  })
-
-  it('chat.paper 预设的 knowledge 阶段有 condition 函数', () => {
-    const knowledgeStage = CHAT_PAPER_PRESET.defaultComposition.stages[1]
-    assert.equal(typeof knowledgeStage.condition, 'function')
+    assert.equal(CHAT_PAPER_PRESET.defaultComposition.stages[1].mode, 'on_demand')
+    assert.equal(CHAT_PAPER_PRESET.defaultComposition.stages[1].autoTrigger, undefined)
   })
 
   it('chat.default 预设无默认能力', () => {

@@ -35,6 +35,39 @@ function createUsageChunk(
   } as StreamChunk
 }
 
+function createSilentStreamHandler(): StreamHandler {
+  return {
+    sendReasoning: () => {},
+    sendContent: () => {}
+  } as unknown as StreamHandler
+}
+
+test('StreamProcessor 仅将原生 reasoning_content 保留用于 API 回放', async () => {
+  const processor = new StreamProcessor(createSilentStreamHandler())
+  const stream = createUsageStream([
+    {
+      id: 'reasoning-native',
+      object: 'chat.completion.chunk',
+      created: 1,
+      model: 'model',
+      choices: [{ index: 0, delta: { reasoning_content: '原生思考' } }]
+    } as unknown as StreamChunk,
+    {
+      id: 'reasoning-tagged',
+      object: 'chat.completion.chunk',
+      created: 2,
+      model: 'model',
+      choices: [{ index: 0, delta: { content: '<think>标签思考</think>可见回答' } }]
+    } as StreamChunk
+  ])
+
+  const result = await processor.processStream(stream, {} as WebContents, 'session-reasoning')
+
+  assert.equal(result.state.assistantReasoningContent, '原生思考标签思考')
+  assert.equal(result.state.assistantApiReasoningContent, '原生思考')
+  assert.equal(result.state.assistantContent, '可见回答')
+})
+
 test('StreamProcessor 聚合 Prompt Cache usage 字段', async () => {
   const processor = new StreamProcessor({} as StreamHandler)
 

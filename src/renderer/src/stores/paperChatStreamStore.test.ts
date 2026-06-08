@@ -140,6 +140,56 @@ test('tool_result 失败后不生成重复阶段摘要', () => {
   )
 })
 
+test('延迟到达的 tool_result 应归回原工具调用阶段', () => {
+  const store = usePaperChatStreamStore.getState()
+  const messages = createStreamingMessages()
+
+  dispatch(store, { type: 'react_iteration_start', content: '0', status: 'thinking' }, messages)
+  dispatch(
+    store,
+    {
+      type: 'tool_call',
+      toolCall: {
+        id: 'tool-delayed',
+        name: 'search',
+        serverName: 'knowledge',
+        arguments: { query: '论文内容' }
+      }
+    },
+    messages
+  )
+  dispatch(store, { type: 'react_iteration_start', content: '1', status: 'thinking' }, messages)
+  dispatch(store, { type: 'reasoning', content: '下一阶段思考' }, messages)
+  dispatch(
+    store,
+    {
+      type: 'tool_result',
+      toolResult: {
+        id: 'tool-delayed',
+        name: 'search',
+        success: true,
+        result: '搜索完成'
+      }
+    },
+    messages
+  )
+
+  const firstIteration = messages[0].reactIterations?.[0]
+  const secondIteration = messages[0].reactIterations?.[1]
+
+  assert.ok(
+    firstIteration?.steps.some(
+      (step) => step.type === 'tool_result' && step.toolResult?.id === 'tool-delayed'
+    )
+  )
+  assert.equal(
+    secondIteration?.steps.some(
+      (step) => step.type === 'tool_result' && step.toolResult?.id === 'tool-delayed'
+    ),
+    false
+  )
+})
+
 test('plan_step_update failed 且没有工具结果时填充阶段失败内容', () => {
   const store = usePaperChatStreamStore.getState()
   const messages = createStreamingMessages()

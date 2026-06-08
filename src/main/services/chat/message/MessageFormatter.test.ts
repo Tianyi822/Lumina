@@ -151,7 +151,7 @@ test('formatMessagesWithKnowledge 只保留有 tool 响应的 tool_calls 且不�
   assert.equal(JSON.stringify(messages), original)
 })
 
-test('formatMessagesWithKnowledge 不向模型发送历史 reasoning_content', () => {
+test('formatMessagesWithKnowledge 仅为合法工具调用 assistant 保留 reasoning_content', () => {
   const messages: ChatMessage[] = [
     {
       role: 'assistant',
@@ -160,9 +160,17 @@ test('formatMessagesWithKnowledge 不向模型发送历史 reasoning_content', (
     },
     {
       role: 'assistant',
-      content: '',
-      reasoning_content: '仅思考'
+      content: null,
+      reasoning_content: '工具思考',
+      tool_calls: [
+        {
+          id: 'call-search',
+          type: 'function',
+          function: { name: 'paper__search_context', arguments: '{"query":"DWT"}' }
+        }
+      ]
     },
+    { role: 'tool', tool_call_id: 'call-search', content: '{"matches":[]}' },
     {
       role: 'user',
       content: '继续'
@@ -173,9 +181,13 @@ test('formatMessagesWithKnowledge 不向模型发送历史 reasoning_content', (
 
   assert.deepEqual(
     formatted.map((msg) => msg.role),
-    ['assistant', 'user']
+    ['assistant', 'assistant', 'tool', 'user']
   )
   assert.equal('reasoning_content' in (formatted[0] as unknown as Record<string, unknown>), false)
+  assert.equal(
+    (formatted[1] as unknown as { reasoning_content?: string }).reasoning_content,
+    '工具思考'
+  )
 })
 
 test('formatMessagesWithKnowledge 追加新 user 时保持历史前缀不变', () => {

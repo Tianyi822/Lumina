@@ -37,6 +37,7 @@ export class StreamProcessor {
     const state: StreamAccumulatorState = {
       assistantContent: '',
       assistantReasoningContent: '',
+      assistantApiReasoningContent: '',
       toolCalls: new Map(),
       hasToolCalls: false
     }
@@ -84,6 +85,7 @@ export class StreamProcessor {
 
     if (delta.reasoning_content) {
       state.assistantReasoningContent += delta.reasoning_content
+      state.assistantApiReasoningContent += delta.reasoning_content
       this.streamHandler.sendReasoning(webContents, sessionId, delta.reasoning_content, turnId)
     }
 

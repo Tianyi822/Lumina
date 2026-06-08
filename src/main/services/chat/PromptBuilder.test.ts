@@ -47,6 +47,28 @@ test('PromptBuilder 为论文联网搜索注入主动搜索指南', async () => 
   assert.match(prompt, /应主动搜索的场景/)
 })
 
+test('PromptBuilder 禁止将知识库作为当前论文检索不足时的自动兜底', async () => {
+  const builder = new PromptBuilder()
+  const prompt = await builder.buildSystemPrompt(true, [
+    {
+      serverName: 'paper',
+      toolName: 'search_context',
+      description: '检索当前论文',
+      inputSchema: {}
+    },
+    {
+      serverName: 'knowledge',
+      toolName: 'search',
+      description: '检索知识库',
+      inputSchema: {}
+    }
+  ])
+
+  assert.match(prompt, /不是当前论文检索失败后的自动兜底/)
+  assert.match(prompt, /不要自动改用知识库搜索/)
+  assert.match(prompt, /用户只询问当前论文内容/)
+})
+
 // ===== pipeline + buildSystemPrompt =====
 
 test('多 stage 管道上下文应生成协调指南', async () => {

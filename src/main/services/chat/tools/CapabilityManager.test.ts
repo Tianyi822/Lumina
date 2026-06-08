@@ -29,7 +29,7 @@ describe('CapabilityManager', () => {
   it('initCapabilitiesForSessionType paper 类型使用 paper 预设', () => {
     const state = manager.initCapabilitiesForSessionType('s1', 'paper')
     assert.equal(state.presetId, 'chat.paper')
-    assert.deepEqual(state.activeCapabilities, ['paper', 'knowledge'])
+    assert.deepEqual(state.activeCapabilities, ['paper'])
   })
 
   it('initCapabilitiesForSessionType 未知类型使用 default 预设', () => {
