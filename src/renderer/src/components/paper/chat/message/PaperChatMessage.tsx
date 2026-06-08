@@ -13,7 +13,6 @@ import styles from './PaperChatMessage.module.css'
 
 interface PaperChatMessageProps {
   message: Message
-  currentModelName?: string
   isReasoningExpanded?: boolean
   currentChatId?: string
   onToggleReasoning: (messageId: string) => void
@@ -48,12 +47,15 @@ function hasToolActivity(message: Message): boolean {
 
 export default function PaperChatMessage({
   message,
-  currentModelName,
   isReasoningExpanded,
   onToggleReasoning,
   onQuoteClick
 }: PaperChatMessageProps) {
-  const displayedContent = usePaperChatStreamingReveal(message.content, message.isStreaming)
+  const { displayedContent, isRevealing } = usePaperChatStreamingReveal(
+    message.content,
+    message.isStreaming
+  )
+  const isVisuallyStreaming = Boolean(message.isStreaming || isRevealing)
   const formattedTime = useMemo(() => {
     if (!message.timestamp) return ''
     return new Date(message.timestamp).toLocaleTimeString('zh-CN', {
@@ -73,7 +75,7 @@ export default function PaperChatMessage({
 
   const showWaitingPlaceholder =
     message.role === 'assistant' &&
-    !!message.isStreaming &&
+    isVisuallyStreaming &&
     !message.suppressWaitingPlaceholder &&
     !message.content &&
     !displayedContent &&
@@ -86,7 +88,7 @@ export default function PaperChatMessage({
     message.role === 'user' ||
     (message.role === 'assistant' &&
       !(
-        message.isStreaming &&
+        isVisuallyStreaming &&
         message.suppressWaitingPlaceholder &&
         !message.content?.trim() &&
         !displayedContent?.trim() &&
@@ -94,7 +96,7 @@ export default function PaperChatMessage({
         !structuredReact &&
         !toolActivity
       ) &&
-      (message.isStreaming ||
+      (isVisuallyStreaming ||
         standaloneReasoning ||
         structuredReact ||
         toolActivity ||
@@ -106,12 +108,9 @@ export default function PaperChatMessage({
     Boolean(message.content?.trim() || displayedContent?.trim())
 
   const userTokenUsageLabel =
-    message.role === 'user' && !message.isStreaming
+    message.role === 'user' && !isVisuallyStreaming
       ? `输入: 约 ${formatTokenCount(estimateTokenCount(message.content))}`
       : ''
-
-  const senderName =
-    message.role === 'user' ? '用户' : message.modelName || currentModelName || 'AI'
 
   if (!shouldRender) {
     return null
@@ -121,7 +120,7 @@ export default function PaperChatMessage({
     <div
       className={`${styles['paper-chat-message']} ${
         styles[`paper-chat-message--${message.role}`] || ''
-      } ${message.isStreaming ? styles['is-streaming'] || '' : ''}`}
+      } ${isVisuallyStreaming ? styles['is-streaming'] || '' : ''}`}
     >
       <div className={styles['paper-chat-message__body']}>
         {standaloneReasoning && (
@@ -155,7 +154,7 @@ export default function PaperChatMessage({
         {shouldShowBubble && (
           <div
             className={`${styles['paper-chat-message__bubble']} ${
-              message.isStreaming ? styles['is-streaming'] || '' : ''
+              isVisuallyStreaming ? styles['is-streaming'] || '' : ''
             }`}
           >
             {showWaitingPlaceholder ? (
@@ -163,18 +162,15 @@ export default function PaperChatMessage({
             ) : (
               <PaperChatMessageContent
                 content={displayedContent}
-                isStreaming={message.isStreaming}
+                isStreaming={isVisuallyStreaming}
                 role={message.role}
               />
             )}
           </div>
         )}
 
-        {!message.isStreaming && (
+        {!isVisuallyStreaming && (
           <div className={styles['paper-chat-message__meta-row']}>
-            {message.role === 'assistant' && (
-              <span className={styles['paper-chat-message__meta-sender']}>{senderName}</span>
-            )}
             <PaperChatTokenStats
               usage={message.role === 'assistant' ? message.usage : undefined}
               userTokenLabel={message.role === 'user' ? userTokenUsageLabel : undefined}

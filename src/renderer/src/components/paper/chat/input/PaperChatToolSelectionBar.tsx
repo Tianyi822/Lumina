@@ -171,7 +171,7 @@ export default function PaperChatToolSelectionBar({
 
               {/* 实验室开关 */}
               <div className={styles['plus-menu__row']}>
-                <SvgIcon name="lab" size={16} />
+                <SvgIcon name="lab-computer" size={16} />
                 <LabToolsToggle
                   className={styles['plus-menu__lab-toggle']}
                   modelValue={Boolean(enableLabTools)}

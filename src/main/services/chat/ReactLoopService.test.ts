@@ -19,8 +19,11 @@ type StreamingParams = OpenAI.Chat.Completions.ChatCompletionCreateParamsStreami
 
 interface HarnessOptions {
   streams: AsyncIterable<StreamChunk>[]
+  createStreamForParams?: (params: StreamingParams) => AsyncIterable<StreamChunk>
   toolResult?: MCPToolCallResult
   abortController?: AbortController
+  errors?: unknown[]
+  llmConfig?: LLMConfig
 }
 
 interface Harness {
@@ -91,6 +94,7 @@ function createHarness(options: HarnessOptions): Harness {
   const events: StreamEvent[] = []
   const createParams: StreamingParams[] = []
   const streams = [...options.streams]
+  const errors = [...(options.errors ?? [])]
   const abortController = options.abortController ?? new AbortController()
 
   const logger = {
@@ -147,6 +151,13 @@ function createHarness(options: HarnessOptions): Harness {
         completions: {
           create: async (params: StreamingParams) => {
             createParams.push(params)
+            if (options.createStreamForParams) {
+              return options.createStreamForParams(params)
+            }
+            const error = errors.shift()
+            if (error) {
+              throw error
+            }
             const stream = streams.shift()
             if (!stream) {
               throw new Error('测试流已耗尽')
@@ -164,11 +175,12 @@ function createHarness(options: HarnessOptions): Harness {
     streamHandler: new StreamHandler(),
     createClient,
     validateAndGetLLMConfig: () =>
+      options.llmConfig ??
       ({
         base_url: 'http://localhost',
         api_key: 'key',
         model_name: 'model'
-      }) as LLMConfig
+      } as LLMConfig)
   })
 
   const request: ChatRequest = {
@@ -207,12 +219,19 @@ test('默认 ReAct 上限为 30，不会在第 10 次工具调用后静默结束
     createWebContents(harness.events)
   )
 
-  assert.equal(result.success, true)
+  assert.equal(result.success, true, result.error)
   assert.equal(result.finalContent, '最终回答')
   assert.equal(harness.createParams.length, 13)
   assert.equal(harness.events.filter((event) => event.type === 'tool_call').length, 12)
   assert.equal(
     harness.createParams.every((params) => Array.isArray(params.tools)),
+    true
+  )
+  assert.equal(
+    harness.createParams.every(
+      (params) =>
+        (params as StreamingParams & { prompt_cache_key?: string }).prompt_cache_key === undefined
+    ),
     true
   )
 })
@@ -228,7 +247,7 @@ test('达到显式 ReAct 上限后追加一次无工具收尾回复', async () =
     createWebContents(harness.events)
   )
 
-  assert.equal(result.success, true)
+  assert.equal(result.success, true, result.error)
   assert.equal(result.finalContent, '上限收尾')
   assert.equal(harness.createParams.length, 3)
   assert.equal(harness.createParams[2].tools, undefined)
@@ -248,6 +267,12 @@ test('模型正常给出最终回复时不额外触发收尾调用', async () =>
 
   assert.equal(result.success, true)
   assert.equal(result.finalContent, '正常完成')
+  assert.deepEqual(
+    result.modelTranscript?.map((message) => message.role),
+    ['assistant', 'tool', 'assistant']
+  )
+  assert.equal(result.modelTranscript?.[0].tool_calls?.[0]?.id, 'call-0')
+  assert.equal(result.modelTranscript?.[1].tool_call_id, 'call-0')
   assert.equal(harness.createParams.length, 2)
   assert.equal(
     harness.createParams.every((params) => Array.isArray(params.tools)),
@@ -305,6 +330,28 @@ test('用户中止时不触发上限收尾回复', async () => {
   assert.equal(harness.createParams.length, 0)
   assert.equal(harness.events.at(-1)?.type, 'done')
   assert.equal(harness.events.at(-1)?.finalStatus, 'cancelled')
+})
+
+test('未知 OpenAI-compatible 提供商不发送专有 Prompt Cache 参数', async () => {
+  const harness = createHarness({
+    streams: [createContentStream('降级完成')],
+    llmConfig: {
+      base_url: 'http://unsupported-cache.local',
+      api_key: 'key',
+      model_name: 'model-unsupported-cache'
+    }
+  })
+
+  const result = await harness.service.sendMessageWithReact(
+    harness.request,
+    createWebContents(harness.events)
+  )
+
+  const firstParams = harness.createParams[0] as StreamingParams & { prompt_cache_key?: string }
+
+  assert.equal(result.success, true)
+  assert.equal(harness.createParams.length, 1)
+  assert.equal(firstParams.prompt_cache_key, undefined)
 })
 
 // ===== extractOriginalQuery =====
@@ -424,6 +471,62 @@ test('enableLabTools 动态添加 lab 能力', async () => {
     ['lab'],
     'enableLabTools=true 时 default 会话应仅激活 lab'
   )
+})
+
+test('并发 ReAct 请求使用独立工具和提示词运行时快照', async () => {
+  capabilityManager.clearSession('react-loop-concurrent-mcp')
+  capabilityManager.clearSession('react-loop-concurrent-lab')
+
+  const toolsByQuery = new Map<string, string[]>()
+  const harness = createHarness({
+    streams: [],
+    createStreamForParams: (params) => {
+      const latestUserMessage = [...params.messages]
+        .reverse()
+        .find((message) => message.role === 'user')
+      const query =
+        latestUserMessage && typeof latestUserMessage.content === 'string'
+          ? latestUserMessage.content
+          : ''
+      const toolNames = (params.tools ?? []).flatMap((tool) =>
+        tool.type === 'function' ? [tool.function.name] : []
+      )
+      toolsByQuery.set(query, toolNames)
+      return createContentStream(`${query} 完成`)
+    }
+  })
+  const mcpRequest: ChatRequest = {
+    ...harness.request,
+    messages: [{ role: 'user', content: '并发 MCP 请求' }],
+    sessionId: 'react-loop-concurrent-mcp',
+    turnId: 'turn-react-loop-concurrent-mcp'
+  }
+  const labRequest: ChatRequest = {
+    ...harness.request,
+    messages: [{ role: 'user', content: '并发 Lab 请求' }],
+    sessionId: 'react-loop-concurrent-lab',
+    turnId: 'turn-react-loop-concurrent-lab',
+    selectedTools: undefined,
+    enableLabTools: true
+  }
+
+  const [mcpResult, labResult] = await Promise.all([
+    harness.service.sendMessageWithReact(mcpRequest, createWebContents(harness.events)),
+    harness.service.sendMessageWithReact(labRequest, createWebContents(harness.events))
+  ])
+
+  assert.equal(mcpResult.success, true, mcpResult.error)
+  assert.equal(labResult.success, true, labResult.error)
+
+  const mcpTools = toolsByQuery.get('并发 MCP 请求') ?? []
+  const labTools = toolsByQuery.get('并发 Lab 请求') ?? []
+  assert.ok(mcpTools.includes('mock__lookup'))
+  assert.equal(
+    mcpTools.some((name) => name.startsWith('lab__')),
+    false
+  )
+  assert.ok(labTools.some((name) => name.startsWith('lab__')))
+  assert.equal(labTools.includes('mock__lookup'), false)
 })
 
 // ===== capability__suggest 虚拟工具注册 =====

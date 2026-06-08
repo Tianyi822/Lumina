@@ -251,10 +251,11 @@ test('计划步骤会保留非零退出码命令的 stderr 作为后续观察', 
   assert.match(secondStepPrompt, /No such file or directory/)
 })
 
-test('生成计划前会过滤最近历史中的孤立 tool 消息', async () => {
+test('生成计划前保留完整合法工具历史并过滤孤立 tool 消息', async () => {
   const harness = createHarness([{ success: true }])
   const request = createRequest()
   request.messages = [
+    { role: 'tool', tool_call_id: 'call-orphan', content: '{"matches":["orphan"]}' },
     { role: 'user', content: '先检索一下论文' },
     {
       role: 'assistant',
@@ -293,13 +294,30 @@ test('生成计划前会过滤最近历史中的孤立 tool 消息', async () =>
   assert.equal(result.success, true)
   assert.deepEqual(
     harness.planMessages[0].map((message) => message.role),
-    ['system', 'assistant', 'tool', 'user']
+    ['system', 'user', 'assistant', 'tool', 'assistant', 'tool', 'user']
   )
-  const assistantMessage = harness.planMessages[0][1] as { tool_calls?: Array<{ id: string }> }
-  const toolMessage = harness.planMessages[0][2] as { tool_call_id?: string }
+  const firstAssistantMessage = harness.planMessages[0][2] as {
+    tool_calls?: Array<{ id: string }>
+  }
+  const firstToolMessage = harness.planMessages[0][3] as { tool_call_id?: string }
+  const secondAssistantMessage = harness.planMessages[0][4] as {
+    tool_calls?: Array<{ id: string }>
+  }
+  const secondToolMessage = harness.planMessages[0][5] as { tool_call_id?: string }
 
-  assert.equal(assistantMessage.tool_calls?.[0]?.id, 'call-inside')
-  assert.equal(toolMessage.tool_call_id, 'call-inside')
+  assert.equal(firstAssistantMessage.tool_calls?.[0]?.id, 'call-outside')
+  assert.equal(firstToolMessage.tool_call_id, 'call-outside')
+  assert.equal(secondAssistantMessage.tool_calls?.[0]?.id, 'call-inside')
+  assert.equal(secondToolMessage.tool_call_id, 'call-inside')
+  assert.equal(
+    harness.planMessages[0].some(
+      (message) =>
+        message.role === 'tool' &&
+        'tool_call_id' in message &&
+        message.tool_call_id === 'call-orphan'
+    ),
+    false
+  )
 })
 
 test('计划步骤重试后仍失败时整体状态为 failed', async () => {

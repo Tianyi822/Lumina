@@ -8,6 +8,7 @@ import KnowledgeMCPSettings from './settings/KnowledgeMCPSettings'
 import PaperReaderSettings from './settings/PaperReaderSettings'
 import ToolStatsSettings from './settings/ToolStatsSettings'
 import UpdateSettings from './settings/UpdateSettings'
+import LabToggleSettings from './settings/LabToggleSettings'
 import styles from './SettingsModal.module.css'
 
 type SettingsTabKey =
@@ -19,25 +20,31 @@ type SettingsTabKey =
   | 'toolStats'
   | 'theme'
   | 'update'
+  | 'labToggles'
+
+type SettingsCategoryId = 'paper' | 'knowledge' | 'advanced' | 'theme' | 'update'
 
 interface SettingsModalProps {
   onClose: () => void
   onMcpUpdated?: () => void
 }
 
-const settingsTabs: Array<{ id: SettingsTabKey; label: string; description: string }> = [
-  { id: 'model', label: '对话模型配置', description: '管理默认模型、接口地址与上下文参数。' },
-  { id: 'embedding', label: '嵌入模型配置', description: '维护知识检索所需的向量模型清单。' },
-  { id: 'paperReader', label: '论文阅读配置', description: '配置论文 OCR 识别服务与翻译模型。' },
-  { id: 'mcp', label: 'MCP 服务', description: '连接外部工具链并管理服务传输方式。' },
-  { id: 'knowledge', label: '知识库服务', description: '管理知识库 MCP 对外服务与共享说明。' },
-  { id: 'toolStats', label: '工具调用统计', description: '查看工具调用量、成功率和耗时分布。' },
-  { id: 'theme', label: '主题设置', description: '切换当前工作主题并查看主题预览。' },
-  { id: 'update', label: '升级版本', description: '检查应用更新并查看版本历史。' }
+interface SettingsCategory {
+  id: SettingsCategoryId
+  label: string
+  items: SettingsTabKey[]
+}
+
+const settingsCategories: SettingsCategory[] = [
+  { id: 'paper', label: '论文阅读配置', items: ['model', 'paperReader'] },
+  { id: 'knowledge', label: '知识库配置', items: ['embedding', 'knowledge'] },
+  { id: 'advanced', label: '高级功能', items: ['labToggles', 'mcp', 'toolStats'] },
+  { id: 'theme', label: '主题设置', items: ['theme'] },
+  { id: 'update', label: '升级版本', items: ['update'] }
 ]
 
 function SettingsModal({ onClose, onMcpUpdated }: SettingsModalProps) {
-  const [activeTab, setActiveTab] = useState<SettingsTabKey>('model')
+  const [activeCategory, setActiveCategory] = useState<SettingsCategoryId>('paper')
 
   const configLoading = useConfigStore((s) => s.loading)
   const themeConfig = useConfigStore((s) => s.themeConfig)
@@ -98,16 +105,15 @@ function SettingsModal({ onClose, onMcpUpdated }: SettingsModalProps) {
         <div className={['sm-settings-layout', styles['settings-body']].join(' ')}>
           <aside ref={navRef} className="sm-settings-nav settings-nav" onScroll={handleNavScroll}>
             <div className="sm-settings-nav__list">
-              {settingsTabs.map((tab) => (
+              {settingsCategories.map((cat) => (
                 <button
-                  key={tab.id}
-                  className={['sm-settings-nav__item', activeTab === tab.id && 'is-active']
+                  key={cat.id}
+                  className={['sm-settings-nav__item', activeCategory === cat.id && 'is-active']
                     .filter(Boolean)
                     .join(' ')}
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => setActiveCategory(cat.id)}
                 >
-                  <span className="sm-settings-nav__label">{tab.label}</span>
-                  <span className="sm-settings-nav__meta">{tab.description}</span>
+                  <span className="sm-settings-nav__label">{cat.label}</span>
                 </button>
               ))}
             </div>
@@ -119,16 +125,40 @@ function SettingsModal({ onClose, onMcpUpdated }: SettingsModalProps) {
                 <div className="sm-settings-empty">正在加载当前配置...</div>
               ) : (
                 <>
-                  {activeTab === 'model' && <ModelSettings />}
-                  {activeTab === 'mcp' && <MCPSettings onMcpUpdated={onMcpUpdated} />}
-                  {activeTab === 'embedding' && <EmbeddingModelSettings />}
-                  {activeTab === 'theme' && (
-                    <ThemeSettings value={themeConfig} onThemeChange={handleThemeChange} />
-                  )}
-                  {activeTab === 'knowledge' && <KnowledgeMCPSettings />}
-                  {activeTab === 'toolStats' && <ToolStatsSettings />}
-                  {activeTab === 'paperReader' && <PaperReaderSettings />}
-                  {activeTab === 'update' && <UpdateSettings />}
+                  {(() => {
+                    const category = settingsCategories.find((c) => c.id === activeCategory)
+                    if (!category) return null
+                    return category.items.map((tabKey) => {
+                      switch (tabKey) {
+                        case 'model':
+                          return <ModelSettings key="model" />
+                        case 'mcp':
+                          return <MCPSettings key="mcp" onMcpUpdated={onMcpUpdated} />
+                        case 'embedding':
+                          return <EmbeddingModelSettings key="embedding" />
+                        case 'theme':
+                          return (
+                            <ThemeSettings
+                              key="theme"
+                              value={themeConfig}
+                              onThemeChange={handleThemeChange}
+                            />
+                          )
+                        case 'knowledge':
+                          return <KnowledgeMCPSettings key="knowledge" />
+                        case 'toolStats':
+                          return <ToolStatsSettings key="toolStats" />
+                        case 'paperReader':
+                          return <PaperReaderSettings key="paperReader" />
+                        case 'update':
+                          return <UpdateSettings key="update" />
+                        case 'labToggles':
+                          return <LabToggleSettings key="labToggles" />
+                        default:
+                          return null
+                      }
+                    })
+                  })()}
                 </>
               )}
             </div>

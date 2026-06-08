@@ -17,6 +17,7 @@ export function sessionMessageToMessage(msg: SessionMessage): Message {
     isStreaming: false,
     tool_calls: msg.tool_calls,
     tool_call_id: msg.tool_call_id,
+    modelTranscript: msg.modelTranscript,
     reactSteps: msg.reactSteps,
     reactIterations: msg.reactIterations,
     attachedDocuments: msg.attachedDocuments,
@@ -45,11 +46,15 @@ export function messageToSessionMessage(msg: Message): SessionMessage {
           prompt_tokens: msg.usage.prompt_tokens,
           completion_tokens: msg.usage.completion_tokens,
           total_tokens: msg.usage.total_tokens,
-          reasoning_tokens: msg.usage.reasoning_tokens
+          reasoning_tokens: msg.usage.reasoning_tokens,
+          cached_prompt_tokens: msg.usage.cached_prompt_tokens,
+          uncached_prompt_tokens: msg.usage.uncached_prompt_tokens,
+          prompt_cache_hit_rate: msg.usage.prompt_cache_hit_rate
         }
       : undefined,
     tool_calls: msg.tool_calls,
     tool_call_id: msg.tool_call_id,
+    modelTranscript: msg.modelTranscript,
     reactSteps: msg.reactSteps,
     reactIterations: msg.reactIterations,
     attachedDocuments: msg.attachedDocuments,
@@ -66,8 +71,26 @@ export function messageToSessionMessage(msg: Message): SessionMessage {
  * 过滤掉 content 为空的助手消息，避免 API 报错
  */
 export function buildChatMessages(messages: Message[]): ChatMessage[] {
-  return messages
-    .filter((msg) => {
+  const result: ChatMessage[] = []
+  const expandedToolCallIds = new Set<string>()
+
+  for (const msg of messages) {
+    if (msg.role === 'tool' && msg.tool_call_id && expandedToolCallIds.has(msg.tool_call_id)) {
+      expandedToolCallIds.delete(msg.tool_call_id)
+      continue
+    }
+
+    if (msg.modelTranscript && msg.modelTranscript.length > 0) {
+      result.push(...deepClone(msg.modelTranscript))
+      for (const item of msg.modelTranscript) {
+        if (item.role === 'tool' && item.tool_call_id) {
+          expandedToolCallIds.add(item.tool_call_id)
+        }
+      }
+      continue
+    }
+
+    const shouldKeep = (() => {
       if (msg.hidden && msg.contextKind === 'paper_fulltext') {
         return false
       }
@@ -78,33 +101,33 @@ export function buildChatMessages(messages: Message[]): ChatMessage[] {
         return hasContent || hasToolCalls
       }
       return true
-    })
-    .map((msg) => {
-      const result: ChatMessage = {
-        role: msg.role,
-        content: msg.content
-      }
-      // 添加工具调用字段
-      if (msg.tool_calls) {
-        result.tool_calls = msg.tool_calls
-      }
-      if (msg.tool_call_id) {
-        result.tool_call_id = msg.tool_call_id
-      }
-      if (msg.reasoning) {
-        result.reasoning_content = msg.reasoning
-      }
-      if (msg.attachedDocuments && msg.attachedDocuments.length > 0) {
-        result.attachedDocuments = msg.attachedDocuments
-      }
-      if (msg.attachedImages && msg.attachedImages.length > 0) {
-        result.attachedImages = msg.attachedImages
-      }
-      if (msg.attachedQuotes && msg.attachedQuotes.length > 0) {
-        result.attachedQuotes = msg.attachedQuotes
-      }
-      return result
-    })
+    })()
+    if (!shouldKeep) continue
+
+    const chatMessage: ChatMessage = {
+      role: msg.role,
+      content: msg.content
+    }
+    // 添加工具调用字段
+    if (msg.tool_calls) {
+      chatMessage.tool_calls = msg.tool_calls
+    }
+    if (msg.tool_call_id) {
+      chatMessage.tool_call_id = msg.tool_call_id
+    }
+    if (msg.attachedDocuments && msg.attachedDocuments.length > 0) {
+      chatMessage.attachedDocuments = msg.attachedDocuments
+    }
+    if (msg.attachedImages && msg.attachedImages.length > 0) {
+      chatMessage.attachedImages = msg.attachedImages
+    }
+    if (msg.attachedQuotes && msg.attachedQuotes.length > 0) {
+      chatMessage.attachedQuotes = msg.attachedQuotes
+    }
+    result.push(chatMessage)
+  }
+
+  return result
 }
 
 // 重新导出共享工具函数（供主进程使用）

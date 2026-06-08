@@ -1,7 +1,7 @@
 .paper-reader-settings {
   display: flex;
   flex-direction: column;
-  gap: var(--sm-space-5);
+  gap: var(--sm-space-3);
 }
 
 .form-group {

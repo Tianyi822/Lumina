@@ -13,6 +13,8 @@ import {
 import {
   DEFAULT_THEME_ID,
   DEFAULT_THEME_MODE,
+  createDefaultLabFeatures,
+  normalizeLabFeatures,
   normalizeThemeId,
   normalizeThemeMode
 } from '@shared/utils'
@@ -74,7 +76,8 @@ function createEmptyConfig(): AppConfig {
     mcpServers: {},
     embeddingModels: {},
     knowledgeMCP: DEFAULT_KNOWLEDGE_MCP_CONFIG,
-    paperReader: sanitizePaperReaderConfig(undefined)
+    paperReader: sanitizePaperReaderConfig(undefined),
+    labFeatures: createDefaultLabFeatures()
   }
 }
 
@@ -129,6 +132,9 @@ export function migrateConfig(config: AppConfig): AppConfig {
   delete (migrated as Record<string, unknown>).voiceRecognition
   delete (migrated as Record<string, unknown>).aliyunMiaobi
   delete (migrated as Record<string, unknown>).videoGeneration
+
+  // 迁移 labFeatures 配置（兼容旧版 labEnabled 总开关）
+  migrated.labFeatures = normalizeLabFeatures(migrated.labFeatures ?? createDefaultLabFeatures())
 
   return migrated
 }

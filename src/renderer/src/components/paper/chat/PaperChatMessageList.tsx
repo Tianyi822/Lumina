@@ -10,11 +10,17 @@ import {
 } from 'react'
 import type { Message } from '@renderer/types'
 import type { PaperQuote } from '@shared/types/chat'
+import {
+  calculateComposerAnchoredScrollTop,
+  parseCssPixelValue
+} from './paperChatScrollAnchor'
 import PaperChatMessage from './message/PaperChatMessage'
 import styles from './PaperChatMessageList.module.css'
 
-// 距底部小于此阈值视为"贴底"，允许自动滚动
-const SCROLL_BOTTOM_THRESHOLD = 80
+// 距输入框上沿锚点小于此阈值视为仍在自动滚动区
+const SCROLL_ANCHOR_THRESHOLD = 80
+const DEFAULT_COMPOSER_BOTTOM_INSET = 12
+const DEFAULT_STREAM_ANCHOR_GAP = 12
 
 export interface PaperChatMessageListHandle {
   scrollToBottom: () => void
@@ -22,7 +28,6 @@ export interface PaperChatMessageListHandle {
 
 interface PaperChatMessageListProps {
   messages: Message[]
-  currentModelName?: string
   currentChatId?: string
   onQuoteClick?: (quote: PaperQuote) => void
   onScrollButtonChange?: (visible: boolean) => void
@@ -30,15 +35,19 @@ interface PaperChatMessageListProps {
 
 const PaperChatMessageList = memo(
   forwardRef<PaperChatMessageListHandle, PaperChatMessageListProps>(function PaperChatMessageList(
-    { messages, currentModelName, currentChatId, onQuoteClick, onScrollButtonChange },
+    { messages, currentChatId, onQuoteClick, onScrollButtonChange },
     ref
   ) {
     const listRef = useRef<HTMLDivElement>(null)
+    const itemsRef = useRef<HTMLDivElement>(null)
+    const streamAnchorRef = useRef<HTMLDivElement>(null)
     const [expandedReasoningIds, setExpandedReasoningIds] = useState<Set<string>>(new Set())
-    // 用户是否主动向上滚动（不贴底）
+    // 用户是否主动离开输入框上沿锚点
     const isUserScrolledUpRef = useRef(false)
     // 用于检测程序性滚动的标记
     const isProgrammaticScrollRef = useRef(false)
+    const programmaticScrollFrameRef = useRef<number | null>(null)
+    const autoScrollFrameRef = useRef<number | null>(null)
     // 是否显示"回到底部"浮动按钮
     const [showScrollButton, setShowScrollButton] = useState(false)
 
@@ -50,46 +59,109 @@ const PaperChatMessageList = memo(
       [messages]
     )
 
-    const isStreaming = visibleMessages.some((message) => message.isStreaming)
+    const getComposerAnchoredScrollTop = useCallback(() => {
+      const element = listRef.current
+      const anchor = streamAnchorRef.current
+      if (!element || !anchor) return null
+
+      const elementRect = element.getBoundingClientRect()
+      const anchorRect = anchor.getBoundingClientRect()
+      const computedStyle = window.getComputedStyle(element)
+      const composerHeight = parseCssPixelValue(
+        computedStyle.getPropertyValue('--composer-height'),
+        0
+      )
+      const composerBottomInset = parseCssPixelValue(
+        computedStyle.getPropertyValue('--paper-chat-composer-bottom-inset'),
+        DEFAULT_COMPOSER_BOTTOM_INSET
+      )
+      const anchorGap = parseCssPixelValue(
+        computedStyle.getPropertyValue('--paper-chat-stream-anchor-gap'),
+        DEFAULT_STREAM_ANCHOR_GAP
+      )
+
+      return calculateComposerAnchoredScrollTop({
+        anchorOffsetTop: anchorRect.top - elementRect.top + element.scrollTop,
+        viewportHeight: element.clientHeight,
+        composerHeight,
+        composerBottomInset,
+        anchorGap,
+        maxScrollTop: Math.max(0, element.scrollHeight - element.clientHeight)
+      })
+    }, [])
+
+    const resetProgrammaticScrollFlag = useCallback(() => {
+      if (programmaticScrollFrameRef.current !== null) {
+        cancelAnimationFrame(programmaticScrollFrameRef.current)
+      }
+      programmaticScrollFrameRef.current = requestAnimationFrame(() => {
+        programmaticScrollFrameRef.current = requestAnimationFrame(() => {
+          isProgrammaticScrollRef.current = false
+          programmaticScrollFrameRef.current = null
+        })
+      })
+    }, [])
 
     const scrollToBottom = useCallback(() => {
       const element = listRef.current
       if (!element) return
+      const nextScrollTop = getComposerAnchoredScrollTop()
+      if (nextScrollTop === null) return
+
       isProgrammaticScrollRef.current = true
-      element.scrollTop = element.scrollHeight
+      element.scrollTop = nextScrollTop
       isUserScrolledUpRef.current = false
       setShowScrollButton(false)
-      // 程序性滚动完成后重置标记
-      requestAnimationFrame(() => {
-        isProgrammaticScrollRef.current = false
+      resetProgrammaticScrollFlag()
+    }, [getComposerAnchoredScrollTop, resetProgrammaticScrollFlag])
+
+    const scheduleComposerAnchoredScroll = useCallback(() => {
+      if (isUserScrolledUpRef.current || autoScrollFrameRef.current !== null) return
+      autoScrollFrameRef.current = requestAnimationFrame(() => {
+        autoScrollFrameRef.current = null
+        if (!isUserScrolledUpRef.current) {
+          scrollToBottom()
+        }
       })
-    }, [])
+    }, [scrollToBottom])
 
     // 暴露 scrollToBottom 给父组件
     useImperativeHandle(ref, () => ({ scrollToBottom }), [scrollToBottom])
+
+    useEffect(() => {
+      return () => {
+        if (programmaticScrollFrameRef.current !== null) {
+          cancelAnimationFrame(programmaticScrollFrameRef.current)
+        }
+        if (autoScrollFrameRef.current !== null) {
+          cancelAnimationFrame(autoScrollFrameRef.current)
+        }
+      }
+    }, [])
 
     // 通知父组件按钮可见性变化
     useEffect(() => {
       onScrollButtonChange?.(showScrollButton)
     }, [showScrollButton, onScrollButtonChange])
 
-    // 检查用户是否贴底
-    const checkIsNearBottom = useCallback(() => {
+    // 检查用户是否仍贴着输入框上沿锚点
+    const checkIsNearComposerAnchor = useCallback(() => {
       const element = listRef.current
       if (!element) return true
-      const distanceFromBottom = element.scrollHeight - element.scrollTop - element.clientHeight
-      return distanceFromBottom < SCROLL_BOTTOM_THRESHOLD
-    }, [])
+      const targetScrollTop = getComposerAnchoredScrollTop()
+      if (targetScrollTop === null) return true
+      return Math.abs(element.scrollTop - targetScrollTop) < SCROLL_ANCHOR_THRESHOLD
+    }, [getComposerAnchoredScrollTop])
 
     // 监听滚动事件，检测用户是否主动向上滚动
     const handleScroll = useCallback(() => {
       // 程序性滚动不改变用户状态
       if (isProgrammaticScrollRef.current) return
-      const nearBottom = checkIsNearBottom()
-      const scrolledUp = !nearBottom
+      const nearAnchor = checkIsNearComposerAnchor()
+      const scrolledUp = !nearAnchor
       isUserScrolledUpRef.current = scrolledUp
       setShowScrollButton(scrolledUp)
-    }, [checkIsNearBottom])
+    }, [checkIsNearComposerAnchor])
 
     // 新消息到来时，仅在贴底状态下自动滚动
     useEffect(() => {
@@ -98,11 +170,29 @@ const PaperChatMessageList = memo(
       scrollToBottom()
     }, [visibleMessages.length, scrollToBottom])
 
-    // 流式内容更新时，仅在用户未主动上滚时自动滚动到底部
+    // 流式内容更新时，使用 ResizeObserver 监听消息内容高度变化并自动滚动。
+    // 不能用 visibleMessages 作为依赖：rAF 节流后 setMessages 调用频率降低，
+    // 而 usePaperChatStreamingReveal 在 IPC 事件间隙持续揭示字符导致 DOM 高度增长，
+    // 此时 visibleMessages 引用不变，scrollToBottom 不会被触发。
+    // ResizeObserver 直接监听消息内容高度变化，无论增长来源是什么都能及时滚动。
     useEffect(() => {
-      if (isUserScrolledUpRef.current) return
-      scrollToBottom()
-    }, [visibleMessages, isStreaming, scrollToBottom])
+      if (visibleMessages.length === 0) return
+      const element = itemsRef.current
+      if (!element) return
+
+      let lastHeight = element.getBoundingClientRect().height
+      const observer = new ResizeObserver(() => {
+        if (isUserScrolledUpRef.current) return
+        const newHeight = element.getBoundingClientRect().height
+        if (newHeight > lastHeight) {
+          lastHeight = newHeight
+          scheduleComposerAnchoredScroll()
+        }
+      })
+
+      observer.observe(element)
+      return () => observer.disconnect()
+    }, [visibleMessages.length, scheduleComposerAnchoredScroll])
 
     function toggleReasoning(messageId: string): void {
       setExpandedReasoningIds((current) => {
@@ -119,20 +209,20 @@ const PaperChatMessageList = memo(
     return (
       <div ref={listRef} className={styles['paper-chat-message-list']} onScroll={handleScroll}>
         {visibleMessages.length === 0 ? (
-          <div className="paper-chat-message-list__empty">开始针对这篇论文提问吧</div>
+          <div className={styles['paper-chat-message-list__empty']}>开始针对这篇论文提问吧</div>
         ) : (
-          <div className="paper-chat-message-list__items">
+          <div ref={itemsRef} className={styles['paper-chat-message-list__items']}>
             {visibleMessages.map((message) => (
               <PaperChatMessage
                 key={message.id}
                 message={message}
-                currentModelName={currentModelName}
                 currentChatId={currentChatId}
                 isReasoningExpanded={expandedReasoningIds.has(message.id)}
                 onToggleReasoning={toggleReasoning}
                 onQuoteClick={onQuoteClick}
               />
             ))}
+            <div ref={streamAnchorRef} className={styles['paper-chat-message-list__anchor']} />
           </div>
         )}
       </div>

@@ -128,18 +128,6 @@
   margin-left: auto;
 }
 
-.paper-chat-message__meta-sender {
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--sm-color-text-tertiary);
-  flex-shrink: 0;
-  padding: 4px 8px;
-  background: var(--sm-color-bg-embedded);
-  border: 1px solid var(--sm-color-border-subtle);
-  border-radius: var(--sm-radius-sm);
-  line-height: 1;
-}
-
 .paper-chat-message__meta-time {
   font-size: 11px;
   color: var(--sm-color-text-tertiary);

@@ -261,7 +261,7 @@ test('testConnection 在网关返回 error 字段时提示修正 baseUrl', async
         create: async () =>
           ({
             error: 'Unexpected endpoint or method. (POST /v1/embeddings/embeddings)'
-          }) as Awaited<ReturnType<OpenAI['embeddings']['create']>>
+          }) as unknown as Awaited<ReturnType<OpenAI['embeddings']['create']>>
       }
     })
   })
@@ -282,7 +282,7 @@ test('testConnection 支持顶层 embedding 字段的兼容响应', async () => 
             object: 'list',
             model: 'legacy-model',
             embedding: [0.1, 0.2, 0.3]
-          }) as Awaited<ReturnType<OpenAI['embeddings']['create']>>
+          }) as unknown as Awaited<ReturnType<OpenAI['embeddings']['create']>>
       }
     })
   })

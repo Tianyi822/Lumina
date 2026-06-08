@@ -12,7 +12,7 @@ function createMockSshLab(): LabData {
     status: 'running',
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',
-    creationType: 'existing',
+    creationType: 'ssh',
     containerIds: [],
     backendType: 'ssh',
     ssh: { host: '1.2.3.4', port: 22, username: 'root', authType: 'password' }

@@ -1,29 +1,19 @@
 import { logger } from '@main/services/logger'
 import type { MCPTool, MCPToolCallResult } from '@main/types/mcp'
 import type { ToolArgs, LabToolDefinition } from './tools/types'
-import { queryTools } from './tools/queryTools'
-import { managementTools } from './tools/managementTools'
 import { execTools } from './tools/execTools'
 import { fileTools } from './tools/fileTools'
-import { frontendTools } from './tools/frontendTools'
 import { sshTools } from './tools/sshTools'
 
 /**
  * 实验室工具服务
- * 将 Docker 实验室操作封装为 LLM 可调用的 MCP 工具格式
+ * 将实验室操作封装为 LLM 可调用的 MCP 工具格式
  */
 export class LabToolService {
   private tools: Map<string, LabToolDefinition> = new Map()
 
   constructor() {
-    this.registerTools([
-      ...queryTools,
-      ...managementTools,
-      ...execTools,
-      ...fileTools,
-      ...frontendTools,
-      ...sshTools
-    ])
+    this.registerTools([...execTools, ...fileTools, ...sshTools])
   }
 
   /**

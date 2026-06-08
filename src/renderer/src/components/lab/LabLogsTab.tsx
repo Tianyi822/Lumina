@@ -1,46 +1,10 @@
-import { useState } from 'react'
-import ContainerLogs from './ContainerLogs'
 import LabDetailEmptyState from './LabDetailEmptyState'
 
-interface LabLogsTabProps {
-  isDockerReady: boolean
-  selectedContainerId?: string
-}
-
-export default function LabLogsTab({ isDockerReady, selectedContainerId }: LabLogsTabProps) {
-  const [logs, setLogs] = useState<string[]>([])
-  const [loading, setLoading] = useState(false)
-
-  if (!isDockerReady) {
-    return (
-      <LabDetailEmptyState
-        title="Docker 未就绪"
-        message="本地 Docker 运行时不可用，容器日志功能暂时无法使用。"
-      />
-    )
-  }
-
-  async function handleRefresh(): Promise<void> {
-    if (!selectedContainerId) return
-    setLoading(true)
-    try {
-      const result = await window.api.lab.getContainerLogs(selectedContainerId)
-      if (result.success && result.logs) {
-        setLogs(result.logs.split('\n'))
-      } else {
-        setLogs([])
-      }
-    } finally {
-      setLoading(false)
-    }
-  }
-
+export default function LabLogsTab() {
   return (
-    <ContainerLogs
-      logs={logs}
-      loading={loading}
-      onRefresh={handleRefresh}
-      onClear={() => setLogs([])}
+    <LabDetailEmptyState
+      title="日志功能仅限 Docker 实验室"
+      message="SSH 远程服务器暂不支持此日志视图，请通过 SSH 终端查看远程日志。"
     />
   )
 }

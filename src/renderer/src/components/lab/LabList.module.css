@@ -14,12 +14,12 @@
 .lab-item {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 12px;
-  margin-bottom: 8px;
+  gap: var(--sm-space-3);
+  padding: var(--sm-space-3);
+  margin-bottom: var(--sm-space-2);
   background-color: var(--sm-color-surface-1);
   border: 1px solid transparent;
-  border-radius: 12px;
+  border-radius: var(--sm-radius-md);
   cursor: pointer;
   transition:
     background-color var(--sm-transition-fast),
@@ -50,18 +50,18 @@
 .lab-info {
   flex: 1;
   min-width: 0;
+  overflow: hidden;
 }
 
 .lab-name {
-  font-size: 14px;
+  margin-bottom: 2px;
+  font-size: 13px;
   font-weight: 600;
+  line-height: 1.4;
   color: var(--sm-color-text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  display: flex;
-  align-items: center;
-  gap: 6px;
 }
 
 .sm-lab-list__creation-badge {
@@ -102,8 +102,8 @@
 .lab-meta {
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin-top: 4px;
+  gap: var(--sm-space-2);
+  margin-top: var(--sm-space-1);
   flex-wrap: wrap;
 }
 
@@ -159,15 +159,21 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
   width: 28px;
   height: 28px;
   padding: 0;
+  margin-left: auto;
   background-color: transparent;
   border: 1px solid transparent;
-  border-radius: 8px;
-  color: var(--sm-color-text-secondary);
+  border-radius: var(--sm-radius-sm);
+  color: var(--sm-color-text-tertiary);
   cursor: pointer;
-  transition: all var(--sm-transition-fast);
+  transition:
+    background-color var(--sm-transition-fast),
+    border-color var(--sm-transition-fast),
+    color var(--sm-transition-fast),
+    opacity var(--sm-transition-fast);
 }
 
 .sm-lab-list__delete-button:hover:not(:disabled) {

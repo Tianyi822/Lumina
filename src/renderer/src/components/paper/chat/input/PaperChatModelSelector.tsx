@@ -92,7 +92,12 @@ export default function PaperChatModelSelector({
   return (
     <div ref={selectorRef} className={styles['model-selector']}>
       <button
-        className={styles['model-selector__button']}
+        className={[
+          styles['model-selector__button'],
+          showDropdown ? styles['model-selector__button--open'] || '' : ''
+        ]
+          .filter(Boolean)
+          .join(' ')}
         type="button"
         disabled={disabled || modelOptions.length === 0}
         onClick={toggleDropdown}

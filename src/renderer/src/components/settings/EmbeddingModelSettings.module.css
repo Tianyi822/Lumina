@@ -15,8 +15,3 @@
   color: var(--sm-color-accent-hover);
   border-color: var(--sm-color-border-accent);
 }
-
-.save-actions {
-  display: flex;
-  justify-content: flex-end;
-}

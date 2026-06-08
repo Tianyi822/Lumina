@@ -1,4 +1,6 @@
 .paper-chat-message-list {
+  --paper-chat-composer-bottom-inset: var(--sm-space-3);
+  --paper-chat-stream-anchor-gap: var(--sm-space-3);
   flex: 1;
   min-height: 0;
   overflow-y: auto;
@@ -8,7 +10,7 @@
   background: var(--sm-color-bg-canvas);
 }
 
-:global(.paper-chat-message)-list__empty {
+.paper-chat-message-list__empty {
   min-height: 100%;
   display: flex;
   align-items: center;
@@ -19,13 +21,19 @@
   text-align: center;
 }
 
-:global(.paper-chat-message)-list__items {
+.paper-chat-message-list__items {
   display: flex;
   flex-direction: column;
   gap: var(--sm-space-4);
   min-width: 0;
 }
 
-:global(.paper-chat-message)-list__items :global(.paper-chat-message) {
+.paper-chat-message-list__anchor {
+  width: 100%;
+  height: 0;
+  pointer-events: none;
+}
+
+.paper-chat-message-list__items :global(.paper-chat-message) {
   min-width: 0;
 }

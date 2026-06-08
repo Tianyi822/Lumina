@@ -196,14 +196,46 @@ export class ToolStatsCollector {
 
   private async loadPersisted(): Promise<void> {
     try {
-      const filePath = this.getTodayFilePath()
-      const content = await readFile(filePath, 'utf-8').catch(() => null)
-      if (content === null) return
-
-      const data = JSON.parse(content)
-      if (Array.isArray(data)) {
-        this.records = data as ToolCallRecord[]
+      const dir = this.getStatsDir()
+      let files: string[]
+      try {
+        files = (await readdir(dir)).filter((f) => f.endsWith('.json')).sort()
+      } catch {
+        return
       }
+
+      // 只加载保留期内的文件
+      const cutoffDate = new Date()
+      cutoffDate.setDate(cutoffDate.getDate() - MAX_HISTORY_DAYS)
+      const cutoffStr = cutoffDate.toISOString().slice(0, 10)
+      const validFiles = files.filter((f) => f.slice(0, 10) >= cutoffStr)
+
+      // 由于 persist() 每次写入全部内存记录，历史文件间存在重叠
+      // 使用 timestamp + toolName + sessionId 组合键去重
+      const seen = new Set<string>()
+      const allRecords: ToolCallRecord[] = []
+
+      for (const file of validFiles) {
+        try {
+          const content = await readFile(join(dir, file), 'utf-8')
+          const data = JSON.parse(content)
+          if (!Array.isArray(data)) continue
+
+          for (const record of data) {
+            const key = `${record.timestamp}_${record.toolName}_${record.sessionId}`
+            if (!seen.has(key)) {
+              seen.add(key)
+              allRecords.push(record)
+            }
+          }
+        } catch {
+          // 单个文件加载失败不影响其他
+        }
+      }
+
+      // 按时间排序，保留最近的记录
+      allRecords.sort((a, b) => a.timestamp - b.timestamp)
+      this.records = allRecords.slice(-MAX_IN_MEMORY_RECORDS)
     } catch {
       // 加载失败则从空开始
     }

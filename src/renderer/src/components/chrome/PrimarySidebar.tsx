@@ -1,7 +1,12 @@
 import { useCallback, useMemo } from 'react'
 import SvgIcon from '@renderer/components/icons/SvgIcon'
 import { uploadAndRenderPdf } from '@renderer/stores/paper'
-import { useKnowledgeStore } from '@renderer/stores'
+import { useConfigStore, useKnowledgeStore } from '@renderer/stores'
+import {
+  isAnyLabDisciplineEnabled,
+  isLabDisciplineEnabled,
+  LAB_DISCIPLINE_PRESETS
+} from '@shared/utils/labFeatures'
 import { hasPendingUpdateBadge, useUpdateStore } from '@renderer/stores/updateStore'
 import { useUIStateStore } from '@renderer/stores/uiStateStore'
 import type { UIStateStore, ViewMode } from '@renderer/stores/uiStateStore'
@@ -11,10 +16,8 @@ import styles from './PrimarySidebar.module.css'
 const ICON_SIZE = 18
 const EXPAND_ICON_SIZE = 11
 
-type NavItemId = 'read' | 'knowledge' | 'lab'
-
 interface NavItem {
-  id: NavItemId
+  id: string
   icon: string
   label: string
   view: ViewMode
@@ -30,8 +33,7 @@ const ADD_LABEL_BY_VIEW: Record<ViewMode, string> = {
 /** 一级侧边栏导航项（不含添加） */
 const TOP_NAV_ITEMS: NavItem[] = [
   { id: 'read', icon: 'read', label: '阅读', view: 'paper', showTooltip: true },
-  { id: 'knowledge', icon: 'knowledge', label: '知识库', view: 'knowledge', showTooltip: true },
-  { id: 'lab', icon: 'lab', label: '实验室', view: 'lab', showTooltip: true }
+  { id: 'knowledge', icon: 'knowledge', label: '知识库', view: 'knowledge', showTooltip: true }
 ]
 
 const BOTTOM_NAV_ITEM = { id: 'settings', icon: 'settings', label: '设置' } as const
@@ -50,7 +52,8 @@ export default function PrimarySidebar({ onOpenSettings }: PrimarySidebarProps) 
   const currentView = useUIStateStore((s) => s.currentView)
   const setCurrentView = useUIStateStore((s) => s.setCurrentView)
   const toggleCurrentSidebar = useUIStateStore((s) => s.toggleCurrentSidebar)
-  const isSecondarySidebarCollapsed = useUIStateStore(selectIsSecondarySidebarCollapsed)
+  const paperSidebarCollapsed = useUIStateStore((s) => s.paperSidebarCollapsed)
+  const rawSidebarCollapsed = useUIStateStore(selectIsSecondarySidebarCollapsed)
   const currentTheme = useUIStateStore((s) => s.currentTheme)
   const themeMode = useUIStateStore((s) => s.themeMode)
   const setTheme = useUIStateStore((s) => s.setTheme)
@@ -59,19 +62,32 @@ export default function PrimarySidebar({ onOpenSettings }: PrimarySidebarProps) 
   const openLabCreator = useUIStateStore((s) => s.openLabCreator)
   const updateStatus = useUpdateStore((s) => s.status)
   const showUpdateBadge = hasPendingUpdateBadge(updateStatus)
+  const labFeatures = useConfigStore((s) => s.labFeatures)
+  const labEnabled = isAnyLabDisciplineEnabled(labFeatures)
+
+  // lab 禁用时回退到 paper 侧边栏折叠状态（防御性：setCurrentView 守卫确保 currentView 不会是 'lab'）
+  const isSecondarySidebarCollapsed = labEnabled ? rawSidebarCollapsed : paperSidebarCollapsed
 
   const isDarkTheme = currentTheme === 'lumina-dark'
 
   const addTooltip = ADD_LABEL_BY_VIEW[currentView]
 
-  const navItems = useMemo(
-    () =>
-      TOP_NAV_ITEMS.map((item) => ({
-        ...item,
-        tooltip: item.showTooltip ? item.label : undefined
-      })),
-    []
-  )
+  const navItems = useMemo(() => {
+    const labNavItems = LAB_DISCIPLINE_PRESETS.filter((preset) =>
+      isLabDisciplineEnabled(labFeatures, preset.id)
+    ).map((preset) => ({
+      id: `lab-${preset.id}`,
+      icon: preset.icon,
+      label: `${preset.label}实验室`,
+      view: 'lab' as ViewMode,
+      showTooltip: true
+    }))
+
+    return [...TOP_NAV_ITEMS, ...labNavItems].map((item) => ({
+      ...item,
+      tooltip: item.showTooltip ? item.label : undefined
+    }))
+  }, [labFeatures])
 
   const handleAddClick = useCallback((): void => {
     if (currentView === 'paper') {

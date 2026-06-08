@@ -56,7 +56,13 @@ export type AttachmentFile = {
 
 // ==================== UI 特有类型 ====================
 
-import type { ToolCallInfo, ToolResultInfo, ToolCallMessage, PlanStep } from '@shared/types/chat'
+import type {
+  ToolCallInfo,
+  ToolResultInfo,
+  ToolCallMessage,
+  PlanStep,
+  ChatMessage
+} from '@shared/types/chat'
 import type { AttachedDocument, AttachedImage, PaperQuote } from '@shared/types/chat'
 
 /**
@@ -112,6 +118,7 @@ export interface Message {
   reactIterations?: ReActIteration[] // ReAct 迭代分组数据
   tool_calls?: ToolCallMessage[] // 工具调用（仅 assistant 消息）
   tool_call_id?: string // 工具调用的 ID（仅 tool 消息，用于保存到会话）
+  modelTranscript?: ChatMessage[] // 当前助手轮次实际产生的模型消息序列
   attachedDocuments?: AttachedDocument[] // 附加的文档（仅 user 消息）
   attachedImages?: AttachedImage[] // 附加的图片（仅 user 消息）
   attachedQuotes?: PaperQuote[] // 附加的论文引用（仅 user 消息）

@@ -1,6 +1,5 @@
 import type { MCPToolCallResult } from '@main/types/mcp'
 import type { FileWriteRequest } from '@shared/types/lab'
-import { labFileService } from '../file'
 import { findLab } from './toolExecutor'
 import { resolveProjectRootForWrite } from './toolHelpers'
 import type { ToolArgs, LabToolDefinition } from './types'
@@ -11,7 +10,7 @@ import { sshService } from '../ssh'
  */
 export const writeProjectFilesTool: LabToolDefinition = {
   name: 'lab__write_project_files',
-  description: '批量写入项目文件到实验室的工作目录，支持 Docker 容器和 SSH 远程服务器',
+  description: '批量写入项目文件到实验室的工作目录，通过 SSH 写入远程服务器',
   inputSchema: {
     type: 'object',
     properties: {
@@ -19,7 +18,7 @@ export const writeProjectFilesTool: LabToolDefinition = {
       lab_name: { type: 'string', description: '实验室名称，支持模糊匹配' },
       project_root: {
         type: 'string',
-        description: '项目根目录；前端实验室默认使用其项目根目录 /workspace，其他实验室默认 /app'
+        description: '项目根目录（可选）'
       },
       files: {
         type: 'array',
@@ -50,36 +49,13 @@ export const writeProjectFilesTool: LabToolDefinition = {
 
     const projectRoot = resolveProjectRootForWrite(lab, args.project_root as string | undefined)
 
-    // SSH 后端分支
-    if (lab.backendType === 'ssh') {
-      if (!sshService.isConnected(lab.labId)) {
-        return { success: false, error: 'SSH 未连接，请先连接远程服务器' }
-      }
-
-      const result = await sshService.writeFiles(lab.labId, files, projectRoot)
-      if (!result.success) {
-        return { success: false, error: result.error || '文件写入失败' }
-      }
-
-      return {
-        success: true,
-        content: [
-          {
-            type: 'text',
-            text: `成功写入 ${result.writtenCount} 个文件到远程服务器 ${lab.name}`
-          }
-        ]
-      }
+    if (!sshService.isConnected(lab.labId)) {
+      return { success: false, error: 'SSH 未连接，请先连接远程服务器' }
     }
 
-    // Docker 后端分支
-    const result = await labFileService.writeProjectFiles(lab.labId, files, projectRoot)
-
+    const result = await sshService.writeFiles(lab.labId, files, projectRoot)
     if (!result.success) {
-      return {
-        success: false,
-        error: result.error || '文件写入失败'
-      }
+      return { success: false, error: result.error || '文件写入失败' }
     }
 
     return {
@@ -87,7 +63,7 @@ export const writeProjectFilesTool: LabToolDefinition = {
       content: [
         {
           type: 'text',
-          text: `成功写入 ${result.writtenCount} 个文件到实验室 ${lab.name}`
+          text: `成功写入 ${result.writtenCount} 个文件到远程服务器 ${lab.name}`
         }
       ]
     }

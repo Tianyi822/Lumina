@@ -169,12 +169,15 @@ export default function EmbeddingModelSettings() {
 
       <section className="sm-settings-page__section">
         <div className="sm-settings-page__section-header">
-          <div>
-            <h3 className="sm-settings-page__section-title">模型列表</h3>
-            <p className="sm-settings-page__section-description">
-              当前共 {modelCount} 个嵌入模型配置。
-            </p>
-          </div>
+          <h3 className="sm-settings-page__section-title">模型列表</h3>
+
+          <button
+            className="sm-button sm-button--primary"
+            disabled={saving}
+            onClick={() => void handleSaveConfig()}
+          >
+            {saving ? '保存中...' : '保存配置'}
+          </button>
         </div>
 
         <div className={styles['model-list']}>
@@ -224,16 +227,6 @@ export default function EmbeddingModelSettings() {
           </button>
         )}
       </section>
-
-      <div className={styles['save-actions']}>
-        <button
-          className="sm-button sm-button--primary"
-          disabled={saving}
-          onClick={() => void handleSaveConfig()}
-        >
-          {saving ? '保存中...' : '保存配置'}
-        </button>
-      </div>
     </div>
   )
 }

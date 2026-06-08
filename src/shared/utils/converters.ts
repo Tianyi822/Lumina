@@ -12,11 +12,6 @@ export function sessionToChatMessage(msg: SessionMessage): ChatMessage {
     content: msg.content
   }
 
-  // 如果有思考过程，添加到消息中
-  if (msg.reasoning) {
-    chatMsg.reasoning_content = msg.reasoning
-  }
-
   if (msg.attachedDocuments?.length) {
     chatMsg.attachedDocuments = msg.attachedDocuments
   }
@@ -44,7 +39,31 @@ export function sessionToChatMessage(msg: SessionMessage): ChatMessage {
  * 将持久化的消息列表转换为发送给后端的格式
  */
 export function buildChatMessages(messages: SessionMessage[]): ChatMessage[] {
-  return messages.map(sessionToChatMessage)
+  const result: ChatMessage[] = []
+  const expandedToolCallIds = new Set<string>()
+
+  for (const message of messages) {
+    if (
+      message.role === 'tool' &&
+      message.tool_call_id &&
+      expandedToolCallIds.has(message.tool_call_id)
+    ) {
+      expandedToolCallIds.delete(message.tool_call_id)
+      continue
+    }
+    if (message.modelTranscript?.length) {
+      result.push(...deepClone(message.modelTranscript))
+      for (const item of message.modelTranscript) {
+        if (item.role === 'tool' && item.tool_call_id) {
+          expandedToolCallIds.add(item.tool_call_id)
+        }
+      }
+      continue
+    }
+    result.push(sessionToChatMessage(message))
+  }
+
+  return result
 }
 
 /**

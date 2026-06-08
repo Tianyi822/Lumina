@@ -17,17 +17,7 @@ export { usePaperChatQuoteStore } from './paperChatQuoteStore'
 export { useUpdateStore } from './updateStore'
 
 // Lab Stores (Zustand)
-export {
-  useDockerConfigStore,
-  useComposeConfigStore,
-  useLabStore,
-  useContainerStore,
-  useLabCreatorStore,
-  useLabListStore,
-  useLabOperationStore,
-  usePortMappingStore,
-  useDockerfileConfigStore
-} from './lab'
+export { useLabStore, useLabCreatorStore, useLabListStore, useLabOperationStore } from './lab'
 
 // Paper Reader Store（已拆分为子 Store，从 paper/ 直接导入）
 export {

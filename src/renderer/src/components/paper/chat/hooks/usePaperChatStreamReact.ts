@@ -81,6 +81,8 @@ export function usePaperChatStreamReact(
   const sessionIdRef = useRef(sessionId)
   sessionIdRef.current = sessionId
   const requestErrorReportedRef = useRef(false)
+  // 用于 rAF 节流的调度 ID，确保每帧最多一次 setMessages
+  const rafIdRef = useRef<number | null>(null)
 
   const reportRequestError = useCallback((message: string): void => {
     if (requestErrorReportedRef.current) return
@@ -101,26 +103,56 @@ export function usePaperChatStreamReact(
         return
       }
 
-      // 为流式消息创建新的对象引用及 reactIterations/reactSteps 数组引用，
-      // 确保 PaperChatReActSteps 中的 useMemo 能检测到内容变化
-      const nextMessages = current.messagesRef.current.map((msg) => {
-        if (!msg.isStreaming) return msg
-        return {
-          ...msg,
-          reactIterations: msg.reactIterations ? [...msg.reactIterations] : msg.reactIterations,
-          reactSteps: msg.reactSteps ? [...msg.reactSteps] : msg.reactSteps
-        }
-      })
-      current.setMessages(nextMessages)
-      usePaperChatMessageCacheStore
-        .getState()
-        .retainSessionMessages(currentSessionId, nextMessages, current.session?.title)
-
+      // done/error 事件必须同步处理：取消 pending rAF，立即 setMessages 并保存
       if (event.type === 'done' || event.type === 'error') {
+        if (rafIdRef.current !== null) {
+          cancelAnimationFrame(rafIdRef.current)
+          rafIdRef.current = null
+        }
         if (event.type === 'error' && event.error) {
           reportRequestError(event.error)
         }
+
+        const nextMessages = current.messagesRef.current.map((msg) => {
+          if (!msg.isStreaming) return msg
+          return {
+            ...msg,
+            reactIterations: msg.reactIterations ? [...msg.reactIterations] : msg.reactIterations,
+            reactSteps: msg.reactSteps ? [...msg.reactSteps] : msg.reactSteps
+          }
+        })
+        current.setMessages(nextMessages)
+        usePaperChatMessageCacheStore
+          .getState()
+          .retainSessionMessages(currentSessionId, nextMessages, current.session?.title)
+
         void current.saveCurrentSession()
+        return
+      }
+
+      // 使用 requestAnimationFrame 节流 setMessages 调用，避免高频 IPC 事件导致 React 重渲染风暴。
+      // 快速模型每秒可触发数十上百次 stream 事件，逐次 setMessages 会造成严重卡顿。
+      // rAF 确保每帧（~16ms）最多调用一次 setMessages，同时保证视觉更新不丢帧。
+      if (rafIdRef.current === null) {
+        rafIdRef.current = requestAnimationFrame(() => {
+          rafIdRef.current = null
+          const latestCurrent = latestRef.current
+
+          // 为流式消息创建新的对象引用及 reactIterations/reactSteps 数组引用，
+          // 确保 PaperChatReActSteps 中的 useMemo 能检测到内容变化
+          const nextMessages = latestCurrent.messagesRef.current.map((msg) => {
+            if (!msg.isStreaming) return msg
+            return {
+              ...msg,
+              reactIterations: msg.reactIterations ? [...msg.reactIterations] : msg.reactIterations,
+              reactSteps: msg.reactSteps ? [...msg.reactSteps] : msg.reactSteps
+            }
+          })
+          latestCurrent.setMessages(nextMessages)
+          usePaperChatMessageCacheStore
+            .getState()
+            .retainSessionMessages(currentSessionId, nextMessages, latestCurrent.session?.title)
+        })
       }
     },
     [reportRequestError]
@@ -231,6 +263,21 @@ export function usePaperChatStreamReact(
           })
         )
 
+        if (result.modelTranscript && result.modelTranscript.length > 0) {
+          const completedAssistant = messagesRef.current.find(
+            (message) => message.id === assistantMessage.id
+          )
+          if (completedAssistant) {
+            completedAssistant.modelTranscript = deepClone(result.modelTranscript)
+            messageCache.retainSessionMessages(
+              currentSessionId,
+              messagesRef.current,
+              targetSession.title
+            )
+            await selected.saveCurrentSession()
+          }
+        }
+
         if (!result.success && result.error) {
           reportRequestError(result.error)
         }
@@ -261,7 +308,6 @@ export function usePaperChatStreamReact(
     usePaperChatStreamStore.getState().setupStreamListener(handleStreamEvent)
     return () => {
       const currentSessionId = sessionIdRef.current
-      const streamStore = usePaperChatStreamStore.getState()
 
       // 即使发送中也需要保留最新消息缓存
       if (currentSessionId) {
@@ -274,8 +320,11 @@ export function usePaperChatStreamReact(
           )
       }
 
-      // 始终清理流监听器，避免卸载后持有过期闭包
-      streamStore.cleanupStreamListener()
+      // 注意：不在此处清理流式 IPC 监听器。
+      // 保持监听器活跃，即使组件卸载（如切换视图），流式事件仍被处理并缓存。
+      // handler 闭包中的 ref 在卸载后仍持有有效值，可继续更新缓存和保存会话。
+      // 当组件重新挂载时，setupStreamListener 会自动替换为新的 handler。
+      // 仅在 setupStreamListener 内部（设置新 handler 前）才会清理旧监听器。
     }
   }, [handleStreamEvent, messagesRef])
 

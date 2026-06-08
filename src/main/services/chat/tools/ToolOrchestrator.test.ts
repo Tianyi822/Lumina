@@ -256,6 +256,75 @@ describe('ToolOrchestrator', () => {
       assert.match(result.executedToolCalls[1].id, /^auto_knowledge_/)
       assert.equal(result.executedToolCalls[1].function.name, 'knowledge__search')
     })
+
+    it('自动触发工具调用 ID 应基于工具和参数稳定生成', async () => {
+      const fakeExecute: FakeExecuteToolCalls = async (
+        toolCalls: ToolCallDefinition[]
+      ): Promise<ToolExecutionSummary> => {
+        return makeExecutionSummary([
+          {
+            toolCallId: toolCalls[0].id,
+            toolName: toolCalls[0].function.name,
+            content: '知识库结果',
+            success: true
+          }
+        ])
+      }
+
+      const fakeRegistry = createFakeRegistry(new Map([['knowledge__search', 'knowledge']]))
+      const orchestrator = createOrchestrator(fakeRegistry, fakeExecute, enricher, merger)
+
+      const pipeline: ToolPipeline = {
+        stages: [
+          {
+            category: 'knowledge',
+            execution: 'required',
+            autoTrigger: {
+              toolName: 'search',
+              queryTransform: (query, ctx) => ({
+                query,
+                filters: {
+                  sessionId: ctx.sessionId,
+                  source: 'paper'
+                }
+              })
+            }
+          }
+        ],
+        mergeStrategy: 'none'
+      }
+
+      const createContext = (): PipelineContext => ({
+        sessionId: 's1',
+        request: makeChatRequest(),
+        modelToolCalls: [],
+        stageResults: new Map(),
+        originalQuery: 'test query'
+      })
+
+      const first = await orchestrator.orchestrate(
+        [],
+        pipeline,
+        createContext(),
+        fakeWebContents,
+        's1',
+        't1'
+      )
+      const second = await orchestrator.orchestrate(
+        [],
+        pipeline,
+        createContext(),
+        fakeWebContents,
+        's1',
+        't2'
+      )
+
+      assert.equal(first.executedToolCalls[0].id, second.executedToolCalls[0].id)
+      assert.equal(
+        first.executedToolCalls[0].function.arguments,
+        '{"filters":{"sessionId":"s1","source":"paper"},"query":"test query"}'
+      )
+    })
   })
 
   describe('orchestrate — 未被管道覆盖的工具直接执行', () => {
