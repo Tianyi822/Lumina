@@ -151,6 +151,19 @@ export interface PaperReaderConfig {
   originalPdfZoomLevel?: number
 }
 
+/** 学科实验室标识 */
+export type LabDisciplineId = 'computer'
+
+/**
+ * 实验室功能开关配置
+ */
+export interface LabFeaturesConfig {
+  /** @deprecated 旧版总开关，迁移至 disciplines，读取时请用 normalizeLabFeatures */
+  labEnabled?: boolean
+  /** 各学科实验室独立开关 */
+  disciplines: Record<LabDisciplineId, boolean>
+}
+
 /**
  * MCP 服务器配置的集合
  */
@@ -171,6 +184,8 @@ export interface AppConfig {
   knowledgeMCP?: KnowledgeMCPConfig
   /** 论文阅读配置（含 OCR 与翻译模型） */
   paperReader?: PaperReaderConfig
+  /** 实验室功能开关 */
+  labFeatures?: LabFeaturesConfig
 }
 
 /**

@@ -1,10 +1,12 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { useNotificationCenterStore } from '@renderer/stores/notificationCenterStore'
+import { useConfigStore } from '@renderer/stores/configStore'
 import type { ThemeConfig, ThemeMode } from '@shared/types/config'
 import {
   DEFAULT_THEME_ID,
   DEFAULT_THEME_MODE,
+  isAnyLabDisciplineEnabled,
   normalizeThemeId,
   normalizeThemeMode,
   resolveEffectiveTheme,
@@ -350,7 +352,15 @@ export const useUIStateStore = create<UIStateStore>()(
           if (state.currentView === view) return
           if (view === 'knowledge') await state.switchToKnowledgeView()
           else if (view === 'paper') await state.switchToPaperView()
-          else await state.switchToLabView()
+          else {
+            // lab 禁用时 fallback 到 paper 视图
+            const labEnabled = isAnyLabDisciplineEnabled(useConfigStore.getState().labFeatures)
+            if (labEnabled) {
+              await state.switchToLabView()
+            } else {
+              await state.switchToPaperView()
+            }
+          }
         },
 
         notifyConfigUpdate: () => set((s) => ({ configUpdateKey: s.configUpdateKey + 1 })),
