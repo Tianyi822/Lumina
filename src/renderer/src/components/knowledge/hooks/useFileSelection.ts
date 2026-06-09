@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo } from 'react'
 import { useFileStore } from '@renderer/stores'
 import type { FileItem } from '@renderer/types'
 
+/** 文件多选 + 批量挂载到知识库的状态管理 */
 export function useFileSelection(files: FileItem[], kbId: string) {
   const fileStore = useFileStore()
 

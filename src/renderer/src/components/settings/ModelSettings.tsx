@@ -14,6 +14,7 @@ const MODEL_FIELD_LABELS: Record<'base_url' | 'api_key' | 'model_name', string> 
 
 const EMPTY_NEW_MODEL: LLMConfig = { base_url: '', api_key: '', model_name: '' }
 
+/** 对话模型配置页面：管理 LLM 列表、默认模型、新增/删除/测试连接 */
 export default function ModelSettings() {
   // Zustand selectors
   const llmConfigs = useConfigStore((s) => s.llmConfigs)
@@ -23,14 +24,14 @@ export default function ModelSettings() {
   const updateDefaultModel = useConfigStore((s) => s.updateDefaultModel)
   const notifyConfigUpdate = useUIStateStore((s) => s.notifyConfigUpdate)
 
-  // UI 状态
+  // UI 状态：展开的模型索引集合、新增表单、测试中的索引
   const [expandedModels, setExpandedModels] = useState<Set<number>>(new Set())
   const [showNewModelForm, setShowNewModelForm] = useState(false)
   const [newModelConfig, setNewModelConfig] = useState<LLMConfig>({ ...EMPTY_NEW_MODEL })
   const [testingModelIndex, setTestingModelIndex] = useState<number | null>(null)
   const [testingNewModel, setTestingNewModel] = useState(false)
 
-  // Auto-save 互斥锁
+  // Auto-save 互斥锁，防止并发保存
   const autoSavePending = useRef(false)
   const autoSaveRunning = useRef(false)
 
@@ -61,6 +62,7 @@ export default function ModelSettings() {
   const validateAllModelConfigs = useCallback((): boolean => {
     const { llmConfigs: configs } = useConfigStore.getState()
     for (const [index, config] of configs.entries()) {
+      // 任一模型配置校验不通过则提示并阻止操作
       const validationMessage = validateModelConfig(config, index)
       if (validationMessage) {
         notifyWarning('模型配置校验失败', validationMessage, { source: 'settings' })
@@ -72,6 +74,7 @@ export default function ModelSettings() {
 
   // Auto-save 队列
   const flushAutoSaveQueue = useCallback(async () => {
+    // 已有保存任务在执行，标记待重试并退出
     if (autoSaveRunning.current) {
       autoSavePending.current = true
       return
@@ -81,6 +84,7 @@ export default function ModelSettings() {
     let shouldNotify = false
 
     try {
+      // 循环执行保存，直到没有新的待处理请求（自动合并连续保存）
       do {
         autoSavePending.current = false
         if (!validateAllModelConfigs()) return
@@ -112,8 +116,10 @@ export default function ModelSettings() {
 
     const newConfigs = [...configs, { ...newModelConfig }]
     updateLLMConfigs(newConfigs)
+    // 展开新添加的模型详情面板
     setExpandedModels((prev) => new Set(prev).add(newConfigs.length - 1))
 
+    // 第一个添加的模型自动设为默认模型
     if (newConfigs.length === 1) {
       updateDefaultModel(newModelConfig.model_name)
     }
@@ -132,6 +138,7 @@ export default function ModelSettings() {
       const newConfigs = configs.filter((_, index) => index !== modelIndex)
       updateLLMConfigs(newConfigs)
 
+      // 删除后调整展开状态的索引：被删项之后的索引减 1
       setExpandedModels(
         (prev) =>
           new Set(
@@ -141,6 +148,7 @@ export default function ModelSettings() {
           )
       )
 
+      // 若被删的是默认模型，将第一个可用模型设为默认
       if (dm === modelName) {
         updateDefaultModel(newConfigs.length > 0 ? newConfigs[0].model_name : '')
       }
@@ -184,6 +192,7 @@ export default function ModelSettings() {
 
       setTestingModelIndex(modelIndex)
       try {
+        // 调用主进程测试模型 API 连通性
         const result = await window.api.config.testModelConnection({ ...config })
         if (result.success) {
           notifySuccess('模型连接测试成功', `模型"${getModelItemName(config, modelIndex)}"可用`, {
@@ -241,6 +250,7 @@ export default function ModelSettings() {
 
       updateLLMConfigs(newConfigs)
 
+      // 更新模型名称时同步更新默认模型引用
       if (field === 'model_name' && dm === currentConfig.model_name) {
         updateDefaultModel(value)
       }

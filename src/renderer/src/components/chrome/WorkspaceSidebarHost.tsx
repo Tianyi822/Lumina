@@ -14,6 +14,10 @@ interface WorkspaceSidebarHostProps {
   onOpenSettings?: () => void
 }
 
+/**
+ * 工作区侧边栏容器组件
+ * 管理一级侧边栏和二级侧边栏（根据视图切换内容面），支持论文侧边栏宽度拖拽调整
+ */
 export default function WorkspaceSidebarHost({ onOpenSettings }: WorkspaceSidebarHostProps) {
   const currentView = useUIStateStore((s) => s.currentView)
   const isCurrentSidebarCollapsed = useUIStateStore((s) => s.isCurrentSidebarCollapsed())
@@ -27,12 +31,14 @@ export default function WorkspaceSidebarHost({ onOpenSettings }: WorkspaceSideba
   const pendingSidebarWidthRef = useRef<number | null>(null)
   const sidebarResizeRafRef = useRef<number | null>(null)
 
+  // 非拖拽时同步 ref 与 store 的实际宽度
   useEffect(() => {
     if (!isResizingSidebarRef.current) {
       sidebarWidthRef.current = paperSidebarWidth
     }
   }, [paperSidebarWidth])
 
+  // 论文视图时设置侧边栏宽度 CSS 变量
   useEffect(() => {
     if (currentView === 'paper') {
       secondarySidebarRef.current?.style.setProperty(
@@ -44,6 +50,7 @@ export default function WorkspaceSidebarHost({ onOpenSettings }: WorkspaceSideba
     }
   }, [currentView, paperSidebarWidth])
 
+  // 应用侧边栏宽度（带 RAF 防抖和范围钳制）
   const applySidebarWidth = useCallback((nextWidth: number) => {
     const width = Math.min(
       Math.max(Math.round(nextWidth), PAPER_SIDEBAR_MIN_WIDTH),
@@ -52,6 +59,7 @@ export default function WorkspaceSidebarHost({ onOpenSettings }: WorkspaceSideba
     sidebarWidthRef.current = width
     pendingSidebarWidthRef.current = width
 
+    // 使用 RAF 防抖避免频繁重排
     if (sidebarResizeRafRef.current !== null) return
 
     sidebarResizeRafRef.current = requestAnimationFrame(() => {
@@ -74,6 +82,7 @@ export default function WorkspaceSidebarHost({ onOpenSettings }: WorkspaceSideba
     [applySidebarWidth]
   )
 
+  // 停止侧边栏拖拽，清理事件监听
   const stopSidebarResize = useCallback(() => {
     if (!isResizingSidebarRef.current) return
 
@@ -92,6 +101,7 @@ export default function WorkspaceSidebarHost({ onOpenSettings }: WorkspaceSideba
     setPaperSidebarWidth(sidebarWidthRef.current)
   }, [handleSidebarResizeMove, setPaperSidebarWidth])
 
+  // 开始侧边栏宽度拖拽
   const startSidebarResize = useCallback(
     (event: React.PointerEvent) => {
       event.preventDefault()

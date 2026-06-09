@@ -122,6 +122,9 @@ export class SshConnectionManager {
     })
   }
 
+  /**
+   * 断开指定 SSH 连接并清理客户端资源
+   */
   async disconnect(labId: string): Promise<{ success: boolean; error?: string }> {
     this.clearReconnectTimer(labId)
 
@@ -137,6 +140,7 @@ export class SshConnectionManager {
       this.notifyListeners(labId, 'disconnected', '主动断开')
       logger.info('SSH 连接已断开', 'main', { labId })
 
+      // 无活跃连接时停止心跳
       if (this.clients.size === 0) {
         this.stopHeartbeat()
       }
@@ -155,18 +159,30 @@ export class SshConnectionManager {
     return this.clients.get(labId)?.status ?? 'disconnected'
   }
 
+  /**
+   * 检查是否已连接
+   */
   isConnected(labId: string): boolean {
     return this.getStatus(labId) === 'connected'
   }
 
+  /**
+   * 注册连接状态变化监听器
+   */
   onStatusChange(listener: ConnectionStatusListener): void {
     this.listeners.push(listener)
   }
 
+  /**
+   * 移除连接状态变化监听器
+   */
   offStatusChange(listener: ConnectionStatusListener): void {
     this.listeners = this.listeners.filter((l) => l !== listener)
   }
 
+  /**
+   * 断开所有 SSH 连接并停止心跳
+   */
   async disconnectAll(): Promise<void> {
     const labIds = Array.from(new Set([...this.clients.keys(), ...this.reconnectTimers.keys()]))
     await Promise.all(labIds.map((id) => this.disconnect(id).catch(() => {})))

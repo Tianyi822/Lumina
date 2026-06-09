@@ -16,6 +16,10 @@ export interface CapabilitySuggestionData {
 
 export type { PlanStepIteration, PaperChatPlanState } from './paperChatPlanState'
 
+/**
+ * 流式聊天状态 Store 类型
+ * 管理 AI 对话的流式传输状态，包括发送状态、会话快照、流事件处理等
+ */
 export interface PaperChatStreamState {
   isSending: boolean
   sessionSendingStates: Map<string, boolean>
@@ -61,6 +65,10 @@ const reactIteration = useReactIterationManager()
 const planManager = usePlanStateManager()
 const REQUEST_FAILED_MESSAGE = '请求失败，请稍后重试或换一个模型。'
 
+/**
+ * 流式聊天 Store
+ * 处理 AI 响应的流式接收，管理 ReAct 迭代分组、Plan 执行状态、工具调用等
+ */
 export const usePaperChatStreamStore = create<PaperChatStreamState>()((set, get) => ({
   isSending: false,
   sessionSendingStates: new Map(),
@@ -91,6 +99,7 @@ export const usePaperChatStreamStore = create<PaperChatStreamState>()((set, get)
   getSessionSendingState: (sessionId) => get().sessionSendingStates.get(sessionId) || false,
 
   setSessionSendingState: (sessionId, state, isCurrentSession = false) =>
+        // 更新会话发送状态，可选标记为当前会话
     set((s) => {
       const next = new Map(s.sessionSendingStates)
       next.set(sessionId, state)
@@ -145,6 +154,7 @@ export const usePaperChatStreamStore = create<PaperChatStreamState>()((set, get)
   resetPlanState: planManager.resetPlanState,
 
   handleStreamEvent: (event, currentSessionId, currentMessages) => {
+    // 根据事件类型分发到不同的处理逻辑
     const state = get()
     const targetSessionId = event.sessionId || state.streamingSessionId
     if (!targetSessionId) return
@@ -166,10 +176,12 @@ export const usePaperChatStreamStore = create<PaperChatStreamState>()((set, get)
       }
     }
 
+    // 查找当前流式消息
     const streamingMessage = targetMessages.find(
       (msg) => msg.isStreaming && (!event.turnId || msg.id === event.turnId)
     )
 
+    // 优先处理 Plan 相关事件
     if (event.type === 'plan_status') {
       planManager.handlePlanStatusEvent(targetSessionId, event)
       return
@@ -190,8 +202,10 @@ export const usePaperChatStreamStore = create<PaperChatStreamState>()((set, get)
       return
     }
 
+    // 按事件类型分发处理
     switch (event.type) {
       case 'content':
+        // 追加文本内容到流式消息或 Plan 步骤迭代
         if (streamingMessage && event.content) {
           const activePlan = planManager.planStates.value.get(targetSessionId)
           const isPlanStepContent =
@@ -211,6 +225,7 @@ export const usePaperChatStreamStore = create<PaperChatStreamState>()((set, get)
         break
 
       case 'react_iteration_start':
+        // 开始新的 ReAct 迭代分组
         if (streamingMessage && event.content !== undefined) {
           const iterationNum = parseInt(event.content, 10)
           const newIter = reactIteration.createIteration(
@@ -228,6 +243,7 @@ export const usePaperChatStreamStore = create<PaperChatStreamState>()((set, get)
         break
 
       case 'reasoning':
+        // 追加推理内容到消息和当前迭代
         if (streamingMessage && event.content) {
           streamingMessage.reasoning = (streamingMessage.reasoning || '') + event.content
 
@@ -242,6 +258,7 @@ export const usePaperChatStreamStore = create<PaperChatStreamState>()((set, get)
         break
 
       case 'tool_call':
+        // 处理工具调用事件，追加到工具步骤列表
         if (streamingMessage && event.toolCall) {
           if (!streamingMessage.tool_calls) {
             streamingMessage.tool_calls = []
@@ -275,6 +292,7 @@ export const usePaperChatStreamStore = create<PaperChatStreamState>()((set, get)
         break
 
       case 'tool_result':
+        // 处理工具结果事件，更新对应的 tool 消息
         if (event.toolResult) {
           const targetAssistantMessage =
             streamingMessage ||
@@ -317,6 +335,7 @@ export const usePaperChatStreamStore = create<PaperChatStreamState>()((set, get)
         break
 
       case 'knowledge_search':
+        // 知识库搜索事件（向后兼容）
         if (streamingMessage && event.knowledgeSearch) {
           reactIteration.appendToolStep(streamingMessage, targetSessionId, {
             type: 'tool_call',
@@ -332,6 +351,7 @@ export const usePaperChatStreamStore = create<PaperChatStreamState>()((set, get)
         break
 
       case 'knowledge_result':
+        // 知识库搜索结果事件（向后兼容）
         if (streamingMessage && event.knowledgeResult) {
           reactIteration.appendToolStep(streamingMessage, targetSessionId, {
             type: 'tool_result',
@@ -393,6 +413,7 @@ export const usePaperChatStreamStore = create<PaperChatStreamState>()((set, get)
   },
 
   stopRequest: async (sessionId, currentMessages) => {
+    // 停止请求：结束流式消息、清理 Plan 状态、通知主进程
     const state = get()
     const targetSessionId = sessionId || state.streamingSessionId
     if (!targetSessionId) return
@@ -524,6 +545,7 @@ function handleStreamDone(
   })
 }
 
+/** 处理流错误事件：标记消息完成、设置错误消息、清理状态 */
 function handleStreamError(
   event: StreamEvent,
   sessionId: string,

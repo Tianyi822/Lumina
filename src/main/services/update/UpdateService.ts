@@ -90,6 +90,11 @@ export class UpdateService {
     this.mainWindow = window
   }
 
+  /**
+   * 检查更新
+   * 优先使用 autoUpdater，macOS 回退到 GitHub Releases API
+   * 检查结果会缓存 5 分钟
+   */
   async checkForUpdate(): Promise<CheckUpdateResult> {
     if (!app.isPackaged) {
       return { success: false, error: '开发模式下不可用' }
@@ -172,6 +177,10 @@ export class UpdateService {
     }
   }
 
+  /**
+   * 下载更新
+   * macOS 平台不可用（使用手动下载安装包更新）
+   */
   async downloadUpdate(): Promise<{ success: boolean; error?: string }> {
     if (usesManualInstallerUpdate()) {
       return { success: false, error: '当前平台使用手动下载安装包更新' }
@@ -193,6 +202,10 @@ export class UpdateService {
     }
   }
 
+  /**
+   * 退出当前应用并安装已下载的更新
+   * 仅在状态为 'downloaded' 时执行安装
+   */
   quitAndInstall(): void {
     if (this.status === 'installing') {
       return
@@ -222,26 +235,47 @@ export class UpdateService {
     }
   }
 
+  /**
+   * 获取当前更新状态
+   */
   getStatus(): UpdateStatus {
     return this.status
   }
 
+  /**
+   * 设置更新状态并发送事件到渲染进程
+   * @param status 更新状态
+   * @param data 附加的状态数据（版本号、错误信息等）
+   */
   private setStatus(status: UpdateStatus, data?: Partial<UpdateStatusEvent>): void {
     this.status = status
     const event: UpdateStatusEvent = { status, ...data }
     this.sendToRenderer('update:on-status', event)
   }
 
+  /**
+   * 发送消息到渲染进程
+   * @param channel IPC 通道名称
+   * @param data 消息数据
+   */
   private sendToRenderer(channel: string, data: unknown): void {
     if (this.mainWindow && !this.mainWindow.isDestroyed()) {
       this.mainWindow.webContents.send(channel, data)
     }
   }
 
+  /**
+   * 判断是否需要向上游暴露更新错误
+   * 仅在下载中、已下载、安装中状态下暴露错误
+   */
   private shouldSurfaceUpdaterError(): boolean {
     return ['downloading', 'downloaded', 'installing'].includes(this.status)
   }
 
+  /**
+   * 发送缓存的检查结果事件
+   * 避免在短时间（5 分钟）内重复请求 GitHub API
+   */
   private emitCachedCheckResult(result: Omit<CheckUpdateResult, 'success'>): void {
     this.setStatus(result.hasUpdate ? 'available' : 'not-available', {
       version: result.version,
@@ -252,6 +286,10 @@ export class UpdateService {
     })
   }
 
+  /**
+   * 使用 GitHub Releases API 检查手动安装包更新
+   * 作为 macOS 平台的回退方案
+   */
   private async checkForManualInstallerUpdate(): Promise<CheckUpdateResult> {
     try {
       const { releaseNotesService } = await import('./index')
@@ -318,6 +356,12 @@ export class UpdateService {
     }
   }
 
+  /**
+   * 获取手动下载链接
+   * 签名校验失败时返回仓库 Releases 页面链接
+   * @param diagnosticCode 诊断码
+   * @param fallback 备选 URL
+   */
   private getManualDownloadUrl(
     diagnosticCode: UpdateStatusEvent['diagnosticCode'],
     fallback?: string

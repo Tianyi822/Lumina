@@ -445,6 +445,7 @@ export const __paperHighlightRendererTestHooks = {
   removeEmptyHighlightMarks
 }
 
+/** 论文高亮渲染 Hook，提供收集批注高亮信息和应用高亮到 HTML 的能力 */
 export function usePaperHighlightRenderer(): PaperHighlightRenderer {
   return {
     collectOriginalHighlights,

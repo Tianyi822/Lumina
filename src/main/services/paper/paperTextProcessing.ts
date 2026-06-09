@@ -87,6 +87,10 @@ function startsWithFrontMatterMarker(text: string): boolean {
   )
 }
 
+/**
+ * 判断两段文本是否应该合并为同一段落（而不是分两段）
+ * 规则：上一段不以强终端标点结尾，或下一段以小写/括号开头（表示续写）
+ */
 export function shouldMergeTextFlow(
   previousText: string | undefined,
   nextText: string | undefined,
@@ -119,6 +123,11 @@ export function shouldMergeTextFlow(
   return !previousEndsStrong || startsWithContinuationText(nextText)
 }
 
+/**
+ * 获取两段文本之间的连接符
+ * - 若应该合并则返回空字符串（连词符后）或空格
+ * - 若不应该合并则返回双换行（段落分隔）
+ */
 export function getTextFlowReplacement(
   previousText: string | undefined,
   nextText: string | undefined,
@@ -249,6 +258,11 @@ export function isMathLikeSegment(segment: string): boolean {
   )
 }
 
+/**
+ * 判断是否为仅含简单文本容器标签的 HTML 片段
+ * 简单标签包括：div, p, span, strong, em, b, i, u, sup, sub, a, font, small, mark, br
+ * 不含 img, table, ul 等结构性标签
+ */
 export function isSimpleTextContainerSegment(segment: string): boolean {
   const trimmed = segment.trim()
   if (!trimmed.startsWith('<') || STRUCTURAL_HTML_PATTERN.test(trimmed)) {
@@ -324,6 +338,10 @@ function getMarkdownHeadingLine(segment: string): string | null {
   return lines[0]
 }
 
+/**
+ * 判断文本段是否为可合并的普通段落
+ * 排除标题、列表、代码块、表格、公式等特殊格式
+ */
 export function isMergeableTextSegment(segment: string): boolean {
   const trimmed = unwrapFencedSimpleTextContainerHtml(segment).trim()
   if (!trimmed) {
@@ -453,6 +471,10 @@ export function normalizeMergeableTextBlockContent(content: string): string {
   return reflowOrdinaryParagraphs(normalizedContent)
 }
 
+/**
+ * 判断布局块是否为正文文本块
+ * 排除标题、图标题、公式等特殊块
+ */
 export function isBodyTextBlock(block: PaperLayoutBlock | undefined): block is PaperLayoutBlock {
   if (!block || block.label !== 'text') {
     return false
@@ -471,6 +493,10 @@ export function isBodyTextBlock(block: PaperLayoutBlock | undefined): block is P
   return isMergeableTextSegment(block.content)
 }
 
+/**
+ * 判断两个相邻的文本布局块是否应合并为一个段落
+ * 考虑居中属性、前页标记、文本流等上下文
+ */
 export function shouldMergeAdjacentTextBlocks(
   previousBlock: PaperLayoutBlock | undefined,
   nextBlock: PaperLayoutBlock | undefined
@@ -507,6 +533,10 @@ export function shouldMergeAdjacentTextBlocks(
   return true
 }
 
+/**
+ * 获取两个正文文本块之间的间距替换符
+ * 若应合并则返回空格/空字符串，否则返回双换行
+ */
 export function getBodyBlockGapReplacement(
   previousBlock: PaperLayoutBlock | undefined,
   nextBlock: PaperLayoutBlock | undefined

@@ -23,6 +23,10 @@ function needsReindex(kb: {
   return kb.indexInvalidation.files?.some((file) => linkedFileIds.has(file.fileId)) === true
 }
 
+/**
+ * 知识库侧边栏内容组件
+ * 提供知识库列表搜索、切换、创建、删除及文件管理入口
+ */
 const KnowledgeSidebarSection = memo(function KnowledgeSidebarSection() {
   const knowledgeBases = useKnowledgeStore((s) => s.knowledgeBases)
   const activeKbId = useKnowledgeStore((s) => s.activeKbId)

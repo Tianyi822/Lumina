@@ -18,6 +18,10 @@ function getConfigFilePath(): string {
   return join(getConfigDirPath(), SSH_CONFIG_FILE)
 }
 
+/**
+ * 加密敏感字符串
+ * 优先使用 Electron safeStorage，不可用时回退到 base64 编码
+ */
 function encrypt(value: string): string {
   try {
     if (safeStorage.isEncryptionAvailable()) {
@@ -29,6 +33,9 @@ function encrypt(value: string): string {
   return Buffer.from(value, 'utf-8').toString('base64')
 }
 
+/**
+ * 对配置中的敏感字段（keyContent）进行掩码处理
+ */
 function maskConfig(config: SshConnectionConfig): SshConnectionConfig {
   return {
     ...config,
@@ -36,6 +43,9 @@ function maskConfig(config: SshConnectionConfig): SshConnectionConfig {
   }
 }
 
+/**
+ * 从磁盘加载 SSH 配置列表
+ */
 function loadConfigs(): SshConnectionConfig[] {
   const filePath = getConfigFilePath()
   if (!existsSync(filePath)) {
@@ -50,6 +60,9 @@ function loadConfigs(): SshConnectionConfig[] {
   }
 }
 
+/**
+ * 保存 SSH 配置列表到磁盘
+ */
 function saveConfigs(configs: SshConnectionConfig[]): void {
   const configDir = getConfigDirPath()
   if (!existsSync(configDir)) {
@@ -58,7 +71,14 @@ function saveConfigs(configs: SshConnectionConfig[]): void {
   writeFileSync(getConfigFilePath(), JSON.stringify(configs, null, 2), 'utf-8')
 }
 
+/**
+ * SSH 配置持久化服务
+ * 管理 SSH 服务器连接配置的增删改查，支持密钥加密存储
+ */
 export class SshConfigService {
+  /**
+   * 列出所有 SSH 配置（密钥字段将被遮蔽）
+   */
   list(): ListSshConfigsResult {
     try {
       const configs = loadConfigs()
@@ -71,6 +91,9 @@ export class SshConfigService {
     }
   }
 
+  /**
+   * 获取指定 SSH 配置
+   */
   get(id: string): { success: boolean; config?: SshConnectionConfig; error?: string } {
     try {
       const configs = loadConfigs()
@@ -87,6 +110,10 @@ export class SshConfigService {
     }
   }
 
+  /**
+   * 保存或更新 SSH 配置
+   * 有 id 为更新，无 id 为新建（自动生成 id）
+   */
   save(request: SaveSshConfigRequest): SaveSshConfigResult {
     try {
       const configs = loadConfigs()
@@ -144,6 +171,9 @@ export class SshConfigService {
     }
   }
 
+  /**
+   * 删除 SSH 配置
+   */
   delete(id: string): { success: boolean; error?: string } {
     try {
       const configs = loadConfigs()

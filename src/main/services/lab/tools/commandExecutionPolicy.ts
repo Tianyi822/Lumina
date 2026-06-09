@@ -1,7 +1,9 @@
 import type { UserInteractionOption } from '@shared/types/chat'
 
+/** 命令执行目标环境类型 */
 export type CommandExecutionTarget = 'lab_sandbox' | 'host'
 
+/** 命令执行策略决策结果 */
 export interface CommandExecutionPolicyDecision {
   target: CommandExecutionTarget
   command: string

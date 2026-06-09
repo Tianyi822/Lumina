@@ -1,6 +1,7 @@
 import SvgIcon from '@renderer/components/icons/SvgIcon'
 import styles from '../WorkspaceToolbar.module.css'
 
+/** 翻译切换按钮，点击开启/关闭论文翻译模式 */
 interface TranslationToggleButtonProps {
   isActive: boolean
   isPending: boolean

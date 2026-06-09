@@ -6,6 +6,7 @@ interface PlanningStatusIndicatorProps {
   animating?: boolean
 }
 
+/** 执行计划加载中的逐字动画状态指示器 */
 export default function PlanningStatusIndicator({
   text,
   animating = true

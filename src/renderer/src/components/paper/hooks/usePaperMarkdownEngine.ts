@@ -44,6 +44,7 @@ import { postProcessRenderedHtml } from './paperMarkdownPostProcess'
 
 export type { RenderSourceSegment, QuoteHighlight }
 
+/** 生成翻译缓存的渲染缓存键，用于判断是否需要重新渲染译文 */
 export function getTranslationRenderKey(cache: PaperTranslationCache | null | undefined): string {
   if (!cache) {
     return ''
@@ -333,6 +334,7 @@ export interface PaperMarkdownEngine {
   unresolvedAnnotationIds: string[]
 }
 
+/** Markdown 渲染引擎 Hook，负责将论文段落转换为 HTML，包含公式渲染、高亮应用和 TOC 构建 */
 export function usePaperMarkdownEngine(options: PaperMarkdownEngineOptions): PaperMarkdownEngine {
   const [renderedSegments, setRenderedSegments] = useState<RenderedSegment[]>([])
   const [parseError, setParseError] = useState<string | null>(null)

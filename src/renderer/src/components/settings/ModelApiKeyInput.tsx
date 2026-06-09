@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react'
 import SvgIcon from '@renderer/components/icons/SvgIcon'
 import styles from './ModelApiKeyInput.module.css'
 
+/** API Key 输入组件：密码遮罩 + 显示/隐藏切换按钮 */
 interface ModelApiKeyInputProps {
   value: string
   placeholder?: string

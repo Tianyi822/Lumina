@@ -2,20 +2,24 @@ import { useKnowledgeSearch } from './hooks/useKnowledgeSearch'
 import type { KnowledgeBase } from '@renderer/types'
 import styles from './SearchPanel.module.css'
 
+/** 知识库语义搜索测试面板 */
 interface SearchPanelProps {
   currentKB?: KnowledgeBase
 }
 
+/** 转义 HTML 特殊字符防止 XSS */
 function escapeHtml(text: string): string {
   const div = document.createElement('div')
   div.textContent = text
   return div.innerHTML
 }
 
+/** 转义正则特殊字符 */
 function escapeRegex(string: string): string {
   return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
+/** 高亮匹配关键词：安全转义后用 <mark> 标签包裹匹配段落 */
 function highlightText(text: string, query: string): string {
   if (!query.trim()) return escapeHtml(text)
 

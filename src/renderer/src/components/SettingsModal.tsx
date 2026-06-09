@@ -43,6 +43,7 @@ const settingsCategories: SettingsCategory[] = [
   { id: 'update', label: '升级版本', items: ['update'] }
 ]
 
+/** 设置弹窗组件：按类别分组设置项，支持导航分类和 ESC 关闭 */
 function SettingsModal({ onClose, onMcpUpdated }: SettingsModalProps) {
   const [activeCategory, setActiveCategory] = useState<SettingsCategoryId>('paper')
 

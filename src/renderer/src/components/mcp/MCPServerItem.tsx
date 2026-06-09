@@ -17,12 +17,7 @@ interface MCPServerItemProps {
   onSave: (config: MCPServerConfig) => void
 }
 
-/**
- * MCP 服务器配置项
- *
- * 最复杂子组件，支持内联编辑、传输类型切换。
- * 使用 localConfig 管理编辑状态，失焦时保存。
- */
+/** MCP 服务器配置项：内联编辑、传输类型切换，使用 localConfig 管理编辑状态，失焦时保存 */
 export default function MCPServerItem({
   config,
   status,

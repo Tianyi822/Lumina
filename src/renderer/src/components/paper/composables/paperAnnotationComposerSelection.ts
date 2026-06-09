@@ -42,6 +42,7 @@ export interface PaperAnnotationSelectionResolver {
   ) => PaperAnnotationSelectionResult | null
 }
 
+/** 创建选区解析器的工厂函数，将 DOM 选择或已有批注转换为 SelectionDraft */
 export function createPaperAnnotationSelectionResolver(
   options: PaperAnnotationSelectionResolverOptions
 ): PaperAnnotationSelectionResolver {

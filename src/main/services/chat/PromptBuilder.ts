@@ -7,12 +7,14 @@ import {
 import { buildPlanSystemPrompt, buildStepExecutionPrompt } from './prompts/planSystemPrompt'
 import type { ToolPipeline } from './tools/PipelineTypes'
 
+/** 可建议给用户的能力信息 */
 export interface SuggestableCapability {
   id: string
   displayName: string
   description: string
 }
 
+/** Prompt 构建上下文，携带管道信息和可建议能力列表 */
 export interface PromptBuildContext {
   pipeline?: ToolPipeline
   suggestableCapabilities?: SuggestableCapability[]
@@ -30,10 +32,12 @@ export class PromptBuilder {
   ): Promise<string> {
     const hasSelectedTools = hasTools || (selectedTools?.length ?? 0) > 0
 
+    // 无工具时返回基础系统提示
     if (!hasSelectedTools) {
       return this.getBasicSystemPrompt()
     }
 
+    // 从内置提示模块构建 React 系统提示（含工具调用指南）
     let prompt = buildReactSystemPrompt()
 
     // 当存在知识库工具时，追加知识库使用指南
@@ -51,11 +55,13 @@ export class PromptBuilder {
       prompt += '\n\n' + this.buildPaperWebSearchGuide()
     }
 
+    // 当存在知识库工具时，追加知识库使用指南
     // 多 stage 管道时追加工具协调指南
     if (context.pipeline && context.pipeline.stages.length > 1) {
       prompt += '\n\n' + buildToolCoordinationGuide(context.pipeline.stages)
     }
 
+    // 如果存在可建议的能力，追加能力建议提示让模型能主动推荐
     const suggestableCapabilities = [...(context.suggestableCapabilities ?? [])].sort((a, b) =>
       a.id.localeCompare(b.id)
     )
@@ -66,6 +72,9 @@ export class PromptBuilder {
     return prompt
   }
 
+  /**
+   * 构建基础系统提示词（无工具场景）
+   */
   private getBasicSystemPrompt(): string {
     return `你是 Lumina 的论文阅读辅助助手。请围绕用户正在阅读、整理或复现的论文提供准确、清晰、可执行的帮助。
 
@@ -97,6 +106,10 @@ export class PromptBuilder {
    * 构建能力建议提示词
    * 当存在可建议但未激活的能力时，生成提示引导模型向用户推荐
    */
+  /**
+   * 构建能力建议提示词
+   * 当存在可建议但未激活的能力时，生成提示引导模型向用户推荐
+   */
   buildCapabilitySuggestionPrompt(suggestable: SuggestableCapability[]): string {
     if (suggestable.length === 0) return ''
 
@@ -114,14 +127,23 @@ export class PromptBuilder {
     return lines.join('\n')
   }
 
+  /**
+   * 检查工具列表中是否包含论文搜索工具
+   */
   private hasPaperWebSearchTools(tools?: MCPToolReference[]): boolean {
     return tools?.some((tool) => tool.serverName === 'paper_web') ?? false
   }
 
+  /**
+   * 检查工具列表中是否包含论文上下文检索工具
+   */
   private hasPaperContextTools(tools?: MCPToolReference[]): boolean {
     return tools?.some((tool) => tool.serverName === 'paper') ?? false
   }
 
+  /**
+   * 构建论文上下文检索工具的使用指南
+   */
   private buildPaperContextGuide(): string {
     return [
       '## 论文内容检索工具 (paper__search_context)',
@@ -140,6 +162,9 @@ export class PromptBuilder {
     ].join('\n')
   }
 
+  /**
+   * 构建论文联网搜索工具的使用指南
+   */
   private buildPaperWebSearchGuide(): string {
     return [
       '## 论文联网搜索工具 (paper_web__search)',

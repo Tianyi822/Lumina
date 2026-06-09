@@ -30,6 +30,7 @@ function getDistanceToItem(offset: number, item: VirtualZoomItem): number {
   return 0
 }
 
+/** 计算缩放后虚拟列表的目标 scrollTop，使指定项的中心对齐视口中央 */
 export function calculateVirtualZoomTargetScrollTop(
   item: VirtualZoomItem,
   offsetRatio: number,
@@ -44,6 +45,7 @@ export function calculateVirtualZoomTargetScrollTop(
  * 这里使用 scrollTop / item.start / item.size 的同一套视觉像素坐标，
  * 避免缩放后的 DOM 布局反查把中部阅读位置捕成已经偏移的内容。
  */
+/** 从虚拟列表当前滚动位置捕获视口中心对应的锚点段 */
 export function captureVirtualZoomAnchorFromItems(
   scrollTop: number,
   clientHeight: number,
@@ -90,6 +92,7 @@ export function captureVirtualZoomAnchorFromItems(
  * 用虚拟列表 measurements 将锚点段落在视口中心对齐（与 translateY / getTotalSize 同一坐标系）。
  * 找不到段或测量项时回退 DOM restoreAnchor。
  */
+/** 根据锚点将虚拟列表滚动到指定段落，回退到 DOM restoreAnchor */
 export function scrollToVirtualZoomAnchor(
   container: HTMLElement,
   virtualizer: Virtualizer<HTMLDivElement, Element>,

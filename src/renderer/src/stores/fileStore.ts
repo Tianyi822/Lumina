@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { FileItem } from '@renderer/types'
+import { filterFilesByQuery } from '@renderer/utils/filterFilesByQuery'
 import { formatFileSize } from '@shared/utils'
 
 interface FileState {
@@ -36,32 +37,22 @@ function logError(message: string, error: unknown, context?: Record<string, unkn
   })
 }
 
+/**
+ * 文件管理 Store
+ * 管理上传文件的列表、搜索、上传、删除，以及文件与知识库的关联操作
+ */
 export const useFileStore = create<FileState>()((set, get) => ({
   files: [],
   loading: false,
   searchQuery: '',
 
+  /** 根据搜索关键词过滤文件列表（仅供 get() 命令式调用，勿在 React selector 中使用） */
   filteredFiles: () => {
     const state = get()
-    if (!state.searchQuery.trim()) {
-      return state.files
-    }
-    const query = state.searchQuery.toLowerCase()
-    return state.files.filter((file) => {
-      const searchableText = [
-        file.name,
-        file.sourceKind,
-        file.origin?.paperName,
-        file.origin?.displayName,
-        file.origin?.summary
-      ]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase()
-      return searchableText.includes(query)
-    })
+    return filterFilesByQuery(state.files, state.searchQuery)
   },
 
+  /** 从主进程加载文件列表 */
   loadFiles: async () => {
     try {
       set({ loading: true })
@@ -80,6 +71,7 @@ export const useFileStore = create<FileState>()((set, get) => ({
 
   searchFiles: (query) => set({ searchQuery: query }),
 
+  /** 上传单个文件，去重处理 */
   uploadFile: async (file) => {
     try {
       const arrayBuffer = await file.arrayBuffer()
@@ -105,6 +97,7 @@ export const useFileStore = create<FileState>()((set, get) => ({
     }
   },
 
+  /** 批量上传文件，收集上传结果（成功/重复/失败） */
   uploadFiles: async (filesParam) => {
     const uploaded: FileItem[] = []
     const errors: string[] = []
@@ -131,6 +124,7 @@ export const useFileStore = create<FileState>()((set, get) => ({
     }
   },
 
+  /** 删除文件（可选强制删除） */
   deleteFile: async (fileId, forceDelete) => {
     try {
       const result = await window.api.file.delete(fileId, forceDelete)
@@ -146,6 +140,7 @@ export const useFileStore = create<FileState>()((set, get) => ({
     }
   },
 
+  /** 将文件关联到知识库 */
   linkFileToKB: async (fileId, kbId) => {
     try {
       const result = await window.api.file.linkToKB(fileId, kbId)
@@ -164,6 +159,7 @@ export const useFileStore = create<FileState>()((set, get) => ({
     }
   },
 
+  /** 取消文件与知识库的关联 */
   unlinkFileFromKB: async (fileId, kbId) => {
     try {
       const result = await window.api.file.unlinkFromKB(fileId, kbId)
@@ -182,6 +178,7 @@ export const useFileStore = create<FileState>()((set, get) => ({
     }
   },
 
+  /** 获取指定知识库关联的文件列表 */
   getFilesByKBId: async (kbId) => {
     try {
       const result = await window.api.file.getByKBId(kbId)
@@ -196,6 +193,7 @@ export const useFileStore = create<FileState>()((set, get) => ({
     }
   },
 
+  /** 获取文件的使用情况（被哪些知识库引用） */
   getFileUsage: async (fileId) => {
     try {
       const result = await window.api.file.getUsage(fileId)

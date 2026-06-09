@@ -8,6 +8,10 @@ function createValueRef<T>(value: T): ValueRef<T> {
   return { value }
 }
 
+/**
+ * ReAct 迭代管理器接口
+ * 负责管理 AI 推理循环中的迭代分组、工具调用步骤和消息关联
+ */
 export interface ReactIterationManager {
   currentIterationIndex: ValueRef<Map<string, number>>
   getCurrentIteration: (message: Message, sessionId: string) => ReActIteration | null
@@ -34,6 +38,10 @@ export interface ReactIterationManager {
 }
 
 /** 创建 ReAct 迭代管理器 */
+/**
+ * 创建 ReAct 迭代管理器实例
+ * 管理每个会话中 AI 推理的迭代分组，处理 reasoning/tool_call/tool_result 的分组追加
+ */
 export function useReactIterationManager(): ReactIterationManager {
   // 每个会话当前活跃的迭代索引（用于 ReAct 迭代分组）
   const currentIterationIndex = createValueRef<Map<string, number>>(new Map())

@@ -10,7 +10,7 @@ export class EmbeddingModelService {
   private loaded: boolean = false
 
   /**
-   * 获取嵌入模型配置
+   * 从配置管理器读取所有嵌入模型配置
    */
   private getEmbeddingModels(): Record<string, EmbeddingConfig> {
     const config = configManager.getConfig()
@@ -18,7 +18,7 @@ export class EmbeddingModelService {
   }
 
   /**
-   * 保存嵌入模型配置
+   * 将嵌入模型配置写入配置管理器
    */
   private saveEmbeddingModels(models: Record<string, EmbeddingConfig>): void {
     configManager.updateConfig({ embeddingModels: models })

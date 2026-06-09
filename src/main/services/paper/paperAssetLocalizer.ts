@@ -35,6 +35,9 @@ export interface LocalizePaperPageAssetsOptions {
 
 const LOCALIZABLE_ASSET_LABELS = new Set<BlockLabel>(['image', 'table', 'formula'])
 
+/**
+ * 判断字符串是否为远端资源 URL
+ */
 export function isRemoteAssetUrl(content: string | undefined): boolean {
   return typeof content === 'string' && /^https?:\/\/\S+$/i.test(content.trim())
 }
@@ -103,6 +106,9 @@ function shouldLocalizeBlock(block: PaperLayoutBlock): boolean {
   return LOCALIZABLE_ASSET_LABELS.has(block.label)
 }
 
+/**
+ * 获取布局块的远端资源 URL（优先 remoteAssetUrl，其次检查 content 是否为 URL）
+ */
 export function getBlockRemoteAssetUrl(block: PaperLayoutBlock): string | undefined {
   if (isRemoteAssetUrl(block.remoteAssetUrl)) {
     return block.remoteAssetUrl?.trim()
@@ -169,6 +175,11 @@ function replaceRemoteUrlInBlockContent(
   }
 }
 
+/**
+ * 本地化论文页面的图片资源
+ * 将 Markdown 中的远端图片 URL 替换为本地路径，必要时下载图片
+ * @param options.stripMissingRemoteAssets - 若为 true，下载失败的图片引用会被移除而非保留远端 URL
+ */
 export async function localizePaperPageAssets(
   paperId: string,
   pageResult: PaperPageOcrResult,
@@ -306,6 +317,9 @@ export async function localizePaperPageAssets(
   }
 }
 
+/**
+ * 创建远端 URL 到本地资源路径的映射表
+ */
 export async function createLocalAssetReplacementMap(
   paperId: string,
   pageResults: PaperPageOcrResult[]
@@ -332,6 +346,9 @@ export async function createLocalAssetReplacementMap(
   return replacements
 }
 
+/**
+ * 从磁盘读取已保存的 OCR 结果，构建资源替换映射表
+ */
 export async function createLocalAssetReplacementMapFromDisk(
   paperId: string
 ): Promise<Map<string, string>> {
@@ -431,6 +448,9 @@ function localizeTranslationEntry(
   }
 }
 
+/**
+ * 本地化翻译缓存中的资源引用（将远端 URL 替换为本地路径）
+ */
 export function localizePaperTranslationCacheAssets(
   cache: PaperTranslationCache,
   replacements: Map<string, string>

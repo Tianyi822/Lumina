@@ -46,7 +46,16 @@ function extractRemoteErrorMessage(responseText: string): string | undefined {
   }
 }
 
+/**
+ * GLM-OCR API 客户端
+ * 封装对 GLM-OCR 服务的 HTTP 请求，处理认证、超时、错误映射
+ */
 export class PaperGlmOcrClient {
+  /**
+   * 识别单页论文图片
+   * @param params - OCR 请求参数（服务商、API Key、base64 图片）
+   * @returns 原始响应（成功时 data 为 OCR JSON 结果，失败时含错误信息）
+   */
   async recognizePage(params: GlmOcrRequestParams): Promise<GlmOcrRawResponse> {
     const preset = getOcrProviderPreset(params.provider)
     if (!preset) {

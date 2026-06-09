@@ -3,6 +3,7 @@ import ModalPortal from '@renderer/components/ui/ModalPortal'
 import type { FileItem } from '@renderer/types'
 import styles from './ConfirmDeleteDialog.module.css'
 
+/** 文件删除确认弹出框，警告文件正被多个知识库使用并要求强制确认 */
 interface ConfirmDeleteDialogProps {
   show: boolean
   file: FileItem | null

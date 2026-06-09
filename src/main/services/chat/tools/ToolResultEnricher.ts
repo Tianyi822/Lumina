@@ -3,7 +3,19 @@ import type { ToolExecutionResult } from './UnifiedToolExecutor'
 import type { ToolCategory } from './UnifiedToolRegistry'
 import type { MCPToolCallResult } from '@shared/types/mcp'
 
+/**
+ * 工具结果增强器
+ * 为工具执行结果附加元数据（覆盖度、关键发现、可信度等），
+ * 供 ToolOrchestrator 和 ToolResultMerger 决策使用
+ */
 export class ToolResultEnricher {
+  /**
+   * 增强单个工具执行结果
+   * @param toolCallId 工具调用 ID
+   * @param toolName 工具名称
+   * @param mcpResult 原始工具调用结果
+   * @returns 携带元数据的增强结果
+   */
   enrich(toolCallId: string, toolName: string, mcpResult: MCPToolCallResult): EnrichedToolResult {
     const metadata = this.defaultEnrich(toolName, mcpResult)
     const baseResult: ToolExecutionResult = {
@@ -16,6 +28,10 @@ export class ToolResultEnricher {
     return { ...baseResult, metadata }
   }
 
+  /**
+   * 默认结果增强策略
+   * 根据内容长度和章节数量评估覆盖度，提取关键发现
+   */
   defaultEnrich(toolName: string, result: MCPToolCallResult): ToolResultMetadata {
     const content = typeof result.content === 'string'
       ? result.content
@@ -46,6 +62,10 @@ export class ToolResultEnricher {
     }
   }
 
+  /**
+   * 从内容中提取以 - 或 * 开头的列表项作为关键发现
+   * 最多返回 5 条
+   */
   extractKeyFindings(content: string): string[] {
     return content
       .split('\n')
@@ -56,6 +76,10 @@ export class ToolResultEnricher {
       .slice(0, 5)
   }
 
+  /**
+   * 从工具名中推断类别
+   * 按 name__prefix 格式解析前缀（如 lab__exec_command → lab）
+   */
   inferCategory(toolName: string): ToolCategory {
     const prefix = toolName.split('__')[0]
     const knownCategories: ToolCategory[] = ['paper', 'knowledge', 'lab', 'paper_web', 'mcp']

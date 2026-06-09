@@ -1,14 +1,27 @@
 import type { EnrichedToolResult, ResultMergeStrategy } from './PipelineTypes'
 import type { ToolCategory } from './UnifiedToolRegistry'
 
+/** 各类别在排序时的优先级顺序 */
 const CATEGORY_ORDER: ToolCategory[] = ['paper', 'knowledge', 'paper_web', 'lab', 'mcp']
 
+/** 合并操作的返回结果 */
 export interface MergeOutput {
+  /** 合并后的结果列表 */
   results: EnrichedToolResult[]
+  /** 合并后的文本内容（仅 smart_merge 会生成） */
   mergedContent: string | null
 }
 
+/**
+ * 工具结果合并器
+ * 支持不合并、去重、排序、智能合并四种策略
+ */
 export class ToolResultMerger {
+  /**
+   * 按指定策略合并多组结果
+   * @param results 待合并的增强结果列表
+   * @param strategy 合并策略
+   */
   merge(results: EnrichedToolResult[], strategy: ResultMergeStrategy): MergeOutput {
     if (results.length === 0) {
       return { results: [], mergedContent: null }
@@ -28,6 +41,10 @@ export class ToolResultMerger {
     }
   }
 
+  /**
+   * 计算两段文本的 Jaccard 相似度（用于去重判断）
+   * 使用字符 bigram 支持中文等无空格语言的相似度计算
+   */
   jaccardSimilarity(a: string, b: string): number {
     const setA = this.tokenize(a)
     const setB = this.tokenize(b)
@@ -42,6 +59,7 @@ export class ToolResultMerger {
     return intersection / union
   }
 
+  /** 智能合并：先去重，再按来源排序，最后合并为统一内容 */
   private smartMerge(results: EnrichedToolResult[]): MergeOutput {
     if (results.length === 1) {
       return { results, mergedContent: null }
@@ -54,6 +72,9 @@ export class ToolResultMerger {
     return { results: ranked, mergedContent }
   }
 
+  /**
+   * 使用 Jaccard 相似度 > 0.6 作为阈值对结果进行去重
+   */
   private deduplicate(results: EnrichedToolResult[]): EnrichedToolResult[] {
     const kept: EnrichedToolResult[] = []
     for (const result of results) {
@@ -66,6 +87,7 @@ export class ToolResultMerger {
     return kept
   }
 
+  /** 按预定义的类别优先级顺序对结果排序 */
   private rankBySource(results: EnrichedToolResult[]): EnrichedToolResult[] {
     return [...results].sort((a, b) => {
       const idxA = CATEGORY_ORDER.indexOf(a.metadata.sourceType)
@@ -74,6 +96,7 @@ export class ToolResultMerger {
     })
   }
 
+  /** 将所有结果按来源标记后拼接为统一文本 */
   private concatenate(results: EnrichedToolResult[]): string {
     return results
       .map((r) => {
@@ -83,6 +106,7 @@ export class ToolResultMerger {
       .join('\n\n')
   }
 
+  /** 将文本 token 化为字符 bigram 集合（支持中文等无空格语言） */
   private tokenize(text: string): Set<string> {
     const normalized = text.replace(/[\s\n\r]+/g, ' ').trim()
     const tokens: string[] = []

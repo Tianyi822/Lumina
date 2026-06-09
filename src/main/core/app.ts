@@ -28,6 +28,12 @@ const SHUTDOWN_TASK_TIMEOUT_MS = 5_000
 
 let shutdownPromise: Promise<void> | null = null
 
+/**
+ * 创建超时任务辅助函数
+ * 用于优雅退出时，确保每个清理任务不会无限阻塞退出流程
+ * @param taskName - 任务名称（用于日志标识）
+ * @returns 包含超时 promise 和清除函数的对象
+ */
 function createTimeoutPromise(taskName: string): {
   promise: Promise<void>
   clear: () => void
@@ -55,6 +61,11 @@ function createTimeoutPromise(taskName: string): {
   }
 }
 
+/**
+ * 执行单个退出清理任务，带超时保护
+ * @param taskName - 任务名称
+ * @param task - 清理任务函数
+ */
 async function runShutdownTask(taskName: string, task: () => Promise<void> | void): Promise<void> {
   const timeout = createTimeoutPromise(taskName)
 
@@ -70,6 +81,12 @@ async function runShutdownTask(taskName: string, task: () => Promise<void> | voi
   }
 }
 
+/**
+ * 请求应用退出，执行并行清理后退出
+ * 避免重复调用，确保只执行一次退出流程
+ * @param exitCode - 退出码
+ * @param reason - 退出原因描述
+ */
 function requestShutdown(exitCode: number, reason: string): void {
   if (shutdownPromise) {
     return

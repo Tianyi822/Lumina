@@ -14,6 +14,7 @@ import { useEchartsManager } from './hooks/useEchartsManager'
 import SvgIcon from '@renderer/components/icons/SvgIcon'
 import styles from './SshServerMonitorPanel.module.css'
 
+/** SSH 远程服务器资源监控面板，展示 CPU/内存/GPU/磁盘 IO 实时趋势图 */
 interface SshServerMonitorPanelProps {
   labId: string
   connected: boolean
@@ -25,9 +26,11 @@ export default function SshServerMonitorPanel({
   connected,
   active
 }: SshServerMonitorPanelProps) {
+  // 缓存 ECharts 实例清理函数和图表 ref 回调
   const disposeChartsRef = useRef<(() => void) | null>(null)
   const chartRefCallbacksRef = useRef(new Map<string, (element: HTMLDivElement | null) => void>())
 
+  // 启动定期轮询获取服务器统计数据
   const polling = useSshStatsPolling({
     labId,
     connected,
@@ -38,6 +41,7 @@ export default function SshServerMonitorPanel({
   const { stats, statsHistory, loading, refreshing, errorMessage, sampledAtLabel, loadStats } =
     polling
 
+  // 将原始统计数据转为 ECharts 图表配置数组
   const metricCharts = useMemo<MetricChart[]>(() => {
     const samples = statsHistory
     const latest = stats

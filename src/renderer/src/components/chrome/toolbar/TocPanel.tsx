@@ -9,6 +9,7 @@ interface PaperTocTreeNode {
   children: PaperTocTreeNode[]
 }
 
+/** 论文目录面板：将 headings 构建为多级树，支持跳转到对应章节 */
 interface TocPanelProps {
   showTocPanel: boolean
   onToggle: () => void

@@ -1,12 +1,14 @@
 import { useMemo } from 'react'
 import { useFileStore } from '@renderer/stores'
 import type { FileItem } from '@renderer/types'
+import { filterFilesByQuery } from '@renderer/utils/filterFilesByQuery'
 import FileUploadZone from '../../shared/components/FileUploadZone'
 import type { UploadResult } from '../../hooks/useFileUpload'
 import FileItemRow from './FileItemRow'
 import FileSelectorBottomBar from './FileSelectorBottomBar'
 import styles from './ExistingFilesTab.module.css'
 
+/** 文件选择器「已有文件」Tab：列出可挂载文件，支持搜索、筛选和多选 */
 interface ExistingFilesTabProps {
   kbId: string
   linkedFileIds: string[]
@@ -39,26 +41,8 @@ export default function ExistingFilesTab({
 
   const availableFiles = useMemo(() => {
     const linkedSet = new Set(linkedFileIds)
-    let result = files.filter((f) => !linkedSet.has(f.id))
-
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase()
-      result = result.filter((file) => {
-        const searchableText = [
-          file.name,
-          file.sourceKind,
-          file.origin?.paperName,
-          file.origin?.displayName,
-          file.origin?.summary
-        ]
-          .filter(Boolean)
-          .join(' ')
-          .toLowerCase()
-        return searchableText.includes(query)
-      })
-    }
-
-    return result
+    const unlinked = files.filter((f) => !linkedSet.has(f.id))
+    return filterFilesByQuery(unlinked, searchQuery)
   }, [files, linkedFileIds, searchQuery])
 
   const hasSelectedFiles = selectedFileIds.size > 0

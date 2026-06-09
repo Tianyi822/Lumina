@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import type { KnowledgeBaseStats } from '@renderer/types'
 
+/** 知识库统计数据加载 Hook（文件数、文档块数、数据库大小） */
 export function useKnowledgeStats(kbId: string | undefined) {
   const [stats, setStats] = useState<KnowledgeBaseStats | null>(null)
   const [loading, setLoading] = useState(false)

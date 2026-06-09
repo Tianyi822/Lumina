@@ -7,6 +7,7 @@ import type {
 import type { ToolAdapter, ToolCategory } from './UnifiedToolRegistry'
 
 // ========== paper 会话管道 ==========
+// 论文会话强制要求执行论文上下文检索
 
 const PAPER_PIPELINE: ToolPipeline = {
   stages: [
@@ -20,14 +21,17 @@ const PAPER_PIPELINE: ToolPipeline = {
 
 // ========== paper 会话工具注册规则 ==========
 
+/** 检查会话是否关联了论文 */
 function hasPaperId(ctx: RegistrationContext): boolean {
   return !!ctx.request.paperId
 }
 
+/** 检查用户是否选择了至少一个知识库 */
 function hasKnowledgeBases(ctx: RegistrationContext): boolean {
   return (ctx.selectedKnowledgeBases?.length ?? 0) > 0
 }
 
+/** 论文会话的工具注册规则（按优先级：论文 > 知识库 > 论文联网搜索 > MCP > 实验室） */
 const PAPER_TOOL_RULES: ToolRegistrationRule[] = [
   {
     category: 'paper' as ToolCategory,
@@ -78,6 +82,7 @@ const PAPER_TOOL_RULES: ToolRegistrationRule[] = [
 
 // ========== default 会话（空管道） ==========
 
+/** 默认会话（无管道，仅注册选中工具的规则） */
 const DEFAULT_PIPELINE: ToolPipeline = {
   stages: []
 }
@@ -111,6 +116,7 @@ const DEFAULT_TOOL_RULES: ToolRegistrationRule[] = [
 ]
 
 // ========== 导出配置数组 ==========
+// 各会话类型对应的工具注册规则和管道配置
 
 export const SESSION_TOOL_CONFIGS: SessionToolConfig[] = [
   {

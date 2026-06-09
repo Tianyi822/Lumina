@@ -7,6 +7,7 @@ import type {
   SshTerminalActionResult
 } from '@shared/types/lab'
 
+/** SSH 终端 Hook 配置选项 */
 interface UseSshTerminalOptions {
   targetId: string
   enabled: boolean
@@ -14,6 +15,7 @@ interface UseSshTerminalOptions {
   onExit: (reason?: string) => void
 }
 
+/** SSH 终端 Hook 返回值，包含 open/write/resize/close 方法和会话 ID 引用 */
 interface UseSshTerminalReturn {
   open: (size: SshTerminalSize) => Promise<SshTerminalOpenResult>
   write: (data: string) => Promise<SshTerminalActionResult | undefined>
@@ -22,6 +24,7 @@ interface UseSshTerminalReturn {
   sessionId: React.MutableRefObject<string | null>
 }
 
+/** 封装 SSH 终端 IPC 操作（open/write/resize/close），自动管理数据回调和退出事件监听 */
 export function useSshTerminal({
   targetId,
   enabled,

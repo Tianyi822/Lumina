@@ -1,6 +1,7 @@
 import { useState, useEffect, memo } from 'react'
 import styles from './LabToolsToggle.module.css'
 
+/** 实验室功能开关切换按钮，支持受控模式（modelValue）和无障碍键盘操作 */
 interface LabToolsToggleProps {
   modelValue: boolean
   disabled?: boolean

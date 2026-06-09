@@ -4,6 +4,7 @@ import FileIcon from '../../shared/components/FileIcon'
 import { getFileSourceClass, getFileSourceLabel, getFileSubtitle } from '../../utils/fileSource'
 import styles from './FileItemRow.module.css'
 
+/** 文件选择器中的单行文件条目，包含选择框、图标、元信息和挂载状态 */
 interface FileItemRowProps {
   file: FileItem
   selected?: boolean

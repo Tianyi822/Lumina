@@ -8,6 +8,7 @@ import { useFileSelection } from './hooks/useFileSelection'
 import ModalPortal from '@renderer/components/ui/ModalPortal'
 import styles from './FileSelectorModal.module.css'
 
+/** 文件选择/上传模态框：从已有文件池中选取或上传新文件挂载到知识库 */
 interface FileSelectorModalProps {
   kbId: string
   linkedFileIds: string[]

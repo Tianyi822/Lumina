@@ -18,6 +18,7 @@ interface PaperChatToolCallPanelProps {
   index: number
 }
 
+/** 将未知类型的值序列化为可展示的字符串 */
 function stringifyValue(value: unknown): string {
   if (value === undefined) return ''
   if (typeof value === 'string') return value
@@ -28,6 +29,7 @@ function stringifyValue(value: unknown): string {
   }
 }
 
+/** 将工具调用状态枚举转换为中文显示文本 */
 function getStatusText(status: PaperChatToolCallPanelItem['status']): string {
   if (status === 'running') return '执行中'
   if (status === 'success') return '完成'
@@ -35,6 +37,7 @@ function getStatusText(status: PaperChatToolCallPanelItem['status']): string {
   return '等待'
 }
 
+/** 根据工具状态返回对应的字符图标 */
 function getStatusIcon(status: PaperChatToolCallPanelItem['status']): string {
   if (status === 'success') return '✓'
   if (status === 'error') return '!'
@@ -42,6 +45,7 @@ function getStatusIcon(status: PaperChatToolCallPanelItem['status']): string {
   return '•'
 }
 
+/** 计算工具调用的执行耗时（秒） */
 function formatTimeCost(startTime?: string, endTime?: string): string {
   if (!startTime || !endTime) return ''
   const start = new Date(startTime).getTime()
@@ -50,6 +54,7 @@ function formatTimeCost(startTime?: string, endTime?: string): string {
   return `${((end - start) / 1000).toFixed(1)}s`
 }
 
+/** 单次工具调用的可折叠面板组件，展示状态、参数、结果和执行耗时 */
 export default function PaperChatToolCallPanel({ toolCall, index }: PaperChatToolCallPanelProps) {
   const [expanded, setExpanded] = useState(toolCall.status === 'error')
   const paramsText = useMemo(() => stringifyValue(toolCall.params), [toolCall.params])

@@ -120,6 +120,11 @@ function isReaderDocumentCacheFile(value: unknown): value is ReaderDocumentCache
   )
 }
 
+/**
+ * 论文服务 — 核心门面类
+ * 协调 OCR 管线、阅读器文档构建、批注管理、图表提取、翻译等子系统
+ * 渲染进程通过 window.api.paper.* 调用此服务的公开方法
+ */
 export class PaperService {
   private readonly ocrService = new PaperOcrService()
 
@@ -127,6 +132,10 @@ export class PaperService {
     return createEmptyPaperAnnotationStore(paperId)
   }
 
+  /**
+   * 构建阅读器文档的源签名（每页 OCR 结果的文件大小和修改时间）
+   * 用于判断缓存是否失效
+   */
   private async buildReaderSourceSignature(paperId: string): Promise<{
     success: boolean
     data?: ReaderDocumentSourceSignature
@@ -163,6 +172,10 @@ export class PaperService {
     }
   }
 
+  /**
+   * 读取阅读器文档缓存（若签名匹配则直接返回缓存）
+   * 缓存失效或不存在时返回 null，由调用方重新构建
+   */
   private async readReaderPayloadCache(
     paperId: string,
     sourceSignature: ReaderDocumentSourceSignature
@@ -221,6 +234,10 @@ export class PaperService {
     }
   }
 
+  /**
+   * 获取阅读器负载（阅读器文档 + 图表列表）
+   * 优先使用缓存，缓存失效时重新构建并缓存
+   */
   async getReaderPayload(paperId: string): Promise<{
     success: boolean
     data?: PaperReaderPayload
@@ -253,6 +270,10 @@ export class PaperService {
     return { success: true, data: payload }
   }
 
+  /**
+   * 获取笔记类批注中最新的 updatedAt 时间戳
+   * 用于同步知识库时判断是否需要重新索引
+   */
   private getLatestAnnotationUpdatedAt(annotations: PaperAnnotation[]): string {
     return (
       annotations
@@ -263,6 +284,10 @@ export class PaperService {
     )
   }
 
+  /**
+   * 将论文笔记同步到文件池（FileService），并在内容变更时标记关联知识库需重新索引
+   * @returns 受影响的关联知识库列表
+   */
   private async syncPaperNotesResource(
     paperId: string,
     annotations: PaperAnnotation[]
@@ -323,6 +348,10 @@ export class PaperService {
     })
   }
 
+  /**
+   * 修复单篇论文的文件池资源（论文文件 + 笔记文件）
+   * 检查文件是否与记录一致，不一致时重新注册/同步
+   */
   async repairPaperResources(paperId: string): Promise<{
     success: boolean
     paperFileRepaired?: boolean
@@ -343,6 +372,7 @@ export class PaperService {
       let affectedKnowledgeBaseCount = 0
       const errors: string[] = []
 
+      // 检查论文文件在文件池中的记录是否与当前元信息一致
       const paperFileId = getPaperFileResourceId(paperId)
       const existingPaperFile = fileService.getFileById(paperFileId)
       const paperFileNeedsRepair =
@@ -358,6 +388,7 @@ export class PaperService {
         paperFileRepaired = true
       }
 
+      // 检查笔记文件在文件池中的记录
       const storeResult = await paperStorageService.readAnnotationStore(paperId)
       if (storeResult.success && storeResult.data) {
         const noteFileId = getPaperNoteResourceId(paperId)
@@ -418,6 +449,9 @@ export class PaperService {
     }
   }
 
+  /**
+   * 修复所有论文的文件池资源，遍历每篇论文调用 repairPaperResources
+   */
   async repairAllPaperResources(): Promise<{
     success: boolean
     repairedPapers: number
@@ -474,6 +508,11 @@ export class PaperService {
     }
   }
 
+  /**
+   * 在阅读器文档中查找旧版批注对应的段落
+   * 通过 pageIndex、blockIndex、选中文本等进行评分匹配
+   * @returns 匹配到的段落和偏移，或 null
+   */
   private findLegacyAnnotationSegment(
     readerDocument: PaperReaderDocument,
     legacyAnnotation: LegacyPaperAnnotation
@@ -552,6 +591,9 @@ export class PaperService {
     }
   }
 
+  /**
+   * 迁移旧版批注（按 pageIndex/blockIndex 索引）到新版批注存储（按段落 stableId 索引）
+   */
   private migrateLegacyAnnotations(
     paperId: string,
     legacyAnnotations: LegacyPaperAnnotation[],
@@ -631,6 +673,9 @@ export class PaperService {
     }
   }
 
+  /**
+   * 解析批注存储：优先读新版 V3 格式，若存在旧版格式则自动迁移
+   */
   private async resolveAnnotationStore(
     paperId: string,
     readerDocument?: PaperReaderDocument
@@ -678,16 +723,25 @@ export class PaperService {
     }
   }
 
+  /**
+   * 获取所有论文列表（按创建时间倒序）
+   */
   async listPapers(): Promise<{ success: boolean; data?: PaperDocument[]; error?: string }> {
     return paperStorageService.listPapers()
   }
 
+  /**
+   * 获取单篇论文的元信息
+   */
   async getPaper(
     paperId: string
   ): Promise<{ success: boolean; data?: PaperDocument; error?: string }> {
     return paperStorageService.readMeta(paperId)
   }
 
+  /**
+   * 删除论文（清理文件池资源 + 存储目录）
+   */
   async deletePaper(paperId: string): Promise<{ success: boolean; error?: string }> {
     this.ocrService.offProgress(paperId)
     const removeResourceResult = await getFileService().removePaperResources(paperId)
@@ -700,6 +754,9 @@ export class PaperService {
     return paperStorageService.deletePaper(paperId)
   }
 
+  /**
+   * 删除论文译文（清理翻译缓存 + 移除关联的译文批注）
+   */
   async deleteTranslation(paperId: string): Promise<{ success: boolean; error?: string }> {
     const clearResult = await paperStorageService.clearTranslationCache(paperId)
     if (!clearResult.success) {
@@ -739,6 +796,9 @@ export class PaperService {
     return { success: true }
   }
 
+  /**
+   * 启动论文 OCR 处理管线
+   */
   async startOcr(paperId: string): Promise<{ success: boolean; error?: string }> {
     logger.info('启动 OCR 任务', 'main', { paperId })
     return this.ocrService.startOcr(paperId)
@@ -772,6 +832,9 @@ export class PaperService {
     return this.ocrService.isOcrActive(paperId)
   }
 
+  /**
+   * 获取论文中的图表列表
+   */
   async listFigures(
     paperId: string
   ): Promise<{ success: boolean; data?: PaperFigureItem[]; error?: string }> {
@@ -786,6 +849,9 @@ export class PaperService {
     }
   }
 
+  /**
+   * 获取论文的阅读器 Markdown 文本
+   */
   async getReaderMarkdown(
     paperId: string
   ): Promise<{ success: boolean; data?: string; error?: string }> {
@@ -797,6 +863,9 @@ export class PaperService {
     return { success: true, data: payloadResult.data.readerDocument.markdown }
   }
 
+  /**
+   * 获取完整的阅读器文档对象（含段落实体、来源引用等）
+   */
   async getReaderDocument(paperId: string): Promise<{
     success: boolean
     data?: PaperReaderDocument
@@ -810,6 +879,9 @@ export class PaperService {
     return { success: true, data: payloadResult.data.readerDocument }
   }
 
+  /**
+   * 获取论文所有批注列表
+   */
   async listAnnotations(paperId: string): Promise<{
     success: boolean
     data?: PaperAnnotation[]
@@ -831,6 +903,10 @@ export class PaperService {
     }
   }
 
+  /**
+   * 创建新的论文批注（高亮或笔记）
+   * 验证锚点段落存在后写入存储，笔记类批注同步到文件池
+   */
   async createAnnotation(params: CreatePaperAnnotationPayload): Promise<{
     success: boolean
     data?: PaperAnnotation
@@ -944,6 +1020,9 @@ export class PaperService {
     }
   }
 
+  /**
+   * 删除指定批注
+   */
   async deleteAnnotation(
     paperId: string,
     annotationId: string
@@ -985,6 +1064,9 @@ export class PaperService {
     }
   }
 
+  /**
+   * 更新批注（高亮颜色或笔记内容）
+   */
   async updateAnnotation(params: UpdatePaperAnnotationPayload): Promise<{
     success: boolean
     data?: PaperAnnotation
@@ -1088,6 +1170,9 @@ export class PaperService {
     }
   }
 
+  /**
+   * 从 OCR 结果中提取图表数据（含图片路径解析）
+   */
   private extractFigureData(
     paperId: string,
     pageResults: PaperPageOcrResult[]
@@ -1097,6 +1182,9 @@ export class PaperService {
     })
   }
 
+  /**
+   * 确保所有页面的图表资源已本地化（下载远端图片到本地）
+   */
   private async ensureLocalFigureAssets(
     paperId: string,
     pageResults: PaperPageOcrResult[]
@@ -1111,6 +1199,9 @@ export class PaperService {
     return nextResults
   }
 
+  /**
+   * 确保单页的图表资源已本地化（懒回填模式，下载失败时移除远端引用）
+   */
   private async ensurePageLocalFigureAssets(
     paperId: string,
     pageResult: PaperPageOcrResult

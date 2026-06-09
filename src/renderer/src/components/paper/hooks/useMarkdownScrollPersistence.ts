@@ -20,6 +20,7 @@ function computeScrollPercent(container: HTMLElement): number {
   return Math.min(100, Math.max(0, (container.scrollTop / scrollableHeight) * 100))
 }
 
+/** 管理 Markdown 视图的滚动位置持久化：缩放恢复、阅读进度保存和会话滚动位置恢复 */
 export function useMarkdownScrollPersistence({
   scrollContainerRef,
   paperId,

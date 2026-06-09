@@ -18,10 +18,19 @@ import icon from '../../../resources/icon.png?asset'
  */
 let mainWindow: BrowserWindow | null = null
 
+/**
+ * 格式化页面加载错误信息
+ */
 function formatLoadError(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
 
+/**
+ * 获取初始主题状态
+ * 根据用户配置的 theme 解析窗口背景色和原生主题来源
+ * @param themeConfig - 主题配置
+ * @returns 背景色和原生主题来源
+ */
 function getInitialThemeState(themeConfig?: ThemeConfig): {
   backgroundColor: string
   nativeSource: 'dark' | 'light' | 'system'

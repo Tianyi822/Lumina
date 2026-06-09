@@ -26,7 +26,8 @@ export class LabToolService {
   }
 
   /**
-   * 获取所有实验室管理工具定义
+   * 获取所有实验室管理工具定义（含交互类工具 lab__ask_user）
+   * @returns MCP 工具定义数组
    */
   getTools(): MCPTool[] {
     const mcpTools = Array.from(this.tools.values()).map((tool) => ({
@@ -81,12 +82,16 @@ export class LabToolService {
 
   /**
    * 执行指定工具
+   * @param name - 工具名称
+   * @param args - 工具参数
+   * @param onProgress - 进度回调
    */
   async callTool(
     name: string,
     args: ToolArgs,
     onProgress?: (message: string) => void
   ): Promise<MCPToolCallResult> {
+    // 拷贝参数并在日志中排除敏感字段
     const safeArgs = { ...args }
     if (name === 'lab__ssh_connect') {
       delete safeArgs.password
@@ -122,7 +127,8 @@ export class LabToolService {
 
   /**
    * 向用户提问并等待选择
-   * 返回特殊信号，ChatService 检测后会暂停 ReAct 循环并显示选项
+   * 返回特殊 user_interaction_required 信号，ChatService 检测后会暂停 ReAct 循环并向用户展示选项
+   * @param args - 包含 question 和 options 参数
    */
   private askUser(args: ToolArgs): MCPToolCallResult {
     const question = args.question as string

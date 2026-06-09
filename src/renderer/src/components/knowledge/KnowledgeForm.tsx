@@ -3,12 +3,14 @@ import type { EmbeddingConfig } from '@shared/types/config'
 import ModalPortal from '@renderer/components/ui/ModalPortal'
 import styles from './KnowledgeForm.module.css'
 
+/** 预置文本分块策略：精细检索/平衡模式/长上下文 */
 const chunkStrategies = [
   { name: '精细检索', size: 500, overlap: 100, desc: '适合代码、法律条文，精确匹配' },
   { name: '平衡模式', size: 1000, overlap: 200, desc: '通用场景，推荐' },
   { name: '长上下文', size: 2000, overlap: 400, desc: '适合论文、小说，保持段落完整' }
 ]
 
+/** 知识库创建表单提交数据 */
 interface KnowledgeFormSubmitData {
   name: string
   description: string
@@ -29,6 +31,7 @@ interface KnowledgeFormProps {
   onCancel: () => void
 }
 
+/** 知识库创建模态框，包含名称、嵌入模型选择和分块策略配置 */
 export default function KnowledgeForm({ onSubmit, onCancel }: KnowledgeFormProps) {
   const [embeddingModels, setEmbeddingModels] = useState<Record<string, EmbeddingConfig>>({})
   const [loadingModels, setLoadingModels] = useState(true)
@@ -45,6 +48,7 @@ export default function KnowledgeForm({ onSubmit, onCancel }: KnowledgeFormProps
     let cancelled = false
     async function load() {
       try {
+        // 异步加载可用嵌入模型列表，加载后默认选中第一个
         const result = await window.api.embeddingModels.getAll()
         if (!cancelled && result.success && result.data) {
           setEmbeddingModels(result.data)
@@ -67,6 +71,7 @@ export default function KnowledgeForm({ onSubmit, onCancel }: KnowledgeFormProps
     }
   }, [])
 
+  // 表单有效性校验：名称不能为空且必须选中嵌入模型
   const isValid = useMemo(() => {
     if (name.trim().length === 0) return false
     if (embeddingModel === '') return false
@@ -78,6 +83,7 @@ export default function KnowledgeForm({ onSubmit, onCancel }: KnowledgeFormProps
     [embeddingModels, embeddingModel]
   )
 
+  // 重置表单到默认状态：清空输入、恢复第一个嵌入模型、恢复默认分块策略
   const resetForm = useCallback(() => {
     setName('')
     setDescription('')
@@ -94,6 +100,7 @@ export default function KnowledgeForm({ onSubmit, onCancel }: KnowledgeFormProps
       e.preventDefault()
       if (!isValid || !selectedModelConfig) return
 
+      // 选择分块策略：使用自定义值或预置策略（精细检索/平衡/长上下文）
       let chunkSize: number
       let chunkOverlap: number
 
@@ -108,6 +115,7 @@ export default function KnowledgeForm({ onSubmit, onCancel }: KnowledgeFormProps
 
       const config = selectedModelConfig
 
+      // 组装提交数据：嵌入模型配置 + 分块参数 + 基本信息
       onSubmit({
         name: name.trim(),
         description: description.trim(),

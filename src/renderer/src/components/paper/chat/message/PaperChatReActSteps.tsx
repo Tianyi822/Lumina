@@ -33,11 +33,13 @@ interface TaskGroup {
 
 const md = new MarkdownIt({ html: false, breaks: true, linkify: true, typographer: true })
 
+/** 使用 markdown-it 将文本渲染为 HTML */
 function renderMarkdown(content: string): string {
   if (!content) return ''
   return md.render(content)
 }
 
+/** 将 ReAct 步骤（tool_call/tool_result）转换为工具调用面板项的列表 */
 function stepsToToolCallItems(
   steps: ReActStep[],
   isStreaming?: boolean
@@ -45,8 +47,10 @@ function stepsToToolCallItems(
   const items: PaperChatToolCallPanelItem[] = []
   const pendingCalls = new Map<string, { index: number }>()
 
+  // 遍历步骤序列：tool_call 创建待处理项，tool_result 对应回填结果
   steps.forEach((step, index) => {
     if (step.type === 'tool_call' && step.toolCall) {
+      // 记录 tool_call ID 到待处理映射，流式末尾项标记为 running
       pendingCalls.set(step.toolCall.id, { index: items.length })
       items.push({
         id: step.toolCall.id,
@@ -60,6 +64,7 @@ function stepsToToolCallItems(
     }
 
     if (step.type === 'tool_result' && step.toolResult) {
+      // 根据 tool_call ID 匹配并回填工具执行结果
       const pending = pendingCalls.get(step.toolResult.id)
       if (!pending) return
 
@@ -77,11 +82,15 @@ function stepsToToolCallItems(
   return items
 }
 
+/** 如果后续已有最终内容，则移除推理文本末尾的结论承诺语句 */
+// 若后续已有最终内容，移除推理末尾的结论承诺语句（避免文字冗余）
 function trimConclusionPromise(reasoning: string, content?: string): string {
   if (content?.trim()) return reasoning
   return reasoning.replace(/[\s]*现在可以给出步骤结论[。\s]*$/, '').trimEnd()
 }
 
+/** 根据任务分组信息生成阶段的显示标签（如"阶段 1.2"） */
+// 根据 taskNumber 生成阶段标签
 function getPhaseLabel(unit: PhaseUnit, taskGroups: TaskGroup[], hasTaskGroups: boolean): string {
   if (unit.taskNumber !== undefined) {
     const group = taskGroups.find((item) => item.taskNumber === unit.taskNumber)
@@ -190,6 +199,7 @@ function PhaseUnitView({
   )
 }
 
+/** ReAct 分阶段推理展示组件，支持迭代模式（阶段时间线）和传统模式（工具调用列表） */
 export default function PaperChatReActSteps({
   steps,
   iterations,
@@ -198,6 +208,7 @@ export default function PaperChatReActSteps({
   const [isExpanded, setIsExpanded] = useState(false)
   const [expandedReasoningKeys, setExpandedReasoningKeys] = useState<Set<string>>(new Set())
 
+  // 判断是否有活跃迭代包含有效内容，决定是否使用阶段时间线模式
   const useIterationMode = useMemo(
     () =>
       iterations?.some(
@@ -215,6 +226,7 @@ export default function PaperChatReActSteps({
     [steps, isStreaming]
   )
 
+  // 将迭代数据转换为阶段单元列表
   const phaseUnits = useMemo<PhaseUnit[]>(() => {
     return (iterations || [])
       .map((iteration) => {
@@ -249,6 +261,7 @@ export default function PaperChatReActSteps({
     [phaseUnits]
   )
 
+  // 将阶段单元按 taskNumber 分组
   const taskGroups = useMemo<TaskGroup[]>(() => {
     if (!hasTaskGroups) return []
     const groups: TaskGroup[] = []
@@ -268,11 +281,13 @@ export default function PaperChatReActSteps({
   const toolItems = useIterationMode
     ? phaseUnits.flatMap((unit) => unit.toolItems)
     : legacyToolItems
+  // 统计工具调用成功/失败次数
   const toolStats = {
     success: toolItems.filter((item) => item.status === 'success').length,
     failed: toolItems.filter((item) => item.status === 'error').length
   }
 
+  // 流式响应时自动展开面板，并展开活跃阶段的思考区域
   useEffect(() => {
     if (isStreaming || phaseUnits.length > 0) {
       setIsExpanded(true)

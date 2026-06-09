@@ -4,10 +4,16 @@ import { PaperContextToolAdapter } from '../adapters/PaperContextToolAdapter'
 import type { MCPToolCallResult } from '@shared/types/mcp'
 import type { ToolResultMetadata } from '../PipelineTypes'
 
+/** 论文能力的上下文数据 */
 interface PaperCapabilityContext {
+  /** 当前论文 ID */
   paperId?: string
 }
 
+/**
+ * 论文检索能力
+ * 提供论文 OCR 原文和译文的句子级上下文检索工具
+ */
 export class PaperCapability implements CapabilityUnit {
   id = 'paper'
   displayName = '论文检索'

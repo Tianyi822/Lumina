@@ -60,6 +60,10 @@ interface KnowledgeState {
   }) => Promise<boolean>
 }
 
+/**
+ * 知识库 Store
+ * 管理知识库的 CRUD、嵌入模型配置、知识库切换及表单状态
+ */
 export const useKnowledgeStore = create<KnowledgeState>()(
   persist(
     (set, get) => ({
@@ -85,6 +89,7 @@ export const useKnowledgeStore = create<KnowledgeState>()(
 
       isEditing: () => get().editingKb !== null,
 
+      /** 加载所有知识库列表 */
       loadKnowledgeBases: async () => {
         set({ loading: true, error: null })
         try {
@@ -99,6 +104,7 @@ export const useKnowledgeStore = create<KnowledgeState>()(
         }
       },
 
+      /** 创建知识库，成功后自动设为当前知识库 */
       createKnowledgeBase: async (data) => {
         set({ loading: true, error: null })
         try {
@@ -122,6 +128,7 @@ export const useKnowledgeStore = create<KnowledgeState>()(
         }
       },
 
+      /** 更新知识库信息 */
       updateKnowledgeBase: async (id, data) => {
         set({ loading: true, error: null })
         try {
@@ -147,6 +154,7 @@ export const useKnowledgeStore = create<KnowledgeState>()(
         }
       },
 
+      /** 删除知识库（先停止索引，再删除） */
       deleteKnowledgeBase: async (id) => {
         set({ loading: true, error: null })
         try {
@@ -172,6 +180,7 @@ export const useKnowledgeStore = create<KnowledgeState>()(
 
       getKnowledgeBase: (id) => get().knowledgeBases.find((kb) => kb.id === id),
 
+      /** 将文件关联到知识库 */
       linkFilesToKB: (kbId, fileIds) => {
         set((state) => ({
           knowledgeBases: state.knowledgeBases.map((kb) =>
@@ -186,6 +195,7 @@ export const useKnowledgeStore = create<KnowledgeState>()(
         }))
       },
 
+      /** 取消文件与知识库的关联 */
       unlinkFileFromKB: (kbId, fileId) => {
         set((state) => ({
           knowledgeBases: state.knowledgeBases.map((kb) =>
@@ -202,10 +212,12 @@ export const useKnowledgeStore = create<KnowledgeState>()(
 
       setActiveKb: (kbId) => set({ activeKbId: kbId }),
 
+      /** 切换到指定知识库 */
       switchToKb: async (kbId) => {
         set({ activeKbId: kbId })
       },
 
+      /** 加载所有嵌入模型配置 */
       loadEmbeddingModels: async () => {
         set({ embeddingLoading: true })
         try {
@@ -262,6 +274,7 @@ export const useKnowledgeStore = create<KnowledgeState>()(
 
       closeForm: () => set({ editingKb: null, showForm: false }),
 
+      /** 提交创建/编辑知识库表单（根据 editingKb 判断是新增还是编辑） */
       handleFormSubmit: async (data) => {
         const state = get()
         if (state.editingKb) {

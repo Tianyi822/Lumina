@@ -1,6 +1,7 @@
 import SvgIcon from '@renderer/components/icons/SvgIcon'
 import styles from '../WorkspaceToolbar.module.css'
 
+/** 「PDF 原件」切换按钮，点击在阅读器中切换 PDF 视图 */
 interface OriginalPdfButtonProps {
   isActive: boolean
   onClick: () => void

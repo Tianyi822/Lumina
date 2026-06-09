@@ -23,8 +23,8 @@ const EMPTY_EMBEDDING_DATA_ERROR =
   '嵌入 API 返回数据为空，请检查 baseUrl、模型名称及接口是否兼容 OpenAI /v1/embeddings 格式'
 
 /**
- * 从嵌入 API 响应中解析向量列表
- * 兼容 OpenAI 标准 data 数组，以及部分网关返回的顶层 embedding 字段
+ * 格式化嵌入 API 错误信息
+ * 从各种错误格式中提取可读的错误消息
  */
 function formatEmbeddingApiError(error: unknown): string {
   if (typeof error === 'string') {
@@ -36,6 +36,11 @@ function formatEmbeddingApiError(error: unknown): string {
   return String(error)
 }
 
+/**
+ * 从嵌入 API 响应中解析向量列表
+ * 兼容 OpenAI 标准 data 数组，以及部分网关返回的顶层 embedding 字段
+ * @throws 当响应包含错误信息或数据为空时抛出异常
+ */
 function getEmbeddingDataItems(response: EmbeddingResponse): EmbeddingDataItem[] {
   const errorField = (response as EmbeddingResponse & { error?: unknown }).error
   if (errorField !== undefined && errorField !== null && errorField !== '') {
@@ -113,10 +118,17 @@ interface RateLimitTokenEntry {
   tokens: number
 }
 
+/**
+ * 延迟指定毫秒数
+ */
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
+/**
+ * 估算文本的嵌入 Token 数量
+ * 使用 gpt-tokenizer 编码后乘以 padding 系数
+ */
 function estimateEmbeddingTokens(text: string): number {
   if (!text) {
     return 1
@@ -125,6 +137,10 @@ function estimateEmbeddingTokens(text: string): number {
   return Math.max(1, Math.ceil(encode(text).length * EMBEDDING_TOKEN_ESTIMATE_PADDING))
 }
 
+/**
+ * 嵌入请求速率限制器
+ * 同时控制每秒请求数（RPS）和每分钟 Token 数（TPM）
+ */
 class EmbeddingRateLimiter {
   private requestHistory: RateLimitRequestEntry[] = []
   private tokenHistory: RateLimitTokenEntry[] = []
@@ -208,6 +224,9 @@ class EmbeddingRateLimiter {
     })
   }
 
+  /**
+   * 使用互斥锁执行操作，确保速限状态线程安全
+   */
   private async withLock<T>(fn: () => Promise<T>): Promise<T> {
     const previousLock = this.lock
     let releaseCurrentLock: (() => void) | undefined
@@ -225,6 +244,14 @@ class EmbeddingRateLimiter {
     }
   }
 
+  /**
+   * 规划批次大小
+   * 在 token 预算内尽可能多地打包文本，不超过最大批次大小
+   * @param tokenEstimates 各文本的估算 token 数
+   * @param startIndex 起始索引
+   * @param tokenBudget token 预算上限
+   * @param maxBatchSize 最大批次大小
+   */
   private planBatch(
     tokenEstimates: number[],
     startIndex: number,
@@ -261,6 +288,9 @@ class EmbeddingRateLimiter {
     }
   }
 
+  /**
+   * 计算需要等待多少毫秒才能发送下一个请求（基于 RPS 限制）
+   */
   private getRequestWaitMs(now: number): number {
     if (this.requestHistory.length < EMBEDDING_MAX_REQUESTS_PER_SECOND) {
       return 0
@@ -269,6 +299,9 @@ class EmbeddingRateLimiter {
     return Math.max(0, this.requestHistory[0].timestamp + EMBEDDING_REQUEST_WINDOW_MS - now)
   }
 
+  /**
+   * 计算需要等待多少毫秒才能有足够的 token 配额
+   */
   private getTokenWaitMs(now: number, requiredTokens: number): number {
     let usedTokens = this.getUsedTokens()
     if (usedTokens + requiredTokens <= EMBEDDING_MAX_TOKENS_PER_MINUTE) {
@@ -285,15 +318,24 @@ class EmbeddingRateLimiter {
     return EMBEDDING_TOKEN_WINDOW_MS
   }
 
+  /**
+   * 获取当前可用的 token 配额
+   */
   private getAvailableTokens(now: number): number {
     this.prune(now)
     return Math.max(0, EMBEDDING_MAX_TOKENS_PER_MINUTE - this.getUsedTokens())
   }
 
+  /**
+   * 获取当前已使用的 token 总数
+   */
   private getUsedTokens(): number {
     return this.tokenHistory.reduce((sum, entry) => sum + entry.tokens, 0)
   }
 
+  /**
+   * 清理超出时间窗口的请求和 token 记录
+   */
   private prune(now: number): void {
     while (
       this.requestHistory.length > 0 &&
@@ -578,8 +620,12 @@ export class EmbeddingService {
     }
   }
 
+  /**
+   * 批量估算 Token 数量
+   * 小批量直接同步计算避免 Worker 开销，超过 50 条使用 Worker 线程并行计算
+   */
   private async estimateTokensBatch(texts: string[]): Promise<number[]> {
-    // 小批量直接同步计算，避免 Worker 开销
+    // 小批量（<=50）直接同步计算，避免 Worker 线程启动开销
     if (texts.length <= 50) {
       return texts.map((text) => this.tokenEstimator(text))
     }
@@ -711,6 +757,9 @@ export class EmbeddingService {
     }
   }
 
+  /**
+   * 构建嵌入 API 请求参数
+   */
   private buildEmbeddingParams(
     config: EmbeddingConfig,
     input: string | string[]
@@ -727,6 +776,9 @@ export class EmbeddingService {
     return params
   }
 
+  /**
+   * 从 API 响应中提取用量信息
+   */
   private extractUsage(response: EmbeddingResponse):
     | {
         prompt_tokens: number
@@ -741,6 +793,10 @@ export class EmbeddingService {
       : undefined
   }
 
+  /**
+   * 获取或创建速率限制器
+   * 以 baseUrl + model + apiKey 为键，同一组配置共享限流状态
+   */
   private getRateLimiter(config: EmbeddingConfig): EmbeddingRateLimiter {
     const limiterKey = `${config.baseUrl}::${config.model}::${config.apiKey ?? 'dummy-key'}`
     let limiter = this.limiterRegistry.get(limiterKey)

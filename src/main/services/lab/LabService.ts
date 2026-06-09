@@ -57,6 +57,7 @@ export class LabService {
 
   /**
    * 初始化实验室服务
+   * 确保实验室数据目录存在，多次调用安全（幂等）
    */
   async initialize(): Promise<void> {
     if (this.initialized) {
@@ -76,6 +77,9 @@ export class LabService {
 
   /**
    * 保存实验室元数据
+   * @param data - 实验室数据对象
+   * @param options.silent - 静默模式，为 true 时不写 debug 日志
+   * @returns 保存结果
    */
   async saveLab(data: LabData, options?: { silent?: boolean }): Promise<LabResult> {
     try {
@@ -113,7 +117,10 @@ export class LabService {
   }
 
   /**
-   * 加载实验室
+   * 加载实验室元数据
+   * @param labId - 实验室 ID
+   * @param options.silent - 静默模式
+   * @returns 实验室数据，不存在或出错返回 null
    */
   async loadLab(labId: string, options?: { silent?: boolean }): Promise<LabData | null> {
     try {
@@ -158,6 +165,7 @@ export class LabService {
 
   /**
    * 加载所有实验室元数据
+   * @returns 实验室数据数组，异常时返回空数组
    */
   async loadAllLabs(): Promise<LabData[]> {
     try {
@@ -198,18 +206,23 @@ export class LabService {
 
   /**
    * 按主进程内存连接状态同步 SSH 实验室元数据
+   * 将 SshConnectionManager 中的实时连接状态同步到硬盘上的 LabData
+   * @param options.silent - 静默模式，默认 true 避免同步时反复写日志
    */
   async reconcileSshRuntimeState(lab: LabData, options?: { silent?: boolean }): Promise<LabData> {
+    // 非 SSH 类型的实验室无需同步
     if (lab.backendType !== 'ssh' || !lab.ssh) {
       return lab
     }
 
     const { sshService: sshInstance } = await import('./ssh/SshService')
     const sshStatus = sshInstance.getConnectionStatus(lab.labId)
+    // 将 SSH 连接状态映射为实验室状态
     const nextStatus =
       sshStatus === 'connected' ? 'running' : sshStatus === 'connecting' ? 'creating' : 'stopped'
     const nextConnected = sshStatus === 'connected'
 
+    // 状态未变化则跳过写入
     if (lab.status === nextStatus && lab.ssh.connected === nextConnected) {
       return lab
     }
@@ -226,7 +239,8 @@ export class LabService {
   }
 
   /**
-   * 列出所有实验室
+   * 列出所有实验室（按创建时间降序排列）
+   * @returns 实验室列表，异常时返回空数组
    */
   async listLabs(): Promise<LabListItem[]> {
     try {
@@ -267,6 +281,7 @@ export class LabService {
         }
       }
 
+      // 按创建时间降序排列（最新的在前）
       labs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
 
       return labs
@@ -279,6 +294,7 @@ export class LabService {
 
   /**
    * 重命名实验室
+   * @param newName - 新名称（会自动清理非法字符）
    */
   async renameLab(labId: string, newName: string): Promise<LabResult> {
     try {
@@ -304,6 +320,8 @@ export class LabService {
 
   /**
    * 写入操作日志（同时写入主日志）
+   * @param message - 日志消息
+   * @param level - 日志级别
    */
   async logOperation(
     labId: string,
@@ -343,6 +361,7 @@ export class LabService {
 
   /**
    * 读取操作日志
+   * @returns 日志条目数组，从 JSON 行反序列化
    */
   async readOperationLog(labId: string): Promise<LabLogEntry[]> {
     try {
@@ -376,9 +395,12 @@ export class LabService {
 
   /**
    * 创建 SSH 实验室
+   * @param request - 创建实验室请求（名称、SSH 连接信息等）
+   * @returns 创建结果及实验室数据
    */
   async createLab(request: CreateLabRequest): Promise<CreateLabResult> {
     try {
+      // 校验必填参数
       if (!request.name || request.name.trim() === '') {
         return { success: false, error: '实验室名称不能为空' }
       }
@@ -439,7 +461,9 @@ export class LabService {
   }
 
   /**
-   * 删除实验室
+   * 删除实验室（断开 SSH 连接并删除元数据目录）
+   * @param labId - 待删除的实验室 ID
+   * @returns 删除结果
    */
   async deleteLab(labId: string): Promise<DeleteLabResult> {
     try {
@@ -452,7 +476,7 @@ export class LabService {
         return { success: false, error: '实验室不存在' }
       }
 
-      // SSH 断开连接
+      // 先断开 SSH 连接，即使失败也继续清理元数据
       const { sshService: sshInstance } = await import('./ssh/SshService')
       const disconnectResult = await sshInstance.disconnect(labId)
       if (!disconnectResult.success) {

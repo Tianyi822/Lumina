@@ -6,6 +6,7 @@ import {
 } from '@shared/utils/labFeatures'
 import styles from './LabToggleSettings.module.css'
 
+/** 学科实验室开关设置页：按学科独立启用/禁用实验室模块 */
 export default function LabToggleSettings() {
   const labFeatures = useConfigStore((s) => s.labFeatures)
   const toggleLabDiscipline = useConfigStore((s) => s.toggleLabDiscipline)

@@ -7,6 +7,7 @@ interface PaperChatTokenStatsProps {
   userTokenLabel?: string
 }
 
+/** 格式化缓存命中率，处理 */
 function formatCacheHitRate(rate: number, cachedPromptTokens: number): string {
   if (cachedPromptTokens <= 0 || rate <= 0) {
     return '0%'

@@ -14,6 +14,7 @@ function getDocumentCountText(kb: KnowledgeBase): string {
   return `${count} 个文档`
 }
 
+/** 知识库选择面板组件，支持搜索、多选、展开/收起描述，可通过弹出面板或内嵌模式展示 */
 export default function PaperChatKnowledgeBasePanel({
   selectedKnowledgeBases = [],
   compact,
@@ -38,6 +39,7 @@ export default function PaperChatKnowledgeBasePanel({
     [localSelectedKBs]
   )
 
+  // 按搜索框关键词过滤知识库列表，匹配名称和描述
   const filteredKnowledgeBases = useMemo(() => {
     const query = searchQuery.trim().toLowerCase()
     if (!query) {
@@ -51,10 +53,12 @@ export default function PaperChatKnowledgeBasePanel({
     )
   }, [allKnowledgeBases, searchQuery])
 
+  // 判断当前过滤列表中是否所有项均已选中
   const isAllSelected =
     filteredKnowledgeBases.length > 0 &&
     filteredKnowledgeBases.every((kb) => selectedIds.has(kb.id))
 
+  // 延迟一帧检测知识库描述是否溢出，溢出则显示展开按钮
   const refreshOverflowChecks = useCallback(() => {
     window.requestAnimationFrame(() => {
       setNeedsExpandButton((previous) => {
@@ -70,6 +74,7 @@ export default function PaperChatKnowledgeBasePanel({
     })
   }, [allKnowledgeBases])
 
+  // 从主进程加载所有知识库列表
   const loadKnowledgeBases = useCallback(async (): Promise<void> => {
     try {
       const result = await window.api.knowledge.getAll()
@@ -87,18 +92,21 @@ export default function PaperChatKnowledgeBasePanel({
     }
   }, [])
 
+  // 内嵌模式下自动加载知识库列表
   useEffect(() => {
     if (embedded) {
       void loadKnowledgeBases()
     }
   }, [embedded, loadKnowledgeBases])
 
+  // 面板展开或内嵌模式时，检测描述溢出状态
   useEffect(() => {
     if (showPanel || embedded) {
       refreshOverflowChecks()
     }
   }, [filteredKnowledgeBases, refreshOverflowChecks, showPanel, embedded])
 
+  // 非内嵌模式下监听文档点击，点击面板外部时自动关闭
   useEffect(() => {
     function handleClickOutside(event: MouseEvent): void {
       const container = panelContainerRef.current
@@ -118,6 +126,7 @@ export default function PaperChatKnowledgeBasePanel({
     onSelectionChange(next)
   }
 
+  // 切换面板显示状态，展开时延迟加载知识库列表
   function togglePanel(): void {
     setShowPanel((current) => {
       const next = !current
@@ -128,6 +137,7 @@ export default function PaperChatKnowledgeBasePanel({
     })
   }
 
+  // 切换单个知识库的选中状态：已选则移除，未选则添加
   function toggleKBSelection(kb: KnowledgeBase): void {
     const exists = selectedIds.has(kb.id)
     emitSelectionChange(
@@ -137,6 +147,7 @@ export default function PaperChatKnowledgeBasePanel({
     )
   }
 
+  // 全选/取消全选当前过滤后的知识库，不影响过滤掉的选择项
   function toggleSelectAll(): void {
     if (isAllSelected) {
       const filteredIds = new Set(filteredKnowledgeBases.map((kb) => kb.id))
@@ -153,6 +164,7 @@ export default function PaperChatKnowledgeBasePanel({
     emitSelectionChange(next)
   }
 
+  // 设置描述 DOM 引用，异步检测文本是否溢出需要展开按钮
   function setDescriptionRef(kbId: string, element: HTMLDivElement | null): void {
     if (!element) {
       descriptionRefs.current.delete(kbId)
@@ -167,6 +179,7 @@ export default function PaperChatKnowledgeBasePanel({
     })
   }
 
+  // 切换知识库描述的展开/收起状态
   function toggleDescription(kbId: string): void {
     setExpandedDescriptions((previous) => {
       const next = new Set(previous)

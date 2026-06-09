@@ -49,12 +49,14 @@ export function extractOriginalQuery(
   return ''
 }
 
+/** ReAct 循环运行时选项 */
 interface ReactLoopRuntimeOptions {
   abortController?: AbortController
   preserveAbortController?: boolean
   suppressFinalEvents?: boolean
 }
 
+/** ReAct 单次请求的运行时上下文，缓存了工具注册表、编排器、管道等可变状态 */
 interface ReactRequestRuntime {
   toolRegistry: UnifiedToolRegistry
   toolExecutor: UnifiedToolExecutor
@@ -67,10 +69,13 @@ interface ReactRequestRuntime {
   suggestableCapabilityMap: Map<string, { displayName: string; description: string }>
 }
 
+// ReAct 循环默认最大迭代次数
 const DEFAULT_REACT_MAX_ITERATIONS = 30
+// ReAct 循环最小迭代次数
 const MIN_REACT_MAX_ITERATIONS = 1
 const REACT_MAX_ITERATIONS_FINAL_PROMPT =
   '本轮 ReAct 工具推理已达到最大迭代次数。请不要再调用工具，基于以上工具结果给出当前可完成的最终回答；如果任务仍未完全完成，请明确说明已完成内容、限制原因和建议的下一步。'
+// 模型在达到迭代上限后未返回内容时的兜底回复
 const REACT_EMPTY_FINAL_FALLBACK =
   '已达到工具推理轮次上限，但模型没有返回收尾内容。请缩小问题范围或继续追问，我会基于当前工具结果继续处理。'
 
@@ -90,12 +95,14 @@ export class ReactLoopService {
   private readonly capabilityComposer: CapabilityComposer
 
   constructor(options: ReactLoopServiceOptions) {
+    // 保存依赖注入的服务实例
     this.logger = options.logger
     this.stopController = options.stopController
     this.streamHandler = options.streamHandler
     this.createClient = options.createClient
     this.validateAndGetLLMConfig = options.validateAndGetLLMConfig
 
+    // 初始化模型重试处理器，注入停止检查和延迟中止逻辑
     this.modelRetryHandler = new ModelRetryHandler({
       logger: this.logger,
       checkStopped: (sessionId) => this.stopController.checkStopped(sessionId),
@@ -103,13 +110,16 @@ export class ReactLoopService {
         this.stopController.delayWithAbort(ms, sessionId, signal)
     })
 
+    // 若提供了 MCP 服务则创建 MCP 工具适配器
     this.mcpAdapter = options.mcpService ? new MCPToolAdapter(options.mcpService) : null
 
     this.streamProcessor = new StreamProcessor(this.streamHandler)
 
+    // 注册内置能力和默认预设
     registerBuiltinCapabilities()
     presetRegistry.register(CHAT_PAPER_PRESET)
     presetRegistry.register(CHAT_DEFAULT_PRESET)
+    // 初始化能力组合器，用于动态编排可用工具
     this.capabilityComposer = new CapabilityComposer(capabilityRegistry)
   }
 
@@ -124,6 +134,7 @@ export class ReactLoopService {
     runtimeOptions: ReactLoopRuntimeOptions = {}
   ): Promise<ChatResult> {
     const { messages, modelKey, sessionId, turnId } = request
+    // 规范化最大迭代次数，确保在有效范围内
     const maxReactIterations = this.normalizeMaxReactIterations(request.maxReactIterations)
 
     this.logger.info('开始发送聊天消息（ReAct 模式）', 'main', {
@@ -148,8 +159,10 @@ export class ReactLoopService {
       return { success: true }
     }
 
+    // 获取或创建中止控制器（允许外部传入以共享生命周期）
     const abortController =
       runtimeOptions.abortController ?? this.stopController.getOrCreateAbortController(sessionId)
+    // 标记是否由内部创建控制器，以便在 finally 中决定是否清理
     const ownsAbortController = !runtimeOptions.abortController
 
     try {
@@ -177,12 +190,15 @@ export class ReactLoopService {
           suggestableCapabilities: reactRuntime.suggestableCapabilities
         }
       )
+      // 构建对话消息列表（系统提示 + 用户历史消息 + 知识库结果）
       const conversationMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
         { role: 'system', content: systemPrompt },
         ...formatMessagesWithKnowledge(messages, knowledgeResults)
       ]
+      // 记录模型完整对话转录，用于返回给调用方
       const modelTranscript: ChatMessage[] = []
 
+      // 初始化 Token 用量统计和循环状态
       const totalUsage = this.createInitialTokenUsage()
       let toolIterations = 0
       let modelCalls = 0
@@ -191,7 +207,9 @@ export class ReactLoopService {
       const toolResults: ChatToolExecutionResult[] = []
       let finalContent: string | undefined
 
+      // ReAct 推理主循环：迭代调用模型，直到达到上限或模型给出最终答案
       while (toolIterations < maxReactIterations) {
+        // 每次迭代前检查是否被用户手动中止
         if (abortController.signal.aborted) {
           this.logger.info('ReAct 循环被中止', 'main', { sessionId, toolIterations })
           const error = new Error('Request was stopped by user')
@@ -199,6 +217,7 @@ export class ReactLoopService {
           throw error
         }
 
+        // 执行单次 ReAct 迭代：调用模型 → 处理工具调用 → 追加结果到对话
         const result = await this.executeReactIteration({
           client,
           llmConfig,
@@ -217,6 +236,7 @@ export class ReactLoopService {
         modelCalls++
         totalToolCallCount += result.toolCallCount
 
+        // 模型直接给出最终答案（无工具调用），跳出循环
         if (result.shouldBreak) {
           if (result.toolErrors.length > 0) {
             toolErrors.push(...result.toolErrors)
@@ -230,6 +250,7 @@ export class ReactLoopService {
           break
         }
 
+        // 记录本轮工具执行错误和结果
         if (result.toolErrors.length > 0) {
           toolErrors.push(...result.toolErrors)
         }
@@ -238,6 +259,7 @@ export class ReactLoopService {
         }
         toolIterations++
 
+        // 达到迭代上限时，注入强制收尾提示让模型生成无工具回复
         if (toolIterations >= maxReactIterations) {
           this.logger.warn('ReAct 工具迭代达到上限，进入无工具收尾回复', 'main', {
             sessionId,
@@ -265,6 +287,7 @@ export class ReactLoopService {
         }
       }
 
+      // 清理待处理的用户交互标记
       this.stopController.deletePendingUserInteraction(sessionId)
       if (!runtimeOptions.suppressFinalEvents) {
         this.streamHandler.sendDone(webContents, sessionId, totalUsage, turnId, 'completed')
@@ -289,6 +312,7 @@ export class ReactLoopService {
     } catch (error) {
       return this.handleReactError(error, webContents, sessionId, turnId, runtimeOptions)
     } finally {
+      // 清理中止控制器和停止状态（避免内存泄漏）
       if (ownsAbortController && !runtimeOptions.preserveAbortController) {
         this.stopController.deleteAbortController(sessionId)
       }
@@ -302,6 +326,10 @@ export class ReactLoopService {
   /**
    * 通过 CapabilityComposer 构建工具注册表
    */
+  /**
+   * 根据请求参数和已选知识库，构建 ReAct 运行时上下文
+   * 包括：能力注册、工具预设组合、工具注册表初始化
+   */
   private async buildRequestRuntime(
     request: ChatRequest,
     selectedKnowledgeBases?: KnowledgeBaseReference[],
@@ -310,11 +338,13 @@ export class ReactLoopService {
     const sid = sessionId ?? ''
     const sessionType = request.sessionType ?? 'default'
 
+    // 获取或初始化会话的能力状态
     let capState = capabilityManager.getCapabilities(sid)
     if (!capState) {
       capState = capabilityManager.initCapabilitiesForSessionType(sid, sessionType)
     }
 
+    // 根据请求参数动态启用对应的能力（实验室、论文搜索、MCP、知识库）
     if (request.enableLabTools && !capState.activeCapabilities.includes('lab')) {
       capabilityManager.addCapability(sid, 'lab')
     }
@@ -354,12 +384,14 @@ export class ReactLoopService {
       mcpService: this.mcpAdapter ? this.mcpAdapter.getMcpService() : undefined
     }
 
+    // 使用能力组合器将已激活的能力编排为工具管道
     const composed = await this.capabilityComposer.compose(
       capState.activeCapabilities,
       composition,
       composerContext
     )
 
+    // 获取当前可建议但未启用的能力（用于 capability__suggest 工具）
     const suggestable = this.capabilityComposer.getSuggestableCapabilities(
       capState.activeCapabilities,
       composerContext
@@ -375,6 +407,7 @@ export class ReactLoopService {
       suggestable.map((u) => [u.id, { displayName: u.displayName, description: u.description }])
     )
 
+    // 如果有可建议的能力，创建一个特殊工具让模型能主动建议用户启用
     let capabilitySuggestTool: OpenAI.Chat.Completions.ChatCompletionTool | undefined
     if (suggestable.length > 0) {
       capabilitySuggestTool = {
@@ -394,6 +427,7 @@ export class ReactLoopService {
       }
     }
 
+    // 构建工具注册表、管道和工具列表（含能力建议工具）
     const toolRegistry = composed?.toolRegistry ?? new UnifiedToolRegistry()
     const pipeline = composed?.pipeline ?? { stages: [] }
     const tools = toolRegistry.buildOpenAITools()
@@ -401,6 +435,7 @@ export class ReactLoopService {
       tools.push(capabilitySuggestTool)
     }
 
+    // 创建统一工具执行器，将停止检查、超时、流事件等功能注入
     const toolExecutor = new UnifiedToolExecutor({
       logger: this.logger,
       registry: toolRegistry,
@@ -431,6 +466,7 @@ export class ReactLoopService {
       sendStreamEvent: (wc, event) => this.streamHandler.sendStreamEvent(wc, event)
     })
 
+    // 如果组合结果为空，说明当前没有激活任何能力（仅用于调试日志）
     if (!composed) {
       this.logger.info('CapabilityComposer: 无可用工具', 'main', { sessionId: sid })
     }
@@ -522,6 +558,7 @@ export class ReactLoopService {
       { llmConfig, request, toolSignature: reactRuntime.tools }
     )
 
+    // 调用模型（带重试和自动降级逻辑）
     const response = await this.modelRetryHandler.createChatCompletionWithRetry(
       client,
       requestParams,
@@ -577,6 +614,7 @@ export class ReactLoopService {
     )
     const hasSuggestCall = nonSuggestToolCalls.length < toolCallsArray.length
 
+    // 处理能力建议工具调用：解析参数并通知前端
     if (hasSuggestCall) {
       const suggestCall = toolCallsArray.find((tc) => tc.function.name === 'capability__suggest')!
       try {
@@ -609,11 +647,13 @@ export class ReactLoopService {
         // 解析失败，忽略
       }
 
+      // 如果模型只调用了 suggest 工具而没有其他实际工具调用，本轮结束
       if (nonSuggestToolCalls.length === 0) {
         return { shouldBreak: true, toolErrors: [], toolResults: [], toolCallCount: 0 }
       }
     }
 
+    // 构建管道上下文并调用编排器执行工具
     const pipelineContext: PipelineContext = {
       sessionId,
       request: reactRuntime.request,
@@ -631,6 +671,7 @@ export class ReactLoopService {
       turnId
     )
 
+    // 将模型发出的工具调用追加到对话历史
     const executedToolCalls = orchestrationResult.executedToolCalls
     if (executedToolCalls.length > 0) {
       const assistantMessage: OpenAI.Chat.Completions.ChatCompletionAssistantMessageParam & {
@@ -671,6 +712,7 @@ export class ReactLoopService {
       })
     }
 
+    // 检查是否有工具需要用户交互（如确认执行），需要则暂停循环等待用户确认
     const toolExecution = {
       needUserInteraction: orchestrationResult.needUserInteraction,
       failedToolCount: orchestrationResult.results.filter((r) => !r.success).length,
@@ -795,6 +837,9 @@ export class ReactLoopService {
     return createEmptyTokenUsage()
   }
 
+  /**
+   * 规范化 ReAct 最大迭代次数，确保在有效范围内
+   */
   private normalizeMaxReactIterations(maxReactIterations?: number): number {
     if (typeof maxReactIterations !== 'number' || !Number.isFinite(maxReactIterations)) {
       return DEFAULT_REACT_MAX_ITERATIONS

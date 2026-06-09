@@ -523,6 +523,17 @@ function hasRunningEntries(entries: PaperTranslationEntry[]): boolean {
   return entries.some((entry) => entry.status === 'queued' || entry.status === 'translating')
 }
 
+/**
+ * 论文翻译核心引擎
+ * 负责任务编排、并发控制、进度上报、缓存管理、翻译结果后处理
+ *
+ * 翻译流程：
+ * 1. 构建翻译源（段落分割 + 图表标题）
+ * 2. 比对缓存（跳过已翻译/无需翻译的段落）
+ * 3. 并发调用 LLM 翻译未完成的段落
+ * 4. 结果后处理（标签提取、标记保留、公式保护等）
+ * 5. 定期刷入缓存和进度
+ */
 export class PaperTranslationCore {
   private readonly deps: PaperTranslationCoreDependencies
 
@@ -558,6 +569,10 @@ export class PaperTranslationCore {
     )
   }
 
+  /**
+   * 注册翻译进度监听器
+   * @returns 取消监听的清理函数
+   */
   onProgress(paperId: string, listener: ProgressListener): () => void {
     const listeners = this.progressListeners.get(paperId) ?? new Set<ProgressListener>()
     listeners.add(listener)
@@ -604,6 +619,9 @@ export class PaperTranslationCore {
     }
   }
 
+  /**
+   * 取消正在进行的翻译任务
+   */
   cancelTranslation(paperId: string): void {
     const task = this.tasks.get(paperId)
     if (!task) {
@@ -616,6 +634,10 @@ export class PaperTranslationCore {
     this.flushProgressBatch(paperId)
   }
 
+  /**
+   * 获取翻译状态（缓存 + 运行状态）
+   * 自动修复缓存中 stuck 状态的条目
+   */
   async getTranslationState(
     paperId: string,
     markdown: string,
@@ -653,6 +675,12 @@ export class PaperTranslationCore {
     }
   }
 
+  /**
+   * 启动论文翻译
+   * @param paperId - 论文 ID
+   * @param markdown - 论文 Markdown 文本
+   * @param figures - 图表列表（可选，用于翻译图表标题）
+   */
   async startTranslation(
     paperId: string,
     markdown: string,

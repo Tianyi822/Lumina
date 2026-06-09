@@ -2,8 +2,10 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import type { SshServerStats } from '@renderer/types/lab'
 import { MONITOR_CHART_MAX_POINTS, trimRollingQueue } from '../monitorChartSeries'
 
+/** SSH 服务端统计轮询间隔（ms） */
 const SSH_STATS_REFRESH_INTERVAL = 3000
 
+/** 轮询配置选项 */
 export interface UseSshStatsPollingOptions {
   labId: string
   connected: boolean
@@ -11,6 +13,7 @@ export interface UseSshStatsPollingOptions {
   onReset?: () => void
 }
 
+/** 轮询返回的状态和操作方法 */
 export interface UseSshStatsPollingReturn {
   stats: SshServerStats | null
   statsHistory: SshServerStats[]
@@ -21,6 +24,7 @@ export interface UseSshStatsPollingReturn {
   loadStats: (options?: { silent?: boolean }) => Promise<void>
 }
 
+/** 定时轮询远程服务器资源统计，维护采样历史滚动队列 */
 export function useSshStatsPolling(options: UseSshStatsPollingOptions): UseSshStatsPollingReturn {
   const { labId, connected, active, onReset } = options
 

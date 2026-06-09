@@ -73,6 +73,7 @@ export class ChatService {
   async sendMessage(request: ChatRequest, webContents: WebContents): Promise<ChatResult> {
     const { selectedTools, selectedKnowledgeBases, sessionId } = request
 
+    // 重置会话停止状态（每次新消息前清理）
     this.stopController.clearStoppedSession(sessionId)
 
     const hasKnowledgeBases = selectedKnowledgeBases && selectedKnowledgeBases.length > 0
@@ -83,6 +84,7 @@ export class ChatService {
       request.enablePaperWebSearch ||
       hasPaperContextTool
 
+    // 路由决策：Plan-Execute -> ReAct -> 直接调用（优先级依次降低）
     // 只有显式开启规划模式时才进入 Plan-Execute；实验室开关仅注册工具能力
     const isPlanMode = shouldUsePlanExecute(request)
     if (isPlanMode) {
@@ -158,6 +160,7 @@ export class ChatService {
       )
 
       let usage: TokenUsage | undefined
+      // 初始化 <｜end▁of▁thinking｜> 标签解析状态，用于处理 <｜end▁of▁thinking｜> 格式的思维链内容
       const thinkParserState = createThinkParserState()
 
       for await (const chunk of stream) {
@@ -172,6 +175,7 @@ export class ChatService {
             reasoning_content?: string | null
           }
 
+          // 将推理内容与回复内容分别发送到前端（推理内容显示在独立的思考面板中）
           if (delta.reasoning_content) {
             this.streamHandler.sendReasoning(
               webContents,
@@ -182,6 +186,7 @@ export class ChatService {
           }
 
           if (delta.content) {
+            // 将内容按  标签拆分，推理部分走 sendReasoning，正文部分走 sendContent
             const { reasoningDelta, contentDelta } = splitThinkTaggedContent(
               delta.content,
               thinkParserState
@@ -198,6 +203,7 @@ export class ChatService {
         }
       }
 
+      // 处理缓冲区中残留的  标签内容
       const { reasoningDelta, contentDelta } = flushThinkParserState(thinkParserState)
       if (reasoningDelta) {
         this.streamHandler.sendReasoning(webContents, sessionId, reasoningDelta, turnId)

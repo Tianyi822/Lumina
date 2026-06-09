@@ -1,8 +1,10 @@
 import { SessionFactory } from './SessionFactory'
 import { SessionData, SessionType } from '@main/types/session'
 
-// 默认会话工厂
-// 用于创建标准对话类型的会话
+/**
+ * 默认会话工厂
+ * 用于创建标准对话类型的会话
+ */
 export class DefaultSessionFactory implements SessionFactory {
   create(title?: string): SessionData {
     const sessionId = this.generateSessionId()
@@ -23,8 +25,10 @@ export class DefaultSessionFactory implements SessionFactory {
     return 'default'
   }
 
-  // 生成会话 ID
-  // 格式: session-{timestamp}-{random}
+  /**
+   * 生成会话 ID
+   * 格式: session-{timestamp}-{random}
+   */
   private generateSessionId(): string {
     const timestamp = Date.now()
     const random = Math.random().toString(36).substring(2, 8)

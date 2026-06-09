@@ -44,6 +44,10 @@ function clearTimer(id: string): void {
   }
 }
 
+/**
+ * 通知中心 Store
+ * 管理应用内通知消息的添加、去重、自动关闭，以及确认对话框状态
+ */
 export const useNotificationCenterStore = create<NotificationCenterState>()((set, get) => ({
   notifications: [],
   confirmState: {
@@ -56,11 +60,14 @@ export const useNotificationCenterStore = create<NotificationCenterState>()((set
 
   hasNotifications: () => get().notifications.length > 0,
 
+  /** 添加通知（自动去重、自动关闭、限制最大堆叠数） */
   add: (type, title, message, options) => {
+    // 生成唯一 ID 和去重 key
     const id = `notif-${++idCounter}-${Date.now()}`
     const now = Date.now()
     const dedupeKey = options?.dedupeKey ?? `${type}:${title}:${message ?? ''}`
 
+    // 去重窗口内相同通知不重复显示
     const lastShown = recentDedupeKeys.get(dedupeKey)
     if (lastShown && now - lastShown < NOTIFICATION_DEFAULTS.dedupWindowMs) {
       return ''
@@ -85,6 +92,7 @@ export const useNotificationCenterStore = create<NotificationCenterState>()((set
       actions: options?.actions
     }
 
+    // 超过最大堆叠数时移除最早的非 sticky 通知
     set((state) => {
       const next = [...state.notifications]
 
@@ -118,6 +126,7 @@ export const useNotificationCenterStore = create<NotificationCenterState>()((set
     return id
   },
 
+  /** 根据 ID 关闭通知 */
   dismiss: (id) => {
     const state = get()
     const index = state.notifications.findIndex((n) => n.id === id)
@@ -126,6 +135,7 @@ export const useNotificationCenterStore = create<NotificationCenterState>()((set
     set({ notifications: state.notifications.filter((n) => n.id !== id) })
   },
 
+  /** 关闭所有通知 */
   dismissAll: () => {
     dismissTimers.forEach((timer) => clearTimeout(timer))
     dismissTimers.clear()
@@ -133,6 +143,7 @@ export const useNotificationCenterStore = create<NotificationCenterState>()((set
     set({ notifications: [] })
   },
 
+  /** 按类型清除通知 */
   clearByType: (type) => {
     set((state) => ({
       notifications: state.notifications.filter((n) => {
@@ -145,6 +156,7 @@ export const useNotificationCenterStore = create<NotificationCenterState>()((set
     }))
   },
 
+  /** 按来源清除通知 */
   clearBySource: (source) => {
     set((state) => ({
       notifications: state.notifications.filter((n) => {
@@ -157,6 +169,7 @@ export const useNotificationCenterStore = create<NotificationCenterState>()((set
     }))
   },
 
+  /** 请求用户确认（返回 Promise 等待用户操作） */
   requestConfirm: (message, title, danger) => {
     return new Promise((resolve) => {
       set({

@@ -45,10 +45,16 @@ export function getVectorDBDirPath(): string {
   return join(getKnowledgeDataDirPath(), KNOWLEDGE_VECTOR_DB_DIR_NAME)
 }
 
+/**
+ * 确保知识库目录存在
+ */
 function ensureKnowledgeDir(): void {
   mkdirSync(getKnowledgeDirPath(), { recursive: true })
 }
 
+/**
+ * 检查目录是否为空
+ */
 function isEmptyDirectory(dirPath: string): boolean {
   if (!existsSync(dirPath)) {
     return false
@@ -61,18 +67,37 @@ function isEmptyDirectory(dirPath: string): boolean {
   }
 }
 
+/**
+ * 获取旧版知识库定义文件路径
+ * 用于从旧路径迁移数据
+ */
 function getLegacyKnowledgeBaseFilePath(): string {
   return join(getConfigDirPath(), KNOWLEDGE_BASES_FILE_NAME)
 }
 
+/**
+ * 获取旧版文件元数据路径
+ * 用于从旧路径迁移数据
+ */
 function getLegacyFilesMetadataPath(): string {
   return join(getConfigDirPath(), FILES_METADATA_FILE_NAME)
 }
 
+/**
+ * 获取旧版知识库数据目录路径
+ * 用于从旧路径迁移数据
+ */
 function getLegacyKnowledgeDataDirPath(): string {
   return join(getConfigDirPath(), KNOWLEDGE_DATA_DIR_NAME)
 }
 
+/**
+ * 迁移旧版存储路径到新版目录
+ * 如果目标路径已存在且非空则跳过迁移，避免覆盖数据
+ * @param sourcePath 旧路径
+ * @param targetPath 新路径
+ * @param label 迁移项名称（用于日志）
+ */
 function migrateLegacyEntry(sourcePath: string, targetPath: string, label: string): void {
   if (!existsSync(sourcePath)) {
     return

@@ -44,15 +44,18 @@ export interface PlanExecuteServiceOptions {
   reactLoopService: ReactLoopService
 }
 
+/** 解析后的计划结构（来自 LLM JSON 输出） */
 interface ParsedPlan {
   steps: Array<{ title: string; description: string }>
 }
 
+/** 计划生成结果 */
 interface PlanGenerationResult {
   steps: PlanStep[]
   usage?: ChatResult['usage']
 }
 
+/** 单个计划步骤的执行结果 */
 interface PlanStepExecutionResult {
   success: boolean
   summary?: string
@@ -63,8 +66,11 @@ interface PlanStepExecutionResult {
   usage?: ChatResult['usage']
 }
 
+// 计划步骤最大重试次数
 const PLAN_STEP_MAX_ATTEMPTS = 2
+// 步骤上下文传递给后续步骤的最大字符数
 const STEP_CONTEXT_MAX_CHARS = 6000
+// 工具结果摘要的最大字符数
 const TOOL_RESULT_MAX_CHARS = 1600
 
 /**
@@ -80,11 +86,13 @@ export class PlanExecuteService {
   private readonly reactLoopService: PlanExecuteServiceOptions['reactLoopService']
 
   constructor(options: PlanExecuteServiceOptions) {
+    // 保存依赖注入的服务实例
     this.logger = options.logger
     this.stopController = options.stopController
     this.streamHandler = options.streamHandler
     this.createClient = options.createClient
     this.validateAndGetLLMConfig = options.validateAndGetLLMConfig
+    // 保存 ReactLoopService 引用，用于委托工具执行
     this.reactLoopService = options.reactLoopService
   }
 
@@ -118,12 +126,15 @@ export class PlanExecuteService {
     }
 
     const abortController = this.stopController.getOrCreateAbortController(sessionId)
+    // 累计所有步骤的 Token 用量
     const totalUsage = createEmptyTokenUsage()
     const previousResults: string[] = []
     let planSteps: PlanStep[] = []
+    // 当前执行到的步骤索引（用于中断/错误时定位）
     let currentStepIndex = -1
 
     try {
+      // 通知前端进入规划阶段
       this.streamHandler.sendPlanStatus(
         webContents,
         sessionId,
@@ -140,6 +151,7 @@ export class PlanExecuteService {
       }
       this.stopController.checkStopped(sessionId)
 
+      // 如果计划为空，回退到普通 ReAct 模式
       if (!planSteps || planSteps.length === 0) {
         this.logger.info('计划为空，回退到直接 ReAct 模式', 'main', { sessionId })
         this.streamHandler.sendPlanStatus(
@@ -178,10 +190,12 @@ export class PlanExecuteService {
         turnId
       )
 
+      // 逐步骤执行计划
       for (let i = 0; i < planSteps.length; i++) {
         this.stopController.checkStopped(sessionId)
         currentStepIndex = i
 
+        // 执行步骤（带重试）
         const stepResult = await this.executePlanStepWithRetry(
           planSteps[i],
           i,
@@ -200,6 +214,7 @@ export class PlanExecuteService {
           addTokenUsage(totalUsage, stepResult.usage)
         }
 
+        // 步骤执行成功：更新状态并记录结果供后续步骤引用
         if (stepResult.success) {
           planSteps[i].status = 'success'
           planSteps[i].summary = stepResult.summary
@@ -218,6 +233,7 @@ export class PlanExecuteService {
           )
           previousResults.push(stepResult.context || stepResult.summary || '步骤已完成')
         } else {
+          // 步骤执行失败：标记当前步骤失败、后续步骤跳过，返回错误
           const errorMessage = stepResult.error || `步骤 ${i + 1} 执行失败`
           planSteps[i].status = 'failed'
           planSteps[i].error = errorMessage
@@ -263,6 +279,7 @@ export class PlanExecuteService {
       return { success: true, usage: totalUsage }
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
+        // 用户主动中止：标记为取消
         this.logger.info('用户中止了规划模式请求', 'main', { sessionId })
         this.markRemainingStepsCancelled(
           webContents,
@@ -285,6 +302,7 @@ export class PlanExecuteService {
 
       const errorMessage = error instanceof Error ? error.message : String(error)
       this.logger.error('规划模式请求失败', 'main', { sessionId, error: errorMessage })
+      // 发生未知错误：标记当前步骤为失败
       this.markFailedPlan(webContents, sessionId, planSteps, currentStepIndex, errorMessage, turnId)
       this.streamHandler.sendPlanStatus(
         webContents,
@@ -297,6 +315,7 @@ export class PlanExecuteService {
       this.streamHandler.sendError(webContents, sessionId, errorMessage, turnId, 'failed')
       return { success: false, error: errorMessage }
     } finally {
+      // 清理中止控制器和会话状态
       this.stopController.deleteAbortController(sessionId)
       this.stopController.clearStoppedSession(sessionId)
       this.stopController.deletePendingUserInteraction(sessionId)
@@ -314,6 +333,7 @@ export class PlanExecuteService {
     const client = this.createClient(llmConfig)
     const planningTools = this.buildPlanningTools(request)
 
+    // 构建规划系统提示词，若启用论文上下文则额外说明检索能力
     const planPrompt = promptBuilder.buildPlanSystemPrompt(
       planningTools,
       this.hasPaperContext(request)
@@ -341,6 +361,7 @@ export class PlanExecuteService {
         signal: abortController.signal
       })
     } catch (error) {
+      // 如果模型不支持 Prompt Cache 参数，自动降级重试
       if (
         hasPromptCacheParameters(requestParams) &&
         isPromptCacheParameterUnsupportedError(error)
@@ -396,6 +417,9 @@ export class PlanExecuteService {
   /**
    * 解析 LLM 返回的计划 JSON
    */
+  /**
+   * 解析 LLM 返回的计划 JSON（支持从 markdown 代码块中提取）
+   */
   private parsePlanResponse(content: string): ParsedPlan | null {
     try {
       // 尝试从 markdown 代码块中提取 JSON
@@ -433,6 +457,7 @@ export class PlanExecuteService {
   ): Promise<PlanStepExecutionResult> {
     let previousFailure: string | undefined
 
+    // 循环执行直到达到最大重试次数
     for (let attempt = 1; attempt <= PLAN_STEP_MAX_ATTEMPTS; attempt++) {
       step.status = 'running'
       step.attempt = attempt
@@ -451,6 +476,7 @@ export class PlanExecuteService {
       )
 
       if (attempt > 1) {
+        // 重试时记录前一次失败原因
         this.logger.warn('重试计划步骤', 'main', {
           sessionId,
           stepIndex,
@@ -514,6 +540,9 @@ export class PlanExecuteService {
     }
   }
 
+  /**
+   * 执行单个计划步骤（委托 ReactLoopService 处理工具调用）
+   */
   private async executePlanStep(
     step: PlanStep,
     stepIndex: number,
@@ -546,6 +575,7 @@ export class PlanExecuteService {
       }
 
       // 委托 ReactLoopService 执行
+      // 委托 ReactLoopService 执行步骤的子请求
       const result = await this.reactLoopService.sendMessageWithReact(
         stepRequest,
         webContents,
@@ -610,6 +640,9 @@ export class PlanExecuteService {
     )
   }
 
+  /**
+   * 标记当前步骤之后的剩余步骤为已取消
+   */
   private markRemainingStepsCancelled(
     webContents: WebContents,
     sessionId: string,
@@ -638,6 +671,9 @@ export class PlanExecuteService {
     }
   }
 
+  /**
+   * 标记当前步骤之后的剩余步骤为已跳过
+   */
   private markRemainingStepsSkipped(
     webContents: WebContents,
     sessionId: string,
@@ -656,6 +692,9 @@ export class PlanExecuteService {
     }
   }
 
+  /**
+   * 标记失败的规划（当前失败步骤 + 后续步骤跳过）
+   */
   private markFailedPlan(
     webContents: WebContents,
     sessionId: string,
@@ -689,6 +728,9 @@ export class PlanExecuteService {
     }
   }
 
+  /**
+   * 检查请求是否包含论文上下文
+   */
   private hasPaperContext(request: ChatRequest): boolean {
     return request.sessionType === 'paper' && !!request.paperId
   }
@@ -697,6 +739,9 @@ export class PlanExecuteService {
     return [...(request.selectedTools ?? [])]
   }
 
+  /**
+   * 构建步骤结果上下文，供后续步骤参考
+   */
   private buildStepResultContext(stepIndex: number, result: ChatResult): string {
     const lines: string[] = [`## 步骤 ${stepIndex + 1} 执行结果`]
 
@@ -719,6 +764,9 @@ export class PlanExecuteService {
     return this.truncateText(lines.join('\n\n'), STEP_CONTEXT_MAX_CHARS)
   }
 
+  /**
+   * 格式化工具结果为可读文本
+   */
   private formatToolResultForContext(toolResult: ChatToolExecutionResult): string {
     const status = toolResult.success ? '成功' : '失败'
     const content = this.extractReadableToolContent(toolResult.content)
@@ -735,6 +783,9 @@ export class PlanExecuteService {
     return lines.join('\n')
   }
 
+  /**
+   * 提取工具返回内容中的可读部分
+   */
   private extractReadableToolContent(content: string): string {
     const trimmed = content.trim()
     if (!trimmed) {

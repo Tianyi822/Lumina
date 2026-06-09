@@ -6,10 +6,13 @@ import { knowledgeToolService } from '../../../knowledge'
 
 /**
  * 知识库工具适配器
- * 薄封装层，将 KnowledgeToolService 适配为统一的 ToolAdapter 接口
+ * 将 KnowledgeToolService 适配为统一的 ToolAdapter 接口。
+ * 支持语义搜索、文档列表和文档详情查询，搜索时可注入论文语义上下文增强相关性。
  */
 export class KnowledgeToolAdapter implements ToolAdapter {
+  /** 选中的知识库 ID 列表 */
   private kbIds?: string[]
+  /** 论文语义上下文（可选，用于增强搜索相关性） */
   private semanticContext?: PaperSemanticContext
 
   constructor(kbIds?: string[]) {
@@ -26,6 +29,9 @@ export class KnowledgeToolAdapter implements ToolAdapter {
     this.semanticContext = ctx
   }
 
+  /**
+   * 获取该适配器提供的工具列表（search / list / documents）
+   */
   async getTools(): Promise<MCPToolReference[]> {
     return (await knowledgeToolService.getTools(this.kbIds)).map((tool) => ({
       serverName: tool.serverName || 'knowledge',
@@ -37,6 +43,10 @@ export class KnowledgeToolAdapter implements ToolAdapter {
     }))
   }
 
+  /**
+   * 执行知识库工具调用
+   * 搜索时自动注入论文关键词作为语义上下文
+   */
   async execute(
     toolName: string,
     args: Record<string, unknown>

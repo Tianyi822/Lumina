@@ -19,6 +19,7 @@ interface PaperChatMessageProps {
   onQuoteClick?: (quote: PaperQuote) => void
 }
 
+/** 判断消息是否包含结构化的 ReAct 迭代（有活跃步骤或推理内容） */
 function hasStructuredReact(message: Message): boolean {
   return (
     message.reactIterations?.some(
@@ -31,6 +32,7 @@ function hasStructuredReact(message: Message): boolean {
   )
 }
 
+/** 判断消息是否有活跃的迭代（仅推理/步骤为空，显示等待状态） */
 function hasActiveIteration(message: Message): boolean {
   return (
     message.reactIterations?.some(
@@ -39,12 +41,14 @@ function hasActiveIteration(message: Message): boolean {
   )
 }
 
+/** 判断消息是否有工具调用相关活动（步骤、ReAct 步骤或 tool_calls） */
 function hasToolActivity(message: Message): boolean {
   const iterationHasSteps =
     message.reactIterations?.some((iteration) => iteration.steps.length > 0) || false
   return iterationHasSteps || (message.reactSteps?.length || 0) > 0 || !!message.tool_calls?.length
 }
 
+/** 论文聊天的单条消息渲染组件，根据角色和状态（流式、ReAct、推理）选择不同展示方式 */
 export default function PaperChatMessage({
   message,
   isReasoningExpanded,

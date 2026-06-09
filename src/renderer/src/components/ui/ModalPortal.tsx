@@ -1,6 +1,7 @@
 import { createPortal } from 'react-dom'
 import { forwardRef, type MouseEvent, type ReactNode } from 'react'
 
+/** 模态框 Portal：将内容渲染到 document.body，支持 backdrop 点击关闭 */
 interface ModalPortalProps {
   className?: string
   onBackdropClick?: () => void

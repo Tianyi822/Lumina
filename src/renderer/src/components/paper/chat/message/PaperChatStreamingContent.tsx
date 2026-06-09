@@ -1,5 +1,6 @@
 import styles from './PaperChatStreamingContent.module.css'
 
+/** 流式加载等待占位组件，展示脉冲动画提示模型正在组织回答 */
 export default function PaperChatStreamingContent() {
   return (
     <div className={styles['streaming-placeholder']}>

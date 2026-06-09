@@ -2,6 +2,7 @@ import { SUPPORTED_DOCUMENT_ACCEPT, SUPPORTED_DOCUMENT_LABEL } from '@shared/con
 import { useFileUpload, type UploadResult } from '../../hooks/useFileUpload'
 import styles from './FileUploadZone.module.css'
 
+/** 文件拖拽/点击上传区域，支持自动挂载到知识库 */
 interface FileUploadZoneProps {
   variant?: 'default' | 'compact'
   autoLinkToKB?: boolean

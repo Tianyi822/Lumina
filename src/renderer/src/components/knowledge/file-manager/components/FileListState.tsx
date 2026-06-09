@@ -1,7 +1,9 @@
 import { type ReactNode } from 'react'
 import { useFileStore } from '@renderer/stores'
+import { useFilteredFiles } from '../../hooks/useFilteredFiles'
 import styles from './FileListState.module.css'
 
+/** 文件列表状态容器：处理加载中、空列表和正常列表三种状态的展示 */
 interface FileListStateProps {
   children: ReactNode
 }
@@ -9,7 +11,7 @@ interface FileListStateProps {
 export default function FileListState({ children }: FileListStateProps) {
   const loading = useFileStore((s) => s.loading)
   const searchQuery = useFileStore((s) => s.searchQuery)
-  const filteredFiles = useFileStore((s) => s.filteredFiles())
+  const filteredFiles = useFilteredFiles()
 
   return (
     <div className={styles['file-list-container']}>

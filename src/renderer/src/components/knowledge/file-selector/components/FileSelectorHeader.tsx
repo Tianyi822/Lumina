@@ -1,6 +1,7 @@
 import SvgIcon from '@renderer/components/icons/SvgIcon'
 import styles from './FileSelectorHeader.module.css'
 
+/** 文件选择器头部区域 */
 interface FileSelectorHeaderProps {
   onClose: () => void
 }

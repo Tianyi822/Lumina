@@ -1,6 +1,7 @@
 import styles from './SshReconnectPrompt.module.css'
 import type { LabData } from '@renderer/types/lab'
 
+/** SSH 断线后重新连接提示条：密码输入 + 重连按钮 */
 interface SshReconnectPromptProps {
   password: string
   lab: LabData

@@ -22,6 +22,7 @@ interface PointerState {
   clientY: number
 }
 
+/** 批注笔记编辑器组件，支持拖拽移动、新增/编辑/删除笔记，展示选中文本和保存状态 */
 export default function PaperAnnotationNoteEditor({
   state,
   comment,

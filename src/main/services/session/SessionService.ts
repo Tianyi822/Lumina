@@ -19,8 +19,12 @@ import {
 } from './sessionPaths'
 import { SessionFactoryRegistry } from './factories'
 
-// 从消息内容生成会话标题
-// 如果消息长度超过20个字符，截取前20个字符并添加省略号
+/**
+ * 从消息内容生成会话标题
+ * 如果消息长度超过20个字符，截取前20个字符并添加省略号
+ * @param firstMessage 首条消息内容
+ * @returns 生成的标题
+ */
 function generateTitle(firstMessage: string): string {
   const trimmed = firstMessage.trim()
   if (trimmed.length <= 20) {
@@ -40,14 +44,18 @@ async function yieldToEventLoop(): Promise<void> {
   })
 }
 
-// 会话服务
-// 负责会话的创建、保存、加载和管理
-// 支持多种会话类型，通过工厂模式创建不同类型的会话
+/**
+ * 会话服务
+ * 负责会话的创建、保存、加载和管理
+ * 支持多种会话类型，通过工厂模式创建不同类型的会话
+ */
 export class SessionService {
   private initialized: boolean = false
   private registry: SessionFactoryRegistry = SessionFactoryRegistry.getInstance()
 
-  // 确保数据目录存在
+  /**
+   * 确保数据目录存在，不存在则创建
+   */
   private ensureDataDir(): void {
     const dataDir = getDataDirPath()
     if (!existsSync(dataDir)) {
@@ -56,7 +64,10 @@ export class SessionService {
     }
   }
 
-  // 初始化会话服务
+  /**
+   * 初始化会话服务
+   * 确保数据目录存在
+   */
   initialize(): void {
     if (this.initialized) {
       return
@@ -73,8 +84,12 @@ export class SessionService {
     }
   }
 
-  // 创建新会话
-  // 通过工厂模式创建不同类型的会话对象
+  /**
+   * 创建新会话
+   * 通过工厂模式创建不同类型的会话对象并持久化
+   * @param title 可选会话标题
+   * @param sessionType 会话类型
+   */
   createSession(title?: string, sessionType?: SessionType): SessionData {
     this.ensureDataDir()
 
@@ -91,9 +106,12 @@ export class SessionService {
     return session
   }
 
-  // 保存会话
-  // 将会话数据持久化到文件系统
-  // 每次保存都会更新文件名（包含标题），并删除旧文件
+  /**
+   * 保存会话
+   * 将会话数据持久化到文件系统
+   * 每次保存都会更新文件名（包含标题），并删除旧文件
+   * @param data 会话数据
+   */
   saveSession(data: SessionData): SessionResult {
     try {
       // 验证 sessionId
@@ -134,8 +152,11 @@ export class SessionService {
     }
   }
 
-  // 删除同一 sessionId 的旧文件（用于标题更新时）
-  // 当会话标题改变时，文件名也会改变，需要删除旧的文件
+  /**
+   * 删除同一 sessionId 的旧文件
+   * 当会话标题改变时，文件名也会改变，需要删除旧的文件
+   * @param sessionId 会话 ID
+   */
   private deleteOldSessionFiles(sessionId: string): void {
     try {
       const dataDir = getDataDirPath()
@@ -158,8 +179,11 @@ export class SessionService {
     }
   }
 
-  // 加载会话
-  // 从文件系统中读取会话数据
+  /**
+   * 加载会话
+   * 从文件系统中读取会话数据
+   * @param sessionId 会话 ID
+   */
   loadSession(sessionId: string): SessionData | null {
     try {
       // 验证 sessionId
@@ -204,8 +228,10 @@ export class SessionService {
     }
   }
 
-  // 列出所有会话
-  // 返回会话列表，按创建时间倒序排列
+  /**
+   * 列出所有会话
+   * @returns 会话列表，按创建时间倒序排列
+   */
   listSessions(): SessionListItem[] {
     try {
       const dataDir = getDataDirPath()
@@ -259,8 +285,10 @@ export class SessionService {
     }
   }
 
-  // 异步加载全部会话
-  // 用于长耗时批处理场景，避免在主进程内持续阻塞事件循环
+  /**
+   * 异步加载全部会话
+   * 用于长耗时批处理场景，避免在主进程内持续阻塞事件循环
+   */
   async loadAllSessionsAsync(): Promise<SessionData[]> {
     try {
       const sessions: SessionData[] = []
@@ -279,8 +307,11 @@ export class SessionService {
     }
   }
 
-  // 按顺序异步遍历会话
-  // 用于流式批处理，避免先将全部会话加载到内存
+  /**
+   * 按顺序异步遍历会话
+   * 用于流式批处理，避免先将全部会话加载到内存
+   * 每处理 SESSION_ASYNC_YIELD_INTERVAL 个文件让出一次事件循环
+   */
   async *iterateSessionsAsync(): AsyncGenerator<SessionData, void, void> {
     try {
       const dataDir = getDataDirPath()
@@ -326,8 +357,11 @@ export class SessionService {
     }
   }
 
-  // 删除会话
-  // 从文件系统中删除会话文件
+  /**
+   * 删除会话
+   * 从文件系统中删除会话文件
+   * @param sessionId 会话 ID
+   */
   deleteSession(sessionId: string): SessionResult {
     try {
       // 验证 sessionId
@@ -367,8 +401,12 @@ export class SessionService {
     }
   }
 
-  // 重命名会话
-  // 修改会话标题，会话文件也会相应重命名
+  /**
+   * 重命名会话
+   * 修改会话标题，会话文件也会相应重命名（自动删除旧文件）
+   * @param sessionId 会话 ID
+   * @param newTitle 新标题
+   */
   renameSession(sessionId: string, newTitle: string): SessionResult {
     try {
       // 加载现有会话
@@ -389,14 +427,22 @@ export class SessionService {
     }
   }
 
-  // 更新会话标题（根据第一条消息自动生成）
-  // 当会话首次有消息时，根据消息内容生成标题
+  /**
+   * 更新会话标题（根据第一条消息自动生成）
+   * 当会话首次有消息时，根据消息内容生成标题
+   * @param sessionId 会话 ID
+   * @param firstMessage 首条消息内容
+   */
   updateSessionTitleFromMessage(sessionId: string, firstMessage: string): SessionResult {
     const newTitle = generateTitle(firstMessage)
     return this.renameSession(sessionId, newTitle)
   }
 
-  // 向会话添加消息并保存
+  /**
+   * 向会话添加消息并保存
+   * @param sessionId 会话 ID
+   * @param message 会话消息
+   */
   addMessage(sessionId: string, message: SessionMessage): SessionResult {
     try {
       const session = this.loadSession(sessionId)

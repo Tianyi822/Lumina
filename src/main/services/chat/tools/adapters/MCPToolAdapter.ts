@@ -5,7 +5,9 @@ import type { MCPService } from '../../../mcp'
 
 /**
  * MCP 工具适配器
- * 薄封装层，将 MCPService 适配为统一的 ToolAdapter 接口
+ * 将 MCPService 适配为统一的 ToolAdapter 接口。
+ * 支持任意 MCP 服务器注册的工具按 server__tool 命名规范调用，
+ * 并处理 OpenAI 安全名称与原始名称之间的映射。
  */
 export class MCPToolAdapter implements ToolAdapter {
   private mcpService: MCPService
@@ -14,10 +16,14 @@ export class MCPToolAdapter implements ToolAdapter {
     this.mcpService = mcpService
   }
 
+  /** 获取底层 MCP 服务实例 */
   getMcpService(): MCPService {
     return this.mcpService
   }
 
+  /**
+   * 获取所有已连接 MCP 服务器的工具列表
+   */
   async getTools(): Promise<MCPToolReference[]> {
     return this.mcpService.getAllTools().map((tool) => ({
       serverName: tool.serverName,
@@ -27,6 +33,10 @@ export class MCPToolAdapter implements ToolAdapter {
     }))
   }
 
+  /**
+   * 执行 MCP 工具调用
+   * 将 server__tool 格式的名称解析为原始服务器名和工具名后进行调用
+   */
   async execute(toolName: string, args: Record<string, unknown>): Promise<MCPToolCallResult> {
     // toolName 为 function name 格式: "server__tool"，可能是原始名称或 OpenAI 安全名称
     const parts = toolName.split('__')

@@ -218,6 +218,7 @@ function estimateTableHeight(text: string): number {
 }
 
 /** 根据段落元数据估算高度（仅作虚拟列表初值，真实高度由 DOM measureElement 决定） */
+/** 估算段落在虚拟列表中的初始高度，后续由 DOM measureElement 校正 */
 export function estimateSegmentHeight(segment: RenderedSegment): number {
   const floor = MIN_HEIGHT_BY_KIND[segment.kind] ?? 24
   let originalEstimate =
@@ -267,6 +268,7 @@ export function estimateSegmentHeight(segment: RenderedSegment): number {
   return originalEstimate
 }
 
+/** 生成段落列表的布局缓存键，用于判断是否需要重新估算高度 */
 export function getSegmentsLayoutKey(segments: RenderedSegment[]): string {
   return segments
     .map((segment) =>

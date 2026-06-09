@@ -145,7 +145,7 @@ export class KnowledgeToolService {
       }
     }
 
-    // 调用核心服务执行搜索
+    // 调用核心服务执行搜索，限制结果数量最大为 20
     const result = await knowledgeCoreService.searchKnowledge({
       query,
       knowledgeBaseId,
@@ -153,7 +153,7 @@ export class KnowledgeToolService {
       allowedKnowledgeBaseIds: selectedKnowledgeBaseIds
     })
 
-    // 格式化结果
+    // 格式化搜索结果为可读文本（按知识库分组展示）
     if (result.items.length === 0) {
       return {
         success: true,
@@ -168,7 +168,7 @@ export class KnowledgeToolService {
 
     let resultText = `搜索 "${query}" 的结果:\n\n`
 
-    // 按知识库分组
+    // 按知识库分组展示结果，每个知识库独立一段
     const groupedByKB = new Map<string, typeof result.items>()
     for (const item of result.items) {
       const existing = groupedByKB.get(item.knowledgeBaseId) || []

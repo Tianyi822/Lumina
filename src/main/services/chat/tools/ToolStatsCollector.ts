@@ -19,13 +19,19 @@ const MAX_HISTORY_DAYS = 30
 
 /**
  * 工具统计收集器
- * 内存记录 + 定期持久化到 ~/.lumina/tool-stats/（按日期 rolling）
+ * 内存记录 + 定期持久化到 ~/.lumina/tool-stats/（按日期 rolling）。
+ * 支持按工具名、类别、会话维度查询统计，提供频率排行和耗时排行。
  */
 export class ToolStatsCollector {
+  /** 内存中的工具调用记录列表 */
   private records: ToolCallRecord[] = []
+  /** 定期持久化定时器 */
   private persistTimer: ReturnType<typeof setInterval> | null = null
 
-  /** 记录一次工具调用 */
+  /**
+   * 记录一次工具调用
+   * @param record 工具调用记录（不含 timestamp，可选传入覆盖）
+   */
   record(record: Omit<ToolCallRecord, 'timestamp'> & { timestamp?: number }): void {
     this.records.push({
       ...record,
@@ -37,7 +43,10 @@ export class ToolStatsCollector {
     }
   }
 
-  /** 获取所有工具统计概览 */
+  /**
+   * 获取所有工具统计概览
+   * @param timeRange 可选的时间范围过滤
+   */
   getAllStats(timeRange?: TimeRange): ToolStatsSummary[] {
     const filtered = this.filterByTimeRange(this.records, timeRange)
     const grouped = this.groupByToolName(filtered)
@@ -46,7 +55,11 @@ export class ToolStatsCollector {
     )
   }
 
-  /** 单个工具详细统计 */
+  /**
+   * 获取单个工具的详细统计
+   * @param toolName 工具完整名称
+   * @param timeRange 可选的时间范围过滤
+   */
   getToolStats(toolName: string, timeRange?: TimeRange): ToolStatsSummary | null {
     const filtered = this.filterByTimeRange(this.records, timeRange)
     const matched = filtered.filter((r) => r.toolName === toolName)
@@ -54,7 +67,11 @@ export class ToolStatsCollector {
     return this.buildSummary(toolName, matched)
   }
 
-  /** 按类别查询统计 */
+  /**
+   * 按类别查询工具统计
+   * @param category 工具类别
+   * @param timeRange 可选的时间范围过滤
+   */
   getCategoryStats(category: ToolCategory, timeRange?: TimeRange): ToolStatsSummary[] {
     const filtered = this.filterByTimeRange(this.records, timeRange).filter(
       (r) => r.category === category
@@ -65,19 +82,25 @@ export class ToolStatsCollector {
     )
   }
 
-  /** 会话维度查询 */
+  /** 按会话 ID 查询工具调用记录 */
   getSessionStats(sessionId: string): ToolCallRecord[] {
     return this.records.filter((r) => r.sessionId === sessionId)
   }
 
-  /** 使用频率排行 */
+  /**
+   * 获取使用频率最高的工具排行
+   * @param limit 返回条数
+   */
   getTopTools(limit: number): ToolStatsSummary[] {
     return this.getAllStats()
       .sort((a, b) => b.totalCalls - a.totalCalls)
       .slice(0, limit)
   }
 
-  /** 响应耗时排行 */
+  /**
+   * 获取平均耗时最长的工具排行
+   * @param limit 返回条数
+   */
   getSlowestTools(limit: number): ToolStatsSummary[] {
     return this.getAllStats()
       .sort((a, b) => b.avgDurationMs - a.avgDurationMs)
