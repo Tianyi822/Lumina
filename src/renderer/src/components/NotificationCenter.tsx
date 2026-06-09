@@ -4,6 +4,7 @@ import { getRuntimePlatform } from '@renderer/composables/runtimePlatformCore'
 import NotificationItem from './NotificationItem'
 import NotificationConfirmDialog from './NotificationConfirmDialog'
 
+/** 通知中心 Portal：将通知列表和确认对话框渲染到 body 层 */
 export default function NotificationCenter() {
   const notifications = useNotificationCenterStore((s) => s.notifications)
   const confirmState = useNotificationCenterStore((s) => s.confirmState)

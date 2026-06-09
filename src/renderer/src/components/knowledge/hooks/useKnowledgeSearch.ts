@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import type { KnowledgeSearchHit } from '@renderer/types'
 
+/** 知识库语义搜索 Hook，管理搜索输入、结果展示和切换知识库时自动清空 */
 export function useKnowledgeSearch(kbId: string | undefined) {
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<KnowledgeSearchHit[]>([])

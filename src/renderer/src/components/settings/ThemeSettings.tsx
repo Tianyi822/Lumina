@@ -3,6 +3,7 @@ import { useUIStateStore, AVAILABLE_THEMES } from '@renderer/stores/uiStateStore
 import type { ThemeConfig, ThemeMode } from '@shared/types/config'
 import styles from './ThemeSettings.module.css'
 
+/** 主题设置页面：手动主题选择、跟随系统主题切换 */
 interface ThemeSettingsProps {
   value: ThemeConfig
   onThemeChange: (themeId: string) => void

@@ -405,6 +405,7 @@ const PaperSidebarItem = memo(
     prev.onItemMouseLeave === next.onItemMouseLeave
 )
 
+/** 论文侧边栏列表组件，展示论文列表、进度、状态和操作（删除/重试），支持标题 LaTeX 渲染 */
 export default function PaperSidebar({
   papers,
   currentPaperId,

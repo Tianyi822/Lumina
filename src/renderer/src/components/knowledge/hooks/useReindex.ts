@@ -3,6 +3,7 @@ import { useKnowledgeIndexStore } from '@renderer/stores'
 import { useNotification } from '@renderer/composables/useNotification'
 import type { FileItem } from '@renderer/types'
 
+/** 知识库重新索引管理：支持部分索引（仅失效文件）或全局重新构建 */
 export function useReindex(
   kbId: string | undefined,
   linkedFiles: FileItem[],

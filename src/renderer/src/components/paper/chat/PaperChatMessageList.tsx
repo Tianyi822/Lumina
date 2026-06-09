@@ -33,6 +33,7 @@ interface PaperChatMessageListProps {
   onScrollButtonChange?: (visible: boolean) => void
 }
 
+/** 论文聊天消息列表组件，支持自动滚动锚定、推理过程折叠和滚动按钮状态管理 */
 const PaperChatMessageList = memo(
   forwardRef<PaperChatMessageListHandle, PaperChatMessageListProps>(function PaperChatMessageList(
     { messages, currentChatId, onQuoteClick, onScrollButtonChange },
@@ -42,9 +43,9 @@ const PaperChatMessageList = memo(
     const itemsRef = useRef<HTMLDivElement>(null)
     const streamAnchorRef = useRef<HTMLDivElement>(null)
     const [expandedReasoningIds, setExpandedReasoningIds] = useState<Set<string>>(new Set())
-    // 用户是否主动离开输入框上沿锚点
+    // 用户是否主动向上滚动离开了输入框锚点区域
     const isUserScrolledUpRef = useRef(false)
-    // 用于检测程序性滚动的标记
+    // 标记当前滚动由代码触发（而非用户手动），避免影响 isUserScrolledUpRef
     const isProgrammaticScrollRef = useRef(false)
     const programmaticScrollFrameRef = useRef<number | null>(null)
     const autoScrollFrameRef = useRef<number | null>(null)

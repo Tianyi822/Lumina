@@ -12,6 +12,7 @@ export interface PaperChatStepContentResult {
   tone: PaperChatStepContentTone
 }
 
+/** 根据工具调用项的状态和内容推导出步骤的显示文案和语气 */
 export function derivePaperChatStepContent(
   toolItems: PaperChatStepContentToolItem[],
   content?: string
@@ -35,6 +36,7 @@ export function derivePaperChatStepContent(
   return buildRunningToolContent(toolItems)
 }
 
+/** 构建正在运行中或等待中的工具列表显示文本 */
 function buildRunningToolContent(
   toolItems: PaperChatStepContentToolItem[]
 ): PaperChatStepContentResult | null {
@@ -58,6 +60,7 @@ function buildRunningToolContent(
   }
 }
 
+/** 格式化工具名称，如果来自 MCP 服务器则带上服务器名前缀 */
 function formatToolName(item: PaperChatStepContentToolItem): string {
   if (item.serverName && item.serverName !== 'lab') {
     return `${item.serverName}/${item.name}`
@@ -66,6 +69,7 @@ function formatToolName(item: PaperChatStepContentToolItem): string {
   return item.name
 }
 
+/** 判断内容是否以失败信息开头 */
 function isFailureContent(content: string): boolean {
   return /^(\*\*)?执行失败(\*\*)?[：:。.\s\n]/.test(content)
 }

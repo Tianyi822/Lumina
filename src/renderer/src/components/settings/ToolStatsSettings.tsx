@@ -3,16 +3,19 @@ import { useToolStats } from './hooks/useToolStats'
 import type { TimeRangeKey, CategoryFilter } from './hooks/useToolStats'
 import styles from './ToolStatsSettings.module.css'
 
+/** 格式化数字为中文千分位字符串 */
 function formatNumber(n: number): string {
   return n.toLocaleString('zh-CN')
 }
 
+/** 格式化毫秒为可读时长（ms 或 s） */
 function formatDuration(ms: number | undefined): string {
   if (ms === undefined || ms === null) return '-'
   if (ms < 1000) return `${Math.round(ms)}ms`
   return `${(ms / 1000).toFixed(1)}s`
 }
 
+/** 格式化日期为 MM-DD HH:mm 字符串 */
 function formatTime(date: Date | undefined): string {
   if (!date) return '-'
   const d = new Date(date)

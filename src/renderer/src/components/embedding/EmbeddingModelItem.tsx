@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react'
 import type { EmbeddingConfig } from '@shared/types/config'
 import styles from './EmbeddingModelItem.module.css'
 
+/** 嵌入模型配置卡片，支持展开查看详情和测试/编辑/删除操作 */
 interface EmbeddingModelItemProps {
   id: string
   config: EmbeddingConfig

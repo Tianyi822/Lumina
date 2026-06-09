@@ -14,6 +14,7 @@ function getDocumentCountText(kb: KnowledgeBase): string {
   return `${count} 个文档`
 }
 
+/** 知识库选择面板组件，支持搜索、多选、展开/收起描述，可通过弹出面板或内嵌模式展示 */
 export default function PaperChatKnowledgeBasePanel({
   selectedKnowledgeBases = [],
   compact,

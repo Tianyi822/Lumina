@@ -63,6 +63,7 @@ export interface PaperMarkdownViewHandle {
   scrollToQuoteAndHighlight: (quote: PaperQuote) => void
 }
 
+/** 论文 Markdown 阅读视图主组件，整合虚拟滚动、文本搜索、批注编排、缩放锚定和滚动持久化 */
 const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewProps>(
   function PaperMarkdownView(
     {

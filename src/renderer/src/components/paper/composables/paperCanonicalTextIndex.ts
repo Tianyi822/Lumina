@@ -185,6 +185,7 @@ function getMathVisibleElement(element: Element): Element {
   return queryElement(element, '.katex-html') || element
 }
 
+/** 在规范文本索引中查找包含指定节点的数学公式段 */
 export function findCanonicalMathSegmentByNode(
   index: CanonicalTextIndex,
   node: Node
@@ -218,6 +219,7 @@ function appendSegment(
   })
 }
 
+/** 构建 DOM 子树的规范文本索引（含纯文本段和 KaTeX 数学公式段） */
 export function buildCanonicalTextIndex(root: Element): CanonicalTextIndex {
   const textParts: string[] = []
   const segments: CanonicalTextSegment[] = []
@@ -277,6 +279,7 @@ export function buildCanonicalTextIndex(root: Element): CanonicalTextIndex {
   }
 }
 
+/** 将规范文本的绝对偏移量解析为 DOM 边界点（节点+偏移量） */
 export function resolveCanonicalTextPoint(
   index: CanonicalTextIndex,
   absoluteOffset: number,
@@ -404,6 +407,7 @@ export function getCanonicalRangeOffsets(
   }
 }
 
+/** 获取规范文本区间对应的客户端包围矩形，支持 KaTeX 公式的特殊处理 */
 export function getCanonicalRangeClientRect(
   index: CanonicalTextIndex,
   startOffset: number,
@@ -445,6 +449,7 @@ export function getCanonicalRangeClientRect(
   return unionClientRects([...(fallbackRect ? [fallbackRect] : []), ...mathRects])
 }
 
+/** 去除规范文本区间两端的空白字符并返回裁剪后的偏移量 */
 export function trimCanonicalTextRange(
   text: string,
   startOffset: number,

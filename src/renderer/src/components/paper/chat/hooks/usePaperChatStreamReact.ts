@@ -43,6 +43,7 @@ interface UsePaperChatStreamReactReturn {
   stopRequest: () => Promise<void>
 }
 
+/** 将选中的 MCP 工具列表转换为接口请求所需的引用格式 */
 function toToolReferences(tools: MCPTool[]): MCPToolReference[] {
   return tools.map((tool) => ({
     serverName: tool.serverName,
@@ -52,6 +53,7 @@ function toToolReferences(tools: MCPTool[]): MCPToolReference[] {
   }))
 }
 
+/** 将选中的知识库列表转换为接口请求所需的引用格式 */
 function toKnowledgeReferences(knowledgeBases: KnowledgeBase[]): KnowledgeBaseReference[] {
   return knowledgeBases.map((kb) => ({
     id: kb.id,
@@ -65,6 +67,10 @@ function toPlainRequest<T>(request: T): T {
   return deepClone(request)
 }
 
+/**
+ * 论文对话流式请求的核心 Hook，管理消息发送、流式事件处理和保存，负责将 StreamEvent
+ * 转换为 React 可消费的消息状态，支持 rAF 节流防止重渲染风暴
+ */
 export function usePaperChatStreamReact(
   options: UsePaperChatStreamReactOptions
 ): UsePaperChatStreamReactReturn {
@@ -81,7 +87,7 @@ export function usePaperChatStreamReact(
   const sessionIdRef = useRef(sessionId)
   sessionIdRef.current = sessionId
   const requestErrorReportedRef = useRef(false)
-  // 用于 rAF 节流的调度 ID，确保每帧最多一次 setMessages
+  // rAF 节流调度 ID，确保每帧最多执行一次 setMessages（高频流式事件时防止重渲染风暴）
   const rafIdRef = useRef<number | null>(null)
 
   const reportRequestError = useCallback((message: string): void => {
@@ -103,7 +109,7 @@ export function usePaperChatStreamReact(
         return
       }
 
-      // done/error 事件必须同步处理：取消 pending rAF，立即 setMessages 并保存
+      // done/error 事件必须同步处理：取消 pending 的 rAF，立即更新消息列表并持久化
       if (event.type === 'done' || event.type === 'error') {
         if (rafIdRef.current !== null) {
           cancelAnimationFrame(rafIdRef.current)
@@ -132,7 +138,7 @@ export function usePaperChatStreamReact(
 
       // 使用 requestAnimationFrame 节流 setMessages 调用，避免高频 IPC 事件导致 React 重渲染风暴。
       // 快速模型每秒可触发数十上百次 stream 事件，逐次 setMessages 会造成严重卡顿。
-      // rAF 确保每帧（~16ms）最多调用一次 setMessages，同时保证视觉更新不丢帧。
+      // rAF 确保每帧（~16ms）最多一次 setMessages，同时保证视觉更新不丢帧
       if (rafIdRef.current === null) {
         rafIdRef.current = requestAnimationFrame(() => {
           rafIdRef.current = null
@@ -321,10 +327,10 @@ export function usePaperChatStreamReact(
       }
 
       // 注意：不在此处清理流式 IPC 监听器。
-      // 保持监听器活跃，即使组件卸载（如切换视图），流式事件仍被处理并缓存。
-      // handler 闭包中的 ref 在卸载后仍持有有效值，可继续更新缓存和保存会话。
-      // 当组件重新挂载时，setupStreamListener 会自动替换为新的 handler。
-      // 仅在 setupStreamListener 内部（设置新 handler 前）才会清理旧监听器。
+      // 保持监听器活跃，即使组件卸载（如切换视图），流式事件仍被后台处理并缓存。
+      // handler 闭包中的 ref 在卸载后仍持有有效值，可继续更新消息缓存和保存会话。
+      // 当组件重新挂载时，setupStreamListener 会自动替换为新 handler。
+      // 仅在 setupStreamListener 内部（设置新 handler 前）清理旧监听器
     }
   }, [handleStreamEvent, messagesRef])
 

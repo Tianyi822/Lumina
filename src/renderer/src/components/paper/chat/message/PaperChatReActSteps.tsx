@@ -33,11 +33,13 @@ interface TaskGroup {
 
 const md = new MarkdownIt({ html: false, breaks: true, linkify: true, typographer: true })
 
+/** 使用 markdown-it 将文本渲染为 HTML */
 function renderMarkdown(content: string): string {
   if (!content) return ''
   return md.render(content)
 }
 
+/** 将 ReAct 步骤（tool_call/tool_result）转换为工具调用面板项的列表 */
 function stepsToToolCallItems(
   steps: ReActStep[],
   isStreaming?: boolean
@@ -77,11 +79,13 @@ function stepsToToolCallItems(
   return items
 }
 
+/** 如果后续已有最终内容，则移除推理文本末尾的结论承诺语句 */
 function trimConclusionPromise(reasoning: string, content?: string): string {
   if (content?.trim()) return reasoning
   return reasoning.replace(/[\s]*现在可以给出步骤结论[。\s]*$/, '').trimEnd()
 }
 
+/** 根据任务分组信息生成阶段的显示标签（如"阶段 1.2"） */
 function getPhaseLabel(unit: PhaseUnit, taskGroups: TaskGroup[], hasTaskGroups: boolean): string {
   if (unit.taskNumber !== undefined) {
     const group = taskGroups.find((item) => item.taskNumber === unit.taskNumber)
@@ -190,6 +194,7 @@ function PhaseUnitView({
   )
 }
 
+/** ReAct 分阶段推理展示组件，支持迭代模式（阶段时间线）和传统模式（工具调用列表） */
 export default function PaperChatReActSteps({
   steps,
   iterations,

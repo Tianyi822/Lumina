@@ -62,6 +62,7 @@ function getRenderScale(zoomLevel: number): number {
   return Math.min(PDF_RENDER_SCALE_MAX, Math.max(0.5, zoomLevel * pixelRatio))
 }
 
+/** PDF 原件查看器组件，使用 pdfjs-dist 渲染 PDF 页面，支持缩放、滚动持久化和 IntersectionObserver 懒渲染 */
 export default function PaperOriginalPdfView({ paperId }: PaperOriginalPdfViewProps) {
   const zoomLevel = usePaperViewStore((state) => state.zoomLevel)
   const handleWheelZoom = usePaperViewStore((state) => state.handleWheelZoom)

@@ -7,6 +7,7 @@ import FilePreviewDialog from './FilePreviewDialog'
 import { getFileSourceClass, getFileSourceLabel } from './utils/fileSource'
 import styles from './FileListPanel.module.css'
 
+/** 知识库关联文档列表卡片网格，支持拖拽上传、取消关联、预览和重新索引 */
 interface FileListPanelProps {
   linkedFiles: FileItem[]
   loadingFiles: boolean
@@ -25,6 +26,7 @@ interface FileListPanelProps {
   onUnlinkFile: (fileId: string) => void
 }
 
+/** 从文件名中去除扩展名 */
 function getFileNameWithoutExtension(fileName: string): string {
   const lastDotIndex = fileName.lastIndexOf('.')
   if (lastDotIndex > 0) return fileName.substring(0, lastDotIndex)

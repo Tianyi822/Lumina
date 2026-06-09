@@ -7,6 +7,7 @@ import FileItemRow from './FileItemRow'
 import FileSelectorBottomBar from './FileSelectorBottomBar'
 import styles from './ExistingFilesTab.module.css'
 
+/** 文件选择器「已有文件」Tab：列出可挂载文件，支持搜索、筛选和多选 */
 interface ExistingFilesTabProps {
   kbId: string
   linkedFileIds: string[]

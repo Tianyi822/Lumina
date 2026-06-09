@@ -1,6 +1,7 @@
 import type { FileItem } from '@renderer/types'
 import styles from './FileSelectorBottomBar.module.css'
 
+/** 文件选择器底部操作栏：显示选中数量、全选/取消全选和挂载按钮 */
 interface FileSelectorBottomBarProps {
   selectedCount: number
   hasSelectedFiles: boolean

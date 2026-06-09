@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
+/** 内容区高度过渡动画时长（ms）和回退超时 */
 const CONTENT_HEIGHT_TRANSITION_MS = 220
 const CONTENT_HEIGHT_TRANSITION_FALLBACK_MS = CONTENT_HEIGHT_TRANSITION_MS + 80
 
+/** 内容区高度动画 API，提供测量、过渡、清理等能力 */
 export interface ContentHeightAnimationAPI {
   creatorRef: React.RefObject<HTMLDivElement | null>
   contentShellRef: React.RefObject<HTMLDivElement | null>
@@ -14,6 +16,7 @@ export interface ContentHeightAnimationAPI {
   requestHeightTransition: () => void
 }
 
+/** 管理对话框内容区高度 CSS transition 动画，支持内容变化时平滑过渡 */
 export function useContentHeightAnimation(visible: boolean): ContentHeightAnimationAPI {
   const [isContentMeasured, setIsContentMeasured] = useState(false)
   const [isContentVisible, setIsContentVisible] = useState(true)
@@ -79,6 +82,7 @@ export function useContentHeightAnimation(visible: boolean): ContentHeightAnimat
     [readCreatorContentAvailableHeight]
   )
 
+  /** 临时放开 CSS 限制以读取内容实际高度，完成后恢复原样式 */
   const readCreatorContentHeight = useCallback((): number => {
     const shell = contentShellRef.current
     const inner = contentInnerRef.current
@@ -117,6 +121,7 @@ export function useContentHeightAnimation(visible: boolean): ContentHeightAnimat
     void shell.offsetHeight
   }, [setCreatorContentHeight])
 
+  /** 在下一帧设置目标高度值，触发 CSS transition */
   const animateCreatorContentHeightTo = useCallback(
     (nextHeight: number): void => {
       clearContentHeightFrame()
@@ -128,6 +133,7 @@ export function useContentHeightAnimation(visible: boolean): ContentHeightAnimat
     [clearContentHeightFrame, setCreatorContentHeight]
   )
 
+  /** 完成待处理的过渡：标记动画结束并将内容区恢复为可见 */
   const finishPendingContentTransition = useCallback((): void => {
     if (!pendingContentVisibleRef.current) return
 
@@ -145,6 +151,7 @@ export function useContentHeightAnimation(visible: boolean): ContentHeightAnimat
     animateCreatorContentHeightTo(nextHeight)
   }, [animateCreatorContentHeightTo, lockCreatorContentHeight, readCreatorContentHeight])
 
+  /** 监听内容区尺寸变化，非过渡期自动同步高度 */
   const observeCreatorContent = useCallback((): void => {
     contentResizeObserverRef.current?.disconnect()
     clearContentResizeFrame()
@@ -169,6 +176,7 @@ export function useContentHeightAnimation(visible: boolean): ContentHeightAnimat
     visible
   ])
 
+  /** 初始化内容区高度：双 RAF 确保 DOM 布局稳定后再测量 */
   const initializeCreatorContentHeight = useCallback((): void => {
     clearContentHeightFrame()
     contentHeightFrameRef.current = window.requestAnimationFrame(() => {
@@ -181,6 +189,7 @@ export function useContentHeightAnimation(visible: boolean): ContentHeightAnimat
     })
   }, [clearContentHeightFrame, observeCreatorContent, syncCreatorContentHeight])
 
+  /** 执行内容区高度过渡动画：锁定当前高度 → 测量新高度 → 触发 CSS transition */
   const transitionCreatorContentHeight = useCallback((): void => {
     if (!visible) return
 

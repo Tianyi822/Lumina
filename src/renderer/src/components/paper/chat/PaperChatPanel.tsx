@@ -18,6 +18,7 @@ interface PaperChatPanelProps {
   paper: PaperDocument
 }
 
+/** 从消息列表中获取最后一条有实际内容的 assistant 消息（跳过流式未完成的） */
 function getLatestAssistantMessage(messages: Message[]): Message | null {
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     const message = messages[index]
@@ -28,6 +29,7 @@ function getLatestAssistantMessage(messages: Message[]): Message | null {
   return null
 }
 
+/** 论文对话主面板组件，管理会话生命周期、消息流式传输和快速回复 */
 export default function PaperChatPanel({ paper }: PaperChatPanelProps) {
   const notify = useNotification()
   const { scrollToQuote } = usePaperQuoteContext()
@@ -77,7 +79,7 @@ export default function PaperChatPanel({ paper }: PaperChatPanelProps) {
       return null
     }
 
-    // 如果最新消息之前有工具调用消息（搜索、ReAct 工具等），跳过 option 解析
+    // 如果最新消息之前有工具调用（搜索、ReAct 等），跳过 option 解析，直接展示工具结果
     const messages = sessionState.messages
     const latestIndex = messages.findIndex((m) => m.id === latestMessage.id)
     if (latestIndex > 0) {
@@ -115,7 +117,7 @@ export default function PaperChatPanel({ paper }: PaperChatPanelProps) {
     })
   }, [sessionState.messages])
 
-  // 监听 composer 高度变化，动态注入 CSS 变量用于消息列表底部 padding 补偿
+  // 监听输入区域高度变化，通过 CSS 变量动态补偿消息列表底部内边距，防止内容被输入区遮挡
   useEffect(() => {
     const composer = composerRef.current
     const panel = panelRef.current

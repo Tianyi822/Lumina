@@ -1,6 +1,7 @@
 import { Component } from 'react'
 import type { ErrorInfo, ReactNode } from 'react'
 
+/** 错误边界组件：捕获子组件渲染错误，展示错误信息并提供重新加载按钮 */
 interface Props {
   children: ReactNode
 }

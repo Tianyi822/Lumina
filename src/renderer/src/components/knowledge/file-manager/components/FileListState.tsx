@@ -2,6 +2,7 @@ import { type ReactNode } from 'react'
 import { useFileStore } from '@renderer/stores'
 import styles from './FileListState.module.css'
 
+/** 文件列表状态容器：处理加载中、空列表和正常列表三种状态的展示 */
 interface FileListStateProps {
   children: ReactNode
 }

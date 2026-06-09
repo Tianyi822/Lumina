@@ -1,6 +1,7 @@
 import { useFileStore } from '@renderer/stores'
 import styles from './FileManagerToolbar.module.css'
 
+/** 文件管理器工具栏：包含搜索输入框和文件总数统计 */
 export default function FileManagerToolbar() {
   const searchQuery = useFileStore((s) => s.searchQuery)
   const searchFiles = useFileStore((s) => s.searchFiles)

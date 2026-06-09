@@ -6,6 +6,7 @@ import {
   type PaperChatRevealState
 } from './paperChatStreamingRevealCore'
 
+/** 流式文本逐字符揭示动画 Hook，通过定时器逐步增加显示长度模拟打字效果 */
 export function usePaperChatStreamingReveal(
   content: string,
   isStreaming?: boolean

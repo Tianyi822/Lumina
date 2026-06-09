@@ -1,9 +1,4 @@
-/**
- * 工具统计 React Hook
- *
- * 从 Vue composable useToolStats.ts 翻译而来，保持完全相同的逻辑和状态结构。
- * 消费 toolStatsCore.ts 的 buildTimeRange / computeOverviewMetrics 纯函数。
- */
+/** 工具调用统计 Hook：管理时间范围筛选、排序、展开详情和概览指标计算 */
 
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import type { ToolStatsSummary, ToolStatsCategory, TimeRange } from '@shared/types/tool-stats'

@@ -15,6 +15,7 @@ interface FloatingAnchorRect {
   width: number
 }
 
+/** 将数值限制在 [min, max] 范围内，若 max <= min 则仅返回 min */
 function clamp(value: number, min: number, max: number): number {
   if (max <= min) {
     return min
@@ -23,6 +24,7 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value))
 }
 
+/** 将浮动面板位置限制在视窗边界内，确保不超出屏幕边缘 */
 export function clampFloatingPosition(
   x: number,
   y: number,
@@ -39,6 +41,7 @@ export function clampFloatingPosition(
   }
 }
 
+/** 计算浮动面板的最佳出现位置，优先显示在选区下方，下方空间不足时显示在上方 */
 export function computeFloatingPosition(
   rect: FloatingAnchorRect,
   width: number,

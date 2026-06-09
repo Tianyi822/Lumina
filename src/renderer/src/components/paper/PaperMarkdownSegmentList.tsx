@@ -218,6 +218,7 @@ const PaperMarkdownSegmentItem = memo(
   }
 )
 
+/** 虚拟化段落列表组件，渲染论文段落（含原文/译文、翻译进度和重翻确认对话框） */
 const PaperMarkdownSegmentList = forwardRef<
   PaperMarkdownSegmentListHandle,
   PaperMarkdownSegmentListProps

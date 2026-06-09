@@ -7,6 +7,7 @@ import { CssTransitionGroup } from '@renderer/components/motion/CssTransition'
 import { getSidebarListItemMotionStyle } from '@renderer/utils/sidebarListMotion'
 
 /** 侧栏展示名：SSH 实验室去掉「用户名@」前缀，仅保留主机地址 */
+/** 从 lab.name 中提取显示名：SSH 类型去除「用户名@」前缀 */
 function getLabDisplayName(lab: LabListItem): string {
   if (lab.creationType !== 'ssh') return lab.name
 
@@ -15,6 +16,7 @@ function getLabDisplayName(lab: LabListItem): string {
   return lab.name.slice(atIndex + 1)
 }
 
+/** 将 LabStatus 枚举映射为中文状态标签 */
 function getStatusLabel(status: LabStatus): string {
   const sshLabels: Record<LabStatus, string> = {
     creating: '连接中',
@@ -25,6 +27,7 @@ function getStatusLabel(status: LabStatus): string {
   return sshLabels[status] || status
 }
 
+/** 实验室侧栏列表，支持选中高亮、删除状态和入场动画 */
 interface LabListProps {
   labs: LabListItem[]
   activeLabId?: string

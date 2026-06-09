@@ -6,6 +6,7 @@ import ModalPortal from '@renderer/components/ui/ModalPortal'
 import { useContentHeightAnimation } from './hooks/useContentHeightAnimation'
 import styles from './LabCreator.module.css'
 
+/** SSH 连接创建对话框，提供表单填写主机/端口/认证信息并测试连接 */
 interface LabCreatorProps {
   visible: boolean
   onClose: () => void
@@ -16,6 +17,7 @@ export default function LabCreator({ visible, onClose }: LabCreatorProps) {
   const notify = useNotification()
 
   const [isTestingSsh, setIsTestingSsh] = useState(false)
+  // 记录上一个 visible 状态，避免重复初始化
   const wasVisibleRef = useRef(false)
 
   const {
@@ -28,6 +30,7 @@ export default function LabCreator({ visible, onClose }: LabCreatorProps) {
     requestHeightTransition
   } = useContentHeightAnimation(visible)
 
+  // 对话框打开时初始化 SSH 表单状态，关闭时重置跟踪标记
   useEffect(() => {
     if (!visible) {
       wasVisibleRef.current = false
@@ -43,6 +46,7 @@ export default function LabCreator({ visible, onClose }: LabCreatorProps) {
     creatorState.clearCreateError()
   }, [visible])
 
+  /** 测试 SSH 连接有效性，连接成功/失败均通过通知反馈 */
   async function testSshConnection(): Promise<void> {
     const ssh = creatorStore.sshConfig
     if (!ssh?.host?.trim() || !ssh?.username?.trim()) {
@@ -78,6 +82,7 @@ export default function LabCreator({ visible, onClose }: LabCreatorProps) {
   const canCreate = creatorStore.getCanCreate()
   const sshConfig = creatorStore.sshConfig
 
+  // 内容变化时触发高度过渡动画（错误提示/认证方式切换等）
   useLayoutEffect(() => {
     if (!visible || !isContentMeasured) return
     requestHeightTransition()

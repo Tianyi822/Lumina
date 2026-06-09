@@ -10,6 +10,7 @@ import type { FileItem } from '@renderer/types'
 const SUPPORTED_TYPES = [...SUPPORTED_DOCUMENT_EXTENSIONS]
 const MAX_FILE_SIZE = 50 * 1024 * 1024
 
+/** 文件上传结果：成功上传的、已存在的重复文件、错误信息 */
 export interface UploadResult {
   uploaded: FileItem[]
   duplicates: FileItem[]
@@ -22,6 +23,7 @@ export interface UploadOptions {
   onUploadComplete?: (result: UploadResult) => void
 }
 
+/** 文件拖拽/选择上传 Hook，支持格式校验、大小限制和自动挂载知识库 */
 export function useFileUpload(options?: UploadOptions) {
   const fileStore = useFileStore()
   const notify = useNotification()

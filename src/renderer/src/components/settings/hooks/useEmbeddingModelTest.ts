@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react'
 
+/** 嵌入模型测试流程：临时保存 → 测试连接 → 删除临时配置 */
 interface SaveResult {
   success: boolean
   error?: string

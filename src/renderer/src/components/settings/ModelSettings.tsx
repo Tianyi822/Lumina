@@ -14,6 +14,7 @@ const MODEL_FIELD_LABELS: Record<'base_url' | 'api_key' | 'model_name', string> 
 
 const EMPTY_NEW_MODEL: LLMConfig = { base_url: '', api_key: '', model_name: '' }
 
+/** 对话模型配置页面：管理 LLM 列表、默认模型、新增/删除/测试连接 */
 export default function ModelSettings() {
   // Zustand selectors
   const llmConfigs = useConfigStore((s) => s.llmConfigs)
@@ -23,14 +24,14 @@ export default function ModelSettings() {
   const updateDefaultModel = useConfigStore((s) => s.updateDefaultModel)
   const notifyConfigUpdate = useUIStateStore((s) => s.notifyConfigUpdate)
 
-  // UI 状态
+  // UI 状态：展开的模型索引集合、新增表单、测试中的索引
   const [expandedModels, setExpandedModels] = useState<Set<number>>(new Set())
   const [showNewModelForm, setShowNewModelForm] = useState(false)
   const [newModelConfig, setNewModelConfig] = useState<LLMConfig>({ ...EMPTY_NEW_MODEL })
   const [testingModelIndex, setTestingModelIndex] = useState<number | null>(null)
   const [testingNewModel, setTestingNewModel] = useState(false)
 
-  // Auto-save 互斥锁
+  // Auto-save 互斥锁，防止并发保存
   const autoSavePending = useRef(false)
   const autoSaveRunning = useRef(false)
 

@@ -22,6 +22,7 @@ function validateDimension(value: string): string {
   return ''
 }
 
+/** 嵌入模型新增/编辑表单，包含显示名称、API URL/Key、模型名和向量维度 */
 export default function EmbeddingModelForm({
   existingNames,
   editingName,

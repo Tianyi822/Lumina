@@ -6,6 +6,7 @@ export interface PaperChatRevealState {
   isRevealing: boolean
 }
 
+/** 计算下一次揭示字符时应该展示到的长度（逐块递增，不超过总长度） */
 export function getNextPaperChatRevealLength(
   currentLength: number,
   contentLength: number,
@@ -15,6 +16,7 @@ export function getNextPaperChatRevealLength(
   return Math.min(contentLength, safeCurrentLength + chunkSize)
 }
 
+/** 根据当前揭示进度推导应该显示的文本内容和是否仍在揭示中 */
 export function derivePaperChatRevealState(
   content: string,
   revealedLength: number,

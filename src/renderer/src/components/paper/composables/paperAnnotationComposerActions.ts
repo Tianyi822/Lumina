@@ -50,9 +50,11 @@ export interface PaperAnnotationComposerActions {
   ) => Promise<{ success: boolean; error?: string }>
 }
 
+/** 创建批注操作器的工厂函数，提供持久化、删除、升级高亮为笔记等操作 */
 export function createPaperAnnotationComposerActions(
   options: PaperAnnotationComposerActionsOptions
 ): PaperAnnotationComposerActions {
+  /** 构建翻译锚点负载，附带当前翻译版本 ID 和模型名 */
   function createTranslationAnchorPayload(
     anchor: PaperAnnotationTextAnchor | undefined
   ): CreatePaperAnnotationPayload['translationAnchor'] {
@@ -208,7 +210,7 @@ export function createPaperAnnotationComposerActions(
       return { success: false, error: createResult.error || '创建笔记失败' }
     }
 
-    // 先创建成功后再删除原 highlight，保证数据不丢失
+    // 先创建笔记成功后删除原高亮，保证数据不丢失
     const deleteResult = await options.deleteAnnotation(options.paperId(), annotation.id)
     if (!deleteResult.success) {
       return { success: false, error: deleteResult.error || '删除原标记失败' }

@@ -3,6 +3,7 @@ import { notifySuccess, notifyError } from '@renderer/composables/notificationCo
 import { useKnowledgeMCP } from './hooks/useKnowledgeMCP'
 import styles from './KnowledgeMCPSettings.module.css'
 
+/** 知识库 MCP 服务设置页：启动/停止 MCP 服务，展示服务端配置 JSON */
 export default function KnowledgeMCPSettings() {
   const {
     status,

@@ -147,6 +147,7 @@ function buildResizedRect(state: ResizeState, event: MouseEvent): PaperFigurePre
   return normalizePreviewRect(rect)
 }
 
+/** 论文图片预览浮动面板组件，支持拖拽移动、缩放大小、钉住、键盘导航和翻译图注切换 */
 export default function PaperFigurePreview() {
   const currentPaperId = usePaperListStore((state) => state.currentPaperId)
   const activeFigure = usePaperFigureStore((state) => state.activeFigure)

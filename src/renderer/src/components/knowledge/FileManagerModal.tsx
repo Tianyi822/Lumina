@@ -18,10 +18,7 @@ interface FileManagerModalProps {
   onClose: () => void
 }
 
-/**
- * 文件管理器弹窗
- * 管理文件上传、列表展示、搜索、删除、预览等功能
- */
+/** 文件管理器弹窗：管理文件上传、列表展示、搜索、删除、预览等功能 */
 function FileManagerModal({ onClose }: FileManagerModalProps) {
   const loadFiles = useFileStore((s) => s.loadFiles)
   const filteredFiles = useFileStore((s) => s.filteredFiles())

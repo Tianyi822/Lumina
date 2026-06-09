@@ -27,6 +27,7 @@ interface PaperChatToolSelectionBarProps {
 
 type AccordionSection = 'kb' | 'mcp'
 
+/** 输入工具栏组件，包含附件上传、搜索开关、实验室开关、知识库/MCP 手风琴面板和发送按钮 */
 export default function PaperChatToolSelectionBar({
   isSending,
   disabled,

@@ -10,6 +10,7 @@ import {
 } from '../../utils/fileSource'
 import styles from './FileCard.module.css'
 
+/** 文件资源池中的单行卡片，展示文件信息、来源标签和删除操作 */
 interface FileCardProps {
   file: FileItem
   isDeleting?: boolean
@@ -17,6 +18,7 @@ interface FileCardProps {
   onPreview: (file: FileItem) => void
 }
 
+/** 从文件名中去除扩展名 */
 function getFileNameWithoutExtension(fileName: string): string {
   const lastDotIndex = fileName.lastIndexOf('.')
   if (lastDotIndex > 0) return fileName.substring(0, lastDotIndex)

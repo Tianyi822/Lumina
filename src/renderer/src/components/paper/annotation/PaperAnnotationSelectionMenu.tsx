@@ -12,6 +12,7 @@ interface PaperAnnotationSelectionMenuProps {
   onAddToChat: () => void
 }
 
+/** 文本选中后的浮动操作菜单组件，提供高亮、记笔记和添加到对话等功能 */
 export default function PaperAnnotationSelectionMenu({
   state,
   highlightColorOptions,

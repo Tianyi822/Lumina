@@ -14,6 +14,7 @@ function toolKey(tool: MCPTool): string {
   return `${tool.serverName}::${tool.name}`
 }
 
+/** MCP 工具选择面板组件，按服务器分组展示工具，支持搜索、多选和高亮动画 */
 export default function PaperChatMcpToolsPanel({
   selectedTools = [],
   compact,

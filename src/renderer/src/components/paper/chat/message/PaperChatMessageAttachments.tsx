@@ -16,6 +16,7 @@ interface PaperChatMessageAttachmentsProps {
 
 const QUOTE_PREVIEW_MAX_LENGTH = 42
 
+/** 生成引文的显示标签，按视图类型（原文/译文）独立编号 */
 function getQuoteLabel(quotes: PaperQuote[], quote: PaperQuote, index: number): string {
   const quoteIndex = quotes
     .slice(0, index + 1)
@@ -24,6 +25,7 @@ function getQuoteLabel(quotes: PaperQuote[], quote: PaperQuote, index: number): 
   return `${viewLabel} ${quoteIndex}`
 }
 
+/** 截取引文选中文本的前 42 个字符作为预览 */
 function getQuotePreview(quote: PaperQuote): string {
   const normalizedText = quote.selectedText.replace(/\s+/g, ' ').trim()
   if (normalizedText.length <= QUOTE_PREVIEW_MAX_LENGTH) {
@@ -32,6 +34,7 @@ function getQuotePreview(quote: PaperQuote): string {
   return `${normalizedText.slice(0, QUOTE_PREVIEW_MAX_LENGTH)}...`
 }
 
+/** 消息附件展示组件，以徽章状卡片呈现文档、引文和图片三种附件 */
 export default function PaperChatMessageAttachments({
   attachments,
   onQuoteClick

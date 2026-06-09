@@ -10,11 +10,7 @@ interface MCPSettingsProps {
   onMcpUpdated?: () => void
 }
 
-/**
- * MCP 服务配置设置页
- *
- * 管理外部工具链连接，支持添加/编辑/删除/连接/断开/测试/JSON 导入。
- */
+/** MCP 服务配置设置页：管理外部工具链连接，支持添加/编辑/删除/连接/断开/测试/JSON 导入 */
 export default function MCPSettings({ onMcpUpdated }: MCPSettingsProps) {
   // Zustand selectors
   const configs = useMCPStore((s) => s.configs)

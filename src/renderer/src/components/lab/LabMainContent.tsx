@@ -8,6 +8,7 @@ import LabTerminalTab from './LabTerminalTab'
 import type { LabData } from '@renderer/types/lab'
 import styles from './LabMainContent.module.css'
 
+/** 实验室主内容区：展示详情/空状态，管理 SSH 连接和标签页切换 */
 interface LabMainContentProps {
   currentLab: LabData | null
 }
@@ -15,20 +16,23 @@ interface LabMainContentProps {
 export default function LabMainContent({ currentLab }: LabMainContentProps) {
   const labStore = useLabStore()
 
+  // 读取当前实验室 ID 及其激活的详情 Tab，默认为 stats（监控面板）
   const currentLabId = currentLab?.labId ?? null
   const labDetailTab = useUIStateStore((s) =>
     currentLabId ? (s.labDetailTabsByLabId[currentLabId] ?? 'stats') : 'stats'
   )
 
   const isSshConnected = currentLab?.status === 'running'
+  // 正在重新连接 SSH 的状态
   const [isConnectingSsh, setIsConnectingSsh] = useState(false)
   const [sshReconnectPassword, setSshReconnectPassword] = useState('')
 
+  // 切换实验室时清空密码缓存
   useEffect(() => {
     setSshReconnectPassword('')
   }, [currentLab?.labId])
 
-  // 监听 SSH 连接状态
+  // 监听 SSH 连接状态变化，自动刷新实验室详情
   useEffect(() => {
     const removeListener = window.api.ssh?.onConnectionStatus((event) => {
       if (event.labId === currentLab?.labId) {
@@ -40,6 +44,7 @@ export default function LabMainContent({ currentLab }: LabMainContentProps) {
     }
   }, [currentLab?.labId, labStore])
 
+  /** 发起 SSH 重新连接，连接成功后刷新实验室数据和清空密码 */
   async function handleSshConnect(): Promise<void> {
     const labId = currentLab?.labId
     const ssh = currentLab?.ssh
@@ -64,6 +69,7 @@ export default function LabMainContent({ currentLab }: LabMainContentProps) {
     }
   }
 
+  /** 格式化时间戳为中文字符串，用于头部最近更新时间显示 */
   function formatDateTime(value?: string): string {
     if (!value) return '-'
     return new Date(value).toLocaleString('zh-CN', {

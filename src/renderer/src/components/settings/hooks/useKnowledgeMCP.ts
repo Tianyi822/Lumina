@@ -8,6 +8,7 @@ const DEFAULT_STATUS: KnowledgeMCPServerStatus = {
   url: ''
 }
 
+/** 知识库 MCP 服务管理：状态获取、启动/停止、配置更新和状态变更监听 */
 export function useKnowledgeMCP() {
   const [status, setStatus] = useState<KnowledgeMCPServerStatus>(DEFAULT_STATUS)
   const [config, setConfig] = useState('')

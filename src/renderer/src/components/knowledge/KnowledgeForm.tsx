@@ -3,12 +3,14 @@ import type { EmbeddingConfig } from '@shared/types/config'
 import ModalPortal from '@renderer/components/ui/ModalPortal'
 import styles from './KnowledgeForm.module.css'
 
+/** 预置文本分块策略：精细检索/平衡模式/长上下文 */
 const chunkStrategies = [
   { name: '精细检索', size: 500, overlap: 100, desc: '适合代码、法律条文，精确匹配' },
   { name: '平衡模式', size: 1000, overlap: 200, desc: '通用场景，推荐' },
   { name: '长上下文', size: 2000, overlap: 400, desc: '适合论文、小说，保持段落完整' }
 ]
 
+/** 知识库创建表单提交数据 */
 interface KnowledgeFormSubmitData {
   name: string
   description: string
@@ -29,6 +31,7 @@ interface KnowledgeFormProps {
   onCancel: () => void
 }
 
+/** 知识库创建模态框，包含名称、嵌入模型选择和分块策略配置 */
 export default function KnowledgeForm({ onSubmit, onCancel }: KnowledgeFormProps) {
   const [embeddingModels, setEmbeddingModels] = useState<Record<string, EmbeddingConfig>>({})
   const [loadingModels, setLoadingModels] = useState(true)

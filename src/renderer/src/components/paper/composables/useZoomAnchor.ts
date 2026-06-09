@@ -3,6 +3,7 @@ export interface ZoomAnchor {
   offsetRatio: number
 }
 
+/** 从容器视口中心位置捕获锚点（stableId + 偏移比例）用于缩放后恢复 */
 export function captureAnchor(container: HTMLElement): ZoomAnchor | null {
   const containerRect = container.getBoundingClientRect()
   const centerX = containerRect.left + containerRect.width / 2
@@ -30,6 +31,7 @@ export function captureAnchor(container: HTMLElement): ZoomAnchor | null {
   }
 }
 
+/** 根据锚点恢复容器滚动位置，将锚点段对齐到缩放前的视口位置 */
 export function restoreAnchor(container: HTMLElement, anchor: ZoomAnchor): void {
   const containerRect = container.getBoundingClientRect()
   const viewportCenterY = containerRect.top + containerRect.height / 2
@@ -59,6 +61,7 @@ export interface ZoomAnchorController {
   getAnchor(): ZoomAnchor | null
 }
 
+/** 缩放锚点控制器 Hook，在缩放过程中捕获和恢复视口位置 */
 export function useZoomAnchor(): ZoomAnchorController {
   let zooming = false
   let anchor: ZoomAnchor | null = null

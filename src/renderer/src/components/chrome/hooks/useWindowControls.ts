@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 
+/** 窗口控制 Hook：最小化/最大化/关闭，同步最大化状态变更 */
 export function useWindowControls() {
   const [isMaximized, setIsMaximized] = useState(false)
 

@@ -34,19 +34,25 @@ interface UsePaperChatSessionReactReturn {
   setError: (message: string) => void
 }
 
+/** 深度克隆会话数据，消除 Proxy/引用以确保序列化安全 */
 function toPlainSessionData(sessionData: SessionData): SessionData {
   return deepClone(sessionData)
 }
 
+/** 判断消息是否为旧版论文全文上下文消息（需过滤的遗留格式） */
 function isLegacyPaperFulltextContext(message: Pick<Message, 'hidden' | 'contextKind'>): boolean {
   return message.hidden === true && message.contextKind === 'paper_fulltext'
 }
 
+/** 过滤掉旧版论文全文上下文消息，若无过滤则不创建新数组 */
 function removeLegacyPaperFulltextMessages(messages: Message[]): Message[] {
   const filtered = messages.filter((message) => !isLegacyPaperFulltextContext(message))
   return filtered.length === messages.length ? messages : filtered
 }
 
+/**
+ * 论文聊天会话管理的核心 Hook，处理会话创建/加载/切换、消息缓存、选择状态持久化
+ */
 export function usePaperChatSessionReact(
   paper: PaperDocument | null | undefined
 ): UsePaperChatSessionReactReturn {
@@ -126,7 +132,7 @@ export function usePaperChatSessionReact(
       return true
     })
 
-    // 串行保存，避免 done 事件快照覆盖随后补写 modelTranscript 的快照。
+    // 串行化保存操作，防止 done 事件的快照覆盖后续 modelTranscript 补写的快照
     saveQueueRef.current = saveTask.then(
       () => undefined,
       () => undefined

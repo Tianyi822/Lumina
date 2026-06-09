@@ -1,6 +1,7 @@
 import { useUIStateStore, type LabDetailTab } from '@renderer/stores/uiStateStore'
 import styles from './TabNavigation.module.css'
 
+/** 实验室详情 Tab 导航，支持监控/终端/日志标签页切换 */
 interface TabNavigationProps {
   visible: boolean
   showLogs?: boolean

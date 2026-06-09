@@ -7,6 +7,7 @@ import EmbeddingModelForm from '../embedding/EmbeddingModelForm'
 import { useEmbeddingModelTest } from './hooks/useEmbeddingModelTest'
 import styles from './EmbeddingModelSettings.module.css'
 
+/** 嵌入模型配置页面：管理向量模型的新增、编辑、删除和连接测试 */
 export default function EmbeddingModelSettings() {
   // Zustand selectors
   const embeddingModels = useKnowledgeStore((s) => s.embeddingModels)
@@ -16,7 +17,7 @@ export default function EmbeddingModelSettings() {
   const deleteEmbeddingModel = useKnowledgeStore((s) => s.deleteEmbeddingModel)
   const testEmbeddingModel = useKnowledgeStore((s) => s.testEmbeddingModel)
 
-  // UI 状态
+  // UI 状态：添加表单、测试中的模型 ID、编辑中的模型 ID 和配置
   const [showAddForm, setShowAddForm] = useState(false)
   const [testingModelId, setTestingModelId] = useState<string | null>(null)
   const [editingModelId, setEditingModelId] = useState<string | null>(null)

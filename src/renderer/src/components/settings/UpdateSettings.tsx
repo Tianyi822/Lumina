@@ -6,6 +6,7 @@ import styles from './UpdateSettings.module.css'
 const currentVersion = __APP_VERSION__
 const isDev = import.meta.env.DEV
 
+/** 自动更新设置页面：检查更新、下载进度、版本历史和手动安装 */
 export default function UpdateSettings() {
   const status = useUpdateStore((s) => s.status)
   const progress = useUpdateStore((s) => s.progress)

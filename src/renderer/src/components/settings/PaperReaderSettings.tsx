@@ -12,6 +12,7 @@ import {
 } from '@shared/types/config'
 import styles from './PaperReaderSettings.module.css'
 
+/** 论文阅读设置页：OCR 服务商配置、API Key 管理和翻译模型选择 */
 export default function PaperReaderSettings() {
   const [localConfig, setLocalConfig] = useState<PaperReaderConfig>({
     ocr: { provider: DEFAULT_OCR_PROVIDER }

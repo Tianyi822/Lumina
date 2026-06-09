@@ -169,6 +169,7 @@ function scrollToQuoteAndHighlight(quote: PaperQuote): void {
   }, QUOTE_HIGHLIGHT_DURATION_MS)
 }
 
+/** 引文高亮控制器 Hook，滚动到引文位置并临时高亮匹配文本，8 秒后自动消失 */
 export function usePaperQuoteHighlight(): PaperQuoteHighlightController {
   return { scrollToQuoteAndHighlight }
 }
