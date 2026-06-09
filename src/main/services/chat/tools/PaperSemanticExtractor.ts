@@ -1,5 +1,6 @@
 import type { PaperSemanticContext } from './PipelineTypes'
 
+/** 英文停用词集合 */
 const EN_STOP_WORDS = new Set([
   'a', 'an', 'the', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
   'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could',
@@ -25,7 +26,17 @@ const ZH_STOP_CHARS = new Set([
   '该', '各', '本', '这', '那', '此', '个', '中', '上', '下', '里', '间',
 ])
 
+/**
+ * 论文语义提取器
+ * 从论文标题中提取关键词，用于增强知识库搜索的语义相关性
+ */
 export class PaperSemanticExtractor {
+  /**
+   * 从论文标题中提取关键词
+   * 英文单词过滤停用词后保留，中文文本按虚词分段后生成 2-4 字 n-gram
+   * @param title 论文标题
+   * @returns 去重后的关键词列表
+   */
   extractKeywords(title: string): string[] {
     if (!title) return []
 
@@ -57,6 +68,12 @@ export class PaperSemanticExtractor {
     return [...new Set(keywords)]
   }
 
+  /**
+   * 从论文对象中提取完整的语义上下文
+   * @param paperId 论文 ID
+   * @param paper 论文对象（可能为 null）
+   * @returns 论文语义上下文
+   */
   async extract(
     paperId: string,
     paper: { title?: string; abstract?: string } | null
@@ -74,6 +91,10 @@ export class PaperSemanticExtractor {
     }
   }
 
+  /**
+   * 按中文虚词切分字符串，得到有意义的片段
+   * 过滤掉单字符残留，仅保留长度 >= 2 的片段
+   */
   private splitChineseByStopWords(text: string): string[] {
     const segments: string[] = []
     let current = ''

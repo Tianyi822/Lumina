@@ -5,9 +5,13 @@ import { labToolService } from '../../../lab'
 
 /**
  * 实验室工具适配器
- * 薄封装层，将 LabToolService 适配为统一的 ToolAdapter 接口
+ * 将 LabToolService 适配为统一的 ToolAdapter 接口。
+ * 提供命令执行、容器管理、SSH 连接等实验室工具的调用能力。
  */
 export class LabToolAdapter implements ToolAdapter {
+  /**
+   * 获取实验室工具列表（从 LabToolService 获取）
+   */
   async getTools(): Promise<MCPToolReference[]> {
     return labToolService.getTools().map((tool) => ({
       serverName: tool.serverName || 'lab',
@@ -17,6 +21,11 @@ export class LabToolAdapter implements ToolAdapter {
     }))
   }
 
+  /**
+   * 执行实验室工具调用
+   * 支持进度回调（如命令执行过程中的实时输出）
+   * @param onProgress 执行进度回调（可选）
+   */
   async execute(
     toolName: string,
     args: Record<string, unknown>,

@@ -7,14 +7,18 @@ import { KnowledgeService } from './KnowledgeService'
 import { readKnowledgeBases, writeKnowledgeBases } from './KnowledgeService'
 import { initializeKnowledgeStorage } from './knowledgePaths'
 
-// 知识库索引状态接口
+/**
+ * 知识库索引状态接口
+ */
 export interface KnowledgeBaseIndexingStatus {
   isIndexing: boolean
   indexingFiles: string[]
   fileProgress: Map<string, FileProcessingProgress>
 }
 
-// 索引任务队列项
+/**
+ * 索引任务队列项
+ */
 interface IndexingTask {
   kbId: string
   task: () => Promise<unknown>
@@ -34,7 +38,10 @@ export class KnowledgeServiceManager {
   private isProcessingIndexing: boolean = false
   private activeIndexingKbId: string | null = null
 
-  // 初始化
+  /**
+   * 初始化知识库服务管理器
+   * 创建必要的存储目录
+   */
   initialize(): void {
     try {
       initializeKnowledgeStorage()
@@ -47,7 +54,9 @@ export class KnowledgeServiceManager {
     }
   }
 
-  // 获取所有知识库
+  /**
+   * 获取所有知识库
+   */
   async getAllKnowledgeBases(): Promise<KnowledgeBase[]> {
     if (!this.loaded) {
       this.initialize()
@@ -55,7 +64,10 @@ export class KnowledgeServiceManager {
     return await readKnowledgeBases()
   }
 
-  // 根据ID获取知识库
+  /**
+   * 根据 ID 获取知识库
+   * @param id 知识库 ID
+   */
   async getKnowledgeBaseById(id: string): Promise<KnowledgeBase | null> {
     if (!this.loaded) {
       this.initialize()
@@ -64,7 +76,10 @@ export class KnowledgeServiceManager {
     return knowledgeBases.find((kb) => kb.id === id) || null
   }
 
-  // 创建知识库
+  /**
+   * 创建知识库
+   * @param data 知识库数据（不含 id/createdAt/updatedAt）
+   */
   async createKnowledgeBase(
     data: Omit<KnowledgeBase, 'id' | 'createdAt' | 'updatedAt'>
   ): Promise<KnowledgeBase> {
@@ -87,7 +102,11 @@ export class KnowledgeServiceManager {
     return newKB
   }
 
-  // 更新知识库
+  /**
+   * 更新知识库
+   * @param id 知识库 ID
+   * @param updates 更新字段
+   */
   async updateKnowledgeBase(
     id: string,
     updates: Partial<Omit<KnowledgeBase, 'id' | 'createdAt'>>
@@ -124,6 +143,13 @@ export class KnowledgeServiceManager {
     return updatedKB
   }
 
+  /**
+   * 标记知识库需要重新索引
+   * 当关联文件发生变化时，将知识库标记为需要重新索引
+   * @param kbIds 需要重新索引的知识库 ID 列表
+   * @param invalidatedFile 失效的文件信息
+   * @returns 受影响的知识库列表
+   */
   async markKnowledgeBasesNeedReindex(
     kbIds: string[],
     invalidatedFile: KnowledgeIndexInvalidatedFile
@@ -189,6 +215,10 @@ export class KnowledgeServiceManager {
     return affectedKnowledgeBases
   }
 
+  /**
+   * 清除知识库的索引失效标记
+   * @param kbId 知识库 ID
+   */
   async clearKnowledgeBaseInvalidation(kbId: string): Promise<KnowledgeBase | null> {
     if (!this.loaded) {
       this.initialize()
@@ -221,6 +251,11 @@ export class KnowledgeServiceManager {
     return updatedKB
   }
 
+  /**
+   * 清除知识库中特定文件的索引失效标记
+   * @param kbId 知识库 ID
+   * @param fileId 文件 ID
+   */
   async clearKnowledgeBaseFileInvalidation(
     kbId: string,
     fileId: string
@@ -398,7 +433,12 @@ export class KnowledgeServiceManager {
     return cancelledCount
   }
 
-  // 获取或创建知识库服务实例
+  /**
+   * 获取或创建知识库服务实例
+   * 如果实例已存在则更新配置并返回，否则创建新实例
+   * @param kbId 知识库 ID
+   * @param kbData 知识库数据
+   */
   getOrCreateInstance(kbId: string, kbData: KnowledgeBase): KnowledgeService {
     if (this.instances.has(kbId)) {
       const existing = this.instances.get(kbId)!
@@ -413,12 +453,19 @@ export class KnowledgeServiceManager {
     return instance
   }
 
-  // 获取知识库服务实例
+  /**
+   * 获取知识库服务实例
+   * @param kbId 知识库 ID
+   */
   getInstance(kbId: string): KnowledgeService | undefined {
     return this.instances.get(kbId)
   }
 
-  // 移除知识库服务实例
+  /**
+   * 移除知识库服务实例
+   * 清理实例资源并从内存中移除
+   * @param kbId 知识库 ID
+   */
   removeInstance(kbId: string): void {
     const instance = this.instances.get(kbId)
     if (instance) {
@@ -428,7 +475,9 @@ export class KnowledgeServiceManager {
     }
   }
 
-  // 清理所有知识库服务实例
+  /**
+   * 清理所有知识库服务实例
+   */
   clearAll(): void {
     for (const [kbId, instance] of this.instances) {
       instance.cleanup()
@@ -438,7 +487,10 @@ export class KnowledgeServiceManager {
     logger.info('所有知识库服务实例已清理', 'main')
   }
 
-  // 获取指定知识库的活跃状态
+  /**
+   * 获取指定知识库的活跃状态
+   * @param kbId 知识库 ID
+   */
   getActiveStatus(kbId: string): KnowledgeBaseIndexingStatus | null {
     const instance = this.instances.get(kbId)
     if (!instance) {
@@ -462,7 +514,9 @@ export class KnowledgeServiceManager {
     }
   }
 
-  // 获取所有知识库的活跃状态
+  /**
+   * 获取所有知识库的活跃状态
+   */
   getAllActiveStatus(): Map<string, KnowledgeBaseIndexingStatus> {
     const statusMap = new Map<string, KnowledgeBaseIndexingStatus>()
 
@@ -486,27 +540,38 @@ export class KnowledgeServiceManager {
     return statusMap
   }
 
-  // 检查指定知识库是否有活跃操作
+  /**
+   * 检查指定知识库是否有活跃操作
+   * @param kbId 知识库 ID
+   */
   hasActiveOperation(kbId: string): boolean {
     const instance = this.instances.get(kbId)
     return instance ? instance.isIndexing() : false
   }
 
-  // 获取服务实例数量
+  /**
+   * 获取服务实例数量
+   */
   getInstanceCount(): number {
     return this.instances.size
   }
 
-  // 获取所有服务实例 ID
+  /**
+   * 获取所有服务实例 ID
+   */
   getInstanceIds(): string[] {
     return Array.from(this.instances.keys())
   }
 
   // ==================== 并发控制 ====================
 
-  // 执行索引任务（带并发控制）
-  // 同一时间只有一个知识库可以执行索引操作
-  // 其他知识库的索引任务会进入队列等待
+  /**
+   * 执行索引任务（带并发控制）
+   * 同一时间只有一个知识库可以执行索引操作
+   * 其他知识库的索引任务会进入队列等待
+   * @param kbId 知识库 ID
+   * @param task 索引任务函数
+   */
   async executeIndexingTask<T>(kbId: string, task: () => Promise<T>): Promise<T> {
     return new Promise((resolve, reject) => {
       this.indexingQueue.push({
@@ -564,17 +629,24 @@ export class KnowledgeServiceManager {
     }
   }
 
-  // 获取当前正在索引的知识库ID
+  /**
+   * 获取当前正在索引的知识库 ID
+   */
   getActiveIndexingKbId(): string | null {
     return this.activeIndexingKbId
   }
 
-  // 获取索引队列长度
+  /**
+   * 获取索引队列长度
+   */
   getIndexingQueueLength(): number {
     return this.indexingQueue.length
   }
 
-  // 检查指定知识库是否有待处理的索引任务
+  /**
+   * 检查指定知识库是否有待处理的索引任务
+   * @param kbId 知识库 ID
+   */
   hasPendingIndexingTask(kbId: string): boolean {
     return this.indexingQueue.some((task) => task.kbId === kbId)
   }

@@ -2,17 +2,20 @@ import type { CommandExecutor } from '../interfaces/CommandExecutor'
 import { SshCommandExecutor } from './SshCommandExecutor'
 import type { SshGpuDeviceStats, SshServerStats, SshServerStatsResult } from '@shared/types/lab'
 
+/** CPU 快照（用于计算使用率增量） */
 interface CpuSnapshot {
   total: number
   idle: number
 }
 
+/** 磁盘 IO 快照（用于计算速率增量） */
 interface DiskSnapshot {
   readBytes: number
   writeBytes: number
   timestampMs: number
 }
 
+/** 按标记解析后的远程输出分区 */
 interface ParsedSections {
   stat: string
   meminfo: string
@@ -21,6 +24,7 @@ interface ParsedSections {
   gpu: string
 }
 
+/** CGroup 内存统计解析结果 */
 interface CgroupMemoryStats {
   currentBytes?: number
   limitBytes?: number
@@ -33,12 +37,14 @@ interface CgroupMemoryStats {
 const MAX_CGROUP_MEMORY_LIMIT_BYTES = 1_000_000_000_000_000
 const MIN_CGROUP_MEMORY_LIMIT_RATIO = 0.05
 
+/** 构造 nvidia-smi 查询命令，兼容多种安装路径 */
 const NVIDIA_SMI_COMMAND = [
   'NVIDIA_SMI="$(command -v nvidia-smi 2>/dev/null || true)"',
   'if [ -z "$NVIDIA_SMI" ]; then for candidate in /usr/bin/nvidia-smi /usr/local/bin/nvidia-smi; do if [ -x "$candidate" ]; then NVIDIA_SMI="$candidate"; break; fi; done; fi',
   'if [ -n "$NVIDIA_SMI" ]; then "$NVIDIA_SMI" --query-gpu=name,utilization.gpu,memory.used,memory.total --format=csv,noheader,nounits 2>/dev/null || printf "__NVIDIA_SMI_ERROR__\\n"; else printf "__NO_NVIDIA_SMI__\\n"; fi'
 ].join('; ')
 
+/** 构造 CGroup 内存限制查询命令，兼容 v1/v2 两种接口 */
 const CGROUP_MEMORY_COMMAND = [
   `CGROUP_PATH="$(awk -F: '$1 == "0" && $2 == "" { print $3 }' /proc/self/cgroup 2>/dev/null | head -n 1)"`,
   `MEMORY_PATH="$(awk -F: '$2 ~ /(^|,)memory(,|$)/ { print $3 }' /proc/self/cgroup 2>/dev/null | head -n 1)"`,
@@ -48,6 +54,7 @@ const CGROUP_MEMORY_COMMAND = [
   'for file in "/sys/fs/cgroup$CGROUP_PATH/memory.max" /sys/fs/cgroup/memory.max "/sys/fs/cgroup/memory$MEMORY_PATH/memory.limit_in_bytes" /sys/fs/cgroup/memory/memory.limit_in_bytes; do if [ -r "$file" ]; then printf "limit_path=%s\\n" "$file"; printf "limit_bytes="; cat "$file"; break; fi; done'
 ].join('; ')
 
+/** 完整的一次性远程采集命令，分区域标记输出 */
 const SSH_STATS_COMMAND = [
   "printf '__PROC_STAT__\\n'",
   'cat /proc/stat 2>/dev/null',
@@ -65,6 +72,10 @@ const BYTES_PER_KIB = 1024
 const BYTES_PER_MIB = 1024 * 1024
 const DISK_SECTOR_SIZE = 512
 
+/**
+ * SSH 远程服务器资源统计服务
+ * 通过远程执行 /proc 采集命令获取 CPU、内存、磁盘、GPU 指标
+ */
 export class SshStatsService {
   private readonly executor: Pick<CommandExecutor, 'execCommand'>
   private readonly now: () => number
@@ -79,6 +90,12 @@ export class SshStatsService {
     this.now = now
   }
 
+  /**
+   * 采集远程服务器资源统计信息
+   * 通过 SSH 执行批处理命令收集 CPU/内存/磁盘/GPU 数据
+   * @param labId - 实验室 ID
+   * @returns 服务器统计结果
+   */
   async getServerStats(labId: string): Promise<SshServerStatsResult> {
     const result = await this.executor.execCommand(labId, {
       command: SSH_STATS_COMMAND,
@@ -128,6 +145,10 @@ export class SshStatsService {
     }
   }
 
+  /**
+   * 将带标记的远程命令输出分割为各个数据区
+   * 标记如 __PROC_STAT__、__PROC_MEMINFO__ 等分隔各采集模块
+   */
   private parseSections(stdout: string): ParsedSections {
     const sections: Record<keyof ParsedSections, string[]> = {
       stat: [],
@@ -167,6 +188,9 @@ export class SshStatsService {
     }
   }
 
+  /**
+   * 从 /proc/stat 解析 CPU 时间快照（用于后续计算使用率）
+   */
   private parseCpuSnapshot(stat: string): CpuSnapshot | null {
     const cpuLine = stat.split(/\r?\n/).find((line) => line.startsWith('cpu '))
     if (!cpuLine) {
@@ -189,6 +213,10 @@ export class SshStatsService {
     }
   }
 
+  /**
+   * 解析内存统计信息
+   * 优先检测 CGroup 配额限制，如果容器有独立限制则使用配额统计
+   */
   private parseMemoryStats(meminfo: string, cgroupMemory: string): SshServerStats['memory'] | null {
     const entries = new Map<string, number>()
     for (const line of meminfo.split(/\r?\n/)) {
@@ -247,6 +275,9 @@ export class SshStatsService {
     }
   }
 
+  /**
+   * 解析 CGroup 内存统计输出
+   */
   private parseCgroupMemoryStats(cgroupMemory: string): CgroupMemoryStats {
     const stats: CgroupMemoryStats = {}
 
@@ -295,6 +326,10 @@ export class SshStatsService {
     return stats
   }
 
+  /**
+   * 判断 CGroup 内存限制是否可信且可用
+   * 排除宿主机全量限制、用户会话 cgroup、检测容器 cgroup
+   */
   private isUsableCgroupMemoryLimit(
     cgroupStats: CgroupMemoryStats,
     hostTotalBytes: number
@@ -320,6 +355,9 @@ export class SshStatsService {
     return limitBytes / hostTotalBytes >= MIN_CGROUP_MEMORY_LIMIT_RATIO
   }
 
+  /**
+   * 检测是否为用户登录会话的 cgroup（排除此类限制）
+   */
   private isLoginSessionCgroup(cgroupStats: CgroupMemoryStats): boolean {
     return this.getCgroupPaths(cgroupStats).some((path) => {
       const normalized = path.toLowerCase()
@@ -331,6 +369,9 @@ export class SshStatsService {
     })
   }
 
+  /**
+   * 检测是否为容器 cgroup（docker/containerd/k8s/podman/lxc）
+   */
   private isContainerCgroup(cgroupStats: CgroupMemoryStats): boolean {
     return this.getCgroupPaths(cgroupStats).some((path) =>
       /(?:docker|containerd|kubepods|libpod|podman|lxc)/i.test(path)
@@ -346,6 +387,10 @@ export class SshStatsService {
     ].filter((path): path is string => !!path)
   }
 
+  /**
+   * 从 /proc/diskstats 解析磁盘读写字节数
+   * 只统计物理整盘（排除分区、loop、ram 等虚拟设备）
+   */
   private parseDiskSnapshot(diskstats: string): Omit<DiskSnapshot, 'timestampMs'> | null {
     let readBytes = 0
     let writeBytes = 0
@@ -371,6 +416,9 @@ export class SshStatsService {
     return hasDevice ? { readBytes, writeBytes } : null
   }
 
+  /**
+   * 解析 nvidia-smi 输出为 GPU 统计
+   */
   private parseGpuStats(gpuOutput: string): SshServerStats['gpu'] {
     const lines = gpuOutput
       .split(/\r?\n/)
@@ -448,6 +496,10 @@ export class SshStatsService {
     }
   }
 
+  /**
+   * 根据两次 CPU 快照计算 CPU 使用率
+   * 首次快照返回 0，后续通过时间差计算增量
+   */
   private calculateCpuPercent(labId: string, current: CpuSnapshot): number {
     const previous = this.previousCpuSnapshots.get(labId)
     this.previousCpuSnapshots.set(labId, current)
@@ -465,6 +517,9 @@ export class SshStatsService {
     return this.roundPercent(((totalDelta - idleDelta) / totalDelta) * 100)
   }
 
+  /**
+   * 根据两次磁盘快照计算磁盘读写速率（字节/秒）
+   */
   private calculateDiskRates(
     labId: string,
     current: DiskSnapshot
@@ -493,6 +548,10 @@ export class SshStatsService {
     }
   }
 
+  /**
+   * 判断是否为物理整盘设备名
+   * 过滤掉分区、loop、ram、fd、sr、dm 等虚拟设备
+   */
   private isWholeDiskDevice(name: string): boolean {
     if (/^(loop|ram|fd|sr)\d+/.test(name) || /^dm-\d+$/.test(name)) {
       return false
@@ -505,6 +564,9 @@ export class SshStatsService {
     return !/^[a-z]+[0-9]+$/.test(name)
   }
 
+  /**
+   * 解析可能为 N/A 的数字字符串
+   */
   private parseNullableNumber(value?: string): number | null {
     if (!value || value.toUpperCase() === 'N/A') {
       return null
@@ -514,6 +576,9 @@ export class SshStatsService {
     return Number.isFinite(parsed) ? parsed : null
   }
 
+  /**
+   * 对可空数字数组求和，全部为 null 返回 null
+   */
   private sumNullable(values: Array<number | null>): number | null {
     const finiteValues = values.filter((value): value is number => value !== null)
     if (finiteValues.length === 0) {
@@ -523,6 +588,9 @@ export class SshStatsService {
     return finiteValues.reduce((sum, value) => sum + value, 0)
   }
 
+  /**
+   * 将百分比保留两位小数
+   */
   private roundPercent(value: number): number {
     return Math.round(value * 100) / 100
   }

@@ -315,6 +315,11 @@ function getTranslationSegment(
   return lookup.get(entry.id) ?? lookup.get(String(entry.index))
 }
 
+/**
+ * 论文上下文搜索工具
+ * 在论文原文/译文中基于关键词递归搜索相关段落
+ * 支持关键词提取、阅读进度回退、递归扩展搜索
+ */
 export class PaperContextSearchToolService {
   private readonly dependencies: PaperContextSearchDependencies
 
@@ -327,6 +332,12 @@ export class PaperContextSearchToolService {
     }
   }
 
+  /**
+   * 执行论文上下文搜索
+   * @param paperId - 论文 ID
+   * @param args - 搜索参数（查询文本、选中文本、搜索源、迭代次数、结果数）
+   * @returns MCP 格式的统一调用结果
+   */
   async search(paperId: string, args: PaperContextSearchArgs): Promise<MCPToolCallResult> {
     const source = normalizeSource(args.source)
     const query = typeof args.query === 'string' ? args.query.trim() : ''
@@ -442,6 +453,9 @@ export class PaperContextSearchToolService {
     }
   }
 
+  /**
+   * 构建搜索语料库（句子级别的原文/译文单元）
+   */
   private async buildCorpus(
     paperId: string,
     readerDocument: PaperReaderDocument,
@@ -492,6 +506,10 @@ export class PaperContextSearchToolService {
     return corpus
   }
 
+  /**
+   * 根据用户的阅读进度构建候选段落列表
+   * 作为无关键词时的回退策略，定位到用户当前阅读位置附近
+   */
   private async buildReadingProgressCandidates(
     paperId: string,
     readerDocument: PaperReaderDocument,
@@ -542,6 +560,10 @@ export class PaperContextSearchToolService {
     })
   }
 
+  /**
+   * 关键词递归搜索：用初始关键词搜索 -> 从匹配结果的文本中提取新关键词 -> 继续搜索
+   * 直到达到最大迭代次数或找到足够的上下文
+   */
   private recursiveSearch(params: {
     candidates: SentenceUnit[]
     selectedText: string

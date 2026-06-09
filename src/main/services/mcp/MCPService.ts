@@ -356,7 +356,9 @@ export class MCPService {
     }
   }
 
-  // 获取已连接的服务器名称列表
+  /**
+   * 获取已连接的服务器名称列表
+   */
   getConnectedServerNames(): string[] {
     const connected: string[] = []
     for (const [name, connection] of this.connections.entries()) {
@@ -367,13 +369,20 @@ export class MCPService {
     return connected
   }
 
-  // 检查服务器是否已连接
+  /**
+   * 检查服务器是否已连接
+   * @param serverName 服务器名称
+   */
   isConnected(serverName: string): boolean {
     const connection = this.connections.get(serverName)
     return connection?.connected ?? false
   }
 
-  // 通知状态变更
+  /**
+   * 通知状态变更
+   * 触发回调通知渲染进程服务器连接状态变化
+   * @param serverName 服务器名称
+   */
   private notifyStatusChange(serverName: string): void {
     if (this.onStatusChangeCallback) {
       const status = this.getConnectionStatus(serverName)[0]

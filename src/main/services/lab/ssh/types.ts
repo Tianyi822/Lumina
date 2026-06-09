@@ -1,5 +1,6 @@
 import type { Client, ConnectConfig } from 'ssh2'
 
+/** SSH 客户端连接状态 */
 export interface SshClient {
   labId: string
   client: Client
@@ -12,6 +13,7 @@ export interface SshClient {
   connectConfig?: ConnectConfig
 }
 
+/** 连接状态变化监听器回调 */
 export type ConnectionStatusListener = (
   labId: string,
   status: 'connected' | 'disconnected' | 'connecting',

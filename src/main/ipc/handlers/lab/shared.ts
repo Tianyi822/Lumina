@@ -4,6 +4,10 @@ import type { LabData, LabResult } from '@shared/types/lab'
 
 export const execAsync = undefined
 
+/**
+ * 实验室 IPC 处理程序的共享工具函数
+ */
+
 /** 容器 ID 到实验室选择的映射 */
 export const containerSelections = new Map<string, never>()
 

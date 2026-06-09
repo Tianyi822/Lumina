@@ -26,6 +26,11 @@ import {
   unwrapFencedSimpleTextContainerHtml
 } from './paperTextProcessing'
 
+/**
+ * OCR 进度信息
+ * - status: idle(空闲) / processing(处理中) / completed(全部完成) /
+ *   partial_failed(部分失败) / failed(全部失败) / cancelled(已取消)
+ */
 export interface OcrProgressInfo {
   paperId: string
   currentPage: number
@@ -298,6 +303,10 @@ async function downloadCropImage(remoteUrl: string, localPath: string): Promise<
   }
 }
 
+/**
+ * OCR 服务 — 管理论文 OCR 处理的全生命周期
+ * 包括：OCR 客户端调用、进度追踪/上报、结果持久化、合并 Markdown 生成
+ */
 export class PaperOcrService {
   private client = new PaperGlmOcrClient()
   private currentProgress: Map<string, OcrProgressInfo> = new Map()
@@ -305,6 +314,9 @@ export class PaperOcrService {
   private progressCallbacks: Map<string, ProgressCallback> = new Map()
   private activeOcrPipelines: Set<string> = new Set()
 
+  /**
+   * 读取当前 OCR 配置（API Key、服务商、并发数）
+   */
   private getOcrConfig(): { apiKey: string; provider: OcrProviderId; concurrency: number } {
     const config = configManager.getConfig()
     const ocr = config?.paperReader?.ocr
@@ -323,6 +335,9 @@ export class PaperOcrService {
     if (cb) cb(progress)
   }
 
+  /**
+   * 注册 OCR 进度回调
+   */
   onProgress(paperId: string, callback: ProgressCallback): void {
     this.progressCallbacks.set(paperId, callback)
   }
@@ -339,11 +354,21 @@ export class PaperOcrService {
     return this.activeOcrPipelines.has(paperId)
   }
 
+  /**
+   * 取消指定论文的 OCR 处理
+   */
   cancelOcr(paperId: string): void {
     this.abortControllers.set(paperId, true)
     logger.info('OCR 任务已标记取消', 'main', { paperId })
   }
 
+  /**
+   * 启动论文 OCR 处理
+   * 1. 校验配置和页面资源
+   * 2. 运行并发 OCR 管线
+   * 3. 根据结果更新论文状态
+   * 4. 生成合并 Markdown
+   */
   async startOcr(paperId: string): Promise<{ success: boolean; error?: string }> {
     const { apiKey, provider, concurrency } = this.getOcrConfig()
     if (!apiKey) {
@@ -460,6 +485,9 @@ export class PaperOcrService {
     return { success: true }
   }
 
+  /**
+   * 重试单页 OCR 处理，成功时重新生成合并 Markdown
+   */
   async retryPage(
     paperId: string,
     pageIndex: number
@@ -476,6 +504,9 @@ export class PaperOcrService {
     return { success: result.status === 'completed', error: result.errorMessage }
   }
 
+  /**
+   * 处理单页 OCR：读取页图 -> 调用 OCR API -> 本地化资源 -> 保存结果
+   */
   private async processPage(
     paperId: string,
     pageIndex: number,
@@ -582,6 +613,9 @@ export class PaperOcrService {
     return result
   }
 
+  /**
+   * 保存单页 OCR 的原始结果和归一化结果到磁盘
+   */
   private async saveOcrResults(
     paperId: string,
     pageIndex: number,
@@ -612,6 +646,9 @@ export class PaperOcrService {
     }
   }
 
+  /**
+   * 构建并保存所有页面的合并 Markdown
+   */
   private async buildAndSaveMergedMd(
     paperId: string,
     results: PaperPageOcrResult[]
@@ -628,6 +665,9 @@ export class PaperOcrService {
     }
   }
 
+  /**
+   * 重新构建合并 Markdown（从磁盘读取所有页面 OCR 结果后合并）
+   */
   async rebuildMergedMd(paperId: string): Promise<{ success: boolean; error?: string }> {
     try {
       const metaResult = await paperStorageService.readMeta(paperId)

@@ -55,6 +55,10 @@ const REMINDERS = `# 重要提醒
 - 严禁调用 lab__ask_user，除非用户明确要求选择或创建实验室环境
 - 直接基于已有信息和工具结果给出完整回答，不要反问用户`
 
+/**
+ * 构建 ReAct 模式的完整系统提示词
+ * 包含核心指令、ReAct 流程、工具使用规范、错误处理、实验室管理指南和提醒
+ */
 export function buildReactSystemPrompt(): string {
   return `${CORE_INSTRUCTIONS}
 
@@ -71,6 +75,7 @@ ${REMINDERS}
 现在，请根据用户的问题开始你的工作。`.trim()
 }
 
+/** 获取默认的 ReAct 系统提示词 */
 export function getDefaultReactPrompt(): string {
   return buildReactSystemPrompt()
 }

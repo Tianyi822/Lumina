@@ -35,7 +35,8 @@ const REG_KEY = 'HKCU\\Software\\Lumina'
 
 /**
  * 从 Windows 注册表读取 Lumina 数据路径
- * 返回注册表中的 DataPath 值，读取失败返回 null
+ * HKCU\\Software\\Lumina 下的 DataPath 值
+ * 读取失败或注册表键不存在时返回 null
  */
 function readDataPathFromRegistry(): string | null {
   try {

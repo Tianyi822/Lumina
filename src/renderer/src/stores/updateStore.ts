@@ -30,6 +30,7 @@ interface UpdateState {
 }
 
 /** 是否应在设置入口展示更新提示圆点 */
+/** 判断是否有待处理的更新（显示小红点） */
 export function hasPendingUpdateBadge(status: UpdateStatus): boolean {
   return status === 'available' || status === 'downloaded'
 }
@@ -55,6 +56,10 @@ let unsubscribeStatus: (() => void) | null = null
 let unsubscribeProgress: (() => void) | null = null
 let updateListenersAttached = false
 
+/**
+ * 应用更新 Store
+ * 管理自动更新的状态检查、下载、安装及相关事件监听
+ */
 export const useUpdateStore = create<UpdateState>()((set, get) => ({
   status: 'idle',
   progress: null,
@@ -68,6 +73,7 @@ export const useUpdateStore = create<UpdateState>()((set, get) => ({
 
   clearError: () => set({ errorMessage: null, diagnosticCode: null, manualDownloadUrl: null }),
 
+  /** 注册更新状态和进度监听器（仅注册一次） */
   setupListeners: () => {
     if (updateListenersAttached) return
     updateListenersAttached = true
@@ -106,6 +112,7 @@ export const useUpdateStore = create<UpdateState>()((set, get) => ({
     })
   },
 
+  /** 清理更新监听器 */
   cleanupListeners: () => {
     if (!updateListenersAttached) return
     updateListenersAttached = false
@@ -115,6 +122,7 @@ export const useUpdateStore = create<UpdateState>()((set, get) => ({
     unsubscribeProgress = null
   },
 
+  /** 在浏览器中打开手动下载页面 */
   openManualDownload: async () => {
     const url = get().manualDownloadUrl
     if (!url) return
@@ -125,12 +133,14 @@ export const useUpdateStore = create<UpdateState>()((set, get) => ({
     }
   },
 
+  /** 主动检查更新 */
   checkForUpdate: async () => {
     set({ errorMessage: null, diagnosticCode: null, manualDownloadUrl: null, progress: null })
     const result = await window.api.update.checkForUpdate()
     set(applyCheckResult(result))
   },
 
+  /** 前台检查更新（避免在检查/下载/安装中重复触发） */
   checkForUpdateOnForeground: async () => {
     const { status } = get()
     if (status === 'checking' || status === 'downloading' || status === 'installing') {
@@ -141,6 +151,7 @@ export const useUpdateStore = create<UpdateState>()((set, get) => ({
     set(applyCheckResult(result))
   },
 
+  /** 下载更新 */
   downloadUpdate: async () => {
     set({ errorMessage: null, diagnosticCode: null, manualDownloadUrl: null })
     const result = await window.api.update.downloadUpdate()
@@ -149,10 +160,12 @@ export const useUpdateStore = create<UpdateState>()((set, get) => ({
     }
   },
 
+  /** 退出应用并安装更新 */
   quitAndInstall: () => {
     window.api.update.quitAndInstall()
   },
 
+  /** 获取版本发布历史（只加载一次） */
   fetchReleases: async () => {
     const state = get()
     if (state.releases.length > 0) return

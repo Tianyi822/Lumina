@@ -62,14 +62,19 @@ export function formatDocumentsContext(documents: AttachedDocument[]): string {
 /**
  * 格式化论文引用内容为文本
  */
+/**
+ * 格式化论文引用内容为文本
+ */
 function getQuoteSourceType(quote: PaperQuote): PaperQuote['viewKind'] {
   return quote.sourceType || quote.viewKind
 }
 
+/** 生成引用来源标签（原文/译文） */
 function formatQuoteSourceLabel(sourceType: PaperQuote['viewKind']): string {
   return sourceType === 'original' ? '原文' : '译文'
 }
 
+/** 构建引用位置描述字符串 */
 function formatQuoteLocation(quote: PaperQuote): string {
   const location = quote.sourceLocation
   const segmentIndex = location?.segmentIndex ?? quote.segmentIndex
@@ -94,10 +99,12 @@ function formatQuoteLocation(quote: PaperQuote): string {
   return parts.join('；')
 }
 
+/** 规范化引用文本（压缩空白） */
 function normalizeQuotePromptText(text: string): string {
   return text.replace(/\s+/g, ' ').trim()
 }
 
+/** 格式化单条引用的上下文信息 */
 function formatSingleQuoteContext(quote: PaperQuote): string {
   const selectedText = quote.selectedText.trim() || quote.selectedText
   let context = `来源位置：${formatQuoteLocation(quote)}\n`
@@ -143,6 +150,9 @@ export function formatQuotesContext(quotes: PaperQuote[]): string {
   return context
 }
 
+/**
+ * 深度克隆 ChatMessage，避免副作用修改原始消息
+ */
 function cloneChatMessage(msg: ChatMessage): ChatMessage {
   return {
     ...msg,
@@ -160,6 +170,7 @@ function cloneChatMessage(msg: ChatMessage): ChatMessage {
   }
 }
 
+/** 判断助手消息是否应该保留（有内容或有工具调用） */
 function shouldKeepAssistantMessage(msg: ChatMessage): boolean {
   const hasContent = msg.content && msg.content.trim().length > 0
   const hasToolCalls = msg.tool_calls && msg.tool_calls.length > 0

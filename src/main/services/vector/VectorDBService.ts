@@ -42,6 +42,11 @@ type LanceDBModule = typeof import('@lancedb/lancedb')
 
 let lancedbModule: LanceDBModule | null = null
 
+/**
+ * 获取 LanceDB 原生模块
+ * 延迟加载以避免模块未安装时直接报错
+ * @throws 加载失败时抛出错误提示安装问题
+ */
 function getLanceDB(): LanceDBModule {
   if (lancedbModule) {
     return lancedbModule
@@ -58,15 +63,19 @@ function getLanceDB(): LanceDBModule {
   }
 }
 
-// 向量数据库服务
-// 使用 LanceDB 为每个知识库管理独立的向量数据库
-// 支持文档块添加、删除、相似性搜索等功能
+/**
+ * 向量数据库服务
+ * 使用 LanceDB 为每个知识库管理独立的向量数据库
+ * 支持文档块添加、删除、相似性搜索等功能
+ */
 export class VectorDBService {
   private dbConnections: Map<string, Connection> = new Map()
   private tables: Map<string, Table> = new Map()
   private indexedTables: Set<string> = new Set()
 
-  // 确保数据目录存在
+  /**
+   * 确保向量数据库数据目录存在
+   */
   private ensureDataDir(): void {
     const dataDir = getVectorDBDirPath()
     if (!existsSync(dataDir)) {
@@ -75,7 +84,10 @@ export class VectorDBService {
     }
   }
 
-  // 获取数据库路径
+  /**
+   * 获取指定知识库的数据库路径
+   * LanceDB 使用目录作为数据库
+   */
   private getDatabasePath(kbId: string): string {
     this.ensureDataDir()
     const dataDir = getVectorDBDirPath()
@@ -83,7 +95,10 @@ export class VectorDBService {
     return join(dataDir, kbId)
   }
 
-  // 获取或创建数据库连接
+  /**
+   * 获取或创建知识库的数据库连接
+   * 连接会被缓存，同一知识库复用同一连接
+   */
   private async getConnection(kbId: string): Promise<Connection> {
     if (this.dbConnections.has(kbId)) {
       return this.dbConnections.get(kbId)!
@@ -190,8 +205,11 @@ export class VectorDBService {
     }
   }
 
-  // 创建向量索引
-  // 使用 IVF_PQ 索引提高搜索性能
+  /**
+   * 创建向量索引
+   * 使用 IVF_PQ 索引提高搜索性能
+   * 如果表为空或索引已存在则跳过
+   */
   private async createVectorIndex(table: Table, kbId: string, tableKey: string): Promise<void> {
     try {
       const rowCount = await table.countRows()
@@ -216,7 +234,11 @@ export class VectorDBService {
     }
   }
 
-  // 删除指定文件的所有文档块
+  /**
+   * 删除指定文件的所有文档块
+   * @param kbId 知识库 ID
+   * @param fileId 文件 ID
+   */
   async deleteFileChunks(kbId: string, fileId: string): Promise<void> {
     try {
       if (!this.exists(kbId)) {
@@ -300,7 +322,7 @@ export class VectorDBService {
 
       const chunkCount = await table.countRows()
 
-      // 获取唯一文件数
+      // 采样查询获取文件级统计（最多 10000 条记录覆盖所有文件）
       let uniqueFileIds = new Set<string>()
       if (chunkCount > 0) {
         const files = await table.query().limit(10000).toArray()
@@ -318,8 +340,11 @@ export class VectorDBService {
     }
   }
 
-  // 删除整个知识库的向量数据库
-  // 关闭连接并删除所有相关文件
+  /**
+   * 删除整个知识库的向量数据库
+   * 关闭连接并删除所有相关文件
+   * @param kbId 知识库 ID
+   */
   deleteKnowledgeBase(kbId: string): void {
     const tableKey = `${kbId}_chunks`
 
@@ -361,7 +386,7 @@ export class VectorDBService {
       }
     }
 
-    // 删除旧格式数据库文件（兼容旧版本）
+    // 同时删除 LanceDB 目录格式的旧版本 `.db` 文件（兼容旧版本迁移）
     const oldDbPath = join(dataDir, `${kbId}.db`)
     if (existsSync(oldDbPath)) {
       try {
@@ -373,14 +398,20 @@ export class VectorDBService {
     }
   }
 
-  // 检查知识库数据库是否存在
+  /**
+   * 检查知识库数据库是否存在
+   * @param kbId 知识库 ID
+   */
   exists(kbId: string): boolean {
     const dbPath = this.getDatabasePath(kbId)
     const exists = existsSync(dbPath)
     return exists
   }
 
-  // 获取数据库目录大小（字节）
+  /**
+   * 获取数据库目录大小（字节）
+   * @param kbId 知识库 ID
+   */
   getDatabaseSize(kbId: string): number {
     const dbPath = this.getDatabasePath(kbId)
     if (!existsSync(dbPath)) {
@@ -394,7 +425,9 @@ export class VectorDBService {
     }
   }
 
-  // 递归计算目录大小
+  /**
+   * 递归计算目录大小（字节）
+   */
   private calculateDirSize(dirPath: string): number {
     let totalSize = 0
     const files = readdirSync(dirPath)
@@ -413,7 +446,9 @@ export class VectorDBService {
     return totalSize
   }
 
-  // 关闭所有数据库连接
+  /**
+   * 关闭所有数据库连接并清理缓存
+   */
   closeAll(): void {
     for (const [kbId] of this.dbConnections) {
       try {

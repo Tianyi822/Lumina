@@ -9,6 +9,10 @@ import FileSelectorModal from '@renderer/components/knowledge/FileSelectorModal'
 import type { FileItem } from '@renderer/types'
 import styles from './KnowledgePage.module.css'
 
+/**
+ * 知识库页面
+ * 管理知识库列表加载、活动知识库展示、创建/编辑表单、文件管理等功能
+ */
 export default function KnowledgePage() {
   const knowledgeBases = useKnowledgeStore((s) => s.knowledgeBases)
   const activeKbId = useKnowledgeStore((s) => s.activeKbId) ?? undefined

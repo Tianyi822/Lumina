@@ -18,6 +18,7 @@ import type { StreamEvent } from '../../../types/chat'
 import { ToolResultEnricher } from './ToolResultEnricher'
 import { ToolResultMerger } from './ToolResultMerger'
 
+/** 执行一组工具调用并返回摘要的函数签名 */
 type ExecuteToolCallsFn = (
   toolCalls: ToolCallDefinition[],
   webContents: WebContents,
@@ -26,14 +27,25 @@ type ExecuteToolCallsFn = (
   turnId?: string
 ) => Promise<ToolExecutionSummary>
 
+/** ToolOrchestrator 构造选项 */
 export interface ToolOrchestratorOptions {
+  /** 工具注册表 */
   registry: UnifiedToolRegistry
+  /** 结果增强器 */
   enricher: ToolResultEnricher
+  /** 结果合并器 */
   merger: ToolResultMerger
+  /** 工具执行函数 */
   executeToolCalls: ExecuteToolCallsFn
+  /** 流事件发送函数 */
   sendStreamEvent: (webContents: WebContents, event: StreamEvent) => void
 }
 
+/**
+ * 工具编排器
+ * 按照管道（pipeline）定义的分阶段策略执行工具调用，
+ * 支持条件触发、自动触发、结果增强与融合。
+ */
 export class ToolOrchestrator {
   private registry: UnifiedToolRegistry
   private enricher: ToolResultEnricher
@@ -47,6 +59,16 @@ export class ToolOrchestrator {
     this.executeToolCalls = options.executeToolCalls
   }
 
+  /**
+   * 按管道分阶段编排执行工具调用
+   * 遍历 pipe 各阶段：过滤工具 → 检查条件 → 自动触发 → 执行 → 增强结果 → 合并结果
+   * @param toolCalls 模型本次调用的所有工具
+   * @param pipeline 分阶段管道定义
+   * @param context 管道执行上下文
+   * @param webContents Electron WebContents
+   * @param sessionId 会话标识
+   * @param turnId 本轮消息标识
+   */
   async orchestrate(
     toolCalls: ToolCallDefinition[],
     pipeline: ToolPipeline,
@@ -138,6 +160,7 @@ export class ToolOrchestrator {
     }
   }
 
+  /** 按类别过滤本次调用的工具列表 */
   private filterByCategory(
     calls: ToolCallDefinition[],
     category: ToolCategory
@@ -148,6 +171,10 @@ export class ToolOrchestrator {
     })
   }
 
+  /**
+   * 创建自动触发的工具调用定义
+   * 当模型未调用某类工具但管道配置了自动触发时，生成一次虚拟调用
+   */
   private createAutoTriggerCall(
     stage: PipelineStage,
     originalQuery: string,
@@ -174,6 +201,7 @@ export class ToolOrchestrator {
     }
   }
 
+  /** 将已执行的工具调用追加到列表（去重） */
   private appendExecutedToolCalls(
     target: ToolCallDefinition[],
     attemptedCalls: ToolCallDefinition[],
@@ -190,6 +218,10 @@ export class ToolOrchestrator {
     }
   }
 
+  /**
+   * 对工具执行结果进行增强
+   * 优先使用适配器自定义的 enrichResult，否则使用全局 ToolResultEnricher
+   */
   private enrichResults(results: ToolExecutionResult[]): EnrichedToolResult[] {
     return results.map((r) => {
       const tool = this.registry.getTool(r.toolName)
@@ -213,10 +245,15 @@ export class ToolOrchestrator {
   }
 }
 
+/**
+ * 稳定序列化（按 key 排序后 JSON 化），确保相同内容产生相同的哈希值
+ * 用于自动触发的工具调用 ID 生成
+ */
 function stableStringify(value: unknown): string {
   return JSON.stringify(normalizeForStableStringify(value)) ?? 'null'
 }
 
+/** 递归排序对象 key，用于稳定序列化 */
 function normalizeForStableStringify(value: unknown): unknown {
   if (Array.isArray(value)) {
     return value.map((item) => normalizeForStableStringify(item))

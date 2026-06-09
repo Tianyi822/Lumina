@@ -36,7 +36,13 @@ export async function writeKnowledgeBases(knowledgeBases: KnowledgeBase[]): Prom
   await writeFile(filePath, content, 'utf-8')
 }
 
-// 将文本分块
+/**
+ * 将文本按指定大小和重叠量分块
+ * @param text 原始文本
+ * @param chunkSize 每块大小
+ * @param chunkOverlap 相邻块重叠量
+ * @returns 分块后的文本数组
+ */
 function splitTextIntoChunks(text: string, chunkSize: number, chunkOverlap: number): string[] {
   const chunks: string[] = []
   const effectiveChunkSize = chunkSize - chunkOverlap
@@ -70,9 +76,11 @@ export interface FileProcessingProgress {
   error?: string
 }
 
-// 知识库服务类
-// 提供知识库的增删改查功能，以及文档索引和搜索功能
-// 每个知识库一个独立实例，实现操作隔离
+/**
+ * 知识库服务类
+ * 提供知识库的增删改查功能，以及文档索引和搜索功能
+ * 每个知识库一个独立实例，实现操作隔离
+ */
 export class KnowledgeService {
   private kbData: KnowledgeBase
   private embeddingService: EmbeddingService
@@ -87,7 +95,10 @@ export class KnowledgeService {
     logger.info('知识库服务实例已创建', 'main', { kbId: kbData.id, name: kbData.name })
   }
 
-  // 清理资源
+  /**
+   * 清理资源
+   * 清除正在处理的文件列表、进度信息和停止请求标志
+   */
   cleanup(): void {
     this.processingFiles.clear()
     this.fileProgressMap.clear()
@@ -95,28 +106,41 @@ export class KnowledgeService {
     logger.info('知识库服务资源已清理', 'main', { kbId: this.kbData.id })
   }
 
-  // 请求停止索引操作
+  /**
+   * 请求停止索引操作
+   * 设置停止请求标志，索引操作在下一个检查点响应
+   */
   stopIndexing(): void {
     this.stopRequested = true
     logger.info('已请求停止索引操作', 'main', { kbId: this.kbData.id })
   }
 
-  // 检查是否已请求停止
+  /**
+   * 检查是否已请求停止索引
+   */
   isStopRequested(): boolean {
     return this.stopRequested
   }
 
-  // 重置停止请求标志
+  /**
+   * 重置停止请求标志
+   */
   resetStopRequest(): void {
     this.stopRequested = false
   }
 
-  // 获取当前知识库数据
+  /**
+   * 获取当前知识库数据
+   */
   getKBData(): KnowledgeBase {
     return this.kbData
   }
 
-  // 更新当前知识库配置（当知识库被修改时调用）
+  /**
+   * 更新当前知识库配置
+   * 当知识库被修改时调用，同步更新嵌入服务配置
+   * @param updates 知识库的部分更新数据
+   */
   updateKBData(updates: Partial<KnowledgeBase>): void {
     this.kbData = { ...this.kbData, ...updates }
     if (updates.embeddingConfig) {
@@ -125,9 +149,13 @@ export class KnowledgeService {
     logger.info('知识库数据已更新', 'main', { kbId: this.kbData.id })
   }
 
-  // 为知识库索引文件
-  // 将文件内容分块后生成嵌入向量，存储到向量数据库中
-  // 支持进度回调，可以在索引过程中获取进度信息
+  /**
+   * 为知识库索引文件
+   * 将文件内容分块后生成嵌入向量，存储到向量数据库中
+   * @param kbId 知识库 ID
+   * @param fileId 文件 ID
+   * @param onProgress 进度回调，可在索引过程中获取进度信息
+   */
   async indexFile(
     kbId: string,
     fileId: string,
@@ -148,7 +176,7 @@ export class KnowledgeService {
     const { file, content } = resourceResult.data
     const fileName = file.name
 
-    // 检查是否正在处理
+    // 使用 `${kbId}:${fileId}` 作为处理键，防止同一文件重复索引
     const processingKey = `${kbId}:${fileId}`
     if (this.processingFiles.has(processingKey)) {
       return { success: false, error: '文件正在处理中' }
@@ -313,8 +341,12 @@ export class KnowledgeService {
     }
   }
 
-  // 从知识库中移除文件的索引
-  // 删除向量数据库中与该文件相关的所有文档块
+  /**
+   * 从知识库中移除文件的索引
+   * 删除向量数据库中与该文件相关的所有文档块
+   * @param kbId 知识库 ID
+   * @param fileId 文件 ID
+   */
   async removeFileIndex(
     kbId: string,
     fileId: string
@@ -334,9 +366,15 @@ export class KnowledgeService {
     }
   }
 
-  // 重新索引知识库
-  // 全量模式会删除现有向量数据库，文件模式只替换指定文件索引
-  // 支持整体进度和单个文件进度的回调
+  /**
+   * 重新索引知识库
+   * 全量模式会删除现有向量数据库，文件模式只替换指定文件索引
+   * @param kbId 知识库 ID
+   * @param fileIds 要索引的文件 ID 列表
+   * @param onProgress 整体进度回调
+   * @param onFileProgress 单个文件进度回调
+   * @param options 重新索引选项（scope 等）
+   */
   async reindexKnowledgeBase(
     kbId: string,
     fileIds: string[],
@@ -478,8 +516,13 @@ export class KnowledgeService {
     }
   }
 
-  // 在知识库中搜索
-  // 使用向量相似度搜索，返回最相关的文档块
+  /**
+   * 在知识库中搜索
+   * 使用向量相似度搜索，返回最相关的文档块
+   * @param kbId 知识库 ID
+   * @param query 搜索查询
+   * @param limit 返回结果数量限制
+   */
   async search(
     kbId: string,
     query: string,
@@ -515,8 +558,11 @@ export class KnowledgeService {
     }
   }
 
-  // 获取知识库的统计信息
-  // 返回文件数量、文档块数量和数据库大小
+  /**
+   * 获取知识库的统计信息
+   * @param kbId 知识库 ID
+   * @returns 文件数量、文档块数量和数据库大小
+   */
   async getStats(kbId: string): Promise<{
     success: boolean
     data?: { fileCount: number; chunkCount: number; dbSize: number }
@@ -547,12 +593,16 @@ export class KnowledgeService {
     }
   }
 
-  // 检查是否有文件正在索引
+  /**
+   * 检查是否有文件正在索引
+   */
   isIndexing(): boolean {
     return this.processingFiles.size > 0
   }
 
-  // 获取正在索引的文件列表
+  /**
+   * 获取正在索引的文件列表
+   */
   getIndexingFiles(): Array<{ kbId: string; fileId: string }> {
     return Array.from(this.processingFiles).map((key) => {
       const [kbId, fileId] = key.split(':')
@@ -560,7 +610,10 @@ export class KnowledgeService {
     })
   }
 
-  // 获取文件进度信息
+  /**
+   * 获取文件进度信息
+   * @param processingKey 处理键（格式：`${kbId}:${fileId}`）
+   */
   getFileProgress(processingKey: string): FileProcessingProgress | undefined {
     return this.fileProgressMap.get(processingKey)
   }

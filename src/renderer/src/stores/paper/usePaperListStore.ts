@@ -46,6 +46,10 @@ interface PaperListState {
 // Store
 // ---------------------------------------------------------------------------
 
+/**
+ * 论文列表 Store
+ * 管理论文文档列表、当前论文、Markdown 渲染进度、OCR 进度及渲染管线控制
+ */
 export const usePaperListStore = create<PaperListState>()((set, get) => {
   // 非响应式闭包状态
   const activePipelines = new Set<string>()
@@ -56,6 +60,7 @@ export const usePaperListStore = create<PaperListState>()((set, get) => {
   // 内部辅助
   // -------------------------------------------------------------------------
 
+  /** 更新论文的渲染进度 */
   function setRenderProgress(paperId: string, progress: RenderingProgress): void {
     const s = get()
     set({
@@ -66,6 +71,7 @@ export const usePaperListStore = create<PaperListState>()((set, get) => {
     })
   }
 
+  /** 更新论文的 OCR 进度 */
   function setOcrProgress(progress: OcrProgressInfo): void {
     const s = get()
     set({
@@ -76,6 +82,7 @@ export const usePaperListStore = create<PaperListState>()((set, get) => {
     })
   }
 
+  /** 获取或创建论文的渲染管线控制对象（用于中止/删除操作） */
   function getPipelineControl(paperId: string): PipelineControl {
     const control = pipelineControls.get(paperId)
     if (control) return control
@@ -121,10 +128,12 @@ export const usePaperListStore = create<PaperListState>()((set, get) => {
     // Actions
     // -----------------------------------------------------------------------
 
+    /** 选择论文，更新当前论文 ID */
     selectPaper: (paperId: string | null) => {
       set({ currentPaperId: paperId })
     },
 
+    /** 从主进程加载论文的 Markdown 内容 */
     loadMarkdown: async (paperId: string): Promise<void> => {
       const paper = get().papers.find((item) => item.id === paperId)
       if (!paper || !isPaperReadableStatus(paper.status)) {
@@ -145,6 +154,7 @@ export const usePaperListStore = create<PaperListState>()((set, get) => {
       }
     },
 
+    /** 更新论文状态并同步到主进程 */
     updatePaperStatus: async (
       paperId: string,
       status: PaperStatus,
@@ -401,6 +411,7 @@ export const usePaperListStore = create<PaperListState>()((set, get) => {
     // 公开内部方法
     // -----------------------------------------------------------------------
 
+    /** 插入或更新论文到列表（已存在则替换，否则新增） */
     upsertPaper: (paper: PaperDocument) => {
       const s = get()
       const index = s.papers.findIndex((item) => item.id === paper.id)
@@ -413,6 +424,7 @@ export const usePaperListStore = create<PaperListState>()((set, get) => {
       set({ papers: [paper, ...s.papers] })
     },
 
+    /** 更新列表中某篇论文的部分字段 */
     updatePaperInList: (paperId: string, updates: Partial<PaperDocument>) => {
       const s = get()
       const index = s.papers.findIndex((paper) => paper.id === paperId)
@@ -422,6 +434,7 @@ export const usePaperListStore = create<PaperListState>()((set, get) => {
       set({ papers: nextPapers })
     },
 
+    /** 从主进程加载论文列表，并初始化每篇论文的进度快照 */
     loadPapersList: async (): Promise<PaperDocument[]> => {
       get().ensureOcrProgressListener()
 

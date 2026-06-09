@@ -185,6 +185,7 @@ export class ModelRetryHandler {
           continue
         }
 
+        // 判断是否为可重试错误（状态码 408/429/5xx 或包含 overloaded 等错误消息）
         const shouldRetry =
           attempt < MODEL_REQUEST_MAX_ATTEMPTS - 1 && this.isRetryableModelError(error)
 

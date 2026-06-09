@@ -2,10 +2,16 @@ import type { CapabilityUnit, ToolDescriptor } from './CapabilityUnit'
 import type { ToolAdapter } from '../UnifiedToolRegistry'
 import { KnowledgeToolAdapter } from '../adapters/KnowledgeToolAdapter'
 
+/** 知识库能力的上下文数据 */
 interface KnowledgeCapabilityContext {
+  /** 用户选中的知识库列表 */
   selectedKnowledgeBases?: Array<{ id: string; name?: string; documentCount?: number }>
 }
 
+/**
+ * 知识库搜索能力
+ * 提供知识库文档的语义搜索、文档列表和详情查询工具
+ */
 export class KnowledgeCapability implements CapabilityUnit {
   id = 'knowledge'
   displayName = '知识库搜索'

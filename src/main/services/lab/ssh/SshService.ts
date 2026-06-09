@@ -24,6 +24,10 @@ import type { CommandExecutor } from '../interfaces/CommandExecutor'
 import type { FileTransfer } from '../interfaces/FileTransfer'
 import { logger } from '@main/services/logger'
 
+/**
+ * SSH 服务
+ * 提供 SSH 连接生命周期管理、命令执行、文件传输和连接测试
+ */
 export class SshService {
   readonly commandExecutor: CommandExecutor
   readonly fileTransfer: FileTransfer
@@ -33,6 +37,12 @@ export class SshService {
     this.fileTransfer = new SftpFileTransfer()
   }
 
+  /**
+   * 建立 SSH 连接
+   * @param labId - 实验室 ID
+   * @param config - SSH 连接配置
+   * @param password - 密码（密码认证时使用）
+   */
   async connect(
     labId: string,
     config: SshConnectionConfig,
@@ -58,22 +68,38 @@ export class SshService {
     return { success: false, error: result.error, status: 'disconnected' }
   }
 
+  /**
+   * 断开 SSH 连接
+   */
   async disconnect(labId: string): Promise<LabResult> {
     return sshConnectionManager.disconnect(labId)
   }
 
+  /**
+   * 获取连接状态
+   */
   getConnectionStatus(labId: string): SshConnectionStatus {
     return sshConnectionManager.getStatus(labId)
   }
 
+  /**
+   * 检查是否已连接
+   */
   isConnected(labId: string): boolean {
     return sshConnectionManager.isConnected(labId)
   }
 
+  /**
+   * 执行 SSH 远程命令
+   */
   async execCommand(labId: string, command: ExecCommand): Promise<ExecResult | null> {
     return this.commandExecutor.execCommand(labId, command)
   }
 
+  /**
+   * 通过 SFTP 向远程服务器写入文件
+   * @param onProgress - 写入进度回调
+   */
   async writeFiles(
     labId: string,
     files: FileWriteRequest[],
@@ -83,6 +109,10 @@ export class SshService {
     return this.fileTransfer.writeFiles(labId, files, projectRoot, onProgress)
   }
 
+  /**
+   * 测试 SSH 连接是否可达，并获取远程系统信息
+   * 连接成功后自动执行 uname -s && hostname && echo $HOME 探测环境
+   */
   async testConnection(
     config: SshConnectionConfig,
     password?: string
@@ -147,24 +177,37 @@ export class SshService {
     })
   }
 
+  /**
+   * 注册连接状态变化监听器
+   */
   onConnectionStatusChange(
     listener: (labId: string, status: SshConnectionStatus, error?: string) => void
   ): void {
     sshConnectionManager.onStatusChange(listener)
   }
 
+  /**
+   * 移除连接状态变化监听器
+   */
   offConnectionStatusChange(
     listener: (labId: string, status: SshConnectionStatus, error?: string) => void
   ): void {
     sshConnectionManager.offStatusChange(listener)
   }
 
+  /**
+   * 关闭 SSH 服务（关闭终端并断开所有连接）
+   */
   async shutdown(): Promise<void> {
     sshTerminalService.shutdown()
     await sshConnectionManager.disconnectAll()
     logger.info('SSH 服务已关闭', 'main')
   }
 
+  /**
+   * 构建 ssh2 连接配置
+   * 密码认证时直接传入密码，密钥认证时从文件读取或保存密钥内容
+   */
   private buildConnectConfig(config: SshConnectionConfig, password?: string): ConnectConfig {
     const base: ConnectConfig = {
       host: config.host,
@@ -176,9 +219,12 @@ export class SshService {
     }
 
     if (config.authType === 'password') {
+      // 密码认证
       base.password = password
     } else {
+      // 密钥认证
       if (config.keyContent) {
+        // 首次连接：保存密钥内容到文件并读取
         const keyName = config.keyName || 'id_rsa'
         const sshKeysDir = join(getConfigDirPath(), 'ssh-keys')
         if (!existsSync(sshKeysDir)) {

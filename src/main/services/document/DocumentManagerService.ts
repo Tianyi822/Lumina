@@ -87,6 +87,7 @@ export class DocumentManagerService {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
 
+      // 对常见错误进行诊断，生成用户友好的错误提示
       logger.error('文档上传或解析失败', 'main', {
         fileName,
         fileSize: fileData.length,
@@ -95,6 +96,7 @@ export class DocumentManagerService {
         errorStack: error instanceof Error ? error.stack : undefined
       })
 
+      // 根据错误信息生成用户友好的提示文案
       let userMessage = `文档处理失败: ${errorMessage}`
 
       if (errorMessage.includes('内存不足') || errorMessage.includes('memory')) {
@@ -112,8 +114,9 @@ export class DocumentManagerService {
 
   /**
    * 批量解析文档
-   * @param files 文件列表
-   * @returns 批量解析结果
+   * 并行处理多个文件，分别返回每个文件的解析结果
+   * @param files 文件列表（含数据和文件名）
+   * @returns 批量解析结果数组
    */
   async uploadAndParseMultiple(files: Array<{ data: Buffer; name: string }>): Promise<
     Array<{
@@ -149,7 +152,8 @@ export class DocumentManagerService {
   }
 
   /**
-   * 获取文件扩展名
+   * 获取文件扩展名（小写）
+   * @param fileName 文件名
    */
   private getFileExtension(fileName: string): string {
     const lastDotIndex = fileName.lastIndexOf('.')
@@ -157,7 +161,7 @@ export class DocumentManagerService {
   }
 
   /**
-   * 格式化文件大小
+   * 格式化文件大小为易读格式
    */
   private formatFileSize(bytes: number): string {
     if (bytes < 1024) return `${bytes} B`

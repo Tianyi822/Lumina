@@ -11,6 +11,7 @@ import type {
 import { sshConnectionManager } from './SshConnectionManager'
 import type { ConnectionStatusListener } from './types'
 
+/** SSH 终端会话实例 */
 interface SshTerminalSession {
   sessionId: string
   labId: string
@@ -26,7 +27,12 @@ type SshTerminalExitListener = (event: SshTerminalExitEvent) => void
 const DEFAULT_COLS = 80
 const DEFAULT_ROWS = 24
 
+/**
+ * SSH 终端服务
+ * 管理远程服务器上的伪终端会话，支持打开、写入、调整大小和关闭
+ */
 export class SshTerminalService {
+  /** 所有活跃终端会话 */
   private readonly sessions = new Map<string, SshTerminalSession>()
   private readonly labSessions = new Map<string, Set<string>>()
   private readonly dataListeners = new Set<SshTerminalDataListener>()
@@ -42,6 +48,12 @@ export class SshTerminalService {
     sshConnectionManager.onStatusChange(this.statusListener)
   }
 
+  /**
+   * 在远程服务器上打开一个伪终端（PTY）
+   * @param labId - 实验室 ID
+   * @param size - 终端窗口大小（列数和行数）
+   * @returns 终端会话 ID
+   */
   async openTerminal(labId: string, size?: SshTerminalSize): Promise<SshTerminalOpenResult> {
     const client = sshConnectionManager.getClient(labId)
     if (!client || !sshConnectionManager.isConnected(labId)) {
@@ -105,6 +117,9 @@ export class SshTerminalService {
     })
   }
 
+  /**
+   * 向终端写入数据（如用户输入）
+   */
   writeTerminal(sessionId: string, data: string): SshTerminalActionResult {
     const session = this.sessions.get(sessionId)
     if (!session || session.closed) {
@@ -119,6 +134,9 @@ export class SshTerminalService {
     }
   }
 
+  /**
+   * 调整终端窗口大小
+   */
   resizeTerminal(sessionId: string, size: SshTerminalSize): SshTerminalActionResult {
     const session = this.sessions.get(sessionId)
     if (!session || session.closed) {
@@ -139,6 +157,9 @@ export class SshTerminalService {
     }
   }
 
+  /**
+   * 关闭指定终端会话
+   */
   closeTerminal(sessionId: string): SshTerminalActionResult {
     const session = this.sessions.get(sessionId)
     if (!session) {
@@ -152,6 +173,10 @@ export class SshTerminalService {
     return { success: true }
   }
 
+  /**
+   * 关闭指定实验室的所有终端会话
+   * @param reason - 关闭原因（如连接断开）
+   */
   closeLabTerminals(labId: string, reason: string): void {
     const sessionIds = Array.from(this.labSessions.get(labId) || [])
     for (const sessionId of sessionIds) {
@@ -162,6 +187,9 @@ export class SshTerminalService {
     }
   }
 
+  /**
+   * 关闭所有终端会话
+   */
   shutdown(): void {
     for (const session of Array.from(this.sessions.values())) {
       this.closeSession(session, {
@@ -171,22 +199,37 @@ export class SshTerminalService {
     }
   }
 
+  /**
+   * 注册终端数据监听器（接收远程服务器输出）
+   */
   onData(listener: SshTerminalDataListener): void {
     this.dataListeners.add(listener)
   }
 
+  /**
+   * 移除终端数据监听器
+   */
   offData(listener: SshTerminalDataListener): void {
     this.dataListeners.delete(listener)
   }
 
+  /**
+   * 注册终端退出监听器
+   */
   onExit(listener: SshTerminalExitListener): void {
     this.exitListeners.add(listener)
   }
 
+  /**
+   * 移除终端退出监听器
+   */
   offExit(listener: SshTerminalExitListener): void {
     this.exitListeners.delete(listener)
   }
 
+  /**
+   * 绑定终端数据流事件（数据接收、退出、错误、关闭）
+   */
   private bindStream(session: SshTerminalSession): void {
     session.stream.on('data', (chunk: Buffer | string) => {
       this.emitData({
@@ -216,10 +259,14 @@ export class SshTerminalService {
     })
   }
 
+  /**
+   * 关闭会话并清理资源，通知退出监听器
+   */
   private closeSession(
     session: SshTerminalSession,
     options: { closeStream: boolean; reason: string }
   ): void {
+    // 防止重复关闭
     if (session.closed) {
       return
     }
@@ -269,6 +316,9 @@ export class SshTerminalService {
     }
   }
 
+  /**
+   * 规范终端大小，使用默认值填充缺失的维度
+   */
   private normalizeSize(size?: SshTerminalSize): SshTerminalSize {
     return {
       cols: this.clampInteger(size?.cols, DEFAULT_COLS, 2, 500),
@@ -276,6 +326,9 @@ export class SshTerminalService {
     }
   }
 
+  /**
+   * 将整数值限制在指定范围内
+   */
   private clampInteger(
     value: number | undefined,
     fallback: number,

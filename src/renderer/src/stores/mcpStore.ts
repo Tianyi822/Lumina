@@ -78,6 +78,10 @@ const defaultFormData: MCPServerConfig = {
 
 let statusListenerCleanup: (() => void) | null = null
 
+/**
+ * MCP 服务器管理 Store
+ * 管理 MCP 服务器配置、连接状态、工具列表及表单操作
+ */
 export const useMCPStore = create<MCPState>()(
   persist(
     (set, get) => ({
@@ -97,11 +101,14 @@ export const useMCPStore = create<MCPState>()(
       testing: null,
       error: null,
 
+      /** 所有服务器的工具总数 */
       totalToolsCount: () =>
         Object.values(get().toolsByServer).reduce((sum, tools) => sum + tools.length, 0),
 
+      /** 已连接服务器数量 */
       connectedServersCount: () => get().statuses.filter((s) => s.connected).length,
 
+      /** 根据搜索关键词过滤所有服务器的工具列表 */
       filteredToolsByServer: () => {
         const state = get()
         if (!state.searchQuery.trim()) return state.toolsByServer
@@ -121,11 +128,13 @@ export const useMCPStore = create<MCPState>()(
         return result
       },
 
+      /** 检查是否有正在进行的操作（加载/连接/测试） */
       isOperating: () => {
         const state = get()
         return state.loading || state.connecting !== null || state.testing !== null
       },
 
+      /** 加载所有服务器配置和状态 */
       loadConfigs: async () => {
         set({ loading: true, error: null })
         try {
@@ -147,6 +156,7 @@ export const useMCPStore = create<MCPState>()(
         }
       },
 
+      /** 保存服务器配置 */
       saveConfig: async (config) => {
         set({ loading: true, error: null })
         try {
@@ -165,6 +175,7 @@ export const useMCPStore = create<MCPState>()(
         }
       },
 
+      /** 删除服务器配置 */
       deleteConfig: async (name) => {
         set({ loading: true, error: null })
         try {
@@ -190,6 +201,7 @@ export const useMCPStore = create<MCPState>()(
         return status?.connected ?? false
       },
 
+      /** 连接到指定 MCP 服务器 */
       connect: async (name, onSuccess, onError) => {
         set({ connecting: name })
         try {
@@ -209,6 +221,7 @@ export const useMCPStore = create<MCPState>()(
         }
       },
 
+      /** 断开指定 MCP 服务器连接 */
       disconnect: async (name, onError) => {
         try {
           const result = await window.api.mcp.disconnect(name)
@@ -224,6 +237,7 @@ export const useMCPStore = create<MCPState>()(
         }
       },
 
+      /** 测试 MCP 服务器连接 */
       testConnection: async (config, onSuccess, onError) => {
         set({ testing: config.name })
         try {
@@ -242,6 +256,7 @@ export const useMCPStore = create<MCPState>()(
         }
       },
 
+      /** 刷新所有服务器的连接状态 */
       refreshStatuses: async () => {
         try {
           const result = await window.api.mcp.getStatus()
@@ -253,6 +268,7 @@ export const useMCPStore = create<MCPState>()(
         }
       },
 
+      /** 加载所有服务器的工具列表 */
       loadAllTools: async () => {
         try {
           const toolsByServerResult = await window.api.mcp.listToolsByServer()
@@ -267,6 +283,7 @@ export const useMCPStore = create<MCPState>()(
 
       getServerTools: (serverName) => get().toolsByServer[serverName] || [],
 
+      /** 刷新指定服务器的工具列表 */
       refreshServerTools: async (serverName) => {
         try {
           const allToolsResult = await window.api.mcp.listToolsByServer()
@@ -283,6 +300,7 @@ export const useMCPStore = create<MCPState>()(
         }
       },
 
+      /** 切换服务器展开/折叠状态 */
       toggleServerExpanded: (serverName) =>
         set((state) => {
           const next = new Set(state.expandedServers)
@@ -297,6 +315,7 @@ export const useMCPStore = create<MCPState>()(
 
       clearSearch: () => set({ searchQuery: '' }),
 
+      /** 解析 key=value 文本为对象 */
       parseKeyValueText: (text) => {
         const result: Record<string, string> = {}
         const lines = text.split('\n').filter((line) => line.trim())
@@ -307,11 +326,13 @@ export const useMCPStore = create<MCPState>()(
         return result
       },
 
+      /** 将 key-value 对象序列化为文本 */
       keyValueToText: (obj) =>
         Object.entries(obj)
           .map(([k, v]) => `${k}=${v}`)
           .join('\n'),
 
+      /** 从表单数据构建 MCP 服务器配置对象 */
       buildConfig: () => {
         const state = get()
         return {
@@ -325,6 +346,7 @@ export const useMCPStore = create<MCPState>()(
         }
       },
 
+      /** 验证 MCP 配置是否合法（名称唯一性、必填字段） */
       validateConfig: (config, existingNames) => {
         if (!config.name.trim()) return '请输入服务器名称'
 
@@ -385,6 +407,7 @@ export const useMCPStore = create<MCPState>()(
           headersText: ''
         }),
 
+      /** 注册 MCP 状态变化监听器 */
       setupStatusListener: () => {
         if (statusListenerCleanup) statusListenerCleanup()
 
@@ -394,6 +417,7 @@ export const useMCPStore = create<MCPState>()(
         })
       },
 
+      /** 清理 MCP 状态变化监听器 */
       cleanupStatusListener: () => {
         if (statusListenerCleanup) {
           statusListenerCleanup()

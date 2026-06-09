@@ -41,6 +41,11 @@ const PAPER_CONTEXT_SEARCH_TOOL: MCPToolReference = {
   }
 }
 
+/**
+ * 论文上下文工具适配器
+ * 将 PaperContextSearchToolService 适配为统一的 ToolAdapter 接口。
+ * 提供 search_context 工具，支持按需检索当前论文的 OCR 原文和译文的句子级上下文。
+ */
 export class PaperContextToolAdapter implements ToolAdapter {
   private paperId?: string
 
@@ -52,6 +57,10 @@ export class PaperContextToolAdapter implements ToolAdapter {
     return [PAPER_CONTEXT_SEARCH_TOOL]
   }
 
+  /**
+   * 执行论文上下文检索
+   * 与 PaperContextSearchToolService.search() 协作完成实际检索逻辑
+   */
   async execute(toolName: string, args: Record<string, unknown>): Promise<MCPToolCallResult> {
     const normalizedToolName = toolName.startsWith('paper__')
       ? toolName.slice('paper__'.length)

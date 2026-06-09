@@ -14,6 +14,9 @@ export interface NormalizedAnnotationContentInput {
   colorKey: PaperAnnotationColorKey
 }
 
+/**
+ * 创建空的批注存储（V3 格式）
+ */
 export function createEmptyPaperAnnotationStore(paperId: string): PaperAnnotationStore {
   return {
     version: 3,
@@ -29,6 +32,10 @@ export function isHighlightColorKey(colorKey: PaperAnnotationColorKey): boolean 
   )
 }
 
+/**
+ * 归一化批注内容：校验颜色键和评论内容的合法性
+ * 高亮只能使用蓝/黄/橙色，笔记只能使用绿色且必须填写评论
+ */
 export function normalizeAnnotationContent(
   kind: PaperAnnotationKind,
   colorKey: PaperAnnotationColorKey,
@@ -79,6 +86,9 @@ function normalizeAnnotationColorKey(value: unknown): PaperAnnotationColorKey {
   return PAPER_ANNOTATION_NOTE_COLOR_KEY
 }
 
+/**
+ * 归一化从磁盘读取的单条批注（确保 kind 和 colorKey 的合法性）
+ */
 export function normalizeStoredAnnotation(annotation: PaperAnnotation): PaperAnnotation {
   return {
     ...annotation,
@@ -89,6 +99,9 @@ export function normalizeStoredAnnotation(annotation: PaperAnnotation): PaperAnn
   }
 }
 
+/**
+ * 归一化整个批注存储（合并默认值、归一化每条批注）
+ */
 export function normalizeStoredAnnotationStore(
   paperId: string,
   store: PaperAnnotationStore

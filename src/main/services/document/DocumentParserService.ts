@@ -101,6 +101,7 @@ export class DocumentParserService {
 
   /**
    * 解析文本文件（txt, md, csv）
+   * 直接以 UTF-8 编码转换为字符串
    */
   private parseTextFile(fileData: Buffer): string {
     return fileData.toString('utf-8')
@@ -139,7 +140,7 @@ export class DocumentParserService {
 
       let fullText = ''
 
-      // 遍历所有页面提取文本
+      // 逐页遍历 PDF，提取每页文本内容并拼接
       for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i)
         const textContent = await page.getTextContent()
@@ -160,6 +161,7 @@ export class DocumentParserService {
 
   /**
    * 解析 DOCX 文档（Office Open XML 格式）
+   * 使用 mammoth 库提取纯文本
    */
   private async parseDocx(filePath: string): Promise<string> {
     try {
@@ -189,7 +191,8 @@ export class DocumentParserService {
   }
 
   /**
-   * 解析 DOC 文档（旧版二进制格式）
+   * 解析 DOC 文档（旧版 Word 二进制格式）
+   * 使用 word-extractor 库提取正文文本
    */
   private async parseDoc(filePath: string): Promise<string> {
     try {
@@ -254,6 +257,7 @@ export class DocumentParserService {
 
   /**
    * 解析 PPTX 演示文稿
+   * 使用 officeparser 提取幻灯片文本，忽略备注
    */
   private async parsePptx(filePath: string): Promise<string> {
     try {

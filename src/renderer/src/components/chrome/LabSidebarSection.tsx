@@ -9,6 +9,10 @@ import {
 } from '@renderer/stores'
 import styles from './WorkspaceSidebarHost.module.css'
 
+/**
+ * 实验室侧边栏内容组件
+ * 提供实验室列表搜索、切换、刷新、删除，及 Docker 资产管理入口
+ */
 const LabSidebarSection = memo(function LabSidebarSection() {
   const currentLab = useLabListStore((s) => s.currentLab)
   const labList = useLabListStore((s) => s.labList)

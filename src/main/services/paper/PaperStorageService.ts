@@ -68,9 +68,19 @@ interface PaperAnnotationData {
   legacyAnnotations?: LegacyPaperAnnotation[]
 }
 
+/**
+ * 论文存储服务 — 管理论文数据的磁盘读写
+ * 职责：创建/读取/更新论文元信息、页面图片、OCR 结果、
+ * 翻译缓存、批注存储等的文件系统操作
+ * 使用 WriteQueue 确保同一论文的写操作串行化
+ */
 export class PaperStorageService {
   private writeQueue = new WriteQueue()
 
+  /**
+   * 归一化元信息中的文件路径，确保路径与当前文件系统布局一致
+   * 用于迁移旧数据或路径变更后的兼容
+   */
   private normalizeMetaPaths(
     paperId: string,
     document: PaperDocument
@@ -143,6 +153,10 @@ export class PaperStorageService {
     return hash.digest('hex')
   }
 
+  /**
+   * 从本地 PDF 文件创建论文记录
+   * 复制 PDF 到论文目录、生成 ID、写入元信息
+   */
   async createPaper(
     sourcePdfPath: string,
     ocrModel: string,
@@ -209,6 +223,9 @@ export class PaperStorageService {
     }
   }
 
+  /**
+   * 读取论文元信息（自动归一化路径）
+   */
   async readMeta(
     paperId: string
   ): Promise<{ success: boolean; data?: PaperDocument; error?: string }> {
@@ -257,6 +274,9 @@ export class PaperStorageService {
     }
   }
 
+  /**
+   * 保存论文元信息（通过写入队列确保串行）
+   */
   async saveMeta(
     paperId: string,
     document: PaperDocument
@@ -264,6 +284,9 @@ export class PaperStorageService {
     return this.writeQueue.enqueue(paperId, () => this.saveMetaCore(paperId, document))
   }
 
+  /**
+   * 更新论文元信息（读-改-写模式，通过队列避免竞态）
+   */
   async updateMeta(
     paperId: string,
     updates: Partial<PaperDocument>
@@ -286,6 +309,9 @@ export class PaperStorageService {
     })
   }
 
+  /**
+   * 列出所有论文（按创建时间倒序）
+   */
   async listPapers(): Promise<{ success: boolean; data?: PaperDocument[]; error?: string }> {
     try {
       await this.ensurePapersDir()
@@ -313,6 +339,9 @@ export class PaperStorageService {
     }
   }
 
+  /**
+   * 删除整篇论文的目录和文件
+   */
   async deletePaper(paperId: string): Promise<{ success: boolean; error?: string }> {
     try {
       const paperDir = getPaperDirPath(paperId)
@@ -337,6 +366,9 @@ export class PaperStorageService {
   /**
    * 保存单页图片（从 base64 数据）
    * base64Data 不含 data:image/jpeg;base64, 前缀
+   */
+  /**
+   * 保存单页图片（从 base64 数据写入磁盘，同时更新元信息中的 pageAssets）
    */
   async savePageImage(
     paperId: string,
@@ -397,6 +429,9 @@ export class PaperStorageService {
   /**
    * 读取单页图片（返回 base64 字符串）
    */
+  /**
+   * 读取单页图片（返回 base64 编码的图片数据）
+   */
   async readPageImage(
     paperId: string,
     pageIndex: number
@@ -417,6 +452,9 @@ export class PaperStorageService {
     }
   }
 
+  /**
+   * 读取合并后的 Markdown 文件
+   */
   async readMergedMd(
     paperId: string
   ): Promise<{ success: boolean; data?: string; error?: string }> {
@@ -450,6 +488,9 @@ export class PaperStorageService {
     }
   }
 
+  /**
+   * 读取翻译缓存（自动本地化缓存中的图片资源 URL）
+   */
   async readTranslationCache(paperId: string): Promise<{
     success: boolean
     data?: PaperTranslationCache
@@ -477,6 +518,9 @@ export class PaperStorageService {
     }
   }
 
+  /**
+   * 保存翻译缓存（使用独立队列 key 避免与元信息写入竞争）
+   */
   async saveTranslationCache(
     paperId: string,
     cache: PaperTranslationCache
@@ -514,6 +558,9 @@ export class PaperStorageService {
     }
   }
 
+  /**
+   * 读取批注存储（统一入口，返回 V3 格式的 store）
+   */
   async readAnnotationStore(paperId: string): Promise<{
     success: boolean
     data?: PaperAnnotationStore
@@ -531,6 +578,10 @@ export class PaperStorageService {
     return { success: true, data: createEmptyAnnotationStore(paperId) }
   }
 
+  /**
+   * 读取原始批注数据（检测并兼容旧版格式）
+   * 返回值为 'store'(V3格式) 或 'legacy'(旧版pageIndex/blockIndex格式)
+   */
   async readAnnotationData(paperId: string): Promise<{
     success: boolean
     data?: PaperAnnotationData
@@ -592,6 +643,9 @@ export class PaperStorageService {
     }
   }
 
+  /**
+   * 保存批注存储到磁盘
+   */
   async saveAnnotationStore(
     paperId: string,
     store: PaperAnnotationStore
@@ -665,6 +719,9 @@ export class PaperStorageService {
     }
   }
 
+  /**
+   * 列出所有页面的归一化 OCR 结果（缺失页返回 pending 状态）
+   */
   async listNormalizedResults(paperId: string): Promise<{
     success: boolean
     data?: PaperPageOcrResult[]

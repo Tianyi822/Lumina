@@ -1,7 +1,7 @@
-// 从 @electron-toolkit/preload 导入 ElectronAPI
+/** 从 @electron-toolkit/preload 导入 ElectronAPI */
 import type { ElectronAPI } from '@electron-toolkit/preload'
 
-// 导出各模块类型
+/** 导出各模块类型 */
 export * from './config'
 export * from './chat'
 export * from './session'
@@ -22,7 +22,10 @@ export * from './update'
 export * from './capability'
 export * from './customApi'
 
-// 全局 Window 接口声明
+/**
+ * 全局 Window 接口声明
+ * 扩展 window 对象，添加 electron 和 api 属性
+ */
 declare global {
   interface Window {
     electron: ElectronAPI
