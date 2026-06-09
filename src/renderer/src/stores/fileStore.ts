@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { FileItem } from '@renderer/types'
+import { filterFilesByQuery } from '@renderer/utils/filterFilesByQuery'
 import { formatFileSize } from '@shared/utils'
 
 interface FileState {
@@ -45,26 +46,10 @@ export const useFileStore = create<FileState>()((set, get) => ({
   loading: false,
   searchQuery: '',
 
-  /** 根据搜索关键词过滤文件列表（匹配文件名、来源、论文名等） */
+  /** 根据搜索关键词过滤文件列表（仅供 get() 命令式调用，勿在 React selector 中使用） */
   filteredFiles: () => {
     const state = get()
-    if (!state.searchQuery.trim()) {
-      return state.files
-    }
-    const query = state.searchQuery.toLowerCase()
-    return state.files.filter((file) => {
-      const searchableText = [
-        file.name,
-        file.sourceKind,
-        file.origin?.paperName,
-        file.origin?.displayName,
-        file.origin?.summary
-      ]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase()
-      return searchableText.includes(query)
-    })
+    return filterFilesByQuery(state.files, state.searchQuery)
   },
 
   /** 从主进程加载文件列表 */

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, memo } from 'react'
+import { useEffect, useCallback, memo } from 'react'
 import { useFileStore } from '@renderer/stores'
 import { useNotification } from '@renderer/composables/useNotification'
 import type { FileItem } from '@renderer/types'
@@ -10,18 +10,19 @@ import FileCard from './file-manager/components/FileCard'
 import FileListState from './file-manager/components/FileListState'
 import ConfirmDeleteDialog from './file-manager/components/ConfirmDeleteDialog'
 import { useFileDelete } from './hooks/useFileDelete'
-import FilePreviewDialog from './FilePreviewDialog'
+import { useFilteredFiles } from './hooks/useFilteredFiles'
 import ModalPortal from '@renderer/components/ui/ModalPortal'
 import styles from './FileManagerModal.module.css'
 
 interface FileManagerModalProps {
   onClose: () => void
+  onPreviewFile: (file: FileItem) => void
 }
 
 /** 文件管理器弹窗：管理文件上传、列表展示、搜索、删除、预览等功能 */
-function FileManagerModal({ onClose }: FileManagerModalProps) {
+function FileManagerModal({ onClose, onPreviewFile }: FileManagerModalProps) {
   const loadFiles = useFileStore((s) => s.loadFiles)
-  const filteredFiles = useFileStore((s) => s.filteredFiles())
+  const filteredFiles = useFilteredFiles()
 
   const notify = useNotification()
 
@@ -33,9 +34,6 @@ function FileManagerModal({ onClose }: FileManagerModalProps) {
     performDelete,
     cancelDelete
   } = useFileDelete()
-
-  const [previewFile, setPreviewFile] = useState<FileItem | null>(null)
-  const [showPreview, setShowPreview] = useState(false)
 
   useEffect(() => {
     loadFiles()
@@ -64,15 +62,12 @@ function FileManagerModal({ onClose }: FileManagerModalProps) {
     [notify]
   )
 
-  const handlePreview = useCallback((file: FileItem) => {
-    setPreviewFile(file)
-    setShowPreview(true)
-  }, [])
-
-  const handleClosePreview = useCallback(() => {
-    setShowPreview(false)
-    setTimeout(() => setPreviewFile(null), 300)
-  }, [])
+  const handlePreview = useCallback(
+    (file: FileItem) => {
+      onPreviewFile(file)
+    },
+    [onPreviewFile]
+  )
 
   return (
     <>
@@ -110,8 +105,6 @@ function FileManagerModal({ onClose }: FileManagerModalProps) {
         onConfirm={performDelete}
         onCancel={cancelDelete}
       />
-
-      <FilePreviewDialog visible={showPreview} file={previewFile} onClose={handleClosePreview} />
     </>
   )
 }

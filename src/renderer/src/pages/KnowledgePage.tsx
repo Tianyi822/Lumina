@@ -5,6 +5,7 @@ import { useNotification } from '@renderer/composables/useNotification'
 import KnowledgeMain from '@renderer/components/KnowledgeMain'
 import KnowledgeForm from '@renderer/components/knowledge/KnowledgeForm'
 import FileManagerModal from '@renderer/components/knowledge/FileManagerModal'
+import FilePreviewDialog from '@renderer/components/knowledge/FilePreviewDialog'
 import FileSelectorModal from '@renderer/components/knowledge/FileSelectorModal'
 import type { FileItem } from '@renderer/types'
 import styles from './KnowledgePage.module.css'
@@ -30,6 +31,8 @@ export default function KnowledgePage() {
 
   const [showFileSelector, setShowFileSelector] = useState(false)
   const [currentKBIdForSelector, setCurrentKBIdForSelector] = useState('')
+  const [previewFile, setPreviewFile] = useState<FileItem | null>(null)
+  const [showPreview, setShowPreview] = useState(false)
   const filesLinkedHandlerRef = useRef<((files: FileItem[]) => Promise<void>) | null>(null)
 
   useEffect(() => {
@@ -73,6 +76,20 @@ export default function KnowledgePage() {
     setCurrentKBIdForSelector('')
   }, [])
 
+  const handlePreviewFileFromManager = useCallback(
+    (file: FileItem) => {
+      closeKnowledgeFileManager()
+      setPreviewFile(file)
+      setShowPreview(true)
+    },
+    [closeKnowledgeFileManager]
+  )
+
+  const handleClosePreview = useCallback(() => {
+    setShowPreview(false)
+    setTimeout(() => setPreviewFile(null), 300)
+  }, [])
+
   const handleFilesLinked = useCallback(
     (files: FileItem[]) => {
       linkFilesToKB(currentKBIdForSelector, files.map((f) => f.id))
@@ -114,7 +131,14 @@ export default function KnowledgePage() {
 
       {showForm && <KnowledgeForm onSubmit={handleKnowledgeSubmit} onCancel={closeForm} />}
 
-      {showKnowledgeFileManager && <FileManagerModal onClose={closeKnowledgeFileManager} />}
+      {showKnowledgeFileManager && (
+        <FileManagerModal
+          onClose={closeKnowledgeFileManager}
+          onPreviewFile={handlePreviewFileFromManager}
+        />
+      )}
+
+      <FilePreviewDialog visible={showPreview} file={previewFile} onClose={handleClosePreview} />
 
       {showFileSelector && (
         <FileSelectorModal

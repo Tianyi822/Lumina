@@ -1,11 +1,12 @@
 import { useFileStore } from '@renderer/stores'
+import { useFilteredFiles } from '../../hooks/useFilteredFiles'
 import styles from './FileManagerToolbar.module.css'
 
 /** 文件管理器工具栏：包含搜索输入框和文件总数统计 */
 export default function FileManagerToolbar() {
   const searchQuery = useFileStore((s) => s.searchQuery)
   const searchFiles = useFileStore((s) => s.searchFiles)
-  const filteredFiles = useFileStore((s) => s.filteredFiles())
+  const filteredFiles = useFilteredFiles()
 
   return (
     <div className={styles['file-manager-toolbar']}>
