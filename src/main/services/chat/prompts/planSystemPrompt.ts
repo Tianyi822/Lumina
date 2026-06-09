@@ -2,7 +2,11 @@ import type { MCPToolReference } from '../../../types/chat'
 
 /**
  * 构建规划阶段的系统提示词
- * 指导模型分析用户请求复杂度并生成结构化执行计划
+ * 指导模型分析用户请求复杂度并生成结构化执行计划。
+ * 包含工具摘要和论文上下文信息（可选）。
+ * @param tools 可用工具列表（用于生成工具摘要）
+ * @param paperContext 论文上下文文本（可选）
+ * @returns 完整规划系统提示词
  */
 export function buildPlanSystemPrompt(
   tools: MCPToolReference[] = [],
@@ -51,8 +55,10 @@ ${contextSection}
 现在请分析用户的请求并输出执行计划。`.trim()
 }
 
+/** 按服务器名分组并构建工具摘要文本 */
 function buildToolSummary(tools: MCPToolReference[]): string {
   const grouped = new Map<string, MCPToolReference[]>()
+  // 按服务器名 -> 工具名 -> 描述三级排序，确保输出稳定
   const sortedTools = [...tools].sort((a, b) => {
     const serverCompare = a.serverName.localeCompare(b.serverName)
     if (serverCompare !== 0) return serverCompare

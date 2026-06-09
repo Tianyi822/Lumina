@@ -5,6 +5,7 @@ import type { LabCreationType } from '@renderer/types/lab'
 import { getDeleteDialogConfig } from '@renderer/utils/labPermissions'
 import styles from './DeleteConfirmDialog.module.css'
 
+/** 删除确认对话框，根据实验室类型展示不同的警告文案和操作按钮 */
 interface LabItem {
   labId: string
   name: string
@@ -19,6 +20,7 @@ interface DeleteConfirmDialogProps {
   onConfirm: (labId: string) => void
 }
 
+/** 高亮消息文本中的实验室名称（「xxx」）为粗体 */
 function highlightLabName(text: string, labName: string): ReactNode {
   if (!labName) return text
   const marker = `「${labName}」`
@@ -33,6 +35,7 @@ function highlightLabName(text: string, labName: string): ReactNode {
   )
 }
 
+/** 将对话框消息按双换行分割为多个段落，每段高亮实验室名称 */
 function renderMessageParagraphs(message: string, labName: string): ReactNode {
   const paragraphs = message.split(/\n\n+/).filter((part) => part.trim().length > 0)
   return paragraphs.map((paragraph, index) => (

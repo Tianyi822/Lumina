@@ -79,9 +79,16 @@ const STOP_WORDS = new Set([
   '学习'
 ])
 
+/**
+ * 论文网页搜索服务
+ * 使用 DuckDuckGo 搜索论文相关资源，抓取页面内容，排序去重后返回
+ */
 export class PaperWebSearchService {
   private envCheckCache: PaperWebSearchEnvironmentInfo | null = null
 
+  /**
+   * 检查搜索环境是否可用
+   */
   async checkEnvironment(): Promise<PaperWebSearchEnvironmentInfo> {
     if (this.envCheckCache) {
       return this.envCheckCache
@@ -101,6 +108,14 @@ export class PaperWebSearchService {
     this.envCheckCache = null
   }
 
+  /**
+   * 执行论文网页搜索
+   * 1. 构建查询语句
+   * 2. 通过 DuckDuckGo 发现搜索结果
+   * 3. 抓取页面内容
+   * 4. 排序、去重、评分
+   * 5. 返回结构化的搜索结果
+   */
   async search(input: PaperWebSearchToolInput): Promise<PaperWebSearchOutput> {
     const startTime = Date.now()
     const query = buildSearchQuery(input)

@@ -7,16 +7,19 @@ import {
   trimCanonicalTextRange
 } from './paperCanonicalTextIndex'
 
+/** 从 DOM 节点向上查找包含的选区表面元素（有 data-paper-selection-surface 属性） */
 export function resolveSelectionSurface(container: Node): HTMLElement | null {
   return container instanceof Element
     ? container.closest<HTMLElement>('[data-paper-selection-surface="true"]')
     : container.parentElement?.closest<HTMLElement>('[data-paper-selection-surface="true"]') || null
 }
 
+/** 获取选区表面内容的根元素（自身或第一个子元素） */
 export function getSelectionContentRoot(surface: HTMLElement): Element {
   return surface.firstElementChild || surface
 }
 
+/** 解析 Range 在规范文本中的偏移量，遇到 KaTeX 公式时自动调整边界到父容器层级 */
 export function resolveRangeOffsetsWithFormulaFallback(
   canonicalIndex: ReturnType<typeof buildCanonicalTextIndex>,
   range: Range
@@ -74,6 +77,7 @@ export function resolveRangeOffsetsWithFormulaFallback(
   return getCanonicalRangeOffsets(canonicalIndex, range)
 }
 
+/** 规范化选区范围，修正选区起始偏移可能多选的不可见字符边界 */
 export function normalizeCanonicalSelectionRange(
   canonicalIndex: CanonicalTextIndex,
   rangeOffsets: { startOffset: number; endOffset: number }
@@ -205,6 +209,7 @@ export function syncFormulaSelectionOnDrag(rootScope: Element | null): () => voi
 }
 
 /** 清除所有公式的整体选中高亮标记 */
+/** 清除所有公式的选中高亮标记（移除 katex--selected 类） */
 export function clearSelectedFormulas(root?: Element): void {
   if (!root && typeof document === 'undefined') {
     return
@@ -245,6 +250,7 @@ function getFormulaSelectionTarget(node: Node): Node {
  * 完全落在 [startOffset, endOffset] 内，则给 `.katex-html` 添加
  * `katex--selected` 类以显示统一高亮，避免 display 公式整行铺底。
  */
+/** 根据规范文本索引标记被选区完整覆盖的 KaTeX 公式，添加统一高亮样式 */
 export function markSelectedFormulas(
   root: Element,
   canonicalIndex: ReturnType<typeof buildCanonicalTextIndex>,

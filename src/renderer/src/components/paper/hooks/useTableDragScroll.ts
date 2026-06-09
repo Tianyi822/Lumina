@@ -11,6 +11,7 @@ interface TableDragState {
   hasDragged: boolean
 }
 
+/** 表格水平拖拽滚动 Hook，通过 pointer 事件实现表格内容的平滑拖拽滚动 */
 export function useTableDragScroll() {
   const tableDragStateRef = useRef<TableDragState | null>(null)
   const lastTableDragEndedAtRef = useRef(0)

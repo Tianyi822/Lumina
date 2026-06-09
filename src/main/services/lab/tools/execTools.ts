@@ -8,6 +8,7 @@ import { sshService } from '../ssh'
 
 /**
  * 在实验室中执行命令
+ * 支持工作目录、环境变量和超时设置，通过 SSH 远程执行
  */
 export const execCommandTool: LabToolDefinition = {
   name: 'lab__exec_command',
@@ -58,6 +59,7 @@ export const execCommandTool: LabToolDefinition = {
       }
     }
 
+    // 检查命令执行策略（是否需用户确认或禁止执行）
     const policy = getCommandExecutionPolicy('lab_sandbox', command)
     if (policy.requiresUserInteraction) {
       return {
@@ -75,6 +77,7 @@ export const execCommandTool: LabToolDefinition = {
       }
     }
 
+    // 执行策略明确禁止，拒绝执行
     if (!policy.canExecute) {
       return {
         success: false,

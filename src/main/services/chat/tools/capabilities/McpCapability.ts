@@ -4,11 +4,18 @@ import { MCPToolAdapter } from '../adapters/MCPToolAdapter'
 import type { MCPService } from '@main/services/mcp'
 import type { MCPToolReference } from '@shared/types/chat'
 
+/** MCP 能力的上下文数据 */
 interface McpCapabilityContext {
+  /** 用户选中的 MCP 工具引用列表 */
   selectedTools?: MCPToolReference[]
+  /** MCP 服务实例 */
   mcpService?: MCPService
 }
 
+/**
+ * MCP 外部工具能力
+ * 将已连接的 MCP 服务器提供的工具集暴露为可调用工具
+ */
 export class McpCapability implements CapabilityUnit {
   id = 'mcp'
   displayName = 'MCP 外部工具'

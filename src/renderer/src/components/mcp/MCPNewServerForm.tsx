@@ -11,12 +11,7 @@ interface MCPNewServerFormProps {
   onTest: (config: MCPServerConfig) => void
 }
 
-/**
- * MCP 新建服务器表单
- *
- * 支持传输类型选择 + 动态字段 + 名称验证。
- * 消费 KeyValueEditor 子组件 + keyValueUtils 工具。
- */
+/** MCP 新建服务器表单：支持传输类型选择 + 动态字段 + 名称验证 */
 export default function MCPNewServerForm({
   existingNames,
   onSubmit,

@@ -1,6 +1,7 @@
 import { useWindowControls } from './hooks/useWindowControls'
 import styles from './WindowControls.module.css'
 
+/** 窗口控制按钮组（最小化/最大化/关闭），仅 macOS 标题栏使用 */
 export default function WindowControls() {
   const { isMaximized, minimize, maximize, close } = useWindowControls()
   const maximizeIcon = isMaximized ? '' : ''

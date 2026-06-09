@@ -19,6 +19,10 @@ const LabPage = lazy(() => import('@renderer/pages/LabPage'))
 
 import styles from './App.module.css'
 
+/**
+ * 应用根组件
+ * 管理视图路由（论文/知识库/实验室）、主题初始化、全局链接拦截、设置弹窗
+ */
 export default function App() {
   const currentView = useUIStateStore((s) => s.currentView)
   const isCurrentSidebarCollapsed = useUIStateStore((s) => s.isCurrentSidebarCollapsed())
@@ -33,6 +37,7 @@ export default function App() {
   useForegroundUpdateCheck()
   const shouldFlushPaperReaderRight = currentView === 'paper' && !paperChatPanelOpen
 
+  // 根据当前视图、侧边栏状态、平台组合工作区样式
   const workspacePageClasses = [
     styles.workspacePage,
     `sm-workspace-page--${currentView}`,
@@ -45,7 +50,7 @@ export default function App() {
     .filter(Boolean)
     .join(' ')
 
-  // 挂载时初始化
+  // 挂载时初始化：主题、配置、论文阅读器偏好
   useEffect(() => {
     const uiState = useUIStateStore.getState()
     const configStore = useConfigStore.getState()
@@ -56,7 +61,7 @@ export default function App() {
     usePaperViewStore.getState().loadPaperReaderPreferences()
   }, [loadConfigStatus])
 
-  // 全局链接拦截
+  // 全局链接拦截：防止默认导航，通过主进程打开外部链接
   useEffect(() => {
     function handleGlobalLinkClick(event: MouseEvent): void {
       const target = event.target as HTMLElement
@@ -80,7 +85,7 @@ export default function App() {
     }
   }, [])
 
-  // lab 禁用时同步视图状态
+  // lab 禁用时如果当前视图是 lab，回退到 paper 视图
   useEffect(() => {
     if (!labFeaturesLabEnabled) {
       const currentViewState = useUIStateStore.getState().currentView

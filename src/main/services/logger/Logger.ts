@@ -5,13 +5,21 @@ import type { LogSource, LogEntry, LoggerConfig, LogResult } from '@main/types/l
 import { getLogDirPath, getLogFilePath, formatDateForFilename, isLogPathSafe } from './loggerPaths'
 import { writeWindowsConsole } from './windowsConsole'
 
-// 最大日志消息长度（10KB）
+/** 最大日志消息长度（10KB） */
 const MAX_MESSAGE_LENGTH = 10 * 1024
 
+/**
+ * 检查文本是否包含无法正确解码的乱码字符
+ * 如替换字符 U+FFFD、GBK 解码为 UTF-8 时的典型乱码等
+ */
 function hasUnreadableText(value: string): boolean {
   return value.includes('\uFFFD') || value.includes('锟斤拷') || value.includes('���')
 }
 
+/**
+ * 净化日志文本
+ * 移除无法正确解码的乱码内容，替换为有意义的说明
+ */
 function sanitizeLogText(value: string): string {
   if (!hasUnreadableText(value)) {
     return value
@@ -24,6 +32,10 @@ function sanitizeLogText(value: string): string {
   return '文本包含无法正确解码的内容，已隐藏原始乱码。'
 }
 
+/**
+ * 递归净化日志对象中的值
+ * 对字符串进行乱码检测和替换
+ */
 function sanitizeLogValue(value: unknown): unknown {
   if (typeof value === 'string') {
     return sanitizeLogText(value)
@@ -45,9 +57,11 @@ function sanitizeLogValue(value: unknown): unknown {
   return value
 }
 
-// 日志管理器
-// 负责日志的记录、格式化和输出
-// 支持控制台输出和文件输出，支持日志级别过滤和日期轮转
+/**
+ * 日志管理器
+ * 负责日志的记录、格式化和输出
+ * 支持控制台输出和文件输出，支持日志级别过滤和日期轮转
+ */
 export class Logger {
   private config: LoggerConfig
   private currentLogDate: string
@@ -69,8 +83,10 @@ export class Logger {
     this.currentLogPath = getLogFilePath()
   }
 
-  // 初始化日志系统
-  // 确保日志目录存在
+  /**
+   * 初始化日志系统
+   * 确保日志目录存在，仅在首次调用时执行
+   */
   initialize(): void {
     if (this.initialized) return
 
@@ -83,7 +99,9 @@ export class Logger {
     }
   }
 
-  // 确保日志目录存在
+  /**
+   * 确保日志目录存在，不存在则创建
+   */
   private ensureLogDir(): void {
     const logDir = getLogDirPath()
     if (!existsSync(logDir)) {
@@ -91,8 +109,10 @@ export class Logger {
     }
   }
 
-  // 检查并更新日志文件（日期轮转）
-  // 当日期变化时，自动切换到新的日志文件
+  /**
+   * 检查并更新日志文件（日期轮转）
+   * 当日期变化时自动切换到新的日志文件
+   */
   private checkAndRotateLogFile(): void {
     const today = formatDateForFilename()
     if (today !== this.currentLogDate) {
@@ -101,7 +121,10 @@ export class Logger {
     }
   }
 
-  // 格式化时间戳
+  /**
+   * 格式化时间戳为可读字符串
+   * 格式：YYYY-MM-DD HH:mm:ss.SSS
+   */
   private formatTimestamp(date: Date = new Date()): string {
     const year = date.getFullYear()
     const month = String(date.getMonth() + 1).padStart(2, '0')
@@ -113,8 +136,10 @@ export class Logger {
     return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.${ms}`
   }
 
-  // 安全序列化 context 对象
-  // 如果对象无法序列化，返回错误提示字符串
+  /**
+   * 安全序列化 context 上下文对象
+   * 如果对象无法序列化，返回错误提示字符串而非抛出异常
+   */
   private serializeContext(context?: Record<string, unknown>): string {
     if (!context) return ''
 
@@ -125,14 +150,19 @@ export class Logger {
     }
   }
 
-  // 格式化日志条目为字符串
+  /**
+   * 格式化日志条目为固定格式的字符串
+   */
   private formatLogEntry(entry: LogEntry): string {
     const contextStr = entry.context ? ` ${this.serializeContext(entry.context)}` : ''
     return `[${entry.timestamp}] [${entry.levelName}] [${entry.source}] ${entry.message}${contextStr}`
   }
 
-  // 输出到控制台
-  // 根据日志级别选择不同的控制台方法
+  /**
+   * 输出日志到控制台
+   * 根据日志级别选择不同的控制台方法
+   * Windows 平台使用特殊编码处理
+   */
   private logToConsole(entry: LogEntry): void {
     const formattedMessage = this.formatLogEntry(entry)
     const shouldUseWindowsConsoleEncoding = process.platform === 'win32'
@@ -169,8 +199,11 @@ export class Logger {
     }
   }
 
-  // 异步写入日志文件
-  // 使用队列确保写入顺序，支持日期轮转和路径安全验证
+  /**
+   * 异步写入日志文件
+   * 使用队列确保写入顺序，支持日期轮转和路径安全验证
+   * 如果目录不存在则自动创建
+   */
   private async writeToFile(entry: LogEntry): Promise<void> {
     // 检查日期轮转
     this.checkAndRotateLogFile()
@@ -183,7 +216,7 @@ export class Logger {
 
     const logLine = this.formatLogEntry(entry) + '\n'
 
-    // 使用队列确保写入顺序
+    // 使用 Promise 链确保日志写入顺序，避免并发写入交错
     this.writeQueue = this.writeQueue.then(async () => {
       try {
         await appendFile(this.currentLogPath, logLine, 'utf-8')
@@ -201,7 +234,9 @@ export class Logger {
     await this.writeQueue
   }
 
-  // 截断过长的消息
+  /**
+   * 截断过长的消息（超过 10KB）
+   */
   private truncateMessage(message: string): string {
     if (message.length > MAX_MESSAGE_LENGTH) {
       return message.substring(0, MAX_MESSAGE_LENGTH) + '...[消息被截断]'
@@ -276,8 +311,10 @@ export class Logger {
     this.log(LogLevel.FATAL, message, source, context)
   }
 
-  // 设置最低日志级别
-  // 只有大于等于此级别的日志才会被记录
+  /**
+   * 设置最低日志级别
+   * 只有大于等于此级别的日志才会被记录
+   */
   setMinLevel(level: LogLevel): void {
     this.config.minLevel = level
   }

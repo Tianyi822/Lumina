@@ -82,7 +82,8 @@ function createEmptyConfig(): AppConfig {
 }
 
 /**
- * 从旧的 embedding-models.json 文件迁移数据
+ * 从旧的 embedding-models.json 文件迁移嵌入模型配置
+ * 旧版本使用独立文件存储嵌入模型配置，新版本合并到主配置中
  */
 function migrateEmbeddingModels(config: AppConfig): AppConfig {
   const oldFilePath = join(getConfigDirPath(), 'embedding-models.json')
@@ -107,6 +108,9 @@ function migrateEmbeddingModels(config: AppConfig): AppConfig {
 /**
  * 迁移配置，确保新字段存在
  * 用于向后兼容性，处理配置结构的变更
+ * 移除已废弃的字段（promptConfig、skills、paperOcr、voiceRecognition 等）
+ * @param config 原始配置
+ * @returns 迁移后的配置
  */
 export function migrateConfig(config: AppConfig): AppConfig {
   const migrated = { ...config }

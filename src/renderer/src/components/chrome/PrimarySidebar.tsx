@@ -30,7 +30,7 @@ const ADD_LABEL_BY_VIEW: Record<ViewMode, string> = {
   lab: '新增实验室'
 }
 
-/** 一级侧边栏导航项（不含添加） */
+/** 一级侧边栏导航项（论文阅读 + 知识库） */
 const TOP_NAV_ITEMS: NavItem[] = [
   { id: 'read', icon: 'read', label: '阅读', view: 'paper', showTooltip: true },
   { id: 'knowledge', icon: 'knowledge', label: '知识库', view: 'knowledge', showTooltip: true }
@@ -48,6 +48,10 @@ function selectIsSecondarySidebarCollapsed(state: UIStateStore): boolean {
   return state.labSidebarCollapsed
 }
 
+/**
+ * 一级侧边栏组件
+ * 提供视图导航、主题切换、添加按钮、设置入口等功能
+ */
 export default function PrimarySidebar({ onOpenSettings }: PrimarySidebarProps) {
   const currentView = useUIStateStore((s) => s.currentView)
   const setCurrentView = useUIStateStore((s) => s.setCurrentView)
@@ -65,13 +69,14 @@ export default function PrimarySidebar({ onOpenSettings }: PrimarySidebarProps) 
   const labFeatures = useConfigStore((s) => s.labFeatures)
   const labEnabled = isAnyLabDisciplineEnabled(labFeatures)
 
-  // lab 禁用时回退到 paper 侧边栏折叠状态（防御性：setCurrentView 守卫确保 currentView 不会是 'lab'）
+  // lab 禁用时使用 paper 侧边栏折叠状态（防御性处理）
   const isSecondarySidebarCollapsed = labEnabled ? rawSidebarCollapsed : paperSidebarCollapsed
 
   const isDarkTheme = currentTheme === 'lumina-dark'
 
   const addTooltip = ADD_LABEL_BY_VIEW[currentView]
 
+  // 根据启用的实验室学科动态生成导航项
   const navItems = useMemo(() => {
     const labNavItems = LAB_DISCIPLINE_PRESETS.filter((preset) =>
       isLabDisciplineEnabled(labFeatures, preset.id)
@@ -89,6 +94,7 @@ export default function PrimarySidebar({ onOpenSettings }: PrimarySidebarProps) 
     }))
   }, [labFeatures])
 
+  // 根据当前视图执行不同的添加操作（上传论文/创建知识库/创建实验室）
   const handleAddClick = useCallback((): void => {
     if (currentView === 'paper') {
       void uploadAndRenderPdf()
@@ -113,6 +119,7 @@ export default function PrimarySidebar({ onOpenSettings }: PrimarySidebarProps) 
     void setCurrentView(item.view)
   }
 
+  // 切换主题：system 模式下先切换到 manual 再设置具体主题
   const applyTheme = useCallback(
     (themeId: 'lumina-light' | 'lumina-dark'): void => {
       if (themeMode === 'system') {

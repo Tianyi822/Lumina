@@ -44,7 +44,9 @@ interface PdfjsModule {
 // 支持的文件类型
 export const SUPPORTED_FILE_TYPES = new Set<string>(SUPPORTED_DOCUMENT_EXTENSIONS)
 
-// 读取文本文件内容
+/**
+ * 读取文本文件内容（UTF-8 编码）
+ */
 async function readTextFile(filePath: string): Promise<string> {
   return new Promise((resolve, reject) => {
     readFile(filePath, 'utf-8', (err, data) => {
@@ -57,7 +59,10 @@ async function readTextFile(filePath: string): Promise<string> {
   })
 }
 
-// 读取 PDF 文件内容
+/**
+ * 读取 PDF 文件内容
+ * 使用 pdfjs-dist 逐页提取文本
+ */
 async function readPdfFile(filePath: string): Promise<string> {
   try {
     logger.info('开始解析 PDF 文件', 'main', { filePath })
@@ -83,7 +88,7 @@ async function readPdfFile(filePath: string): Promise<string> {
 
     let fullText = ''
 
-    // 遍历所有页面提取文本
+    // 逐页遍历 PDF，提取每页文本并拼接
     for (let i = 1; i <= pdf.numPages; i++) {
       const page = await pdf.getPage(i)
       const textContent = await page.getTextContent()
@@ -103,7 +108,10 @@ async function readPdfFile(filePath: string): Promise<string> {
   }
 }
 
-// 读取 docx 文件内容
+/**
+ * 读取 DOCX 文件内容（Office Open XML 格式）
+ * 使用 mammoth 库提取纯文本
+ */
 async function readDocxFile(filePath: string): Promise<string> {
   try {
     logger.info('开始解析 docx 文件', 'main', { filePath })
@@ -117,7 +125,10 @@ async function readDocxFile(filePath: string): Promise<string> {
   }
 }
 
-// 读取 doc 文件内容
+/**
+ * 读取 DOC 文件内容（旧版 Word 二进制格式）
+ * 使用 word-extractor 库提取文本
+ */
 async function readDocFile(filePath: string): Promise<string> {
   try {
     logger.info('开始解析 doc 文件', 'main', { filePath })
@@ -133,7 +144,10 @@ async function readDocFile(filePath: string): Promise<string> {
   }
 }
 
-// 读取 excel 文件内容（仅提取文本）
+/**
+ * 读取 Excel 文件内容
+ * 使用 officeparser 解析，仅提取文本部分
+ */
 async function readExcelFile(filePath: string): Promise<string> {
   try {
     logger.info('开始解析 excel 文件', 'main', { filePath })
@@ -152,7 +166,10 @@ async function readExcelFile(filePath: string): Promise<string> {
   }
 }
 
-// 读取 pptx 文件内容（提取幻灯片文本）
+/**
+ * 读取 PPTX 文件内容
+ * 使用 officeparser 提取每张幻灯片的文本
+ */
 async function readPptxFile(filePath: string): Promise<string> {
   try {
     logger.info('开始解析 pptx 文件', 'main', { filePath })
@@ -197,7 +214,7 @@ export async function readFileContent(filePath: string, fileName: string): Promi
     return readPptxFile(filePath)
   }
 
-  // 其他类型作为文本文件读取
+    // 未知扩展名作为纯文本文件读取
   return readTextFile(filePath)
 }
 

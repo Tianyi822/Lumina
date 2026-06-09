@@ -50,6 +50,10 @@ function notifySuccess(title: string, message: string): void {
   useNotificationCenterStore.getState().add('success', title, message, { source: 'config' })
 }
 
+/**
+ * 配置管理 Store
+ * 管理应用全局配置的加载、保存和修改，包括主题、LLM 模型、论文阅读器、实验室功能等
+ */
 export const useConfigStore = create<ConfigState>()(
   persist(
     (set, get) => ({
@@ -69,6 +73,7 @@ export const useConfigStore = create<ConfigState>()(
       defaultModelConfig: () => get().llmConfigs.find((m) => m.model_name === get().defaultModel),
 
       loadConfig: async () => {
+        // 从主进程加载配置，合并到本地状态
         set({ loading: true })
         try {
           const config = (await window.api.config.getConfig()) as AppConfig | null
@@ -104,6 +109,7 @@ export const useConfigStore = create<ConfigState>()(
       },
 
       saveConfig: async (options) => {
+        // 保存配置到主进程，失败时通知用户
         set({ saving: true })
         try {
           const currentConfig = (await window.api.config.getConfig()) as AppConfig | null
@@ -164,6 +170,7 @@ export const useConfigStore = create<ConfigState>()(
 
       addModelConfig: (config) =>
         set((state) => {
+          // 添加模型配置，如果是第一个模型则自动设为默认
           const next = [...state.llmConfigs, config]
           const defaultModel =
             state.llmConfigs.length === 0 ? config.model_name : state.defaultModel
@@ -172,6 +179,7 @@ export const useConfigStore = create<ConfigState>()(
 
       deleteModelConfig: (modelName) =>
         set((state) => {
+          // 删除模型配置，如果删除的是默认模型则自动选用下一个可用模型
           const next = state.llmConfigs.filter((m) => m.model_name !== modelName)
           const defaultModel =
             state.defaultModel === modelName
@@ -193,6 +201,7 @@ export const useConfigStore = create<ConfigState>()(
         set((state) => ({ paperReaderConfig: { ...state.paperReaderConfig, ...config } })),
 
       updateLabFeatures: async (updates) => {
+        // 更新实验室功能配置并立即同步到主进程
         const current = normalizeLabFeatures(get().labFeatures)
         const next = normalizeLabFeatures({
           ...current,
@@ -215,6 +224,7 @@ export const useConfigStore = create<ConfigState>()(
       },
 
       toggleLabDiscipline: (disciplineId) => {
+        // 切换某学科实验室的启用/禁用状态
         const current = normalizeLabFeatures(get().labFeatures)
         void get().updateLabFeatures({
           disciplines: {
@@ -232,6 +242,7 @@ export const useConfigStore = create<ConfigState>()(
         paperReaderConfig: state.paperReaderConfig,
         labFeatures: state.labFeatures
       }),
+      // 持久化合并时确保 labFeatures 经过规范化处理
       merge: (persisted, current) => {
         const saved = persisted as Partial<ConfigState> | undefined
         return {

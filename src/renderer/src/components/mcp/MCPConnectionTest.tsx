@@ -6,11 +6,7 @@ interface MCPConnectionTestProps {
   message?: string
 }
 
-/**
- * MCP 连接测试结果展示
- *
- * 纯展示组件，显示测试中/成功/失败三种状态。
- */
+/** MCP 连接测试结果展示：纯展示组件，显示测试中/成功/失败三种状态 */
 export default function MCPConnectionTest({ testing, result, message }: MCPConnectionTestProps) {
   if (testing) {
     return (

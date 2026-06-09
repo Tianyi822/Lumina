@@ -94,6 +94,7 @@ function createWritableRef<T>(getValue: () => T, setValue: (value: T) => void): 
   } as Ref<T>
 }
 
+/** 论文批注编排器的核心 Hook，管理选区菜单、笔记编辑器、悬浮弹窗和批注操作 */
 export function usePaperAnnotationComposer(
   options: PaperAnnotationComposerOptions
 ): PaperAnnotationComposerState {

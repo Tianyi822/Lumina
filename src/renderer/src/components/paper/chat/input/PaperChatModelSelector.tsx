@@ -9,6 +9,7 @@ interface PaperChatModelSelectorProps {
   onUpdateSelectedModel: (value: string) => void
 }
 
+/** 异步加载已配置的模型列表，自动校正默认选中模型 */
 function useConfiguredModels(
   selectedModel: string,
   updateSelectedModel: (value: string) => void
@@ -57,6 +58,7 @@ function useConfiguredModels(
   return modelOptions
 }
 
+/** 模型选择器组件，以下拉菜单形式展示所有可用模型，支持点击切换 */
 export default function PaperChatModelSelector({
   selectedModel,
   disabled,

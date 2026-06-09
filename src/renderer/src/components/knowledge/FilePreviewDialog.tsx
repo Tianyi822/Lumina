@@ -10,6 +10,7 @@ import {
 } from './utils/fileSource'
 import styles from './FilePreviewDialog.module.css'
 
+/** 文件内容预览弹窗，支持文本文件内容展示和外部打开 */
 interface FilePreviewDialogProps {
   visible: boolean
   file: FileItem | null

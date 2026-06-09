@@ -3,6 +3,7 @@ import { useFileStore } from '@renderer/stores'
 import { useNotification } from '@renderer/composables/useNotification'
 import type { FileItem } from '@renderer/types'
 
+/** 文件删除操作管理：若文件被知识库引用则弹出确认对话框，否则直接删除 */
 export function useFileDelete() {
   const fileStore = useFileStore()
   const notify = useNotification()

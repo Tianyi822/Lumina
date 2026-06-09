@@ -2,7 +2,11 @@ import { labService } from '../LabService'
 import type { LabData } from '@shared/types/lab'
 
 /**
- * 查找实验室（支持 ID 或名称模糊匹配）
+ * 查找实验室（支持 ID 精确查找或名称模糊匹配）
+ * 名称匹配优先级：精确匹配 > 包含匹配 > 分词部分匹配
+ * @param args.lab_id - 实验室 ID（精确查找）
+ * @param args.lab_name - 实验室名称（模糊匹配）
+ * @returns 实验室数据，未找到时返回 null
  */
 export async function findLab(args: {
   lab_id?: string

@@ -38,6 +38,10 @@ function clampPaperChatPanelWidth(value: number): number {
   return Math.min(Math.max(Math.round(value), PAPER_CHAT_PANEL_MIN_WIDTH), maxWidth)
 }
 
+/**
+ * 论文阅读页面
+ * 管理论文的 Markdown/PDF 视图、聊天面板、翻译、图预览等功能
+ */
 export default function PaperReaderPage() {
   const currentPaperId = usePaperListStore((state) => state.currentPaperId ?? null)
   const currentPaper = usePaperListStore((state) => state.currentPaper() ?? null)
@@ -48,7 +52,7 @@ export default function PaperReaderPage() {
   const paperBasePath = usePaperListStore((state) => state.paperBasePath() ?? null)
   const ensureOcrProgressListener = usePaperListStore((state) => state.ensureOcrProgressListener)
 
-  // 需要跨 Store 组合的派生值
+  // 当前论文的批注和文档
   const annotationsByPaperId = usePaperAnnotationStore((state) => state.annotationsByPaperId)
   const currentAnnotations = useMemo(() => {
     if (!currentPaperId) return EMPTY_PAPER_ANNOTATIONS
@@ -87,12 +91,14 @@ export default function PaperReaderPage() {
   const paperChatResizeRafRef = useRef<number | null>(null)
   const lastPaperIdRef = useRef(lastPaperId)
 
+  // 非拖拽时同步聊天面板宽度 ref
   useEffect(() => {
     if (!isResizingPaperChatRef.current) {
       paperChatPanelWidthRef.current = paperChatPanelWidth
     }
   }, [paperChatPanelWidth])
 
+  // UI 可见性状态派生
   const isPaperChatPanelVisible = paperChatPanelOpen && Boolean(currentPaper) && isOcrCompleted
   const isMarkdownForCurrentPaper = Boolean(currentPaperId && markdownPaperId === currentPaperId)
   const visibleMarkdownContent = isMarkdownForCurrentPaper ? markdownContent : ''
@@ -127,7 +133,7 @@ export default function PaperReaderPage() {
     [currentPaper, addPaperChatQuote, notify, setPaperChatPanelOpen]
   )
 
-  // Chat panel resize
+  // 聊天面板宽度拖拽：RAF 防抖 + 宽度范围钳制
   const applyPaperChatPanelWidth = useCallback((nextWidth: number) => {
     const width = clampPaperChatPanelWidth(nextWidth)
     paperChatPanelWidthRef.current = width
@@ -193,7 +199,7 @@ export default function PaperReaderPage() {
     [handlePaperChatResizeMove, stopPaperChatResize]
   )
 
-  // Load papers on mount
+  // 挂载时加载论文列表，自动恢复上一次打开的论文
   useEffect(() => {
     ensureOcrProgressListener()
     void loadPapersWithState().then(() => {
@@ -204,14 +210,14 @@ export default function PaperReaderPage() {
     })
   }, [ensureOcrProgressListener])
 
-  // Close chat when paper changes to non-readable
+  // 论文不可读时关闭聊天面板
   useEffect(() => {
     if (!currentPaperId || !isOcrCompleted) {
       setPaperChatPanelOpen(false)
     }
   }, [currentPaperId, isOcrCompleted, setPaperChatPanelOpen])
 
-  // Auto-open translation on markdown load
+  // Markdown 加载完成后根据阅读进度自动打开翻译
   const wasMarkdownLoadingRef = useRef(visibleMarkdownLoading)
   useEffect(() => {
     const wasLoading = wasMarkdownLoadingRef.current
@@ -227,7 +233,7 @@ export default function PaperReaderPage() {
     }
   }, [visibleMarkdownLoading, currentPaper, translationVisible])
 
-  // Cleanup
+  // 组件卸载时清理：停止拖拽、重置图表 UI、关闭原始 PDF
   useEffect(() => {
     return () => {
       stopPaperChatResize()
@@ -236,7 +242,7 @@ export default function PaperReaderPage() {
     }
   }, [stopPaperChatResize])
 
-  // 视图切换时关闭钉住的图预览
+  // 离开论文视图时重置图表 UI 状态
   useEffect(() => {
     const unsubscribe = useUIStateStore.subscribe((state, prevState) => {
       if (prevState.currentView === 'paper' && state.currentView !== 'paper') {

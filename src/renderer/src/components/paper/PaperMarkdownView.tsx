@@ -63,6 +63,7 @@ export interface PaperMarkdownViewHandle {
   scrollToQuoteAndHighlight: (quote: PaperQuote) => void
 }
 
+/** 论文 Markdown 阅读视图主组件，整合虚拟滚动、文本搜索、批注编排、缩放锚定和滚动持久化 */
 const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewProps>(
   function PaperMarkdownView(
     {
@@ -131,6 +132,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
       zoomLayoutSyncRef
     })
 
+    // 缩放重测后，若未处于缩放中则标记为缩放中并记录视口锚点，随后滚动到锚点位置
     zoomLayoutSyncRef.current = {
       onAfterRemeasure: (container) => {
         if (!zoomAnchor.isZooming()) {
@@ -149,6 +151,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
       }
     }
 
+    // 封装为 ReadonlyValueRef，通过 getter 保持引用稳定但每次读取返回最新值，避免触发多余重渲染
     const renderedSegmentsRef = useMemo(
       () =>
         ({
@@ -178,12 +181,14 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
       ref,
       () => ({
         scrollToQuoteAndHighlight: (quote: PaperQuote) => {
+          // 根据 stableId 在段落列表中定位目标段落索引，滚动到居中位置
           const index = engine.renderedSegments.findIndex(
             (s) => s.stableId === quote.segmentStableId
           )
           if (index !== -1) {
             virtualizerResult.virtualizer.scrollToIndex(index, { align: 'center' })
           }
+          // 等下一帧 DOM 更新后再触发高亮，确保滚动完成后再计算选中区域位置
           requestAnimationFrame(() => {
             quoteHighlight.scrollToQuoteAndHighlight(quote)
           })
@@ -200,7 +205,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
       [zoomLevel]
     )
 
-    // Sync scrollable table wrap state
+    // 检查所有表格容器，内容超宽时添加可滚动标记（+1 像素容差避免浮点精度误判）
     const syncScrollableTableWrapState = useCallback(() => {
       scrollContainerRef.current
         ?.querySelectorAll<HTMLElement>('.paper-markdown-view__table-wrap')
@@ -219,15 +224,18 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
     const syncTablesAndRemeasure = useCallback(
       (onAfterRemeasure?: () => void) => {
         syncScrollableTableWrapState()
+        // 暂存后续回调，在防抖完成后依次执行
         if (onAfterRemeasure) {
           pendingRemeasureCallbacksRef.current.push(onAfterRemeasure)
         }
+        // 重置防抖计时器，保证连续调用只触发一次重测
         if (remeasureTimerRef.current !== null) {
           clearTimeout(remeasureTimerRef.current)
         }
         remeasureTimerRef.current = setTimeout(() => {
           remeasureTimerRef.current = null
           virtualizerResult.remeasureMountedSegments()
+          // 取出所有暂存回调并执行，此时重测已完成，回调可安全操作已刷新的布局
           const callbacks = pendingRemeasureCallbacksRef.current.splice(0)
           for (const callback of callbacks) {
             callback()
@@ -258,6 +266,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
 
     const prepareZoomSession = useCallback(() => {
       const container = scrollContainerRef.current
+      // 容器不存在或已经在缩放中则跳过，避免重复捕获锚点
       if (!container) {
         return
       }
@@ -269,6 +278,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
         return
       }
 
+      // 从当前虚拟项中捕获视口中心区域的锚点，缩放后据此恢复滚动位置
       const anchor = captureVirtualZoomAnchorFromItems(
         container.scrollTop,
         container.clientHeight,
@@ -276,6 +286,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
         renderedSegmentsForZoomRef.current
       )
 
+      // 优先使用带锚点的开始方式，若失败则回退到无锚点版本（光标居中）
       if (!zoomAnchor.beginZoomWithAnchor(anchor)) {
         zoomAnchor.beginZoom(container)
       }
@@ -288,7 +299,9 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
     // invalidateAllMeasurements 由 usePaperVirtualizer 的 layoutKey effect 在 segments 变化时自动触发，
     // 此处不再重复调用，避免缓存被反复清空延长估算值窗口期
     const renderContentAndSyncTables = useCallback(async (): Promise<void> => {
+      // 等待引擎重新渲染内容（Markdown 转换 + 批注恢复）
       await engine.renderContent()
+      // 双层 requestAnimationFrame 确保浏览器完成布局和绘制后再触发重测，避免读到陈旧尺寸
       await new Promise<void>((resolve) => {
         requestAnimationFrame(() => {
           requestAnimationFrame(() => resolve())
@@ -298,10 +311,11 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
     }, [engine, syncTablesAndRemeasure])
 
     // 通知未恢复批注
-    // 论文切换时重置通知标记
+    // 论文切换时重置通知标记，并清理缩放/重测的定时器和回调队列
     useEffect(() => {
       unresolvedNotifiedRef.current = false
       return () => {
+        // 递增运行 ID 使进行中的缩放 settle 回调自动失效
         zoomSettleRunIdRef.current += 1
         virtualizerResult.isZoomingRef.current = false
         zoomAnchor.endZoom()
@@ -336,8 +350,10 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
       return contentEl instanceof HTMLElement ? contentEl : null
     }, [])
 
+    // 搜索框已打开且有查询内容时，在内容容器上重新执行文本搜索定位
     const refreshTextSearch = useCallback(
       (options: { preserveCurrentIndex?: boolean } = {}) => {
+        // 搜索框未打开或查询为空时跳过，避免无意义的 DOM 遍历
         if (!textSearch.isOpen || !textSearch.query.trim()) {
           return
         }
@@ -355,6 +371,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
     // Keyboard handlers
     const handleDocumentKeyDown = useCallback(
       (event: KeyboardEvent) => {
+        // Ctrl/Cmd + F：搜索已打开则聚焦输入框，否则打开搜索并用当前选中文本预填
         if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'f') {
           event.preventDefault()
           if (textSearch.isOpen) {
@@ -363,6 +380,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
           } else {
             textSearch.openSearch()
             const selection = window.getSelection()?.toString().trim()
+            // 选中文本不超过 200 字符才填入搜索框，避免长文本意外覆盖查询
             if (selection && selection.length <= 200) {
               textSearch.setQuery(selection)
             }
@@ -370,6 +388,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
           return
         }
 
+        // Escape：搜索打开时关闭搜索，否则交由 composer 处理（如取消选区）
         if (event.key === 'Escape' && textSearch.isOpen) {
           event.preventDefault()
           textSearch.closeSearch()
@@ -383,6 +402,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
 
     const handleSearchInputKeydown = useCallback(
       (event: React.KeyboardEvent) => {
+        // Enter 在输入法未组合完成时触发会干扰，仅在确认后执行搜索跳转
         if (event.key === 'Enter' && !event.nativeEvent.isComposing) {
           event.preventDefault()
           if (event.shiftKey) {
@@ -398,6 +418,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
     // Handle markdown click (prevent after table drag)
     const handleMarkdownClick = useCallback(
       (event: React.MouseEvent) => {
+        // 表格拖拽结束后 160ms 内的点击忽略，防止拖动释放时误触批注选区
         if (Date.now() - lastDragEndedAt.current < 160) {
           event.preventDefault()
           event.stopPropagation()
@@ -416,6 +437,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
           return
         }
 
+        // 调用 IPC 重新翻译指定段落，失败时显示通知（使用 dedupeKey 避免重复提示）
         const result = await retranslateSegment(paperId, params.segmentId, params.stableId)
         if (!result.success) {
           notify.error('重新翻译失败', result.error || '请稍后再试', {
@@ -427,7 +449,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
       [paperId, notify]
     )
 
-    // 注册 TOC 跳转回调
+    // 注册 TOC 跳转回调，组件卸载时注入空函数覆盖，避免调用已卸载的实例
     const registerScrollToHeading = usePaperViewStore((state) => state.registerScrollToHeading)
     useEffect(() => {
       registerScrollToHeading(virtualizerResult.scrollToHeadingId)
@@ -442,13 +464,16 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
     }, [registerBeforeZoomChange, prepareZoomSession])
 
     // Content change effect
+    // 记录上一次的值，用于在 effect 中精确判断哪些维度发生了变化
     const prevContentRef = useRef(content)
     const prevBasePathRef = useRef(basePath)
     const prevSourceRevisionIdRef = useRef(readerDocument?.sourceRevisionId)
+    // 翻译渲染键：翻译可见时才基于缓存计算渲染 key，不可见时返回空串避免触发重渲染
     const translationRenderKey = useMemo(
       () => (translationVisible ? getTranslationRenderKey(translationCache) : ''),
       [translationCache, translationVisible]
     )
+    // 批注更新键：将批注数量、版本号和每个批注的时间戳+文本哈希拼接，精确检测批注变化
     const annotationUpdateKey = useMemo(
       () =>
         [
@@ -480,10 +505,11 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
           composer.clearComposer()
         }
 
-        // Restore scroll position on initial load or major content change
+        // 内容/基础路径/源版本任一变化时恢复阅读进度中的滚动位置
         if (contentChanged || basePathChanged || sourceRevisionIdChanged) {
           void restoreScrollPosition(paperId)
         }
+        // 内容重渲染后刷新文本搜索高亮，保留当前匹配索引避免跳转
         refreshTextSearch({ preserveCurrentIndex: true })
       })
       // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -497,7 +523,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
       annotationUpdateKey
     ])
 
-    // Search query change effect
+    // Search query change effect：搜索查询变化时重新执行搜索，更新高亮和匹配计数
     useEffect(() => {
       if (!textSearch.isOpen) return
       const contentEl = getSearchContentElement()
@@ -507,7 +533,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [textSearch.query])
 
-    // Search open effect
+    // Search open effect：搜索栏打开后自动聚焦输入框，已有查询内容则选中文本方便替换
     useEffect(() => {
       if (textSearch.isOpen) {
         setTimeout(() => {
@@ -522,12 +548,14 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
 
     // 缩放 settle：虚拟测量与锚点修正由 usePaperVirtualizer + zoomLayoutSyncRef 处理
     useLayoutEffect(() => {
+      // 首次挂载只记录初始缩放级别，不执行 settle
       if (!hasMountedZoomRef.current) {
         hasMountedZoomRef.current = true
         previousZoomLevelRef.current = zoomLevel
         return
       }
 
+      // 缩放级别未变化则跳过，防止同一值重复触发 settle
       const prevLevel = previousZoomLevelRef.current
       if (prevLevel === zoomLevel) {
         return
@@ -535,20 +563,25 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
 
       previousZoomLevelRef.current = zoomLevel
 
+      // 生成新的运行 ID，150ms 防抖期间再次缩放则旧 ID 失效，避免旧回调执行
       const zoomSettleRunId = zoomSettleRunIdRef.current + 1
       zoomSettleRunIdRef.current = zoomSettleRunId
 
       if (zoomSettleTimerRef.current !== null) clearTimeout(zoomSettleTimerRef.current)
       zoomSettleTimerRef.current = setTimeout(() => {
+        // 防抖期间有新的缩放请求则跳过
         if (zoomSettleRunIdRef.current !== zoomSettleRunId) {
           return
         }
         zoomSettleTimerRef.current = null
+        // 执行最终缩放重测，回调中先按当前锚点滚动，再同步表格并二次修正滚动位置
         virtualizerResult.finalizeZoomRemeasure((container) => {
+          // 每次回调前都检查运行 ID，确保只有最新的缩放 settle 生效
           if (zoomSettleRunIdRef.current !== zoomSettleRunId) {
             return
           }
           const currentAnchor = zoomAnchor.getAnchor()
+          // 第一次滚动修正：基于虚拟器重测前的锚点位置
           if (container && currentAnchor) {
             scrollToVirtualZoomAnchor(
               container,
@@ -557,12 +590,14 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
               renderedSegmentsForZoomRef.current
             )
           }
+          // 同步表格布局后再次滚动修正，确保表格尺寸变化不影响锚点位置
           syncTablesAndRemeasure(() => {
             if (zoomSettleRunIdRef.current !== zoomSettleRunId) {
               return
             }
             const settledContainer = scrollContainerRef.current
             const settledAnchor = zoomAnchor.getAnchor()
+            // 第二次滚动修正：表格同步后布局已稳定，重新计算滚动位置
             if (settledContainer && settledAnchor) {
               scrollToVirtualZoomAnchor(
                 settledContainer,
@@ -571,6 +606,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
                 renderedSegmentsForZoomRef.current
               )
             }
+            // 持久化阅读进度，标记缩放结束
             persistReadingProgressNow()
             virtualizerResult.isZoomingRef.current = false
             zoomAnchor.endZoom()
@@ -587,6 +623,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
 
     // 内容渲染完成后同步表格 wrap；不在每次可见项变化时重测（滚动会剧烈抖动）
     useLayoutEffect(() => {
+      // 加载中或内容为空时不需要检查表格 overflow 状态
       if (loading || !hasContent) {
         return
       }
@@ -594,7 +631,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
       syncScrollableTableWrapState()
     }, [engine.renderedSegments, loading, hasContent, syncScrollableTableWrapState])
 
-    // 实时同步公式拖选高亮
+    // 实时同步公式拖选高亮：监听容器内的鼠标拖动事件，在 KaTeX 公式上同步选区高亮
     useEffect(() => {
       const container = scrollContainerRef.current
       if (!container) return
@@ -603,7 +640,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
       return cleanup
     }, [content, paperId])
 
-    // Keyboard listeners
+    // Keyboard & pointer listeners：在 document 层监听，确保点击外部区域时能正确取消选区
     useEffect(() => {
       document.addEventListener('mousedown', composer.handleDocumentPointerDown)
       document.addEventListener('keydown', handleDocumentKeyDown)
@@ -613,7 +650,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
       }
     }, [composer.handleDocumentPointerDown, handleDocumentKeyDown])
 
-    // Resize listener for table wraps
+    // 窗口尺寸变化时重新检查表格溢出状态并触发虚拟项重测
     useEffect(() => {
       const handleResize = (): void => {
         syncTablesAndRemeasure()
@@ -639,7 +676,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
       return () => container.removeEventListener('wheel', onWheel)
     }, [handleWheelZoom])
 
-    // Cleanup on unmount
+    // 组件卸载时清理 TOC、搜索状态和批注编辑器，避免跨论文实例的状态残留
     useEffect(() => {
       return () => {
         clearPaperToc()

@@ -2,6 +2,7 @@ import type { SshServerStats } from '@renderer/types/lab'
 import type { ChartPoint, ChartTone, MetricChart } from './sshMonitorTypes'
 import type { MetricChartSlot } from './monitorChartSeries'
 
+/** 将原始数值标准化为图表可用值，非有限值返回 null */
 export function normalizeChartValue(value: number | null | undefined): number | null {
   if (value === null || value === undefined) {
     return null
@@ -10,6 +11,7 @@ export function normalizeChartValue(value: number | null | undefined): number | 
   return Number.isFinite(value) ? value : null
 }
 
+/** 将采样数据数组映射为图表点数组（time + value） */
 export function mapSamplePoints(
   samples: SshServerStats[],
   getValue: (sample: SshServerStats) => number | null | undefined
@@ -30,6 +32,7 @@ export function collectPoints(
   )
 }
 
+/** 收集 GPU 设备名列表用于图表副标签展示 */
 export function collectGpuNames(sample: SshServerStats | null): string[] {
   if (!sample?.gpu.supported) {
     return []
@@ -40,6 +43,7 @@ export function collectGpuNames(sample: SshServerStats | null): string[] {
     .filter((name): name is string => !!name)
 }
 
+/** 计算速率类指标的最大值（加 20% 余量），确保图表曲线不溢出 */
 export function calculateRateMax(
   samples: SshServerStats[],
   getValue: (sample: SshServerStats) => number | null | undefined
@@ -51,6 +55,7 @@ export function calculateRateMax(
   return maxValue > 0 ? maxValue * 1.2 : 1
 }
 
+/** 格式化图表纵轴标签：百分比显示 0-100%，速率显示 0-{maxValue} */
 export function formatAxisLabel(chart: MetricChart): string {
   if (chart.kind === 'percent') {
     return '0-100%'
@@ -59,6 +64,7 @@ export function formatAxisLabel(chart: MetricChart): string {
   return `0-${formatRate(chart.maxValue)}`
 }
 
+/** 格式化 ECharts tooltip 内容，包含采样时间、标记颜色和数值 */
 export function formatTooltip(
   params: unknown,
   chart: MetricChart,
@@ -82,6 +88,7 @@ export function formatTooltip(
   return `${formatFullSampleTime(slot.time)}<br />${marker}${chart.label}: ${valueLabel}`
 }
 
+/** 将未知类型值归一化为有效数值，兼容数组（取最后元素） */
 export function normalizeNumericValue(value: unknown): number | null {
   if (typeof value === 'number') {
     return Number.isFinite(value) ? value : null
@@ -118,6 +125,7 @@ export function formatFullSampleTime(time: number): string {
   })
 }
 
+/** 格式化百分比值，保留一位小数，null 返回 '-' */
 export function formatPercent(value: number | null | undefined): string {
   if (value === null || value === undefined) {
     return '-'
@@ -126,6 +134,7 @@ export function formatPercent(value: number | null | undefined): string {
   return `${value.toFixed(1)}%`
 }
 
+/** 将字节数格式化为可读字符串（B/KB/MB/GB/TB），自动选择单位 */
 export function formatBytes(bytes: number | null | undefined): string {
   if (bytes === null || bytes === undefined) {
     return '-'
@@ -140,6 +149,7 @@ export function formatBytes(bytes: number | null | undefined): string {
   return `${(bytes / Math.pow(1024, index)).toFixed(index === 0 ? 0 : 1)} ${units[index]}`
 }
 
+/** 格式化「已用 / 总量」字节对，以总量为基准选择显示单位 */
 export function formatBytePair(usageBytes: number, totalBytes: number): string {
   const units = ['B', 'KB', 'MB', 'GB', 'TB']
   const index =
@@ -154,6 +164,7 @@ export function formatBytePair(usageBytes: number, totalBytes: number): string {
   )} ${units[index]}`
 }
 
+/** 格式化字节每秒速率 */
 export function formatRate(bytesPerSecond: number | null | undefined): string {
   if (bytesPerSecond === null || bytesPerSecond === undefined) {
     return '-'
@@ -162,6 +173,7 @@ export function formatRate(bytesPerSecond: number | null | undefined): string {
   return `${formatBytes(bytesPerSecond)}/s`
 }
 
+/** 根据图表色调读取对应的 CSS 变量颜色值 */
 export function getToneColor(tone: ChartTone): string {
   const tokenMap: Record<ChartTone, { token: string; fallback: string }> = {
     primary: { token: '--sm-color-accent', fallback: '#2563eb' },

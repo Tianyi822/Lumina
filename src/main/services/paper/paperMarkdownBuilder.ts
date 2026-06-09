@@ -160,6 +160,10 @@ function normalizeReaderPageResults(pageResults: PaperPageOcrResult[]): PaperPag
   return pageResults.map(normalizeReaderPageResult)
 }
 
+/**
+ * 在 Markdown 中查找每个可见块的出现位置（start/end offset）
+ * 跳过 removalIndexes 中的块
+ */
 export function findBlockOccurrences(
   markdown: string,
   pageBlocks: PaperLayoutBlock[],
@@ -796,6 +800,12 @@ function buildReaderSegments(
   return segments
 }
 
+/**
+ * 构建完整的阅读器文档
+ * 1. 归一化 OCR 结果
+ * 2. 合并各页 Markdown，处理跨页段落拼接
+ * 3. 分割为段落实体（segments），每段包含原文文本、来源引用等信息
+ */
 export function buildReaderDocument(
   paperId: string,
   pageResults: PaperPageOcrResult[],
@@ -820,6 +830,10 @@ export function buildReaderDocument(
   }
 }
 
+/**
+ * 构建阅读器 Markdown
+ * 合并所有页面，处理跨页边界（浮动表格前移、段落间距优化等）
+ */
 export function buildReaderMarkdown(
   pageResults: PaperPageOcrResult[],
   figureData: Pick<ExtractedPaperFigureData, 'pageRemovalBlockIndexes' | 'pageRemovalGroups'>

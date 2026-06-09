@@ -7,7 +7,19 @@ import { logger } from '@main/services/logger'
 
 const WRITE_CONCURRENCY = 8
 
+/**
+ * SFTP 文件传输
+ * 通过 SSH SFTP 协议向远程服务器批量写入文件
+ */
 export class SftpFileTransfer implements FileTransfer {
+  /**
+   * 批量写入文件到远程服务器
+   * 自动创建目录结构，支持并发写入
+   * @param labId - 实验室 ID
+   * @param files - 待写入文件列表
+   * @param projectRoot - 远程项目根目录路径
+   * @param onProgress - 进度回调
+   */
   async writeFiles(
     labId: string,
     files: FileWriteRequest[],
@@ -69,6 +81,9 @@ export class SftpFileTransfer implements FileTransfer {
     }
   }
 
+  /**
+   * 规范文件路径，确保以 projectRoot 为前缀
+   */
   private normalizeFiles(
     files: FileWriteRequest[],
     projectRoot: string
@@ -80,6 +95,9 @@ export class SftpFileTransfer implements FileTransfer {
     }))
   }
 
+  /**
+   * 从 SSH 客户端获取 SFTP 子会话
+   */
   private getSftpClient(client: Client): Promise<SFTPWrapper> {
     return new Promise((resolve, reject) => {
       client.sftp((err, sftp) => {
@@ -89,6 +107,10 @@ export class SftpFileTransfer implements FileTransfer {
     })
   }
 
+  /**
+   * 递归创建远程目录
+   * 遇到父目录不存在时自动向上递归创建
+   */
   private mkdirRecursive(sftp: SFTPWrapper, dirPath: string): Promise<void> {
     return new Promise((resolve) => {
       sftp.mkdir(dirPath, (err) => {
@@ -117,6 +139,9 @@ export class SftpFileTransfer implements FileTransfer {
     })
   }
 
+  /**
+   * 通过 SFTP 写入单个文件
+   */
   private writeFile(
     sftp: SFTPWrapper,
     file: { remotePath: string; content: string }
@@ -133,6 +158,9 @@ export class SftpFileTransfer implements FileTransfer {
     })
   }
 
+  /**
+   * 并发执行异步任务，控制并发数
+   */
   private async runWithConcurrency<T, R>(
     items: T[],
     concurrency: number,

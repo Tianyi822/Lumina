@@ -40,6 +40,10 @@ let progressCleanup: (() => void) | null = null
 let refreshTimerId: number | null = null
 const activeIndexCalls = new Set<string>()
 
+/**
+ * 知识库索引进度 Store
+ * 管理文件索引的实时进度、重索引状态，以及 IPC 监听器
+ */
 export const useKnowledgeIndexStore = create<KnowledgeIndexState>()((set, get) => ({
   kbFileProgress: {},
   activeIndexingKbId: null,
@@ -77,11 +81,13 @@ export const useKnowledgeIndexStore = create<KnowledgeIndexState>()((set, get) =
       return { reindexingKbIds: next }
     }),
 
+  /** 更新文件索引进度（完成或失败后延迟清除） */
   updateFileProgress: (kbId, progress) => {
     const state = get()
     const kbFiles = state.kbFileProgress[kbId] || {}
     const existing = kbFiles[progress.fileId]
 
+    // 进度取已有和当前值的较大者（防止回退）
     const newProgress: FileProcessingProgress = {
       ...progress,
       progress: Math.max(existing?.progress ?? 0, progress.progress ?? 0)
@@ -94,6 +100,7 @@ export const useKnowledgeIndexStore = create<KnowledgeIndexState>()((set, get) =
       }
     })
 
+    // 索引完成后延迟清除进度，给 UI 足够时间展示完成状态
     if (progress.status === 'completed' || progress.status === 'failed') {
       setTimeout(() => {
         get().clearFileProgress(kbId, progress.fileId)
@@ -183,6 +190,7 @@ export const useKnowledgeIndexStore = create<KnowledgeIndexState>()((set, get) =
     set({ kbFileProgress: next })
   },
 
+  /** 从后端刷新所有知识库的索引状态 */
   refreshFromBackend: async () => {
     try {
       const result = await window.api.knowledge.getIndexingStatus()
@@ -191,6 +199,7 @@ export const useKnowledgeIndexStore = create<KnowledgeIndexState>()((set, get) =
       const { indexingFiles, activeIndexingKbId: activeKbId } = result.data
       set({ activeIndexingKbId: activeKbId })
 
+      // 按知识库分组
       const groupedByKb: Record<string, FileProcessingProgress[]> = {}
       for (const file of indexingFiles) {
         if (!groupedByKb[file.kbId]) groupedByKb[file.kbId] = []
@@ -205,6 +214,7 @@ export const useKnowledgeIndexStore = create<KnowledgeIndexState>()((set, get) =
       const state = get()
       const nextProgress = { ...state.kbFileProgress }
 
+      // 合并后端数据到本地
       for (const [kbId, files] of Object.entries(groupedByKb)) {
         if (!nextProgress[kbId]) nextProgress[kbId] = {}
 
@@ -217,6 +227,7 @@ export const useKnowledgeIndexStore = create<KnowledgeIndexState>()((set, get) =
         }
       }
 
+      // 标记后端不再活跃的 processing 文件为 completed
       for (const [kbId, files] of Object.entries(nextProgress)) {
         const activeFileIds = new Set(groupedByKb[kbId]?.map((f) => f.fileId) || [])
         for (const [fileId, progress] of Object.entries(files)) {
@@ -267,6 +278,7 @@ export const useKnowledgeIndexStore = create<KnowledgeIndexState>()((set, get) =
     }
   },
 
+  /** 注册 IPC 文件进度监听器 */
   setupIpcListeners: () => {
     if (progressCleanup) return
     progressCleanup = window.api.onFileProgress((data: FileProgressEvent) => {
@@ -274,6 +286,7 @@ export const useKnowledgeIndexStore = create<KnowledgeIndexState>()((set, get) =
     })
   },
 
+  /** 清理 IPC 监听器并停止定时刷新 */
   cleanupIpcListeners: () => {
     if (progressCleanup) {
       progressCleanup()

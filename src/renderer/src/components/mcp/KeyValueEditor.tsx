@@ -8,12 +8,7 @@ interface KeyValueEditorProps {
   rows?: number
 }
 
-/**
- * KeyValue 编辑器
- *
- * 受控 textarea 组件，编辑 key=value 格式的文本。
- * 输入时更新内部文本状态，失焦时解析为 Record 并回调 onChange。
- */
+/** KeyValue 编辑器：受控 textarea，编辑 key=value 文本，失焦时解析为 Record 并回调 */
 export default function KeyValueEditor({
   value,
   onChange,

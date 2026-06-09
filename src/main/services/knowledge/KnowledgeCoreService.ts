@@ -99,7 +99,7 @@ export class KnowledgeCoreService {
 
     const knowledgeManager = getKnowledgeServiceManager()
 
-    // 确定要搜索的知识库
+    // 确定要搜索的目标知识库列表
     let targetKBs: KnowledgeBase[] = []
     const allKBs = await knowledgeManager.getAllKnowledgeBases()
 
@@ -169,7 +169,7 @@ export class KnowledgeCoreService {
       }
     }
 
-    // 按相似度排序并限制结果数量
+    // 按相似度降序排序，截取前 limit 条结果
     allItems.sort((a, b) => b.similarity - a.similarity)
     const limitedItems = allItems.slice(0, limit)
 

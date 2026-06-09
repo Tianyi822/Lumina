@@ -1,5 +1,6 @@
 import styles from './LabDetailEmptyState.module.css'
 
+/** 实验室详情页的空白占位组件，显示提示标题和描述文字 */
 interface LabDetailEmptyStateProps {
   title: string
   message: string

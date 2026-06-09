@@ -62,6 +62,7 @@ export interface TextSearchState {
   hasMatches: boolean
 }
 
+/** 全文搜索与高亮 Hook，管理搜索状态、高亮匹配项和当前结果导航 */
 export function usePaperTextSearch() {
   const [isOpen, setIsOpen] = useState(false)
   const [query, setQuery] = useState('')

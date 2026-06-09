@@ -12,9 +12,7 @@ export const SUPPORTED_DOC_TYPES = [...SUPPORTED_DOCUMENT_EXTENSIONS]
 export const SUPPORTED_DOC_ACCEPT = SUPPORTED_DOCUMENT_ACCEPT
 export { formatFileSize }
 
-/**
- * 将待发送文档转换为消息附件
- */
+/** 将待发送文档列表转换为消息附件格式，供发送 API 使用 */
 export function toPaperChatAttachedDocuments(documents: PendingDocument[]): AttachedDocument[] {
   return documents.map((doc) => ({
     fileName: doc.fileName,
@@ -24,9 +22,7 @@ export function toPaperChatAttachedDocuments(documents: PendingDocument[]): Atta
   }))
 }
 
-/**
- * 将待发送图片转换为消息附件
- */
+/** 将待发送图片列表转换为消息附件格式，供发送 API 使用 */
 export function toPaperChatAttachedImages(images: PendingImage[]): AttachedImage[] {
   return images.map((img) => ({
     fileName: img.fileName,

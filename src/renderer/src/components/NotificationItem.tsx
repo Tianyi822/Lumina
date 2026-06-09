@@ -3,6 +3,7 @@ import SvgIcon from '@renderer/components/icons/SvgIcon'
 import type { Notification, NotificationAction } from '@renderer/types/notification'
 import styles from './NotificationItem.module.css'
 
+/** 单条通知项：根据通知类型显示对应图标、标题、消息和操作按钮 */
 interface NotificationItemProps {
   notification: Notification
   onDismiss: (id: string) => void

@@ -48,7 +48,12 @@ function broadcastSshEvent(channel: string, payload: unknown): void {
   }
 }
 
+/**
+ * 注册 SSH 相关的 IPC 处理程序
+ * 处理 SSH 连接/断开、命令执行、终端操作和配置测试等
+ */
 export function registerSshHandlers(): void {
+  // 连接到 SSH 服务器
   ipcMain.handle(
     'ssh:connect',
     async (_event, labId: string, config: SshConnectionConfig, password?: string) => {
@@ -76,6 +81,7 @@ export function registerSshHandlers(): void {
     }
   )
 
+  // 断开 SSH 服务器连接
   ipcMain.handle('ssh:disconnect', async (_event, labId: string) => {
     try {
       const result = await sshService.disconnect(labId)
@@ -97,10 +103,12 @@ export function registerSshHandlers(): void {
     }
   })
 
+  // 获取 SSH 连接状态
   ipcMain.handle('ssh:status', async (_event, labId: string) => {
     return { status: sshService.getConnectionStatus(labId) }
   })
 
+  // 获取 SSH 服务器资源统计信息
   ipcMain.handle('ssh:stats', async (_event, labId: string) => {
     try {
       return await sshStatsService.getServerStats(labId)
@@ -113,6 +121,7 @@ export function registerSshHandlers(): void {
     }
   })
 
+  // 在 SSH 服务器上执行命令
   ipcMain.handle('ssh:exec', async (_event, labId: string, command: ExecCommand) => {
     try {
       const result = await sshService.execCommand(labId, command)
@@ -153,12 +162,14 @@ export function registerSshHandlers(): void {
     broadcastSshEvent('ssh:terminal:exit', event)
   })
 
+  // 测试 SSH 连接配置是否有效
   ipcMain.handle(
     'ssh-config:test',
     async (_event, config: SshConnectionConfig, password?: string) =>
       sshService.testConnection(config, password)
   )
 
+  // 打开 SSH 终端会话
   ipcMain.handle('ssh:terminal:open', async (_event, labId: string, size?: SshTerminalSize) => {
     try {
       return await sshTerminalService.openTerminal(labId, size)
@@ -170,10 +181,12 @@ export function registerSshHandlers(): void {
     }
   })
 
+  // 向 SSH 终端写入数据
   ipcMain.handle('ssh:terminal:write', async (_event, sessionId: string, data: string) => {
     return sshTerminalService.writeTerminal(sessionId, data)
   })
 
+  // 调整 SSH 终端窗口大小
   ipcMain.handle(
     'ssh:terminal:resize',
     async (_event, sessionId: string, size: SshTerminalSize) => {
@@ -181,6 +194,7 @@ export function registerSshHandlers(): void {
     }
   )
 
+  // 关闭 SSH 终端会话
   ipcMain.handle('ssh:terminal:close', async (_event, sessionId: string) => {
     return sshTerminalService.closeTerminal(sessionId)
   })

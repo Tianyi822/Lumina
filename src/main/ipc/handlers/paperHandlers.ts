@@ -25,6 +25,10 @@ import type {
 import { statSync } from 'fs'
 import { readFile } from 'fs/promises'
 
+/**
+ * 注册论文相关的 IPC 处理程序
+ * 处理论文的增删改查、OCR、翻译、批注、页面图片和文件读写等操作
+ */
 export function registerPaperHandlers(): void {
   const translationProgressCleanupByKey = new Map<string, () => void>()
   const translationProgressBatchCleanupByKey = new Map<string, () => void>()

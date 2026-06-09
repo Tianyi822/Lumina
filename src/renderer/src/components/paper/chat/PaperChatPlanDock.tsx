@@ -7,6 +7,7 @@ interface PaperChatPlanDockProps {
   planState: PaperChatPlanState | null
 }
 
+/** 将计划状态枚举值转换为中文显示文本 */
 function getStatusLabel(status: PaperChatPlanState['status']): string {
   if (status === 'planning') return '规划中'
   if (status === 'planned') return '已规划'
@@ -17,6 +18,7 @@ function getStatusLabel(status: PaperChatPlanState['status']): string {
   return '待命'
 }
 
+/** 将步骤状态枚举值转换为中文标签 */
 function getStepStatusLabel(status: string): string {
   if (status === 'running') return '运行'
   if (status === 'success') return '完成'
@@ -26,6 +28,7 @@ function getStepStatusLabel(status: string): string {
   return '等待'
 }
 
+/** 将迭代（子阶段）状态枚举值转换为中文标签 */
 function getIterationStatusLabel(status: string): string {
   if (status === 'calling_tools') return '调用工具'
   if (status === 'processing') return '处理结果'
@@ -33,6 +36,7 @@ function getIterationStatusLabel(status: string): string {
   return '思考'
 }
 
+/** 论文对话 Plan-Execute 执行计划的停靠面板，展示多步骤任务的进度和各阶段状态 */
 export default function PaperChatPlanDock({ planState }: PaperChatPlanDockProps) {
   const [expanded, setExpanded] = useState(true)
   const summary = useMemo(() => {

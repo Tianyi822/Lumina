@@ -20,6 +20,11 @@ export type {
   PaperFigureRemovalGroup
 } from './paperFigureExtractorTypes.ts'
 
+/**
+ * 从 OCR 结果中提取图表数据
+ * 遍历每页的布局块，识别图片块及其配套说明块（标题、子标题），
+ * 生成图表示例列表和需要从正文中移除的块索引集
+ */
 export function extractPaperFigureData(
   pageResults: PaperPageOcrResult[],
   options: ExtractPaperFigureDataOptions

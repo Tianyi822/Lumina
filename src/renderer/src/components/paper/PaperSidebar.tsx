@@ -76,6 +76,7 @@ function isPaperReadable(paper: PaperDocument): boolean {
   return paper.status === 'completed'
 }
 
+// 获取渲染进度：优先使用 store 中的实时进度，无则退化为 pageAssets 数量
 function getRenderProgress(
   paper: PaperDocument,
   renderProgressByPaperId: Record<string, RenderingProgress>
@@ -88,6 +89,7 @@ function getRenderProgress(
     }
   }
 
+  // 无实时进度时，以已生成的页面资产数量估算
   return {
     completedPages: Math.min(paper.pageAssets?.length || 0, paper.pageCount),
     totalPages: paper.pageCount
@@ -107,10 +109,12 @@ function getRenderProgressPercent(
   renderProgressByPaperId: Record<string, RenderingProgress>
 ): number {
   const progress = getRenderProgress(paper, renderProgressByPaperId)
+  // 处理总页数为 0 的边缘情况
   if (progress.totalPages === 0) return 0
   return Math.min(100, Math.round((progress.completedPages / progress.totalPages) * 100))
 }
 
+// 获取 OCR 进度：优先使用实时进度信息，无则从论文状态反推
 function getOcrProgress(
   paper: PaperDocument,
   ocrProgressByPaperId: Record<string, OcrProgressInfo>
@@ -121,6 +125,7 @@ function getOcrProgress(
 } {
   const progress = ocrProgressByPaperId[paper.id]
   if (progress) {
+    // 将 OcrProgressInfo 状态映射为中文提示文本
     const hintMap: Record<OcrProgressInfo['status'], string> = {
       idle: '待开始',
       processing: '处理中',
@@ -137,6 +142,7 @@ function getOcrProgress(
     }
   }
 
+  // 无实时进度时用 PaperStatus 做降级映射
   const fallbackHintMap: Record<PaperStatus, string> = {
     draft: '待开始',
     rendering: '待开始',
@@ -182,11 +188,13 @@ function shouldShowRetry(paper: PaperDocument): boolean {
   return paper.status === 'failed' || paper.status === 'partial_failed'
 }
 
+// 按照失败阶段优先级的顺序确定重试按钮标题
 function getRetryTitle(
   paper: PaperDocument,
   renderProgressByPaperId: Record<string, RenderingProgress>
 ): string {
   const renderProgress = renderProgressByPaperId[paper.id]
+  // 截图阶段失败优先于 OCR 阶段
   if (renderProgress?.stage === 'failed') {
     return '截图阶段失败'
   }
@@ -198,24 +206,29 @@ function getRetryTitle(
   return 'OCR 阶段失败'
 }
 
+// 根据失败阶段生成重试提示消息，优先展示详细的错误信息
 function getRetryMessage(
   paper: PaperDocument,
   renderProgressByPaperId: Record<string, RenderingProgress>,
   ocrProgressByPaperId: Record<string, OcrProgressInfo>
 ): string {
   const renderProgress = renderProgressByPaperId[paper.id]
+  // 截图阶段失败 → 展示 render 错误信息
   if (renderProgress?.stage === 'failed') {
     return renderProgress.error || paper.errorMessage || '页图生成失败，请手动重试。'
   }
 
+  // 部分失败 → 提示可重试 OCR
   if (paper.status === 'partial_failed') {
     return '有页面识别失败，点击重试后会重新执行 OCR。'
   }
 
+  // 完全失败 → 展示 OCR 错误信息
   const ocrProgress = ocrProgressByPaperId[paper.id]
   return ocrProgress?.errorMessage || paper.errorMessage || 'OCR 执行失败，请手动重试。'
 }
 
+// 根据论文状态判断不可阅读时的显示文本
 function getUnreadableText(paper: PaperDocument): string {
   if (shouldShowRetry(paper)) {
     return '处理失败，暂不可阅读'
@@ -251,11 +264,13 @@ const PaperSidebarItem = memo(
     },
     ref
   ) {
+    // 优先使用标题，无标题时从文件名去除 .pdf 后缀
     const displayName = paper.title || paper.fileName.replace(/\.pdf$/i, '')
     const renderedHtml = useMemo(
       () => renderPaperTitleHtml(paper.id, displayName),
       [displayName, paper.id]
     )
+    // 构造单条目的 progress map 传给子组件（复用 EMPTY_*_MAP 避免空数据时创建新对象）
     const renderProgressByPaperId = useMemo<Record<string, RenderingProgress>>(
       () => (renderProgress ? { [paper.id]: renderProgress } : EMPTY_RENDER_PROGRESS_MAP),
       [paper.id, renderProgress]
@@ -272,6 +287,7 @@ const PaperSidebarItem = memo(
         ref={ref}
         style={getSidebarListItemMotionStyle(index) as CSSProperties}
         className={[
+          /* 组装 className：基础样式 + 选中态 + 禁用态 + 外部传入样式 */
           styles['paper-item'],
           isActive ? styles['paper-item--active'] : '',
           !readable ? styles['paper-item--disabled'] : '',
@@ -281,6 +297,7 @@ const PaperSidebarItem = memo(
           .join(' ')}
         aria-disabled={!readable}
         onClick={() => {
+          /* 仅可读论文响应点击事件 */
           if (readable) {
             onSelectPaper(paper.id)
           }
@@ -300,6 +317,7 @@ const PaperSidebarItem = memo(
               <span>{formatFileSize(paper.fileSize)}</span>
             </div>
 
+            {/* 有译文标记：显示有译文标签，可点击删除翻译 */}
             {hasTranslated && (
               <button
                 className={styles['paper-item__translation-tag']}
@@ -313,6 +331,7 @@ const PaperSidebarItem = memo(
             )}
           </div>
 
+          {/* rendering 状态：显示截图进度条 */}
           {shouldShowRenderProgress(paper) && (
             <div className={styles['paper-item__progress']}>
               <div className={styles['paper-item__progress-line']}>
@@ -333,6 +352,7 @@ const PaperSidebarItem = memo(
             </div>
           )}
 
+          {/* ocr_processing 状态（且不在 rendering 中）：显示 OCR 进度条 */}
           {!shouldShowRenderProgress(paper) && shouldShowOcrProgress(paper) && (
             <div className={styles['paper-item__progress']}>
               <div className={styles['paper-item__progress-line']}>
@@ -353,6 +373,7 @@ const PaperSidebarItem = memo(
             </div>
           )}
 
+          {/* failed/partial_failed 状态：显示错误信息和重试按钮 */}
           {shouldShowRetry(paper) && (
             <div className={styles['paper-item__retry']}>
               <div className={styles['paper-item__retry-title']}>
@@ -371,6 +392,7 @@ const PaperSidebarItem = memo(
             </div>
           )}
 
+          {/* 不可读状态（处理中或失败）：显示提示文本 */}
           {!readable && (
             <div className={styles['paper-item__unreadable']}>{getUnreadableText(paper)}</div>
           )}
@@ -389,6 +411,7 @@ const PaperSidebarItem = memo(
       </div>
     )
   }),
+  // 自定义比较器：逐字段比较 props，避免无关属性变化导致不必要重渲染
   (prev, next) =>
     prev.paper === next.paper &&
     prev.index === next.index &&
@@ -405,6 +428,7 @@ const PaperSidebarItem = memo(
     prev.onItemMouseLeave === next.onItemMouseLeave
 )
 
+/** 论文侧边栏列表组件，展示论文列表、进度、状态和操作（删除/重试），支持标题 LaTeX 渲染 */
 export default function PaperSidebar({
   papers,
   currentPaperId,
@@ -416,6 +440,7 @@ export default function PaperSidebar({
   onDeleteTranslation,
   onRetryPaper
 }: PaperSidebarProps) {
+  // 阻止冒泡，防止点击删除按钮触发父级 onClick 选中论文
   const handleDeletePaper = useCallback(
     (paperId: string, event: React.MouseEvent): void => {
       event.stopPropagation()
@@ -424,6 +449,7 @@ export default function PaperSidebar({
     [onDeletePaper]
   )
 
+  // 阻止冒泡，防止点击重试按钮触发父级 onClick
   const handleRetryPaper = useCallback(
     (paperId: string, event: React.MouseEvent): void => {
       event.stopPropagation()
@@ -432,6 +458,7 @@ export default function PaperSidebar({
     [onRetryPaper]
   )
 
+  // 阻止冒泡，防止点击删除翻译触发父级 onClick
   const handleDeleteTranslation = useCallback(
     (paperId: string, event: React.MouseEvent): void => {
       event.stopPropagation()
@@ -448,15 +475,18 @@ export default function PaperSidebar({
   } | null>(null)
   const tooltipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  // 鼠标悬停 400ms 后，在列表项右侧弹出 LaTeX 渲染后的完整标题 tooltip
   const handleItemMouseEnter = useCallback(
     (_paperId: string, html: string, event: React.MouseEvent<HTMLDivElement>) => {
       if (tooltipTimerRef.current) clearTimeout(tooltipTimerRef.current)
       // 在 setTimeout 前同步读取 DOM 信息，避免 React 合成事件回收后 currentTarget 变为 null
       const itemEl = event.currentTarget
+      // 通过 closest 找到侧边栏容器，计算 tooltip 绝对定位
       const sidebarEl = itemEl.closest('.paper-sidebar')
       if (!sidebarEl) return
       const sidebarRect = sidebarEl.getBoundingClientRect()
       const itemRect = itemEl.getBoundingClientRect()
+      // tooltip 定位在列表项右侧 8px、垂直居中
       tooltipTimerRef.current = setTimeout(() => {
         setTooltip({
           html,
@@ -484,6 +514,7 @@ export default function PaperSidebar({
               paper={paper}
               index={index}
               className={className}
+              // 选中态条件：论文 ID 匹配且论文可读（不可读论文不能被选中）
               isActive={paper.id === currentPaperId && isPaperReadable(paper)}
               renderProgress={renderProgressByPaperId[paper.id]}
               ocrProgress={ocrProgressByPaperId[paper.id]}
@@ -498,6 +529,7 @@ export default function PaperSidebar({
           )}
         </CssTransitionGroup>
       </div>
+      {/* 将 tooltip 渲染到 document.body 下，避免被侧边栏 overflow: hidden 裁剪 */}
       {tooltip &&
         createPortal(
           <div

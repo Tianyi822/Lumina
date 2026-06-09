@@ -3,6 +3,7 @@ import type { KnowledgeBase } from '@renderer/types'
 import type { EmbeddingConfig } from '@shared/types/config'
 import styles from './EmbeddingModelInfo.module.css'
 
+/** 显示知识库关联的嵌入模型展示名，支持多级匹配回退 */
 interface EmbeddingModelInfoProps {
   currentKB: KnowledgeBase
 }

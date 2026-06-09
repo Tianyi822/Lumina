@@ -83,11 +83,13 @@ interface PaperChatInputProps {
   onStop: () => Promise<void>
 }
 
+/** 截取引文选中文本的前 42 个字符作为预览 */
 function quotePreview(quote: PaperQuote): string {
   const text = quote.selectedText.replace(/\s+/g, ' ').trim()
   return text.length > 42 ? `${text.slice(0, 42)}...` : text
 }
 
+/** 论文聊天输入组件，包含文本输入、附件管理（文档/图片/引文）、快速回复和工具选择栏 */
 export default function PaperChatInput({
   sessionId,
   inputMessage,
@@ -138,18 +140,25 @@ export default function PaperChatInput({
     sessionId ? s.getSessionQuotes(sessionId) : []
   )
 
+  // 检查是否有待发送的附件（文档、图片或引文）
   const hasAttachments =
     pendingDocuments.length > 0 || pendingImages.length > 0 || pendingQuotes.length > 0
   const totalAttachmentCount = pendingDocuments.length + pendingImages.length + pendingQuotes.length
+  // 允许发送的条件：有消息内容或附件，且不在禁用或发送状态
   const canSend = Boolean(inputMessage.trim() || hasAttachments) && !disabled && !isSending
+  // 快速回复面板：AI 给出多个候选回答供用户一键选择
   const showQuickReplyDock = Boolean(quickReply && quickReply.options.length > 0 && !isSending)
+  // 能力建议面板：推荐开启某项功能（如联网搜索、实验室）
   const showCapabilitySuggestionDock = Boolean(
     showCapabilitySuggestion && capabilitySuggestion && !isSending
   )
+  // 用户交互面板：AI 需要用户作出选择才能继续
   const showUserInteractionDock = Boolean(showUserInteraction && userInteraction && !isSending)
+  // 三种交互面板在同一位置互斥显示
   const showInteractionDock =
     showQuickReplyDock || showCapabilitySuggestionDock || showUserInteractionDock
 
+  // 切换 sessionId 时，初始化对应会话的附件状态（文档/图片/引文）
   useEffect(() => {
     if (!sessionId) return
     usePaperChatDocumentUploadStore.getState().initSession(sessionId)
@@ -160,6 +169,7 @@ export default function PaperChatInput({
   async function handleFiles(files: File[]): Promise<void> {
     if (!sessionId || files.length === 0) return
     setAttachmentError('')
+    // 按类型分流：图片压缩后上传，文档走解析管道
     const imageFiles = files.filter(isImageFile)
     const documentFiles = files.filter((file) => !isImageFile(file))
 
@@ -192,7 +202,7 @@ export default function PaperChatInput({
     )
     const quotes = usePaperChatQuoteStore.getState().getPendingQuotesForSending(sessionId)
 
-    // 立即清空输入和附件，避免异步操作期间的竞态条件
+    // 立即清空输入栏和所有待发送附件，避免异步发送期间的竞态条件
     onUpdateInput('')
     usePaperChatDocumentUploadStore.getState().clearPendingDocuments(sessionId)
     usePaperChatImageUploadStore.getState().clearImages(sessionId)
@@ -458,6 +468,7 @@ export default function PaperChatInput({
               : '\u5c3d\u7ba1\u95ee'
           }
           onChange={(event) => onUpdateInput(event.target.value)}
+          // 从粘贴板中提取文件（如截图），自动触发附件上传
           onPaste={(event) => {
             const files = Array.from(event.clipboardData.files)
             if (files.length > 0) {
@@ -486,6 +497,7 @@ export default function PaperChatInput({
             })
           }}
         />
+        {/* 拖拽文件悬停时，显示释放以添加附件的浮层提示 */}
         {isDragging && (
           <div className={textareaStyles['paper-chat-input__drag-overlay']}>
             <div className={textareaStyles['paper-chat-input__drag-hint']}>
@@ -538,6 +550,7 @@ export default function PaperChatInput({
   )
 }
 
+/** 展示单个文件/图片的上传处理进度或错误状态 */
 function ProcessingFileRow({ file }: { file: ProcessingFile | ProcessingImage }) {
   return (
     <div className={processingStyles['processing-file-item']}>
@@ -546,6 +559,7 @@ function ProcessingFileRow({ file }: { file: ProcessingFile | ProcessingImage })
       >
         <span>{file.fileName}</span>
         <span>{file.status}</span>
+        {/* 上传出错的单个文件，显示具体错误原因 */}
         {'error' in file && file.error && (
           <span className={processingStyles['processing-error']}>{file.error}</span>
         )}

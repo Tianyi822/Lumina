@@ -12,6 +12,7 @@ const captionMd = new MarkdownIt({ html: true, breaks: true }).use(texmath, {
   katexOptions: { throwOnError: false, strict: 'ignore', output: 'htmlAndMathml' }
 })
 
+/** 论文图片面板：工具栏中展示论文图片缩略图列表，支持预览 */
 interface FigurePanelProps {
   showFigurePanel: boolean
   onToggle: () => void

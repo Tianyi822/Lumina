@@ -4,6 +4,7 @@ import { useNotification } from '@renderer/composables/useNotification'
 import { isSupportedDocumentExtension } from '@shared/constants/document'
 import type { FileItem } from '@renderer/types'
 
+/** 知识库文件的完整生命周期管理：加载、拖拽上传、挂载、取消关联和索引触发 */
 export function useKnowledgeFiles(
   kbId: string | undefined,
   onAddFiles: (kbId: string) => void,

@@ -134,6 +134,7 @@ let cleanupSystemThemeListener: (() => void) | null = null
 let systemThemeMediaQuery: MediaQueryList | null = null
 let isViewChangeListenerSetup = false
 
+/** 将主题应用到 DOM（data-theme 属性 + localStorage 持久化） */
 function applyThemeToDom(themeId: string, themeMode: ThemeMode, selectedTheme: ThemeId): void {
   const html = document.documentElement
   html.setAttribute('data-theme', themeId)
@@ -148,20 +149,27 @@ function applyThemeToDom(themeId: string, themeMode: ThemeMode, selectedTheme: T
   )
 }
 
+/**
+ * UI 状态 Store
+ * 管理视图切换、侧边栏折叠、主题、弹窗等全局 UI 状态
+ */
 export const useUIStateStore = create<UIStateStore>()(
   persist(
     (set, get) => {
+      /** 根据主题模式和系统主题解析当前生效的主题 ID */
       function resolveCurrentTheme(): ThemeId {
         const state = get()
         return resolveEffectiveTheme(state.themeMode, state.selectedTheme, state.systemTheme)
       }
 
+      /** 同步原生窗口主题（标题栏、滚动条等） */
       async function syncNativeTheme(): Promise<void> {
         const state = get()
         const nativeSource = resolveNativeThemeSource(state.themeMode, state.selectedTheme)
         await window.api.window.setNativeTheme(nativeSource)
       }
 
+      /** 应用解析后的主题到 DOM，并选择性地持久化到配置文件 */
       async function applyResolvedTheme(persist: boolean): Promise<void> {
         const state = get()
         const resolvedTheme = resolveCurrentTheme()
@@ -189,6 +197,7 @@ export const useUIStateStore = create<UIStateStore>()(
         }
       }
 
+      /** 响应系统主题变化，仅在 themeMode 为 system 时自动切换 */
       async function updateSystemTheme(nextTheme: SystemTheme): Promise<void> {
         set({ systemTheme: nextTheme })
         const state = get()
@@ -196,6 +205,7 @@ export const useUIStateStore = create<UIStateStore>()(
         await applyResolvedTheme(false)
       }
 
+      /** 注册系统主题变化监听器（优先使用 addEventListener） */
       function ensureSystemThemeListener(): void {
         if (cleanupSystemThemeListener) return
 
@@ -219,6 +229,7 @@ export const useUIStateStore = create<UIStateStore>()(
         }
       }
 
+      /** 设置视图切换日志监听器 */
       function setupViewChangeLogger(): void {
         if (isViewChangeListenerSetup) return
         isViewChangeListenerSetup = true
@@ -367,6 +378,7 @@ export const useUIStateStore = create<UIStateStore>()(
         notifyMcpUpdate: () => set((s) => ({ mcpUpdateKey: s.mcpUpdateKey + 1 })),
 
         loadConfigStatus: async () => {
+          // 加载配置状态，失败时显示错误通知
           try {
             const status = await window.api.config.getStatus()
             if (!status.success && status.error) {
@@ -383,6 +395,7 @@ export const useUIStateStore = create<UIStateStore>()(
         },
 
         initTheme: async () => {
+          // 避免重复初始化
           const state = get()
           if (state.themeInitialized) return
 
@@ -407,6 +420,7 @@ export const useUIStateStore = create<UIStateStore>()(
         },
 
         setTheme: async (themeId) => {
+          // 验证主题是否在可用列表中
           if (!AVAILABLE_THEMES.some((t) => t.id === themeId)) {
             window.api.logger?.warn('[UIStateStore] 未知主题', { themeId })
             return

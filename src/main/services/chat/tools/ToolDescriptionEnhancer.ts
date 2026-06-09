@@ -3,12 +3,15 @@ import type { ToolDescriptionLevel } from '../prompts/types'
 
 /**
  * 工具描述增强器
- * 为 MCP 工具添加详细的参数说明和使用建议
+ * 为 MCP 工具添加详细的参数说明和使用建议，
+ * 支持 minimal（< 50 tokens）、basic（50-150 tokens）、detailed（150-300 tokens）三种级别
  */
 export class ToolDescriptionEnhancer {
   /**
    * 增强工具描述
-   * 根据指定的级别返回不同程度的工具描述
+   * @param tool 待增强的 MCP 工具引用
+   * @param level 增强级别：minimal 只返回工具名+一句话，basic 追加参数名和类型，detailed 包含完整参数说明、示例和使用建议
+   * @returns 增强后的工具描述文本
    */
   enhanceToolDescription(tool: MCPToolReference, level: ToolDescriptionLevel = 'detailed'): string {
     const baseDescription = tool.description || ''
@@ -43,8 +46,8 @@ export class ToolDescriptionEnhancer {
   }
 
   /**
-   * 生成最小描述
    * 基于工具名称生成简短描述
+   * 通过工具名中的关键词（search/query/read/get/create/delete 等）推断其功能
    */
   private generateMinimalDescription(toolName: string): string {
     const name = toolName.toLowerCase()
@@ -241,7 +244,7 @@ export class ToolDescriptionEnhancer {
   }
 
   /**
-   * 生成字符串类型示例值
+   * 根据参数名和工具名生成合理的字符串示例值
    */
   private generateStringExample(paramName: string, toolName: string): string {
     const name = paramName.toLowerCase()
@@ -273,7 +276,7 @@ export class ToolDescriptionEnhancer {
   }
 
   /**
-   * 生成数字类型示例值
+   * 根据参数名生成合理的数字示例值
    */
   private generateNumberExample(paramName: string): number {
     const name = paramName.toLowerCase()

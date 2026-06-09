@@ -6,7 +6,8 @@ import type { ToolArgs, LabToolDefinition } from './types'
 import { sshService } from '../ssh'
 
 /**
- * 批量写入项目文件
+ * 批量写入项目文件到实验室工作目录
+ * 通过 SFTP 将文件列表写入远程服务器的指定项目目录
  */
 export const writeProjectFilesTool: LabToolDefinition = {
   name: 'lab__write_project_files',

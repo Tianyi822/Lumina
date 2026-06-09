@@ -68,6 +68,9 @@ export function getFigureCaptionText(block: PaperLayoutBlock): string {
   return getPlainText(block.content)
 }
 
+/**
+ * 判断布局块是否为图标题（匹配 "Figure 1", "Fig. 2", "图 1" 等模式）
+ */
 export function isFigureCaptionBlock(block: PaperLayoutBlock): boolean {
   if (block.label !== 'text') {
     return false
@@ -77,6 +80,9 @@ export function isFigureCaptionBlock(block: PaperLayoutBlock): boolean {
   return /^(figure|fig\.?|图)\s*[\d一二三四五六七八九十]+(?:[\s.:：-]|$)/i.test(text)
 }
 
+/**
+ * 判断布局块是否为表标题（匹配 "Table 1", "Tab. 2", "表 1" 等模式）
+ */
 export function isTableCaptionBlock(block: PaperLayoutBlock): boolean {
   if (block.label !== 'text') {
     return false
@@ -86,6 +92,9 @@ export function isTableCaptionBlock(block: PaperLayoutBlock): boolean {
   return /^(table|tab\.?|表)\s*[\d一二三四五六七八九十]+(?:[\s.:：-]|$)/i.test(text)
 }
 
+/**
+ * 判断布局块是否为 Markdown 标题（以 # 开头）
+ */
 export function isHeadingBlock(block: PaperLayoutBlock): boolean {
   return block.label === 'text' && /^\s{0,3}#{1,6}\s+/.test(block.content)
 }
@@ -130,6 +139,9 @@ export function isFigureSupportBlock(block: PaperLayoutBlock): boolean {
   return true
 }
 
+/**
+ * 判断是否为装饰性页眉图片（位于页面顶部、面积很小的图片，如顶部的标志性图标）
+ */
 export function isLikelyDecorativeHeaderImage(block: PaperLayoutBlock): boolean {
   return (
     getBlockTopRatio(block) <= 0.16 &&
@@ -140,6 +152,10 @@ export function isLikelyDecorativeHeaderImage(block: PaperLayoutBlock): boolean 
   )
 }
 
+/**
+ * 判断是否为论文头部文本块（标题、作者、机构等）
+ * 通常位于页面上半部分、居中且包含机构名称等信息
+ */
 export function isLikelyPaperHeaderTextBlock(block: PaperLayoutBlock): boolean {
   if (block.label !== 'text' || isHeadingBlock(block) || isFigureCaptionBlock(block)) {
     return false
@@ -172,6 +188,10 @@ export function buildSubCaption(blocks: PaperLayoutBlock[]): string | undefined 
   return parts.join(' ')
 }
 
+/**
+ * 判断是否应该忽略无标题图片组
+ * 对首页的装饰性小图（如 logo）且支撑文本属于页眉信息时跳过
+ */
 export function shouldIgnoreCaptionlessFigureGroup(
   pageResult: PaperPageOcrResult,
   pendingImages: PendingFigureImage[]

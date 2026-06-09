@@ -75,18 +75,34 @@ async function writeKnowledgeBases(knowledgeBases: KnowledgeBase[]): Promise<voi
   await writeFile(filePath, JSON.stringify(knowledgeBases, null, 2), 'utf-8')
 }
 
+/**
+ * 获取论文文件的资源 ID
+ * 格式：paper-file-{paperId}
+ */
 export function getPaperFileResourceId(paperId: string): string {
   return `paper-file-${paperId}`
 }
 
+/**
+ * 获取论文笔记的资源 ID（聚合格式）
+ * 格式：paper-note-{paperId}
+ */
 export function getPaperNoteResourceId(paperId: string): string {
   return `paper-note-${paperId}`
 }
 
+/**
+ * 获取旧版论文笔记的资源 ID（逐批注格式）
+ * 格式：paper-note-{paperId}-{annotationId}
+ */
 export function getLegacyPaperNoteResourceId(paperId: string, annotationId: string): string {
   return `paper-note-${paperId}-${annotationId}`
 }
 
+/**
+ * 压缩文本
+ * 将空白符压缩为单个空格，超出最大长度则截断
+ */
 function compactText(value: string, maxLength: number = 120): string {
   const compacted = value.replace(/\s+/g, ' ').trim()
   if (compacted.length <= maxLength) {
@@ -95,6 +111,10 @@ function compactText(value: string, maxLength: number = 120): string {
   return `${compacted.slice(0, maxLength - 1)}…`
 }
 
+/**
+ * 格式化批注的论文来源位置
+ * 返回类似 "第 1、2 页 / 原文" 的可读字符串
+ */
 function formatPaperSourceLocation(annotation: PaperAnnotation): string {
   const sourceRefs = annotation.semanticAnchor.sourceRefs
   const pageIndexes = sourceRefs.pageIndexes.map((pageIndex) => pageIndex + 1)
@@ -103,6 +123,10 @@ function formatPaperSourceLocation(annotation: PaperAnnotation): string {
   return `${pages} / ${viewName}`
 }
 
+/**
+ * 获取论文批注的排序键
+ * 按页码、块索引、创建时间和 ID 排序
+ */
 function getPaperAnnotationSortKey(annotation: PaperAnnotation): {
   pageIndex: number
   blockIndex: number
@@ -119,6 +143,9 @@ function getPaperAnnotationSortKey(annotation: PaperAnnotation): {
   }
 }
 
+/**
+ * 对论文笔记批注按页面和位置排序
+ */
 function sortPaperNoteAnnotations(annotations: PaperAnnotation[]): PaperAnnotation[] {
   return [...annotations].sort((a, b) => {
     const aKey = getPaperAnnotationSortKey(a)
@@ -132,10 +159,18 @@ function sortPaperNoteAnnotations(annotations: PaperAnnotation[]): PaperAnnotati
   })
 }
 
+/**
+ * 获取时间戳列表中最新的一个
+ * 按字典序比较（ISO 8601 格式天然支持）
+ */
 function getLatestTimestamp(values: string[]): string {
   return values.filter(Boolean).sort((a, b) => b.localeCompare(a))[0] || new Date().toISOString()
 }
 
+/**
+ * 构建单条论文笔记的 Markdown 段落
+ * 包含位置、时间、笔记内容和上下文
+ */
 function buildPaperNoteSection(annotation: PaperAnnotation, index: number): string[] {
   const sourceLocation = formatPaperSourceLocation(annotation)
   const selectedText =
@@ -164,6 +199,10 @@ function buildPaperNoteSection(annotation: PaperAnnotation, index: number): stri
   ]
 }
 
+/**
+ * 构建完整的论文笔记 Markdown 文档
+ * 合并所有批注笔记，按位置排序，包含元数据头部
+ */
 function buildPaperNotesContent(paper: PaperDocument, annotations: PaperAnnotation[]): string {
   const sortedAnnotations = sortPaperNoteAnnotations(annotations)
   const latestUpdatedAt = getLatestTimestamp(
@@ -184,15 +223,25 @@ function buildPaperNotesContent(paper: PaperDocument, annotations: PaperAnnotati
   ].join('\n')
 }
 
+/**
+ * 构建论文笔记摘要
+ * 用于文件列表中展示笔记概览信息
+ */
 function buildPaperNotesSummary(paper: PaperDocument, annotations: PaperAnnotation[]): string {
   const latestUpdatedAt = getLatestTimestamp(annotations.map((annotation) => annotation.updatedAt))
   return `${paper.fileName} · ${annotations.length} 条笔记 · 最近更新 ${latestUpdatedAt}`
 }
 
+/**
+ * 数组去重并过滤空值
+ */
 function uniqueStrings(values: string[]): string[] {
   return Array.from(new Set(values.filter(Boolean)))
 }
 
+/**
+ * 创建上传文件的来源信息
+ */
 function createUploadedOrigin(): FileOriginInfo {
   return {
     displayName: '上传文件',
@@ -201,6 +250,11 @@ function createUploadedOrigin(): FileOriginInfo {
   }
 }
 
+/**
+ * 从多个知识库中删除文件的向量索引
+ * @param fileId 文件 ID
+ * @param kbIds 知识库 ID 列表
+ */
 async function removeFileChunksFromKnowledgeBases(fileId: string, kbIds: string[]): Promise<void> {
   for (const kbId of kbIds) {
     try {
@@ -216,6 +270,12 @@ async function removeFileChunksFromKnowledgeBases(fileId: string, kbIds: string[
   }
 }
 
+/**
+ * 从知识库的索引失效列表中移除指定文件
+ * @param kb 知识库数据
+ * @param fileId 文件 ID
+ * @returns 更新后的知识库数据
+ */
 function removeInvalidatedFileFromKnowledgeBase(kb: KnowledgeBase, fileId: string): KnowledgeBase {
   const invalidation = kb.indexInvalidation
   if (!invalidation) {
@@ -369,7 +429,7 @@ export class FileService {
   }
 
   /**
-   * 获取文件扩展名对应的文件类型
+   * 根据文件扩展名获取文件类型标识
    */
   private getFileType(fileName: string): string {
     const ext = extname(fileName).toLowerCase()
@@ -393,8 +453,7 @@ export class FileService {
   }
 
   /**
-   * 格式化文件大小
-   * 将字节转换为易读的格式
+   * 格式化文件大小为易读格式（B/KB/MB）
    */
   private formatFileSize(bytes: number): string {
     if (bytes < 1024) return `${bytes} B`
@@ -424,7 +483,8 @@ export class FileService {
 
   /**
    * 搜索文件
-   * 根据文件名搜索文件
+   * 根据文件名、来源类型、显示名称等字段搜索
+   * @param query 搜索关键词
    */
   searchFiles(query: string): FileItem[] {
     if (!this.loaded) {
@@ -520,6 +580,11 @@ export class FileService {
     }
   }
 
+  /**
+   * 将论文注册为文件资源
+   * 使论文及其元数据在文件管理系统中可用
+   * @param paper 论文文档
+   */
   async registerPaperFile(
     paper: PaperDocument
   ): Promise<{ success: boolean; file?: FileItem; error?: string }> {
@@ -714,6 +779,12 @@ export class FileService {
     })
   }
 
+  /**
+   * 创建或更新论文笔记资源
+   * 将批注笔记聚合为一个 Markdown 文件，支持旧版逐批注格式的迁移
+   * @param paper 论文文档
+   * @param annotations 批注列表
+   */
   async upsertPaperNotesResource(
     paper: PaperDocument,
     annotations: PaperAnnotation[]
@@ -811,6 +882,10 @@ export class FileService {
     }
   }
 
+  /**
+   * 移除论文的所有笔记资源
+   * @param paperId 论文 ID
+   */
   async removePaperNotesResource(paperId: string): Promise<PaperNoteResourceSyncResult> {
     if (!this.loaded) {
       throw new Error('文件服务未初始化，请先调用 initialize()')
@@ -834,6 +909,11 @@ export class FileService {
     }
   }
 
+  /**
+   * 移除单条批注的旧版笔记资源
+   * @param paperId 论文 ID
+   * @param annotationId 批注 ID
+   */
   async removePaperNoteResource(
     paperId: string,
     annotationId: string
@@ -854,6 +934,10 @@ export class FileService {
     })
   }
 
+  /**
+   * 移除论文的所有关联资源（文件 + 笔记）
+   * @param paperId 论文 ID
+   */
   async removePaperResources(paperId: string): Promise<{ success: boolean; error?: string }> {
     if (!this.loaded) {
       throw new Error('文件服务未初始化，请先调用 initialize()')
@@ -881,6 +965,11 @@ export class FileService {
     return { success: true }
   }
 
+  /**
+   * 读取文件资源的内容
+   * 支持普通文件和论文笔记（从 origin.noteContent 获取）
+   * @param fileId 文件 ID
+   */
   async readFileResourceContent(
     fileId: string
   ): Promise<{ success: boolean; data?: { content: string; file: FileItem }; error?: string }> {
@@ -915,6 +1004,11 @@ export class FileService {
     }
   }
 
+  /**
+   * 读取文件资源的预览数据
+   * 支持普通文件和论文笔记
+   * @param fileId 文件 ID
+   */
   async readFileResourcePreview(
     fileId: string
   ): Promise<{ success: boolean; data?: FilePreviewData; error?: string }> {
@@ -946,6 +1040,12 @@ export class FileService {
     )
   }
 
+  /**
+   * 按索引删除文件
+   * 处理知识库关联清理、物理文件删除和元数据保存
+   * @param fileIndex 文件在列表中的索引
+   * @param options 删除选项（强制删除、允许删除托管资源等）
+   */
   private async removeFileAtIndex(
     fileIndex: number,
     options: { forceDelete?: boolean; allowManagedResourceDelete?: boolean } = {}

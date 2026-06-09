@@ -8,6 +8,10 @@ import { useNotification } from '@renderer/composables/useNotification'
 import { summarizeTranslationAnnotations } from '@shared/utils/paperTranslationAnnotations'
 import styles from './WorkspaceSidebarHost.module.css'
 
+/**
+ * 论文侧边栏内容组件
+ * 提供论文搜索、列表展示、选中/删除/重试以及译文删除等功能
+ */
 const PaperSidebarSection = memo(function PaperSidebarSection() {
   const papers = usePaperListStore((s) => s.papers)
   const currentPaperId = usePaperListStore((s) => s.currentPaperId)
@@ -29,6 +33,7 @@ const PaperSidebarSection = memo(function PaperSidebarSection() {
   }, [papers, paperSearchQuery])
 
   const handleSelectPaper = useCallback(async (paperId: string): Promise<void> => {
+    // 打开论文并处理失败情况
     const openedPaper = await openPaper(paperId)
     if (!openedPaper) {
       window.api.logger.warn('[PaperSidebarSection] 打开论文失败', { paperId })
@@ -37,6 +42,7 @@ const PaperSidebarSection = memo(function PaperSidebarSection() {
 
   const handleDeletePaper = useCallback(
     async (paperId: string): Promise<void> => {
+      // 删除前确认用户意图
       const confirmed = await notify.confirm('此操作不可撤销。', {
         title: '删除论文',
         source: 'paper',
@@ -64,6 +70,7 @@ const PaperSidebarSection = memo(function PaperSidebarSection() {
 
   const handleDeleteTranslation = useCallback(
     async (paperId: string): Promise<void> => {
+      // 删除译文前检查是否有标注，提示用户标注也会一并删除
       const cachedAnnotations = annotationsByPaperId[paperId]
       const annotations = cachedAnnotations ?? (await loadAnnotations(paperId))
       const translationSummary = summarizeTranslationAnnotations(annotations)

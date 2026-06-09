@@ -5,6 +5,7 @@ interface UseAnchoredTerminalOverlayOptions {
   anchorElement: HTMLElement | null
 }
 
+/** 隐藏时将终端面板移出视口但保持尺寸，避免 xterm/远程会话被销毁 */
 const HIDDEN_LEFT = '-10000px'
 const HIDDEN_WIDTH = '960px'
 const HIDDEN_HEIGHT = '540px'
@@ -20,7 +21,6 @@ function applyHiddenPoolStyles(wrapper: HTMLDivElement): void {
   wrapper.style.zIndex = '-1'
 }
 
-/** 将终端面板固定在锚点矩形上；隐藏时移出视口但保持挂载，避免 xterm / 远程会话被销毁 */
 export function useAnchoredTerminalOverlay({
   active,
   anchorElement
@@ -40,6 +40,7 @@ export function useAnchoredTerminalOverlay({
 
     let syncRafId = 0
     let retryRafId = 0
+    // 锚点尺寸为零时最多重试 12 帧
     let retryCount = 0
     let lastRectKey = ''
 
@@ -57,6 +58,7 @@ export function useAnchoredTerminalOverlay({
     const applySync = (): void => {
       const currentActive = activeRef.current
       const currentAnchor = anchorRef.current
+      // 锚点无效或未激活 → 隐藏到池中
       if (!currentActive || !currentAnchor || !currentAnchor.isConnected) {
         lastRectKey = ''
         applyHiddenPoolStyles(wrapper)
@@ -67,6 +69,7 @@ export function useAnchoredTerminalOverlay({
       const rectKey = `${rect.left}|${rect.top}|${rect.width}|${rect.height}`
       const hasSize = rect.width > 0 && rect.height > 0
 
+      // 矩形未变化则跳过
       if (rectKey === lastRectKey) {
         return
       }

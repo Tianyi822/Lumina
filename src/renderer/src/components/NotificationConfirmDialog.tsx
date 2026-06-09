@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 
+/** 通知系统确认对话框：带标题、消息和确认/取消按钮，支持危险操作高亮 */
 interface NotificationConfirmDialogProps {
   message: string
   title: string

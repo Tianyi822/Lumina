@@ -14,10 +14,20 @@ export interface UpdateCheckLike {
   isUpdateAvailable?: boolean | null
 }
 
+/**
+ * 检查更新结果是否表示有可用更新
+ * @param result autoUpdater 检查结果或类似结构
+ */
 export function hasAvailableUpdate(result: UpdateCheckLike | null | undefined): boolean {
   return result?.isUpdateAvailable === true
 }
 
+/**
+ * 根据平台配置更新通道
+ * Windows 使用 'latest-win' 通道，macOS/Linux 使用默认通道
+ * @param updater 支持通道配置的对象
+ * @param platform 目标平台，默认当前进程平台
+ */
 export function configurePlatformUpdateChannel(
   updater: UpdateChannelTarget,
   platform: NodeJS.Platform = process.platform
@@ -30,6 +40,11 @@ export function configurePlatformUpdateChannel(
   updater.allowDowngrade = false
 }
 
+/**
+ * 分类更新错误，返回诊断信息和用户友好的错误消息
+ * 根据错误消息特征识别：元数据缺失、资源缺失、签名无效、网络错误等
+ * @param rawMessage 原始错误消息
+ */
 export function classifyUpdateError(rawMessage: string): UpdateDiagnostic {
   const message = rawMessage.trim() || '未知更新错误'
   const channelMatch = message.match(

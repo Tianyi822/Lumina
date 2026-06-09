@@ -1,5 +1,6 @@
 import LabDetailEmptyState from './LabDetailEmptyState'
 
+/** SSH 实验室日志占位 Tab，提示用户通过终端查看远程日志 */
 export default function LabLogsTab() {
   return (
     <LabDetailEmptyState

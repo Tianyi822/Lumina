@@ -47,7 +47,8 @@ const PAPER_WEB_SEARCH_TOOL: MCPToolReference = {
 
 /**
  * 论文网页搜索工具适配器
- * 将论文网页搜索服务包装为统一的 ToolAdapter 接口，供 ReAct 循环使用
+ * 将 PaperWebSearchService 包装为统一的 ToolAdapter 接口，供 ReAct 循环使用。
+ * 提供 search 工具，支持按论文、方法、数据集、工具等目标类型搜索学术资料。
  */
 export class PaperWebSearchToolAdapter implements ToolAdapter {
   private paperContext: PaperWebSearchContext | null = null
@@ -58,14 +59,14 @@ export class PaperWebSearchToolAdapter implements ToolAdapter {
   }
 
   /**
-   * 设置当前论文上下文
+   * 设置当前论文上下文（论文 ID、文件名、用户问题等）
    */
   setPaperContext(context: PaperWebSearchContext | null): void {
     this.paperContext = context
   }
 
   /**
-   * 获取该适配器提供的工具列表
+   * 获取该适配器提供的工具列表（仅 search 工具）
    */
   async getTools(): Promise<MCPToolReference[]> {
     return [PAPER_WEB_SEARCH_TOOL]
@@ -73,6 +74,7 @@ export class PaperWebSearchToolAdapter implements ToolAdapter {
 
   /**
    * 执行论文网页搜索工具调用
+   * 验证必需参数（query、reason），检查论文上下文，然后调用 PaperWebSearchService.search()
    */
   async execute(toolName: string, args: Record<string, unknown>): Promise<MCPToolCallResult> {
     const normalizedToolName = toolName.startsWith('paper_web__')

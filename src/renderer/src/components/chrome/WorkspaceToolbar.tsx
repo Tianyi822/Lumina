@@ -20,6 +20,10 @@ import PaperChatButton from './toolbar/PaperChatButton'
 const EMPTY_PAPER_FIGURES: PaperFigureItem[] = []
 const EMPTY_FIGURE_TRANSLATION_MAP: Record<string, string> = {}
 
+/**
+ * 论文工具栏组件
+ * 提供翻译切换、目录面板、图表面板、原文 PDF 查看、论文聊天等功能按钮
+ */
 export default function WorkspaceToolbar() {
   const currentView = useUIStateStore((s) => s.currentView)
   const paperChatPanelOpen = useUIStateStore((s) => s.paperChatPanelOpen)
@@ -51,6 +55,7 @@ export default function WorkspaceToolbar() {
   const figurePanelRef = useRef<HTMLDivElement>(null)
   const [showTocPanel, setShowTocPanel] = useState(false)
 
+  // 当前论文的图表列表和翻译缓存
   const currentPaperFigures = useMemo<PaperFigureItem[]>(
     () =>
       currentPaperId
@@ -70,6 +75,7 @@ export default function WorkspaceToolbar() {
     [currentTranslationCache]
   )
 
+  // 判断各工具的可用性
   const isPaperView = currentView === 'paper'
   const isPaperToolbar = isPaperView && Boolean(currentPaperId)
   const canOpenToc = Boolean(currentPaperId)
@@ -81,6 +87,7 @@ export default function WorkspaceToolbar() {
     : false
   const hasAnyTocEntries = Boolean(paperTocTitle) || paperTocItems.length > 0
 
+  // 根据翻译状态生成按钮提示文本
   const translationButtonTitle = useMemo(() => {
     if (translationVisible) {
       return isCurrentPaperTranslating ? '隐藏译文（后台继续翻译）' : '隐藏译文'
@@ -118,6 +125,7 @@ export default function WorkspaceToolbar() {
     toggleOriginalPdfVisible
   ])
 
+  // 切换翻译可见性（同时关闭其他面板）
   const handleToggleTranslation = useCallback(async (): Promise<void> => {
     if (!currentPaperId) {
       return
@@ -128,6 +136,7 @@ export default function WorkspaceToolbar() {
     await toggleTranslationVisible()
   }, [closeFigurePanel, closeTocPanel, currentPaperId])
 
+  // 切换目录面板展开/收起
   const handleToggleToc = useCallback((): void => {
     if (!canOpenToc) {
       return
@@ -137,6 +146,7 @@ export default function WorkspaceToolbar() {
     setShowTocPanel((value) => !value)
   }, [canOpenToc, closeFigurePanel])
 
+  // 切换图表面板展开/收起
   const handleToggleFigurePanel = useCallback(async (): Promise<void> => {
     if (!canOpenFigurePanel) {
       return
@@ -146,6 +156,7 @@ export default function WorkspaceToolbar() {
     await toggleFigurePanel()
   }, [canOpenFigurePanel, closeTocPanel, toggleFigurePanel])
 
+  // 切换论文聊天面板（需要 OCR 完成）
   const handleTogglePaperChat = useCallback((): void => {
     if (!canOpenPaperChat) {
       return
@@ -203,6 +214,7 @@ export default function WorkspaceToolbar() {
     [openFigurePreview]
   )
 
+  // 点击外部关闭目录/图表面板
   const handleClickOutside = useCallback(
     (event: MouseEvent): void => {
       const target = event.target as Node
@@ -222,6 +234,7 @@ export default function WorkspaceToolbar() {
     [closeFigurePanel, closeTocPanel, showFigurePanel, showTocPanel]
   )
 
+  // ESC 键关闭目录/图表面板
   const handleKeyDown = useCallback(
     (event: KeyboardEvent): void => {
       if (event.key !== 'Escape') {
@@ -239,6 +252,7 @@ export default function WorkspaceToolbar() {
     [closeFigurePanel, closeTocPanel, showFigurePanel, showTocPanel]
   )
 
+  // 离开论文视图或切换论文时关闭弹出面板
   useEffect(() => {
     if (!isPaperView) {
       closeTocPanel()
@@ -251,6 +265,7 @@ export default function WorkspaceToolbar() {
     closeFigurePanel()
   }, [closeFigurePanel, closeTocPanel, currentPaperId])
 
+  // Markdown 加载时关闭弹出面板
   useEffect(() => {
     if (markdownLoading) {
       closeTocPanel()
@@ -258,6 +273,7 @@ export default function WorkspaceToolbar() {
     }
   }, [closeFigurePanel, closeTocPanel, markdownLoading])
 
+  // 全局点击和键盘事件监听
   useEffect(() => {
     document.addEventListener('click', handleClickOutside)
     document.addEventListener('keydown', handleKeyDown)

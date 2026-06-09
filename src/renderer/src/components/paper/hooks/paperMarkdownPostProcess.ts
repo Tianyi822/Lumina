@@ -24,6 +24,7 @@ function isTextNode(node: Node): boolean {
 }
 
 /** 表格单元格内将 display 公式分隔符转为行内，供 texmath 行内渲染 */
+/** 将表格单元格内 display 公式分隔符（如 $$）转为行内 $，适配 texmath 行内渲染 */
 export function tableMathSourceToInline(markdown: string): string {
   const trimmed = markdown.trim()
   if (trimmed.startsWith('$$') && trimmed.endsWith('$$')) {
@@ -108,6 +109,7 @@ function renderRawTableInlineMath(root: Element, renderInline: (content: string)
 }
 
 /** 将表格内块级 KaTeX 降级为行内布局，避免 tr/td 塌缩为竖排 */
+/** 将表格内的块级 KaTeX 降级为行内布局，防止 display 公式撑破 tr/td 导致竖排 */
 export function normalizeTableDisplayMath(root: Element): void {
   root.querySelectorAll('table .katex-display').forEach((display) => {
     const element = display as HTMLElement
@@ -204,6 +206,7 @@ function stripSpuriousDocumentSectionNodes(root: Element): void {
   })
 }
 
+/** 对渲染后的 HTML 执行后处理：移除分隔线、渲染表格内公式、包装表格容器等 */
 export function postProcessRenderedHtml(
   html: string,
   renderInline: (content: string) => string,

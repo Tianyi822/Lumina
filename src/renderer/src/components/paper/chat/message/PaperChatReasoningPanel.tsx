@@ -18,11 +18,13 @@ const md = new MarkdownIt({
   typographer: true
 })
 
+/** 使用 markdown-it 将推理内容渲染为 HTML */
 function renderMarkdown(content: string): string {
   if (!content) return ''
   return md.render(content)
 }
 
+/** AI 推理过程可折叠面板组件，展示模型思考过程和 token 消耗 */
 export default function PaperChatReasoningPanel({
   content,
   isExpanded,

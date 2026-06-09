@@ -13,11 +13,13 @@ import {
   calculateFixedAxisLabelInterval
 } from '../monitorChartSeries'
 
+/** 管理 ECharts 实例生命周期：创建、更新、resize、销毁 */
 export interface UseEchartsManagerReturn {
   setChartElement: (key: string, element: HTMLElement | null) => void
   disposeCharts: () => void
 }
 
+/** 管理监控面板中所有 ECharts 图表的创建、数据更新和尺寸自适应 */
 export function useEchartsManager(metricCharts: MetricChart[]): UseEchartsManagerReturn {
   const chartElementsRef = useRef(new Map<string, HTMLElement>())
   const chartInstancesRef = useRef(new Map<string, ECharts>())
@@ -26,6 +28,7 @@ export function useEchartsManager(metricCharts: MetricChart[]): UseEchartsManage
   const metricChartsRef = useRef(metricCharts)
   metricChartsRef.current = metricCharts
 
+  /** 根据 MetricChart 配置构建 ECharts option，包含主题色、坐标轴、tooltip */
   const buildChartOption = useCallback((chart: MetricChart): EChartsOption => {
     const color = getToneColor(chart.tone)
     const axisColor = readCssVariable('--sm-color-text-tertiary', '#8b949e')
@@ -109,12 +112,14 @@ export function useEchartsManager(metricCharts: MetricChart[]): UseEchartsManage
     }
   }, [])
 
+  /** 遍历所有图表配置，创建/更新 ECharts 实例，清理已移除的实例 */
   const renderCharts = useCallback(() => {
     const charts = metricChartsRef.current
     const chartElements = chartElementsRef.current
     const chartInstances = chartInstancesRef.current
     const activeKeys = new Set(charts.map((chart) => chart.key))
 
+    // 清理已移除或不再活跃的实例
     for (const [key, instance] of chartInstances) {
       if (!activeKeys.has(key) || !chartElements.has(key)) {
         instance.dispose()
@@ -138,6 +143,7 @@ export function useEchartsManager(metricCharts: MetricChart[]): UseEchartsManage
     }
   }, [buildChartOption])
 
+  /** 通过 RAF 批量调度渲染，同一帧内多次调用合并为一次 */
   const queueRenderCharts = useCallback(() => {
     if (renderQueuedRef.current) {
       return

@@ -11,6 +11,7 @@ export const SEGMENT_BLOCK_GAP = 12
 /** 离屏估算安全系数：宁可略大也不可偏小，避免 offset 累计偏小导致空白 */
 const ESTIMATE_SAFETY_FACTOR = 1.1
 
+/** 将容器 scrollTop 限制在有效范围内，超出时修正偏差 */
 export function clampContainerScrollTop(container: HTMLElement, preferredScrollTop?: number): void {
   const maxScrollTop = Math.max(0, container.scrollHeight - container.clientHeight)
   const target = preferredScrollTop ?? container.scrollTop
@@ -42,6 +43,7 @@ interface UsePaperVirtualizerParams {
   zoomLayoutSyncRef?: React.MutableRefObject<PaperZoomLayoutSync | null>
 }
 
+/** 基于 TanStack Virtualizer 的虚拟滚动 Hook，支持缩放同步、段落跳转和布局变更重测 */
 export function usePaperVirtualizer({
   segments,
   scrollContainerRef,

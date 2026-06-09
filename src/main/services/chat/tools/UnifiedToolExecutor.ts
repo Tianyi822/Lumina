@@ -10,47 +10,59 @@ import type {
 import type { UnifiedToolRegistry } from './UnifiedToolRegistry'
 import { toolStatsCollector } from './ToolStatsCollector'
 
+/** 强制串行执行的工具集合（如等待用户交互的工具不能并行调用） */
 const FORCED_SEQUENTIAL_TOOLS = new Set(['lab__ask_user'])
 
 /**
- * 工具调用定义
- * 兼容 OpenAI 的工具调用格式
+ * 工具调用定义（兼容 OpenAI 工具调用格式）
  */
 export interface ToolCallDefinition {
+  /** 工具调用的唯一标识 */
   id: string
+  /** 调用类型，目前仅支持 function */
   type: 'function'
+  /** 函数调用的名称和参数（JSON 字符串） */
   function: {
     name: string
     arguments: string
   }
 }
 
-/**
- * 工具执行结果
- */
+/** 单次工具执行的结果 */
 export interface ToolExecutionResult extends ChatToolExecutionResult {
+  /** 工具调用 ID */
   toolCallId: string
+  /** 工具完整名称 */
   toolName: string
+  /** 写入模型上下文的工具结果内容 */
   content: string
+  /** 执行是否成功 */
   success: boolean
+  /** 失败时的错误描述 */
   error?: string
 }
 
+/** 一轮工具执行后的汇总信息 */
 export interface ToolExecutionSummary {
+  /** 是否需要等待用户交互响应 */
   needUserInteraction: boolean
+  /** 执行失败的工具数量 */
   failedToolCount: number
+  /** 错误消息列表 */
   errors: string[]
+  /** 各工具的执行结果 */
   results: ToolExecutionResult[]
 }
 
-/**
- * 依赖分析结果
- */
+/** 工具依赖分析结果：区分可并行和需串行执行的调用 */
 interface DependencyAnalysis {
+  /** 可并行执行的工具调用集合 */
   independent: ToolCallDefinition[]
+  /** 必须串行执行的工具调用集合 */
   sequential: ToolCallDefinition[]
 }
 
+/** 支持超时和停止检查的异步执行器类型 */
 type TimeoutAndStopRunner = <T>(
   promise: Promise<T>,
   sessionId: string,
@@ -58,19 +70,28 @@ type TimeoutAndStopRunner = <T>(
   operationName?: string
 ) => Promise<T>
 
+/** UnifiedToolExecutor 构造选项 */
 export interface UnifiedToolExecutorOptions {
+  /** 日志记录器 */
   logger: Logger
+  /** 工具注册表引用 */
   registry: UnifiedToolRegistry
+  /** 会话停止状态检查函数 */
   checkStopped: (sessionId: string) => void
+  /** 带超时和停止检查的异步包装器 */
   withTimeoutAndStopCheck: TimeoutAndStopRunner
+  /** 向渲染进程发送流事件的函数 */
   sendStreamEvent: (webContents: WebContents, event: StreamEvent) => void
+  /** 待处理的用户交互会话集合 */
   pendingUserInteraction: Set<string>
+  /** 最大并发执行数（默认 3） */
   maxConcurrency?: number
 }
 
 /**
  * 统一工具执行器
- * 合并 ToolExecutor + ToolCallScheduler，通过注册表统一调度工具执行
+ * 合并 ToolExecutor + ToolCallScheduler，通过注册表统一调度工具执行。
+ * 支持并行/串行执行、依赖分析、超时控制、用户交互事件派发和统计收集。
  */
 export class UnifiedToolExecutor {
   private readonly logger: Logger
@@ -93,8 +114,14 @@ export class UnifiedToolExecutor {
 
   /**
    * 执行工具调用集合
-   * 分析依赖后并行执行独立工具，再串行执行有依赖的工具
-   * @returns 是否需要用户交互
+   * 先分析依赖关系，将独立工具并行执行，将存在依赖的工具串行执行。
+   * 串行执行中一旦有工具失败或触发用户交互，立即停止后续工具。
+   * @param toolCalls 本次要执行的工具调用列表
+   * @param webContents Electron WebContents（用于发送流事件）
+   * @param sessionId 会话标识
+   * @param conversationMessages 当前对话消息列表（工具结果会追加到其中）
+   * @param turnId 本轮消息标识
+   * @returns 执行汇总（含是否需要用户交互、失败数量和结果列表）
    */
   async executeToolCalls(
     toolCalls: ToolCallDefinition[],
@@ -195,7 +222,10 @@ export class UnifiedToolExecutor {
 
   /**
    * 分析工具调用之间的依赖关系
-   * 检测哪些工具调用可以并行执行，哪些必须串行执行
+   * 通过关键词启发式检测当前工具是否引用了前置工具的输出，
+   * 同时将 FORCED_SEQUENTIAL_TOOLS 中的工具标记为串行。
+   * @param toolCalls 待分析的工具调用列表
+   * @returns 可并行 / 需串行的调用分组
    */
   analyzeDependencies(toolCalls: ToolCallDefinition[]): DependencyAnalysis {
     if (toolCalls.length <= 1) {
@@ -239,7 +269,8 @@ export class UnifiedToolExecutor {
 
   /**
    * 执行单个工具调用（统一调度入口）
-   * 通过注册表查找适配器并执行
+   * 通过注册表查找适配器，执行并收集统计信息。
+   * 执行过程中会发送 tool_call 和 tool_result 流事件。
    */
   private async executeSingle(
     toolCall: ToolCallDefinition,
@@ -412,7 +443,7 @@ export class UnifiedToolExecutor {
   }
 
   /**
-   * 并行执行独立的工具调用
+   * 并行执行独立的工具调用（分批控制并发数）
    */
   private async executeParallel(
     toolCalls: ToolCallDefinition[],
@@ -451,7 +482,8 @@ export class UnifiedToolExecutor {
   }
 
   /**
-   * 检查当前工具调用是否依赖之前的工具调用
+   * 检查当前工具调用是否依赖前置工具的结果
+   * 通过参数文本中是否包含 'previous'、'result'、'based on' 等关键词或前置工具名来判断
    */
   private hasDependencyOnPreviousCalls(
     current: { toolCall: ToolCallDefinition; args: Record<string, unknown> },
@@ -490,15 +522,14 @@ export class UnifiedToolExecutor {
     return false
   }
 
+  /** 收集所有失败工具的错误消息 */
   private collectToolErrors(results: ToolExecutionResult[]): string[] {
     return results
       .filter((result) => !result.success)
       .map((result) => result.error || '工具调用失败')
   }
 
-  /**
-   * 解析工具调用参数字符串
-   */
+  /** 解析工具调用参数字符串为对象 */
   private parseArguments(argsString: string): Record<string, unknown> {
     try {
       return JSON.parse(argsString)

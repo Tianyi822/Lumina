@@ -13,10 +13,12 @@ interface PaperAnnotationHoverPopoverProps {
   onUpdateColor: (colorKey: PaperAnnotationColorKey) => void
 }
 
+/** 判断批注类型是否为高亮 */
 function isHighlight(annotation: PaperAnnotation): boolean {
   return annotation.kind === 'highlight'
 }
 
+/** 批注悬浮操作弹窗组件，提供更改颜色、删除标记和编辑笔记功能 */
 export default function PaperAnnotationHoverPopover({
   state,
   annotation,

@@ -30,11 +30,13 @@ const md = new MarkdownIt({
   }
 })
 
+/** 使用 markdown-it 将内容渲染为 HTML，支持 LaTeX 数学公式 */
 function renderMarkdown(content: string): string {
   if (!content) return ''
   return md.render(normalizePaperInlineMathForRender(content, 'paragraph'))
 }
 
+/** 消息内容渲染组件，用户消息直接显示纯文本，AI 消息渲染为 Markdown */
 export default function PaperChatMessageContent({
   content,
   isStreaming,

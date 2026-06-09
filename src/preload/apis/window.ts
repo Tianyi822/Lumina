@@ -3,12 +3,17 @@ import { ipcRenderer } from 'electron'
 
 /**
  * 窗口控制相关的 API
+ * 提供窗口最小化、最大化、关闭、自定义标题栏和主题切换等功能
  */
 export const windowApi = {
   ...createIpcInvoker<{
+    /** 最小化窗口 */
     minimize: () => Promise<void>
+    /** 最大化或还原窗口 */
     maximize: () => Promise<void>
+    /** 关闭窗口 */
     close: () => Promise<void>
+    /** 检查窗口是否处于最大化状态 */
     isMaximized: () => Promise<boolean>
   }>('window', ['minimize', 'maximize', 'close', 'isMaximized']),
 

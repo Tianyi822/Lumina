@@ -10,6 +10,7 @@ import SearchPanel from './knowledge/SearchPanel'
 import FileListPanel from './knowledge/FileListPanel'
 import styles from './KnowledgeMain.module.css'
 
+/** 知识库主页面：展示选中知识库的概览、搜索测试和关联文档管理 */
 interface KnowledgeMainProps {
   knowledgeBase?: KnowledgeBase
   onAddFiles: (kbId: string) => void

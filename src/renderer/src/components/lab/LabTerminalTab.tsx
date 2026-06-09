@@ -3,6 +3,7 @@ import type { LabData } from '@renderer/types/lab'
 import { useLabTerminalSessionStore } from '@renderer/stores/lab/labTerminalSessionStore'
 import styles from './LabTerminalTab.module.css'
 
+/** 终端 Tab：管理 SSH 终端会话的生命周期，将终端渲染到锚点 DOM 节点 */
 interface LabTerminalTabProps {
   isSshLab: boolean
   currentLab: LabData | null
@@ -20,12 +21,14 @@ export default function LabTerminalTab({
   const setVisibleSession = useLabTerminalSessionStore((s) => s.setVisibleSession)
   const clearAnchor = useLabTerminalSessionStore((s) => s.clearAnchor)
 
+  // 拼接终端副标题：user@host:port
   const sshTerminalSubtitle = useMemo(() => {
     const ssh = currentLab?.ssh
     if (!ssh) return ''
     return `${ssh.username}@${ssh.host}:${ssh.port}`
   }, [currentLab?.ssh])
 
+  // 构造终端会话唯一键，只有 running 状态才生成有效键
   const terminalTargetKey = useMemo(() => {
     if (currentLab?.backendType === 'ssh') {
       return currentLab.status === 'running' ? `ssh:${currentLab.labId}` : null
@@ -33,6 +36,7 @@ export default function LabTerminalTab({
     return null
   }, [currentLab?.backendType, currentLab?.status, currentLab?.labId])
 
+  // 判断是否可以承载终端（需要有效键 + SSH 已连接）
   const canHostTerminal = useMemo(() => {
     if (!terminalTargetKey || !currentLab) return false
     return isSshConnected
@@ -43,6 +47,7 @@ export default function LabTerminalTab({
     terminalTargetKey ? Boolean(s.sessions[terminalTargetKey]) : false
   )
 
+  // 当终端条件满足时创建会话并绑定到 DOM 锚点；条件不满足时清理锚点
   useLayoutEffect(() => {
     if (!canHostTerminal || !terminalTargetKey || !currentLabId) {
       clearAnchor()
@@ -50,6 +55,7 @@ export default function LabTerminalTab({
     }
 
     const hasSession = !!useLabTerminalSessionStore.getState().sessions[terminalTargetKey]
+    // 用户不在 terminal Tab 且会话尚未创建时，不提前预建
     if (labDetailTab !== 'terminal' && !hasSession) {
       clearAnchor()
       return
@@ -64,6 +70,7 @@ export default function LabTerminalTab({
       subtitle: sshTerminalSubtitle
     })
 
+    // 不在 terminal Tab 时无需绑定渲染锚点
     if (labDetailTab !== 'terminal') {
       clearAnchor()
       return
@@ -72,6 +79,7 @@ export default function LabTerminalTab({
     const slot = slotRef.current
     if (!slot) return
 
+    // 将会话渲染到指定 DOM 容器
     setVisibleSession(terminalTargetKey, slot)
 
     return () => {

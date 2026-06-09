@@ -6,6 +6,10 @@ import LabCreator from '@renderer/components/lab/LabCreator'
 import DeleteConfirmDialog from '@renderer/components/lab/DeleteConfirmDialog'
 import styles from './LabPage.module.css'
 
+/**
+ * 实验室页面
+ * 管理实验室列表加载、当前实验室显示、创建、删除确认等
+ */
 export default function LabPage() {
   const currentLab = useLabListStore((s) => s.currentLab)
   const currentLabId = useLabListStore((s) => s.currentLab?.labId ?? null)
@@ -34,6 +38,7 @@ export default function LabPage() {
     labStoreRef.current = labStore
   }, [labStore])
 
+  // 初始化时加载实验室列表，自动恢复上一次的实验室
   useEffect(() => {
     async function init() {
       await labStoreRef.current.loadLabList()
@@ -48,6 +53,7 @@ export default function LabPage() {
     currentLabRef.current = currentLab
   }, [currentLab])
 
+  // 当前实验室变化时更新 lastLabId
   useEffect(() => {
     if (currentLabId) setLastLabId(currentLabId)
   }, [currentLabId, setLastLabId])

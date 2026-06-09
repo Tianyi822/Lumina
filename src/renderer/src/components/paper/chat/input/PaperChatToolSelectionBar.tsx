@@ -27,6 +27,7 @@ interface PaperChatToolSelectionBarProps {
 
 type AccordionSection = 'kb' | 'mcp'
 
+/** 输入工具栏组件，包含附件上传、搜索开关、实验室开关、知识库/MCP 手风琴面板和发送按钮 */
 export default function PaperChatToolSelectionBar({
   isSending,
   disabled,
@@ -45,17 +46,20 @@ export default function PaperChatToolSelectionBar({
   onStop,
   children
 }: PaperChatToolSelectionBarProps) {
+  // 发送中或 disabled 时禁用所有工具栏操作
   const controlsDisabled = Boolean(disabled || isSending)
   const [showMenu, setShowMenu] = useState(false)
   const [expandedSection, setExpandedSection] = useState<AccordionSection | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
 
+  // 计算当前已开启的工具总数，用于 badge 显示
   const activeCount =
     selectedTools.length +
     selectedKnowledgeBases.length +
     (enablePaperWebSearch ? 1 : 0) +
     (enableLabTools ? 1 : 0)
 
+  // 点击菜单外部关闭菜单，按 Escape 键同样关闭
   useEffect(() => {
     function handleClickOutside(event: MouseEvent): void {
       const container = menuRef.current
@@ -80,6 +84,7 @@ export default function PaperChatToolSelectionBar({
     }
   }, [showMenu])
 
+  // 切换菜单展开/收起，关闭时同时重置手风琴状态
   function toggleMenu(): void {
     if (!controlsDisabled) {
       setShowMenu((current) => {
@@ -91,10 +96,12 @@ export default function PaperChatToolSelectionBar({
     }
   }
 
+  // 手风琴切换：同一项再点收起，点不同项切换
   function toggleAccordion(section: AccordionSection): void {
     setExpandedSection((prev) => (prev === section ? null : section))
   }
 
+  // 点击上传附件后关闭菜单并触发文件选择
   function handleUploadClick(): void {
     setShowMenu(false)
     setExpandedSection(null)
@@ -280,6 +287,7 @@ export default function PaperChatToolSelectionBar({
 
       <div className={styles['paper-chat-input-toolbar__actions']}>
         {children}
+        {/* 非发送态显示发送按钮，发送中切换为停止按钮 */}
         {!isSending ? (
           <button
             className={styles['paper-chat-input-toolbar__execute-button']}

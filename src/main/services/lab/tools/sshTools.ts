@@ -94,7 +94,7 @@ export const sshConnectTool: LabToolDefinition = {
       return { success: false, error: '密钥认证模式下需要提供 key_name 参数' }
     }
 
-    // 创建实验室元数据
+    // 先创建实验室元数据记录
     const createResult = await labService.createLab({
       name,
       creationType: 'ssh',
@@ -132,7 +132,7 @@ export const sshConnectTool: LabToolDefinition = {
       }
     }
 
-    // 建立 SSH 连接
+    // 建立 SSH 连接到远程服务器
     const connectResult = await sshService.connect(
       labId,
       {
@@ -157,7 +157,7 @@ export const sshConnectTool: LabToolDefinition = {
       }
     }
 
-    // 更新实验室状态为 running
+    // 连接成功后更新实验室状态为 running
     lab.status = 'running'
     if (lab.ssh) {
       lab.ssh.connected = true
@@ -219,7 +219,7 @@ export const sshDisconnectTool: LabToolDefinition = {
       return { success: false, error: disconnectResult.error || '断开连接失败' }
     }
 
-    // 更新实验室状态
+    // 断开后更新实验室状态为 stopped
     lab.status = 'stopped'
     if (lab.ssh) {
       lab.ssh.connected = false
