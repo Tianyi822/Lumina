@@ -48,6 +48,7 @@ export default function KnowledgeForm({ onSubmit, onCancel }: KnowledgeFormProps
     let cancelled = false
     async function load() {
       try {
+        // 异步加载可用嵌入模型列表，加载后默认选中第一个
         const result = await window.api.embeddingModels.getAll()
         if (!cancelled && result.success && result.data) {
           setEmbeddingModels(result.data)
@@ -70,6 +71,7 @@ export default function KnowledgeForm({ onSubmit, onCancel }: KnowledgeFormProps
     }
   }, [])
 
+  // 表单有效性校验：名称不能为空且必须选中嵌入模型
   const isValid = useMemo(() => {
     if (name.trim().length === 0) return false
     if (embeddingModel === '') return false
@@ -81,6 +83,7 @@ export default function KnowledgeForm({ onSubmit, onCancel }: KnowledgeFormProps
     [embeddingModels, embeddingModel]
   )
 
+  // 重置表单到默认状态：清空输入、恢复第一个嵌入模型、恢复默认分块策略
   const resetForm = useCallback(() => {
     setName('')
     setDescription('')
@@ -97,6 +100,7 @@ export default function KnowledgeForm({ onSubmit, onCancel }: KnowledgeFormProps
       e.preventDefault()
       if (!isValid || !selectedModelConfig) return
 
+      // 选择分块策略：使用自定义值或预置策略（精细检索/平衡/长上下文）
       let chunkSize: number
       let chunkOverlap: number
 
@@ -111,6 +115,7 @@ export default function KnowledgeForm({ onSubmit, onCancel }: KnowledgeFormProps
 
       const config = selectedModelConfig
 
+      // 组装提交数据：嵌入模型配置 + 分块参数 + 基本信息
       onSubmit({
         name: name.trim(),
         description: description.trim(),

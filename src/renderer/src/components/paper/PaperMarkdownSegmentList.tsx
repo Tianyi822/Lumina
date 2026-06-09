@@ -35,9 +35,11 @@ interface PaperMarkdownSegmentItemProps {
 
 const LIST_ITEM_INDENT = 2.8
 
+// 从译文 HTML 末尾匹配连续闭合的列表标签，计算嵌套层级以动态调整重翻按钮的左缩进
 function getButtonLeftIndent(translationHtml: string | null): string {
   if (!translationHtml) return '0'
   const trimmed = translationHtml.trimEnd()
+  // 匹配末尾连续出现的 </ul> 或 </ol> 闭合标签
   const match = trimmed.match(/((?:<\/(?:ul|ol)>\s*)+)$/)
   if (!match) return '0'
   const nestLevel = (match[1].match(/<\/(?:ul|ol)>/g) || []).length
@@ -195,7 +197,9 @@ const PaperMarkdownSegmentItem = memo(
       </section>
     )
   },
+  // 自定义 memo 比较：先比较批注数量与引用，再逐字段浅比较确保仅必要时才重渲染
   (prev, next) => {
+    // 批注数组长度不同或任意批注引用不同则需重渲染
     if (prev.segment.annotations.length !== next.segment.annotations.length) return false
     for (let i = 0; i < prev.segment.annotations.length; i++) {
       if (prev.segment.annotations[i] !== next.segment.annotations[i]) return false
@@ -226,6 +230,7 @@ const PaperMarkdownSegmentList = forwardRef<
   { segments, totalHeight, virtualItems, measureElement, zoomLevel = 1, onRetranslate },
   ref
 ) {
+  // TanStack Virtual 的 totalHeight/start 基于视口坐标系，而在 CSS zoom 内部需除以缩放比保持视觉位置一致
   const zoomDivisor = zoomLevel || 1
   const [confirmDialog, setConfirmDialog] = useState<{
     segmentId: string
@@ -244,15 +249,18 @@ const PaperMarkdownSegmentList = forwardRef<
 
   const handleRetranslateClick = useCallback(
     (segment: RenderedSegment) => {
+      // 正在翻译中禁止重复点击
       if (segment.translationStatus === 'translating') {
         return
       }
 
+      // 该段落存在批注时弹出确认对话框，提示用户翻译会删除批注
       if (segment.annotations.length > 0) {
         setConfirmDialog({ segmentId: segment.renderId, stableId: segment.stableId })
         return
       }
 
+      // 无批注时直接触发重新翻译
       onRetranslate?.({ segmentId: segment.renderId, stableId: segment.stableId })
     },
     [onRetranslate]
@@ -278,6 +286,7 @@ const PaperMarkdownSegmentList = forwardRef<
         style={{ height: totalHeight / zoomDivisor }}
       >
         {virtualItems.map((vItem) => {
+          // 仅在 segments 数组中找到对应索引时才渲染，防止异步更新时空指针
           const segment = segments[vItem.index]
           if (!segment) return null
           return (
@@ -288,6 +297,7 @@ const PaperMarkdownSegmentList = forwardRef<
                 position: 'absolute',
                 top: 0,
                 left: 0,
+                // 虚拟偏移量除以 zoomDivisor，补偿 CSS zoom 造成的内部缩放
                 transform: `translateY(${vItem.start / zoomDivisor}px)`,
                 width: '100%'
               }}
@@ -308,6 +318,7 @@ const PaperMarkdownSegmentList = forwardRef<
         createPortal(
           <div
             className={styles['paper-retranslate-overlay']}
+            // 点击遮罩层本身（非弹窗内部）时取消
             onClick={(e) => {
               if (e.target === e.currentTarget) handleCancelRetranslate()
             }}

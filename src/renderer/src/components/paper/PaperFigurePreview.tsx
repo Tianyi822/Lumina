@@ -66,6 +66,7 @@ const captionMd = new MarkdownIt({ html: true, breaks: true }).use(texmath, {
   katexOptions: { throwOnError: false, strict: 'ignore', output: 'htmlAndMathml' }
 })
 
+// 限制预览宽度在最小值和窗口边界之间，确保两侧保留边距
 function clampPreviewWidth(width: number): number {
   if (typeof window === 'undefined') {
     return Math.max(width, PAPER_FIGURE_PREVIEW_MIN_WIDTH)
@@ -77,6 +78,7 @@ function clampPreviewWidth(width: number): number {
   return Math.min(Math.max(width, PAPER_FIGURE_PREVIEW_MIN_WIDTH), maxWidth)
 }
 
+// 限制预览高度在最小值和窗口边界之间
 function clampPreviewHeight(height: number): number {
   if (typeof window === 'undefined') {
     return Math.max(height, PAPER_FIGURE_PREVIEW_MIN_HEIGHT)
@@ -88,6 +90,7 @@ function clampPreviewHeight(height: number): number {
   return Math.min(Math.max(height, PAPER_FIGURE_PREVIEW_MIN_HEIGHT), maxHeight)
 }
 
+// 限制预览左边距不小于边距值，同时右侧不超出窗口范围
 function clampPreviewLeft(left: number, width: number): number {
   if (typeof window === 'undefined') {
     return Math.max(left, PAPER_FIGURE_PREVIEW_MARGIN)
@@ -98,6 +101,7 @@ function clampPreviewLeft(left: number, width: number): number {
   )
 }
 
+// 限制预览上边距不小于边距值，同时底部不超出窗口范围
 function clampPreviewTop(top: number, height: number): number {
   if (typeof window === 'undefined') {
     return Math.max(top, PAPER_FIGURE_PREVIEW_MARGIN)
@@ -108,6 +112,7 @@ function clampPreviewTop(top: number, height: number): number {
   )
 }
 
+// 对预览窗口的尺寸和位置同时执行边界限制，确保完整可见
 function normalizePreviewRect(rect: PaperFigurePreviewRect): PaperFigurePreviewRect {
   const width = clampPreviewWidth(rect.width)
   const height = clampPreviewHeight(rect.height)
@@ -119,6 +124,7 @@ function normalizePreviewRect(rect: PaperFigurePreviewRect): PaperFigurePreviewR
   }
 }
 
+// 根据缩放方向（edge）和鼠标偏移量计算新尺寸，左/上边缘缩放同时调整位置
 function buildResizedRect(state: ResizeState, event: MouseEvent): PaperFigurePreviewRect {
   const deltaX = event.clientX - state.clientX
   const deltaY = event.clientY - state.clientY
@@ -126,20 +132,24 @@ function buildResizedRect(state: ResizeState, event: MouseEvent): PaperFigurePre
   const right = state.rect.left + state.rect.width
   const bottom = state.rect.top + state.rect.height
 
+  // 从左边缩放：宽度减小需同时右移 left，保持右边框不动
   if (state.edge.includes('left')) {
     rect.width = Math.max(state.rect.width - deltaX, PAPER_FIGURE_PREVIEW_MIN_WIDTH)
     rect.left = right - rect.width
   }
 
+  // 从右边缩放：直接改变宽度，left 不变
   if (state.edge.includes('right')) {
     rect.width = Math.max(state.rect.width + deltaX, PAPER_FIGURE_PREVIEW_MIN_WIDTH)
   }
 
+  // 从上边缩放：类似左边逻辑，高度减小需下移 top
   if (state.edge.includes('top')) {
     rect.height = Math.max(state.rect.height - deltaY, PAPER_FIGURE_PREVIEW_MIN_HEIGHT)
     rect.top = bottom - rect.height
   }
 
+  // 从下边缩放：直接改变高度，top 不变
   if (state.edge.includes('bottom')) {
     rect.height = Math.max(state.rect.height + deltaY, PAPER_FIGURE_PREVIEW_MIN_HEIGHT)
   }
@@ -152,16 +162,19 @@ export default function PaperFigurePreview() {
   const currentPaperId = usePaperListStore((state) => state.currentPaperId)
   const activeFigure = usePaperFigureStore((state) => state.activeFigure)
   const figuresByPaperId = usePaperFigureStore((state) => state.figuresByPaperId)
+  // 从 store 中取出当前论文的图片列表，论文切换时自动更新
   const currentPaperFigures = useMemo(() => {
     if (!currentPaperId) return EMPTY_PAPER_FIGURES
     return figuresByPaperId[currentPaperId] ?? EMPTY_PAPER_FIGURES
   }, [currentPaperId, figuresByPaperId])
 
   const translationByPaperId = usePaperTranslationStore((state) => state.translationByPaperId)
+  // 取出当前论文的翻译缓存，并构建图片图注的翻译映射表
   const currentTranslationCache = useMemo(() => {
     if (!currentPaperId) return null
     return translationByPaperId[currentPaperId] ?? null
   }, [currentPaperId, translationByPaperId])
+  // 从翻译缓存中提取图片图注的翻译结果，按图片 ID 组织成映射
   const figureCaptionTranslationMap = useMemo(
     () =>
       currentTranslationCache ? buildFigureCaptionTranslationMap(currentTranslationCache) : {},
@@ -169,6 +182,7 @@ export default function PaperFigurePreview() {
   )
   const translationVisible = usePaperTranslationStore((state) => state.translationVisible ?? false)
 
+  // 预览面板钉住状态，钉住后点击外部不关闭，方便对照阅读
   const figurePreviewPinned = usePaperFigureStore((state) => state.figurePreviewPinned ?? false)
   const figurePreviewRect = usePaperFigureStore((state) => state.figurePreviewRect)
   const setFigurePreviewRect = usePaperFigureStore((state) => state.setFigurePreviewRect)
@@ -192,11 +206,13 @@ export default function PaperFigurePreview() {
     }
   }, [figurePreviewRect])
 
+  // 通过 requestAnimationFrame 节流更新面板样式，避免 mousemove 高频触发直接操作 DOM
   const applyPreviewRect = useCallback((rect: PaperFigurePreviewRect) => {
     const normalized = normalizePreviewRect(rect)
     latestPreviewRectRef.current = normalized
     pendingPreviewRectRef.current = normalized
 
+    // 已有排队的 RAF 则不重复调度，最新位置在下一个 RAF 中统一应用
     if (previewRectRafIdRef.current !== null) {
       return
     }
@@ -216,12 +232,14 @@ export default function PaperFigurePreview() {
     })
   }, [])
 
+  // 拖拽或缩放结束时，将最新位置持久化到 store，清理全局监听和 RAF 队列
   const stopInteractions = useCallback(() => {
     if (dragStateRef.current || resizeStateRef.current) {
       setFigurePreviewRect(latestPreviewRectRef.current)
     }
     dragStateRef.current = null
     resizeStateRef.current = null
+    // 取消未执行的 RAF 回调，避免位置已释放后仍更新面板样式
     if (previewRectRafIdRef.current !== null) {
       cancelAnimationFrame(previewRectRafIdRef.current)
       previewRectRafIdRef.current = null
@@ -232,6 +250,7 @@ export default function PaperFigurePreview() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setFigurePreviewRect])
 
+  // 全局鼠标移动处理：根据当前处于拖拽还是缩放状态分别计算新位置/尺寸
   function handlePointerMove(event: MouseEvent): void {
     const dragState = dragStateRef.current
     if (dragState) {
@@ -257,16 +276,19 @@ export default function PaperFigurePreview() {
 
   const handleDragStart = useCallback(
     (event: React.MouseEvent) => {
+      // 仅响应左键拖拽
       if (event.button !== 0) {
         return
       }
 
+      // 记录拖拽起始时的鼠标位置和面板位置
       dragStateRef.current = {
         clientX: event.clientX,
         clientY: event.clientY,
         rect: latestPreviewRectRef.current
       }
 
+      // 切换到全局监听，确保拖拽时鼠标移出面板仍能响应
       window.addEventListener('mousemove', handlePointerMove)
       window.addEventListener('mouseup', handlePointerUp)
     },
@@ -276,10 +298,12 @@ export default function PaperFigurePreview() {
 
   const handleResizeStart = useCallback(
     (event: React.MouseEvent, edge: ResizeEdge) => {
+      // 仅响应左键拖拽缩放
       if (event.button !== 0) {
         return
       }
 
+      // 记录缩放起始状态：鼠标位置、缩放方向和当前面板尺寸
       resizeStateRef.current = {
         clientX: event.clientX,
         clientY: event.clientY,
@@ -294,6 +318,7 @@ export default function PaperFigurePreview() {
     []
   )
 
+  // 图片加载完成后计算宽高比并存入 store，供后续布局参考（如自适应填充）
   const handleImageLoad = useCallback(
     (event: React.SyntheticEvent<HTMLImageElement>) => {
       const image = event.target as HTMLImageElement
@@ -309,10 +334,12 @@ export default function PaperFigurePreview() {
   // Close on outside click (when not pinned)
   useEffect(() => {
     function handleDocumentMouseDown(event: MouseEvent): void {
+      // 没有活跃图片、已钉住或面板未挂载时不处理
       if (!activeFigure || figurePreviewPinned || !previewRef.current) {
         return
       }
 
+      // 点击发生在面板外部时关闭预览
       const target = event.target as Node
       if (!previewRef.current.contains(target)) {
         closeFigurePreview()
@@ -323,14 +350,16 @@ export default function PaperFigurePreview() {
     return () => document.removeEventListener('mousedown', handleDocumentMouseDown)
   }, [activeFigure, figurePreviewPinned, closeFigurePreview])
 
-  // Keyboard navigation
+  // Keyboard navigation：Escape 关闭（钉住时忽略），左右箭头切换上一张/下一张
   useEffect(() => {
     function handleDocumentKeyDown(event: KeyboardEvent): void {
+      // 没有活跃图片时不处理
       if (!activeFigure) {
         return
       }
 
       if (event.key === 'Escape') {
+        // 钉住状态下按 Esc 不关闭，防止误操作
         if (figurePreviewPinned) {
           return
         }
@@ -340,6 +369,7 @@ export default function PaperFigurePreview() {
       }
 
       if (event.key === 'ArrowLeft') {
+        // 焦点不在预览面板内时忽略箭头键，避免与页面滚动冲突
         if (previewRef.current && !previewRef.current.contains(document.activeElement)) {
           return
         }
@@ -362,7 +392,7 @@ export default function PaperFigurePreview() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeFigure, figurePreviewPinned, closeFigurePreview])
 
-  // Stop interactions when figure changes
+  // 图片切换或关闭时，清理可能正在进行中的拖拽/缩放交互
   useEffect(() => {
     if (!activeFigure) {
       stopInteractions()
@@ -375,6 +405,7 @@ export default function PaperFigurePreview() {
 
   const switchFigure = useCallback(
     (step: number) => {
+      // 只有一张图片或无法定位当前索引时跳过切换
       const figures = currentPaperFigures
       if (figures.length <= 1) {
         return
@@ -385,6 +416,7 @@ export default function PaperFigurePreview() {
         return
       }
 
+      // 环形切换：取模运算保证索引在 0~length-1 范围内循环
       const nextIndex = (currentIndex + step + figures.length) % figures.length
       const nextFigure = figures[nextIndex]
       if (!nextFigure) {
@@ -396,6 +428,7 @@ export default function PaperFigurePreview() {
     [currentPaperFigures, activeFigure, openFigurePreview]
   )
 
+  // 合成当前预览图片的图注文本：启用了翻译时优先显示翻译结果，否则降级到原文或子标题
   const previewCaption = useMemo(() => {
     if (!activeFigure) return '暂无图注'
 
@@ -407,13 +440,16 @@ export default function PaperFigurePreview() {
     return activeFigure.caption || activeFigure.subCaption || '暂无图注'
   }, [activeFigure, translationVisible, figureCaptionTranslationMap])
 
+  // 计算当前图片在论文图片列表中的索引，用于显示位置和判断切换可行性
   const currentFigureIndex = useMemo(() => {
     if (!activeFigure) return -1
     return currentPaperFigures.findIndex((f: { id: string }) => f.id === activeFigure.id)
   }, [activeFigure, currentPaperFigures])
 
+  // 图片总数大于 1 且当前索引有效时才能切换
   const canSwitchFigures = currentPaperFigures.length > 1 && currentFigureIndex >= 0
 
+  // 从 store 读取面板位置和尺寸，转换为内联样式对象；undefined 时组件使用默认定位
   const previewStyle = figurePreviewRect
     ? {
         left: `${figurePreviewRect.left}px`,

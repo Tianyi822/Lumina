@@ -20,6 +20,7 @@ interface PaperChatPanelProps {
 
 /** 从消息列表中获取最后一条有实际内容的 assistant 消息（跳过流式未完成的） */
 function getLatestAssistantMessage(messages: Message[]): Message | null {
+  // 从后向前遍历，找到第一条非流式且有内容的 assistant 消息
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     const message = messages[index]
     if (message.role === 'assistant' && !message.isStreaming && message.content.trim()) {
@@ -69,11 +70,13 @@ export default function PaperChatPanel({ paper }: PaperChatPanelProps) {
     }
   })
 
+  // 只有存在有效会话时才查询计划状态，否则保持 null
   const currentPlanState = sessionState.sessionId
     ? usePaperChatStreamStore.getState().getSessionPlanState(sessionState.sessionId)
     : null
 
   const quickReply = useMemo<PaperChatQuickReply | null>(() => {
+    // 没有最新消息或已被用户关闭，则不展示快速回复
     const latestMessage = getLatestAssistantMessage(sessionState.messages)
     if (!latestMessage || dismissedQuickReplyIds.has(latestMessage.id)) {
       return null
@@ -102,12 +105,14 @@ export default function PaperChatPanel({ paper }: PaperChatPanelProps) {
     }
   }, [dismissedQuickReplyIds, sessionState.messages])
 
+  // 切换论文时重置快速回复状态并重新加载会话
   useEffect(() => {
     setDismissedQuickReplyIds(new Set())
     void sessionState.loadSessionWithContext()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [paper.id])
 
+  // 清理已消失消息对应的快速回复关闭状态，避免内存泄漏
   useEffect(() => {
     setDismissedQuickReplyIds((current) => {
       if (current.size === 0) return current
@@ -135,6 +140,7 @@ export default function PaperChatPanel({ paper }: PaperChatPanelProps) {
   }, [])
 
   async function handleClearContext(): Promise<void> {
+    // 流式回复进行中时禁止清空，防止中断异常
     if (streamState.isSending) {
       notify.warning('论文对话', '请先停止当前回复，再清空上下文。', { source: 'chat' })
       return
@@ -154,6 +160,7 @@ export default function PaperChatPanel({ paper }: PaperChatPanelProps) {
     }
   }
 
+  // 开启联网搜索前先检查环境是否可用，不可用时弹出警告而非静默失败
   const handleEnablePaperWebSearch = useCallback(async (): Promise<boolean> => {
     try {
       const envInfo = await window.api.paperWebSearch.checkEnvironment()
@@ -229,6 +236,7 @@ export default function PaperChatPanel({ paper }: PaperChatPanelProps) {
         ]
           .filter(Boolean)
           .join(' ')}
+        // 使用计数器而非简单布尔值处理拖拽，避免子元素 dragEnter/Leave 闪烁
         onDragEnter={(event) => {
           event.preventDefault()
           dragCounterRef.current += 1
@@ -240,6 +248,7 @@ export default function PaperChatPanel({ paper }: PaperChatPanelProps) {
         onDragLeave={(event) => {
           event.preventDefault()
           dragCounterRef.current -= 1
+          // 只有计数器归零才真正退出拖拽态，防止子元素冒泡导致误关闭
           if (dragCounterRef.current <= 0) {
             dragCounterRef.current = 0
             setIsDragging(false)

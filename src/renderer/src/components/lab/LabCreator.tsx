@@ -33,10 +33,12 @@ export default function LabCreator({ visible, onClose }: LabCreatorProps) {
   // 对话框打开时初始化 SSH 表单状态，关闭时重置跟踪标记
   useEffect(() => {
     if (!visible) {
+      // 对话框关闭时，重置标记使下次打开时重新初始化
       wasVisibleRef.current = false
       return
     }
 
+    // 首次打开时才初始化表单，避免重复覆盖用户已编辑的内容
     if (wasVisibleRef.current) return
     wasVisibleRef.current = true
 
@@ -55,6 +57,7 @@ export default function LabCreator({ visible, onClose }: LabCreatorProps) {
     }
     setIsTestingSsh(true)
     try {
+      // 根据认证方式组装参数：密钥认证携带 keyName/keyContent，密码认证携带 password
       const result = await window.api.ssh.config.test(
         {
           id: '',

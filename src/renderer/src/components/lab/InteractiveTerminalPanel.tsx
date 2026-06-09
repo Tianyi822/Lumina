@@ -22,6 +22,7 @@ interface InteractiveTerminalPanelProps {
 
 /** 读取 CSS 变量值，读取失败时返回 fallback 默认值 */
 function readCssVar(name: string, fallback: string): string {
+  // 从 CSS 变量读取并 trim，获取不到时使用 fallback 默认值
   const value = window.getComputedStyle(document.documentElement).getPropertyValue(name).trim()
   return value || fallback
 }
@@ -68,6 +69,7 @@ export default function InteractiveTerminalPanel({
 
   /** 标记终端为 closed（若当前不是 error 则覆盖），设置关闭原因 */
   const markClosed = useCallback((reason?: string): void => {
+    // 仅在当前不是 error 状态时标记为 closed，避免覆盖异常状态
     setStatus((prev) => (prev !== 'error' ? 'closed' : prev))
     setStatusMessage(reason || '终端已关闭')
   }, [])
@@ -95,6 +97,7 @@ export default function InteractiveTerminalPanel({
   /** 同步本地终端尺寸到远程 SSH 终端 */
   const resizeRemoteTerminal = useCallback(
     async (size: TerminalSize): Promise<void> => {
+      // 无远程会话时跳过尺寸同步
       if (!sshSessionIdRef.current) return
       const result = await sshResize(size)
       if (result && !result.success) {
@@ -154,6 +157,7 @@ export default function InteractiveTerminalPanel({
   /** 清理 xterm 实例、ResizeObserver、远程连接等资源 */
   const disposeTerminal = useCallback(
     (closeRemote: boolean): void => {
+      // 取消待执行的 RAF 帧，避免已卸载后触发 resize
       if (resizeFrameRef.current) {
         window.cancelAnimationFrame(resizeFrameRef.current)
         resizeFrameRef.current = 0
@@ -170,6 +174,7 @@ export default function InteractiveTerminalPanel({
       fitAddonRef.current = null
       lastSizeRef.current = null
 
+      // 按需关闭远程 SSH 会话
       if (closeRemote) {
         void sshClose()
       }
@@ -220,9 +225,11 @@ export default function InteractiveTerminalPanel({
     resizeObserverRef.current = observer
 
     const size: TerminalSize = { cols: terminal.cols, rows: terminal.rows }
+    // 异步建立 SSH 会话，连接成功后再同步终端尺寸和焦点
     ;(async () => {
       const result = await sshOpen(size)
 
+      // 组件已卸载时放弃连接结果，避免在已销毁实例上更新状态
       if (disposedRef.current) return
 
       if (!result.success || !result.sessionId) {
@@ -237,6 +244,7 @@ export default function InteractiveTerminalPanel({
       await resizeRemoteTerminal(readTerminalSize())
     })()
 
+    // 组件卸载或 targetId 变化时，标记已销毁并清理终端资源
     return () => {
       disposedRef.current = true
       disposeTerminal(true)
@@ -247,6 +255,7 @@ export default function InteractiveTerminalPanel({
   /** 重开终端：先销毁旧实例，再完整重建 xterm + 新连接 */
   const handleRestart = useCallback(async () => {
     disposeTerminal(true)
+    // 重置销毁标记，重新建立终端容器引用
     disposedRef.current = false
 
     const host = terminalHostRef.current
