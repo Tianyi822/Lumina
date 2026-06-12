@@ -1,6 +1,7 @@
 import { memo, useState, useCallback, forwardRef, useImperativeHandle } from 'react'
 import { createPortal } from 'react-dom'
 import type { RenderedSegment } from './hooks/usePaperMarkdownEngine'
+import { getTranslationBlockDisplay } from './composables/paperTranslationBlockDisplay'
 import styles from './PaperMarkdownSegmentList.module.css'
 
 interface VirtualItem {
@@ -54,6 +55,7 @@ const PaperMarkdownSegmentItem = memo(
     const htmlStatus = segment.htmlStatus ?? (segment.originalHtml ? 'ready' : 'pending')
     const isReady = htmlStatus === 'ready'
     const showError = htmlStatus === 'error'
+    const translationDisplay = getTranslationBlockDisplay(segment)
 
     return (
       <section
@@ -105,7 +107,7 @@ const PaperMarkdownSegmentItem = memo(
               .filter(Boolean)
               .join(' ')}
           >
-            {isReady && segment.translationHtml ? (
+            {translationDisplay === 'content' && segment.translationHtml ? (
               <>
                 <div
                   className={[
@@ -156,32 +158,30 @@ const PaperMarkdownSegmentItem = memo(
                   <span>重新翻译</span>
                 </button>
               </>
-            ) : (
+            ) : translationDisplay === 'failed' ? (
+              <div className={styles['paper-markdown-view__translation-error']}>
+                该段翻译暂时失败，再次点击翻译按钮时会继续补全剩余内容。
+              </div>
+            ) : translationDisplay === 'translating' ? (
               <>
-                {segment.translationStatus === 'failed' ? (
-                  <div className={styles['paper-markdown-view__translation-error']}>
-                    该段翻译暂时失败，再次点击翻译按钮时会继续补全剩余内容。
-                  </div>
-                ) : (
-                  <div
-                    className={styles['paper-markdown-view__translation-placeholder']}
-                    aria-hidden="true"
-                  >
-                    <span className={styles['paper-markdown-view__translation-placeholder-text']}>
-                      正在翻译...
-                    </span>
-                    <span className={styles['paper-markdown-view__translation-placeholder-bar']} />
-                    <span className={styles['paper-markdown-view__translation-placeholder-bar']} />
-                    <span className={styles['paper-markdown-view__translation-placeholder-bar']} />
-                  </div>
-                )}
+                <div
+                  className={styles['paper-markdown-view__translation-placeholder']}
+                  aria-hidden="true"
+                >
+                  <span className={styles['paper-markdown-view__translation-placeholder-text']}>
+                    正在翻译...
+                  </span>
+                  <span className={styles['paper-markdown-view__translation-placeholder-bar']} />
+                  <span className={styles['paper-markdown-view__translation-placeholder-bar']} />
+                  <span className={styles['paper-markdown-view__translation-placeholder-bar']} />
+                </div>
                 <button
                   className={[
                     styles['paper-markdown-view__retranslate-btn'],
                     'paper-markdown-view__retranslate-btn'
                   ].join(' ')}
                   type="button"
-                  disabled={segment.translationStatus === 'translating'}
+                  disabled
                   title="重新翻译"
                   onClick={(event) => {
                     event.stopPropagation()
@@ -204,6 +204,11 @@ const PaperMarkdownSegmentItem = memo(
                   <span>重新翻译</span>
                 </button>
               </>
+            ) : (
+              <div
+                className={styles['paper-markdown-view__segment-skeleton']}
+                aria-hidden="true"
+              />
             )}
           </div>
         )}
@@ -223,6 +228,7 @@ const PaperMarkdownSegmentItem = memo(
       prev.segment.sourceRevisionId === next.segment.sourceRevisionId &&
       prev.segment.textHash === next.segment.textHash &&
       prev.segment.kind === next.segment.kind &&
+      prev.segment.htmlStatus === next.segment.htmlStatus &&
       prev.segment.originalHtml === next.segment.originalHtml &&
       prev.segment.translationHtml === next.segment.translationHtml &&
       prev.segment.translationText === next.segment.translationText &&
