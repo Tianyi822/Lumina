@@ -1,6 +1,7 @@
 import { useCallback, useLayoutEffect, useMemo, useRef } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import type { RenderedSegment } from './usePaperMarkdownEngine'
+import { getPaperVirtualOverscan } from './paperPlatformTuning'
 import { estimateSegmentHeight, getSegmentsLayoutKey } from './paperSegmentHeightEstimate'
 
 export { estimateSegmentHeight, getSegmentsLayoutKey } from './paperSegmentHeightEstimate'
@@ -47,7 +48,7 @@ interface UsePaperVirtualizerParams {
 export function usePaperVirtualizer({
   segments,
   scrollContainerRef,
-  overscan = 10,
+  overscan = getPaperVirtualOverscan(),
   zoomLevel = 1,
   zoomLayoutSyncRef
 }: UsePaperVirtualizerParams) {
@@ -59,6 +60,9 @@ export function usePaperVirtualizer({
 
   /** 缩放会话进行中时为 true，禁用 TanStack 自动 scrollTop 补偿，避免与 useZoomAnchor 打架 */
   const isZoomingRef = useRef(false)
+
+  /** 程序化跳转运行 ID：新跳转 / 论文切换时递增，使进行中的两阶段跳转回调失效 */
+  const navigateRunIdRef = useRef(0)
 
   /**
    * 待处理的缩放锚点修正。
@@ -266,31 +270,94 @@ export function usePaperVirtualizer({
     [virtualizer]
   )
 
+  /**
+   * 程序化跳转（TOC / 引用定位）。
+   *
+   * 卡顿根因：TanStack 在 smooth scrollToIndex 期间用 rAF 循环（reconcileScroll）按最新测量
+   * 重算目标 offset，offset 一变就重新发起原生 smooth scrollTo（缓动从头开始）。长距离跳转
+   * 途经/目标附近段落仍是估算高度（×1.1 安全系数），挂载实测后目标 offset 持续漂移 →
+   * 缓动被反复重启 → 卡顿。整篇翻过一遍后全部为实测高度、目标不漂移，故「翻过一遍就顺滑」。
+   *
+   * 修复：远距离跳转拆为两阶段——先瞬移到目标前一个视口处，让目标附近段落挂载并完成实测，
+   * 再对最后一个视口距离做 smooth 滚动；此时途经内容已实测、目标稳定，缓动一次到底。
+   * 近距离（≤ 一个视口，overscan 内基本已实测）直接 smooth，残余微调由 reconcile 兜底。
+   */
+  const navigateToIndex = useCallback(
+    (index: number, options?: { align?: 'start' | 'center' | 'end' }): void => {
+      const container = scrollContainerRef.current
+      if (!container || index < 0 || index >= segmentsRef.current.length) {
+        return
+      }
+
+      const align = options?.align ?? 'start'
+      const runId = navigateRunIdRef.current + 1
+      navigateRunIdRef.current = runId
+
+      const offsetInfo = virtualizer.getOffsetForIndex(index, align)
+      if (!offsetInfo) {
+        virtualizer.scrollToIndex(index, { align, behavior: 'smooth' })
+        return
+      }
+
+      const viewport = container.clientHeight
+      const distance = offsetInfo[0] - container.scrollTop
+      if (Math.abs(distance) <= viewport) {
+        virtualizer.scrollToIndex(index, { align, behavior: 'smooth' })
+        return
+      }
+
+      // 阶段一：瞬移到目标前一个视口处（保持原滚动方向），触发目标附近段落挂载
+      const preOffset = offsetInfo[0] - Math.sign(distance) * viewport
+      virtualizer.scrollToOffset(preOffset, { behavior: 'auto' })
+
+      // 阶段二：双 rAF 等新可视区挂载与 ResizeObserver（rAF 批处理）实测提交后，
+      // 显式重测一次再平滑滚完最后一段；stableId 校验防止论文切换后作用于错误段落
+      const expectedStableId = segmentsRef.current[index]?.stableId
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (
+            navigateRunIdRef.current !== runId ||
+            segmentsRef.current[index]?.stableId !== expectedStableId
+          ) {
+            return
+          }
+          remeasureMountedSegments()
+          virtualizer.scrollToIndex(index, { align, behavior: 'smooth' })
+        })
+      })
+    },
+    [virtualizer, remeasureMountedSegments, scrollContainerRef]
+  )
+
   const scrollToSegment = useCallback(
     (stableId: string, options?: { align?: 'start' | 'center' | 'end' }): void => {
       const index = segments.findIndex((s) => s.stableId === stableId)
       if (index === -1) return
-      virtualizer.scrollToIndex(index, {
-        align: options?.align ?? 'start',
-        behavior: 'smooth'
-      })
+      navigateToIndex(index, { align: options?.align ?? 'start' })
     },
-    [segments, virtualizer]
+    [segments, navigateToIndex]
   )
 
   const scrollToHeadingId = useCallback(
     (headingId: string): boolean => {
       const index = segments.findIndex((s) => s.segmentAnchorId === headingId)
       if (index === -1) return false
-      virtualizer.scrollToIndex(index, { align: 'start', behavior: 'smooth' })
+      navigateToIndex(index, { align: 'start' })
       return true
     },
-    [segments, virtualizer]
+    [segments, navigateToIndex]
   )
+
+  /** 取消进行中的两阶段跳转（论文切换 / 组件卸载时调用） */
+  const cancelNavigate = useCallback(() => {
+    navigateRunIdRef.current += 1
+  }, [])
 
   return {
     virtualizer,
     measureElement,
+    navigateToIndex,
+    cancelNavigate,
     scrollToSegment,
     scrollToHeadingId,
     invalidateAllMeasurements,

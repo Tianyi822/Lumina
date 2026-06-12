@@ -12,6 +12,32 @@
   box-sizing: border-box;
 }
 
+.paper-markdown-view__segment-skeleton {
+  min-height: 1.5em;
+  border-radius: var(--sm-radius-sm);
+  background: color-mix(in srgb, var(--sm-color-text-muted) 12%, transparent);
+  animation: paper-segment-skeleton-pulse 1.2s ease-in-out infinite;
+}
+
+.paper-markdown-view__segment-fallback {
+  margin: 0;
+  color: var(--sm-color-text-secondary);
+  font-size: 15px;
+  line-height: 1.75;
+  white-space: pre-wrap;
+}
+
+@keyframes paper-segment-skeleton-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+
+  50% {
+    opacity: 0.85;
+  }
+}
+
 .paper-markdown-view__segment-original,
 .paper-markdown-view__segment-translation {
   box-sizing: border-box;

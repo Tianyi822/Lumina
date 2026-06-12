@@ -268,18 +268,33 @@ export function estimateSegmentHeight(segment: RenderedSegment): number {
   return originalEstimate
 }
 
-/** 生成段落列表的布局缓存键，用于判断是否需要重新估算高度 */
+/** 生成段落列表的布局采样指纹，避免 O(n) 全量拼接 */
 export function getSegmentsLayoutKey(segments: RenderedSegment[]): string {
-  return segments
-    .map((segment) =>
-      [
-        segment.stableId,
-        segment.textHash,
-        segment.sourceRevisionId,
-        segment.showTranslation ? '1' : '0',
-        segment.translationStatus,
-        segment.translationHtml?.length ?? 0
-      ].join(':')
-    )
+  if (segments.length === 0) {
+    return '0'
+  }
+
+  const pick = (index: number): string => {
+    const segment = segments[index]
+    if (!segment) {
+      return ''
+    }
+    return [
+      segment.stableId,
+      segment.textHash,
+      segment.sourceRevisionId,
+      segment.showTranslation ? '1' : '0',
+      segment.translationStatus,
+      segment.translationHtml?.length ?? 0
+    ].join(':')
+  }
+
+  const head = [0, 1, 2].map(pick).join('|')
+  const tail = [segments.length - 3, segments.length - 2, segments.length - 1]
+    .filter((index) => index >= 0)
+    .map(pick)
     .join('|')
+  const revision = segments[0]?.sourceRevisionId ?? ''
+
+  return `${segments.length}#${revision}#${head}#${tail}`
 }
