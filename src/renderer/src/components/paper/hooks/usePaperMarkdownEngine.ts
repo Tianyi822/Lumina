@@ -70,6 +70,8 @@ export function getTranslationRenderKey(cache: PaperTranslationCache | null | un
   ].join('')
 }
 
+export type SegmentHtmlStatus = 'pending' | 'ready' | 'error'
+
 export interface RenderedSegment {
   renderId: string
   stableId: string
@@ -85,6 +87,18 @@ export interface RenderedSegment {
   segmentAnchorId?: string
   isCenteredMeta: boolean
   annotations: PaperAnnotation[]
+  htmlStatus: SegmentHtmlStatus
+}
+
+interface SegmentRenderContext {
+  sourceSegments: RenderSourceSegment[]
+  outline: PaperTocOutline
+  outlineEntryMap: Map<string, PaperTocItem | PaperTocOutline['documentTitle']>
+  frontMatterMetadataIds: Set<string>
+  annotationsBySegmentId: Map<string, PaperAnnotation[]>
+  translationMap: Map<string, PaperTranslationEntry>
+  basePath: string | undefined
+  translationVisible: boolean
 }
 
 const EMPTY_SOURCE_REFS: PaperReaderSegmentSourceRefs = {
@@ -330,6 +344,11 @@ export interface PaperMarkdownEngine {
   renderedSegments: RenderedSegment[]
   parseError: string | null
   getSourceSegments: () => RenderSourceSegment[]
+  renderSegmentMetas: () => void
+  renderSegmentAtIndex: (index: number) => Promise<void>
+  invalidateSegmentHtml: (stableIds: string[]) => void
+  applyAnnotationUpdates: () => void
+  /** @deprecated 使用 renderSegmentMetas + 懒渲染调度 */
   renderContent: () => Promise<void>
   unresolvedAnnotationIds: string[]
 }
@@ -340,8 +359,13 @@ export function usePaperMarkdownEngine(options: PaperMarkdownEngineOptions): Pap
   const [parseError, setParseError] = useState<string | null>(null)
   const [unresolvedAnnotationIds, setUnresolvedAnnotationIds] = useState<string[]>([])
   const renderRunIdRef = useRef(0)
+  const renderedSegmentsRef = useRef<RenderedSegment[]>([])
+  renderedSegmentsRef.current = renderedSegments
+  const segmentRenderContextRef = useRef<SegmentRenderContext | null>(null)
   const originalHtmlCacheRef = useRef(new Map<string, CachedHtmlResult>())
   const translationHtmlCacheRef = useRef(new Map<string, CachedHtmlResult>())
+  const optionsRef = useRef(options)
+  optionsRef.current = options
 
   const markdownRendererRef = useRef(
     new MarkdownIt({
@@ -376,7 +400,7 @@ export function usePaperMarkdownEngine(options: PaperMarkdownEngineOptions): Pap
       kind
     )
     const rawHtml = markdownRenderer.render(normalizedContent)
-    const resolvedHtml = await resolveImagePaths(rawHtml, options.basePath)
+    const resolvedHtml = await resolveImagePaths(rawHtml, optionsRef.current.basePath)
     return postProcessRenderedHtml(
       resolvedHtml,
       (inlineContent) => markdownRenderer.renderInline(inlineContent),
@@ -385,8 +409,9 @@ export function usePaperMarkdownEngine(options: PaperMarkdownEngineOptions): Pap
   }
 
   function getSourceSegments(): RenderSourceSegment[] {
-    if (options.readerDocument?.segments?.length) {
-      return options.readerDocument.segments.map((segment: PaperReaderSegment) => ({
+    const currentOptions = optionsRef.current
+    if (currentOptions.readerDocument?.segments?.length) {
+      return currentOptions.readerDocument.segments.map((segment: PaperReaderSegment) => ({
         renderId: segment.renderId,
         stableId: segment.stableId,
         index: segment.index,
@@ -399,19 +424,19 @@ export function usePaperMarkdownEngine(options: PaperMarkdownEngineOptions): Pap
       }))
     }
 
-    return createFallbackSourceSegments(options.content)
+    return createFallbackSourceSegments(currentOptions.content)
   }
 
-  async function buildTocAndRenderedSegments(): Promise<{
-    outline: PaperTocOutline
-    segments: RenderedSegment[]
-    unresolvedAnnotationIds: string[]
-  }> {
+  function buildSegmentRenderContext(): SegmentRenderContext | null {
+    const currentOptions = optionsRef.current
+    if (!currentOptions.content.trim()) {
+      return null
+    }
+
     const sourceSegments = getSourceSegments()
-    const rendered: RenderedSegment[] = []
     const translationMap = new Map<string, PaperTranslationEntry>()
     const frontMatterMetadataIds = collectFrontMatterMetadataIds(sourceSegments)
-    const currentAnnotations = options.annotations ?? []
+    const currentAnnotations = currentOptions.annotations ?? []
     const outline = buildPaperTocOutline(
       sourceSegments.map((segment) => ({
         id: segment.renderId,
@@ -420,7 +445,7 @@ export function usePaperMarkdownEngine(options: PaperMarkdownEngineOptions): Pap
         originalMarkdown: segment.originalMarkdown,
         originalText: segment.originalText
       })),
-      options.translationCache?.entries ?? []
+      currentOptions.translationCache?.entries ?? []
     )
     const outlineEntryMap = new Map<string, PaperTocItem | PaperTocOutline['documentTitle']>()
     const annotationsBySegmentId = new Map<string, PaperAnnotation[]>()
@@ -440,159 +465,308 @@ export function usePaperMarkdownEngine(options: PaperMarkdownEngineOptions): Pap
       outlineEntryMap.set(item.segmentId, item)
     }
 
-    for (const entry of options.translationCache?.entries ?? []) {
+    for (const entry of currentOptions.translationCache?.entries ?? []) {
       translationMap.set(entry.id, entry)
     }
 
-    const allFailedIds: string[] = []
+    return {
+      sourceSegments,
+      outline,
+      outlineEntryMap,
+      frontMatterMetadataIds,
+      annotationsBySegmentId,
+      translationMap,
+      basePath: currentOptions.basePath,
+      translationVisible: currentOptions.translationVisible
+    }
+  }
 
-    for (const segment of sourceSegments) {
-      const outlineEntry = outlineEntryMap.get(segment.renderId)
-      const headingId = segment.kind === 'heading' ? outlineEntry?.id : undefined
+  function buildSegmentMetasFromContext(ctx: SegmentRenderContext): RenderedSegment[] {
+    return ctx.sourceSegments.map((segment) => {
+      const outlineEntry = ctx.outlineEntryMap.get(segment.renderId)
       const segmentAnchorId = outlineEntry?.id
-      const annotations = annotationsBySegmentId.get(segment.stableId) || []
-      const translationEntry = translationMap.get(segment.renderId)
+      const annotations = ctx.annotationsBySegmentId.get(segment.stableId) || []
+      const translationEntry = ctx.translationMap.get(segment.renderId)
       const translationStatus = translationEntry?.status ?? 'idle'
       const translationText = translationEntry?.translatedText
         ? translationEntry.translatedText
         : translationEntry?.translatedMarkdown
           ? stripPaperTranslationMarkdown(translationEntry.translatedMarkdown)
           : ''
-      const annotationRenderKey = getSegmentAnnotationRenderKey(annotations)
 
-      const originalHtmlResult = await getOrCreateCachedHtmlResult(
-        originalHtmlCacheRef.current,
-        [
-          segment.renderId,
-          segment.sourceRevisionId,
-          options.basePath ?? '',
-          headingId ?? '',
-          annotationRenderKey
-        ].join('\u0001'),
-        async () => {
-          const originalCollect = highlighter.collectOriginalHighlights(segment, annotations)
-          const originalHighlightResult = highlighter.applyHighlightsToHtml(
-            await renderMarkdownBlock(segment.originalMarkdown, segment.kind, headingId),
-            originalCollect.highlights
-          )
-          return {
-            html: originalHighlightResult.html,
-            failedIds: [...originalCollect.failedIds, ...originalHighlightResult.failedIds]
-          }
-        }
-      )
-      allFailedIds.push(...originalHtmlResult.failedIds)
-
-      const translationHtmlResult =
-        translationEntry &&
-        translationEntry.status === 'completed' &&
-        translationEntry.translatedMarkdown
-          ? await getOrCreateCachedHtmlResult(
-              translationHtmlCacheRef.current,
-              [
-                translationEntry.id,
-                translationEntry.status,
-                translationEntry.updatedAt || translationEntry.translatedMarkdown,
-                options.basePath ?? '',
-                annotationRenderKey
-              ].join('\u0001'),
-              async () => {
-                const translationCollect = highlighter.collectTranslationHighlights(
-                  translationText,
-                  annotations,
-                  segment.originalText
-                )
-                const translationHighlightResult = highlighter.applyHighlightsToHtml(
-                  await renderMarkdownBlock(
-                    translationEntry.translatedMarkdown || '',
-                    translationEntry.kind
-                  ),
-                  translationCollect.highlights
-                )
-                return {
-                  html: translationHighlightResult.html,
-                  failedIds: [
-                    ...translationCollect.failedIds,
-                    ...translationHighlightResult.failedIds
-                  ]
-                }
-              }
-            )
-          : null
-      if (translationHtmlResult) {
-        allFailedIds.push(...translationHtmlResult.failedIds)
-      }
-
-      rendered.push({
+      return {
         renderId: segment.renderId,
         stableId: segment.stableId,
         sourceRevisionId: segment.sourceRevisionId,
         textHash: segment.textHash,
         kind: segment.kind,
         originalText: segment.originalText,
-        originalHtml: originalHtmlResult.html,
-        translationHtml: translationHtmlResult?.html ?? null,
+        originalHtml: '',
+        translationHtml: null,
         translationText,
         translationStatus,
         showTranslation: shouldRenderTranslationBlock(
-          options.translationVisible,
+          ctx.translationVisible,
           translationStatus,
-          translationHtmlResult?.html ?? null
+          translationEntry?.status === 'completed'
+            ? (translationEntry.translatedMarkdown ?? null)
+            : null
         ),
         segmentAnchorId,
-        isCenteredMeta: frontMatterMetadataIds.has(segment.renderId),
+        isCenteredMeta: ctx.frontMatterMetadataIds.has(segment.renderId),
         annotations: [...annotations].sort((left, right) =>
           left.createdAt.localeCompare(right.createdAt)
+        ),
+        htmlStatus: 'pending' as const
+      }
+    })
+  }
+
+  async function renderSegmentHtmlAt(
+    ctx: SegmentRenderContext,
+    index: number
+  ): Promise<{
+    originalHtml: string
+    translationHtml: string | null
+    showTranslation: boolean
+    failedIds: string[]
+  }> {
+    const segment = ctx.sourceSegments[index]
+    if (!segment) {
+      throw new Error(`段落索引无效: ${index}`)
+    }
+
+    const outlineEntry = ctx.outlineEntryMap.get(segment.renderId)
+    const headingId = segment.kind === 'heading' ? outlineEntry?.id : undefined
+    const annotations = ctx.annotationsBySegmentId.get(segment.stableId) || []
+    const translationEntry = ctx.translationMap.get(segment.renderId)
+    const translationStatus = translationEntry?.status ?? 'idle'
+    const translationText = translationEntry?.translatedText
+      ? translationEntry.translatedText
+      : translationEntry?.translatedMarkdown
+        ? stripPaperTranslationMarkdown(translationEntry.translatedMarkdown)
+        : ''
+    const annotationRenderKey = getSegmentAnnotationRenderKey(annotations)
+    const failedIds: string[] = []
+
+    const originalHtmlResult = await getOrCreateCachedHtmlResult(
+      originalHtmlCacheRef.current,
+      [
+        segment.renderId,
+        segment.sourceRevisionId,
+        ctx.basePath ?? '',
+        headingId ?? '',
+        annotationRenderKey
+      ].join('\u0001'),
+      async () => {
+        const originalCollect = highlighter.collectOriginalHighlights(segment, annotations)
+        const originalHighlightResult = highlighter.applyHighlightsToHtml(
+          await renderMarkdownBlock(segment.originalMarkdown, segment.kind, headingId),
+          originalCollect.highlights
         )
-      })
+        return {
+          html: originalHighlightResult.html,
+          failedIds: [...originalCollect.failedIds, ...originalHighlightResult.failedIds]
+        }
+      }
+    )
+    failedIds.push(...originalHtmlResult.failedIds)
+
+    const translationHtmlResult =
+      translationEntry &&
+      translationEntry.status === 'completed' &&
+      translationEntry.translatedMarkdown
+        ? await getOrCreateCachedHtmlResult(
+            translationHtmlCacheRef.current,
+            [
+              translationEntry.id,
+              translationEntry.status,
+              translationEntry.updatedAt || translationEntry.translatedMarkdown,
+              ctx.basePath ?? '',
+              annotationRenderKey
+            ].join('\u0001'),
+            async () => {
+              const translationCollect = highlighter.collectTranslationHighlights(
+                translationText,
+                annotations,
+                segment.originalText
+              )
+              const translationHighlightResult = highlighter.applyHighlightsToHtml(
+                await renderMarkdownBlock(
+                  translationEntry.translatedMarkdown || '',
+                  translationEntry.kind
+                ),
+                translationCollect.highlights
+              )
+              return {
+                html: translationHighlightResult.html,
+                failedIds: [...translationCollect.failedIds, ...translationHighlightResult.failedIds]
+              }
+            }
+          )
+        : null
+    if (translationHtmlResult) {
+      failedIds.push(...translationHtmlResult.failedIds)
     }
 
     return {
-      outline,
-      segments: rendered,
-      unresolvedAnnotationIds: allFailedIds
+      originalHtml: originalHtmlResult.html,
+      translationHtml: translationHtmlResult?.html ?? null,
+      showTranslation: shouldRenderTranslationBlock(
+        ctx.translationVisible,
+        translationStatus,
+        translationHtmlResult?.html ?? null
+      ),
+      failedIds
     }
   }
 
-  const renderContent = useCallback(async (): Promise<void> => {
+  const renderSegmentMetas = useCallback((): void => {
     const currentRunId = ++renderRunIdRef.current
+    const currentOptions = optionsRef.current
     setParseError(null)
-    if (!options.content.trim()) {
+
+    if (!currentOptions.content.trim()) {
+      segmentRenderContextRef.current = null
       setRenderedSegments([])
-      options.clearToc()
+      setUnresolvedAnnotationIds([])
+      currentOptions.clearToc()
       return
     }
 
     try {
-      const result = await buildTocAndRenderedSegments()
-      if (currentRunId !== renderRunIdRef.current) {
+      const ctx = buildSegmentRenderContext()
+      if (!ctx || currentRunId !== renderRunIdRef.current) {
         return
       }
-      setRenderedSegments(result.segments)
-      setUnresolvedAnnotationIds(result.unresolvedAnnotationIds)
-      options.setTocOutline(result.outline)
+
+      segmentRenderContextRef.current = ctx
+      originalHtmlCacheRef.current.clear()
+      translationHtmlCacheRef.current.clear()
+      setRenderedSegments(buildSegmentMetasFromContext(ctx))
+      setUnresolvedAnnotationIds([])
+      currentOptions.setTocOutline(ctx.outline)
     } catch (error) {
       if (currentRunId !== renderRunIdRef.current) {
         return
       }
       const message = error instanceof Error ? error.message : String(error)
       setParseError(`Markdown 解析失败: ${message}`)
+      segmentRenderContextRef.current = null
       setRenderedSegments([])
-      options.clearToc()
+      currentOptions.clearToc()
     }
-  }, [
-    options.content,
-    options.basePath,
-    options.translationVisible,
-    options.translationCache,
-    options.readerDocument,
-    options.annotations
-  ])
+  }, [])
+
+  const renderSegmentAtIndex = useCallback(async (index: number): Promise<void> => {
+    const currentRunId = renderRunIdRef.current
+    const ctx = segmentRenderContextRef.current
+    const segment = renderedSegmentsRef.current[index]
+
+    if (!ctx || !segment || segment.htmlStatus === 'ready') {
+      return
+    }
+
+    try {
+      const html = await renderSegmentHtmlAt(ctx, index)
+      if (currentRunId !== renderRunIdRef.current) {
+        return
+      }
+
+      setRenderedSegments((previous) => {
+        const target = previous[index]
+        if (!target || target.stableId !== segment.stableId) {
+          return previous
+        }
+        const next = [...previous]
+        next[index] = {
+          ...target,
+          originalHtml: html.originalHtml,
+          translationHtml: html.translationHtml,
+          showTranslation: html.showTranslation,
+          htmlStatus: 'ready'
+        }
+        return next
+      })
+
+      if (html.failedIds.length > 0) {
+        setUnresolvedAnnotationIds((previous) => [...previous, ...html.failedIds])
+      }
+    } catch {
+      if (currentRunId !== renderRunIdRef.current) {
+        return
+      }
+      setRenderedSegments((previous) => {
+        const target = previous[index]
+        if (!target || target.stableId !== segment.stableId) {
+          return previous
+        }
+        const next = [...previous]
+        next[index] = { ...target, htmlStatus: 'error' }
+        return next
+      })
+    }
+  }, [])
+
+  const invalidateSegmentHtml = useCallback((stableIds: string[]): void => {
+    if (stableIds.length === 0) {
+      return
+    }
+    const idSet = new Set(stableIds)
+    setRenderedSegments((previous) =>
+      previous.map((segment) =>
+        idSet.has(segment.stableId)
+          ? {
+              ...segment,
+              originalHtml: '',
+              translationHtml: null,
+              htmlStatus: 'pending' as const
+            }
+          : segment
+      )
+    )
+  }, [])
+
+  const applyAnnotationUpdates = useCallback((): void => {
+    const ctx = buildSegmentRenderContext()
+    if (!ctx) {
+      return
+    }
+    segmentRenderContextRef.current = ctx
+    setRenderedSegments((previous) =>
+      previous.map((segment) => {
+        const annotations = ctx.annotationsBySegmentId.get(segment.stableId) || []
+        const sorted = [...annotations].sort((left, right) =>
+          left.createdAt.localeCompare(right.createdAt)
+        )
+        const prevKey = getSegmentAnnotationRenderKey(segment.annotations)
+        const nextKey = getSegmentAnnotationRenderKey(sorted)
+        if (prevKey === nextKey) {
+          return { ...segment, annotations: sorted }
+        }
+        return {
+          ...segment,
+          annotations: sorted,
+          originalHtml: '',
+          translationHtml: null,
+          htmlStatus: 'pending' as const
+        }
+      })
+    )
+  }, [])
+
+  const renderContent = useCallback(async (): Promise<void> => {
+    renderSegmentMetas()
+  }, [renderSegmentMetas])
 
   return {
     renderedSegments,
     parseError,
     getSourceSegments,
+    renderSegmentMetas,
+    renderSegmentAtIndex,
+    invalidateSegmentHtml,
+    applyAnnotationUpdates,
     renderContent,
     unresolvedAnnotationIds
   }

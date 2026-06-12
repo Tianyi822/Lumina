@@ -26,6 +26,7 @@ import {
 import { usePaperAnnotationComposer } from './hooks/usePaperAnnotationComposer'
 import { usePaperTextSearch } from './hooks/usePaperTextSearch'
 import { usePaperVirtualizer, type PaperZoomLayoutSync } from './hooks/usePaperVirtualizer'
+import { usePaperSegmentRenderScheduler } from './hooks/usePaperSegmentRenderScheduler'
 import { usePaperQuoteHighlight } from './composables/usePaperQuoteHighlight'
 import { useZoomAnchor } from './composables/useZoomAnchor'
 import {
@@ -132,6 +133,33 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
       zoomLayoutSyncRef
     })
     const { navigateToIndex, cancelNavigate } = virtualizerResult
+
+    const isSegmentReady = useCallback(
+      (index: number) => engine.renderedSegments[index]?.htmlStatus === 'ready',
+      [engine.renderedSegments]
+    )
+
+    const segmentHtmlRevision = useMemo(
+      () =>
+        engine.renderedSegments.reduce(
+          (revision, segment, index) =>
+            revision +
+            (segment.htmlStatus === 'ready' ? index + 1 : 0) +
+            (segment.htmlStatus === 'pending' ? (index + 1) * 1000 : 0),
+          0
+        ),
+      [engine.renderedSegments]
+    )
+
+    usePaperSegmentRenderScheduler({
+      segmentCount: engine.renderedSegments.length,
+      segmentHtmlRevision,
+      scrollContainerRef,
+      virtualizer: virtualizerResult.virtualizer,
+      renderSegmentAtIndex: engine.renderSegmentAtIndex,
+      isSegmentReady,
+      paperId
+    })
 
     // 缩放重测后，若未处于缩放中则标记为缩放中并记录视口锚点，随后滚动到锚点位置
     zoomLayoutSyncRef.current = {
@@ -296,20 +324,18 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
     // 未恢复批注通知（每次论文加载只提示一次）
     const unresolvedNotifiedRef = useRef(false)
 
-    // Render content and sync tables
-    // invalidateAllMeasurements 由 usePaperVirtualizer 的 layoutKey effect 在 segments 变化时自动触发，
-    // 此处不再重复调用，避免缓存被反复清空延长估算值窗口期
-    const renderContentAndSyncTables = useCallback(async (): Promise<void> => {
-      // 等待引擎重新渲染内容（Markdown 转换 + 批注恢复）
-      await engine.renderContent()
-      // 双层 requestAnimationFrame 确保浏览器完成布局和绘制后再触发重测，避免读到陈旧尺寸
-      await new Promise<void>((resolve) => {
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => resolve())
-        })
+    // 同步段落元数据并调度懒渲染；invalidateAllMeasurements 由 usePaperVirtualizer layoutKey effect 处理
+    const syncMetasAndSchedule = useCallback((): void => {
+      engine.renderSegmentMetas()
+      if (import.meta.env.DEV) {
+        performance.mark('paper-switch-first-paint')
+      }
+      requestAnimationFrame(() => {
+        syncTablesAndRemeasure()
       })
-      syncTablesAndRemeasure()
     }, [engine, syncTablesAndRemeasure])
+
+    const annotationInvalidateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
     // 通知未恢复批注
     // 论文切换时重置通知标记，并清理缩放/重测的定时器和回调队列
@@ -501,29 +527,43 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
       prevBasePathRef.current = basePath
       prevSourceRevisionIdRef.current = readerDocument?.sourceRevisionId
 
-      void renderContentAndSyncTables().then(() => {
-        // 仅当菜单和笔记编辑器都未打开时才清除 composer，避免破坏活跃的选区状态
-        if (!composer.selectionActionMenu && !composer.noteEditorDraft) {
-          composer.clearComposer()
-        }
+      syncMetasAndSchedule()
 
-        // 内容/基础路径/源版本任一变化时恢复阅读进度中的滚动位置
-        if (contentChanged || basePathChanged || sourceRevisionIdChanged) {
-          void restoreScrollPosition(paperId)
-        }
-        // 内容重渲染后刷新文本搜索高亮，保留当前匹配索引避免跳转
-        refreshTextSearch({ preserveCurrentIndex: true })
-      })
+      if (!composer.selectionActionMenu && !composer.noteEditorDraft) {
+        composer.clearComposer()
+      }
+
+      if (contentChanged || basePathChanged || sourceRevisionIdChanged) {
+        void restoreScrollPosition(paperId)
+      }
+      refreshTextSearch({ preserveCurrentIndex: true })
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [
       content,
       basePath,
       translationVisible,
       translationRenderKey,
-      readerDocument?.sourceRevisionId,
-      annotations.length,
-      annotationUpdateKey
+      readerDocument?.sourceRevisionId
     ])
+
+    // 批注晚到或变更：增量失效高亮，不全量重建元数据
+    useEffect(() => {
+      if (annotationInvalidateTimerRef.current) {
+        clearTimeout(annotationInvalidateTimerRef.current)
+      }
+      annotationInvalidateTimerRef.current = setTimeout(() => {
+        annotationInvalidateTimerRef.current = null
+        engine.applyAnnotationUpdates()
+        requestAnimationFrame(() => {
+          syncTablesAndRemeasure()
+        })
+      }, 50)
+      return () => {
+        if (annotationInvalidateTimerRef.current) {
+          clearTimeout(annotationInvalidateTimerRef.current)
+        }
+      }
+    }, [annotationUpdateKey, engine, syncTablesAndRemeasure])
 
     // Search query change effect：搜索查询变化时重新执行搜索，更新高亮和匹配计数
     useEffect(() => {

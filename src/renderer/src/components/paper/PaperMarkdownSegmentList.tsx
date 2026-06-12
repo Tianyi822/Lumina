@@ -51,6 +51,10 @@ const PaperMarkdownSegmentItem = memo(
     segment,
     onRetranslateClick
   }: PaperMarkdownSegmentItemProps) {
+    const htmlStatus = segment.htmlStatus ?? (segment.originalHtml ? 'ready' : 'pending')
+    const isReady = htmlStatus === 'ready'
+    const showError = htmlStatus === 'error'
+
     return (
       <section
         id={segment.kind === 'heading' ? undefined : segment.segmentAnchorId}
@@ -73,13 +77,22 @@ const PaperMarkdownSegmentItem = memo(
           data-view-kind="original"
           data-segment-stable-id={segment.stableId}
         >
-          <div
-            className={[
-              styles['paper-markdown-view__markdown'],
-              'paper-markdown-view__markdown'
-            ].join(' ')}
-            dangerouslySetInnerHTML={{ __html: segment.originalHtml }}
-          />
+          {isReady ? (
+            <div
+              className={[
+                styles['paper-markdown-view__markdown'],
+                'paper-markdown-view__markdown'
+              ].join(' ')}
+              dangerouslySetInnerHTML={{ __html: segment.originalHtml }}
+            />
+          ) : showError ? (
+            <p className={styles['paper-markdown-view__segment-fallback']}>{segment.originalText}</p>
+          ) : (
+            <div
+              className={styles['paper-markdown-view__segment-skeleton']}
+              aria-hidden="true"
+            />
+          )}
         </div>
 
         {segment.showTranslation && (
@@ -92,7 +105,7 @@ const PaperMarkdownSegmentItem = memo(
               .filter(Boolean)
               .join(' ')}
           >
-            {segment.translationHtml ? (
+            {isReady && segment.translationHtml ? (
               <>
                 <div
                   className={[

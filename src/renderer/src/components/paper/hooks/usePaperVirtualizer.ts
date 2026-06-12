@@ -1,6 +1,7 @@
 import { useCallback, useLayoutEffect, useMemo, useRef } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import type { RenderedSegment } from './usePaperMarkdownEngine'
+import { getPaperVirtualOverscan } from './paperPlatformTuning'
 import { estimateSegmentHeight, getSegmentsLayoutKey } from './paperSegmentHeightEstimate'
 
 export { estimateSegmentHeight, getSegmentsLayoutKey } from './paperSegmentHeightEstimate'
@@ -47,7 +48,7 @@ interface UsePaperVirtualizerParams {
 export function usePaperVirtualizer({
   segments,
   scrollContainerRef,
-  overscan = 10,
+  overscan = getPaperVirtualOverscan(),
   zoomLevel = 1,
   zoomLayoutSyncRef
 }: UsePaperVirtualizerParams) {

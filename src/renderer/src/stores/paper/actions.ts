@@ -443,9 +443,9 @@ export async function loadMarkdownWithDeps(paperId: string): Promise<void> {
         markdownContent: readerDocument.markdown,
         markdownPaperId: paperId
       })
-      // 翻译缓存后台加载，不阻塞 markdown 内容渲染
+      // 翻译与批注后台加载，不阻塞 markdown 首屏渲染
       void usePaperTranslationStore.getState().loadTranslationState(paperId)
-      await usePaperAnnotationStore.getState().loadAnnotations(paperId)
+      void usePaperAnnotationStore.getState().loadAnnotations(paperId)
     } else {
       usePaperListStore.setState({ markdownContent: '', markdownPaperId: paperId })
       usePaperTranslationStore.getState().setTranslationCache(paperId, null)
