@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { estimateSegmentHeight } from './paperSegmentHeightEstimate.ts'
+import { estimateSegmentHeight, getSegmentsLayoutKey } from './paperSegmentHeightEstimate.ts'
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 function createSegment(kind, originalText) {
@@ -17,7 +17,8 @@ function createSegment(kind, originalText) {
     translationStatus: 'idle',
     showTranslation: false,
     isCenteredMeta: false,
-    annotations: []
+    annotations: [],
+    htmlStatus: 'pending'
   }
 }
 
@@ -50,4 +51,22 @@ test('带宽表与单元格公式的表格估算应高于最小占位', () => {
   const height = estimateSegmentHeight(createSegment('table', text))
 
   assert.ok(height >= 80 + 32 * 2, `expected table estimate with math, got ${height}`)
+})
+
+test('getSegmentsLayoutKey 非采样段变化不应改变指纹', () => {
+  const base = Array.from({ length: 10 }, (_, index) => ({
+    ...createSegment('paragraph', `text-${index}`),
+    stableId: `s${index}`,
+    textHash: `h${index}`
+  }))
+  const changedMiddle = base.map((segment, index) =>
+    index === 5 ? { ...segment, textHash: 'changed' } : segment
+  )
+  assert.equal(getSegmentsLayoutKey(base), getSegmentsLayoutKey(changedMiddle))
+})
+
+test('getSegmentsLayoutKey 首段变化应改变指纹', () => {
+  const a = [{ ...createSegment('paragraph', 'a'), stableId: 's0', textHash: 'h0' }]
+  const b = [{ ...createSegment('paragraph', 'a'), stableId: 's0', textHash: 'h1' }]
+  assert.notEqual(getSegmentsLayoutKey(a), getSegmentsLayoutKey(b))
 })
