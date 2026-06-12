@@ -131,6 +131,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
       zoomLevel,
       zoomLayoutSyncRef
     })
+    const { navigateToIndex, cancelNavigate } = virtualizerResult
 
     // 缩放重测后，若未处于缩放中则标记为缩放中并记录视口锚点，随后滚动到锚点位置
     zoomLayoutSyncRef.current = {
@@ -186,7 +187,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
             (s) => s.stableId === quote.segmentStableId
           )
           if (index !== -1) {
-            virtualizerResult.virtualizer.scrollToIndex(index, { align: 'center' })
+            navigateToIndex(index, { align: 'center' })
           }
           // 等下一帧 DOM 更新后再触发高亮，确保滚动完成后再计算选中区域位置
           requestAnimationFrame(() => {
@@ -194,7 +195,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
           })
         }
       }),
-      [quoteHighlight, virtualizerResult.virtualizer, engine.renderedSegments]
+      [quoteHighlight, navigateToIndex, engine.renderedSegments]
     )
 
     // Content zoom style
@@ -318,6 +319,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
         // 递增运行 ID 使进行中的缩放 settle 回调自动失效
         zoomSettleRunIdRef.current += 1
         virtualizerResult.isZoomingRef.current = false
+        cancelNavigate()
         zoomAnchor.endZoom()
         if (zoomSettleTimerRef.current !== null) {
           clearTimeout(zoomSettleTimerRef.current)
@@ -328,7 +330,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
         }
         pendingRemeasureCallbacksRef.current = []
       }
-    }, [paperId, virtualizerResult.isZoomingRef, zoomAnchor])
+    }, [paperId, virtualizerResult.isZoomingRef, cancelNavigate, zoomAnchor])
 
     // 检查并通知未恢复的批注
     useEffect(() => {
