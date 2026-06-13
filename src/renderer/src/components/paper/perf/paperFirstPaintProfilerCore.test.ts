@@ -65,6 +65,7 @@ test('aggregateSegmentRenderTimes: 计算 min/p50/p95/max', () => {
   assert.equal(stats.min, 40)
   assert.equal(stats.max, 200)
   assert.equal(stats.p50, 120)
+  assert.equal(stats.p95, 192) // 线性插值：rank=0.95*4=3.8 → sorted[3]*0.2+sorted[4]*0.8 = 160*0.2+200*0.8 = 192
 })
 
 test('aggregateSegmentRenderTimes: 单样本四分位均等于该值', () => {
