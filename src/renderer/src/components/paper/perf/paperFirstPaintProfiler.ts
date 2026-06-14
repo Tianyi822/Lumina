@@ -1,5 +1,4 @@
-/* eslint-disable no-console -- PERF-PROBE:firstpaint 临时性能埋点，必须用 console 输出 dev 工具，验证后整体移除 */
-// PERF-PROBE:firstpaint — 临时验证代码，根因确认后整体移除
+// PERF-PROBE:firstpaint — 临时验证代码，根因确认后整体移除（dev-only，用 console 输出到 dev 工具）
 import {
   buildReport,
   isRunIdStale,
