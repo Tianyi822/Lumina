@@ -243,6 +243,7 @@ export class PaperService {
     data?: PaperReaderPayload
     error?: string
   }> {
+    const probeT0 = performance.now() // PERF-PROBE:firstpaint
     const signatureResult = await this.buildReaderSourceSignature(paperId)
     if (!signatureResult.success || !signatureResult.data) {
       return { success: false, error: signatureResult.error || '生成阅读器文档签名失败' }
@@ -250,6 +251,11 @@ export class PaperService {
 
     const cachedPayload = await this.readReaderPayloadCache(paperId, signatureResult.data)
     if (cachedPayload) {
+      logger.debug('[PERF-PROBE:firstpaint] getReaderPayload cache hit', 'main', {
+        // PERF-PROBE:firstpaint
+        paperId,
+        durationMs: Math.round(performance.now() - probeT0)
+      })
       return { success: true, data: cachedPayload }
     }
 
@@ -267,6 +273,11 @@ export class PaperService {
     const nextSignature =
       (await this.buildReaderSourceSignature(paperId)).data || signatureResult.data
     await this.saveReaderPayloadCache(paperId, nextSignature, payload)
+    logger.debug('[PERF-PROBE:firstpaint] getReaderPayload cache miss (built)', 'main', {
+      // PERF-PROBE:firstpaint
+      paperId,
+      durationMs: Math.round(performance.now() - probeT0)
+    })
     return { success: true, data: payload }
   }
 

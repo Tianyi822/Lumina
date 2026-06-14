@@ -41,6 +41,8 @@ import {
 import { usePaperHighlightRenderer } from '../composables/usePaperHighlightRenderer'
 import type { RenderSourceSegment, QuoteHighlight } from '../composables/usePaperHighlightRenderer'
 import { postProcessRenderedHtml } from './paperMarkdownPostProcess'
+// PERF-PROBE:firstpaint — 临时首屏性能埋点，验证后整体移除
+import { probe } from '../perf/paperFirstPaintProfiler'
 
 export type { RenderSourceSegment, QuoteHighlight }
 
@@ -668,7 +670,9 @@ export function usePaperMarkdownEngine(options: PaperMarkdownEngineOptions): Pap
     }
 
     try {
+      const probeT0 = performance.now() // PERF-PROBE:firstpaint
       const html = await renderSegmentHtmlAt(ctx, index)
+      probe.recordSample(performance.now() - probeT0) // PERF-PROBE:firstpaint
       if (currentRunId !== renderRunIdRef.current) {
         return
       }

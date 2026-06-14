@@ -42,6 +42,8 @@ import PaperAnnotationSelectionMenu from './annotation/PaperAnnotationSelectionM
 import PaperMarkdownSegmentList from './PaperMarkdownSegmentList'
 import type { PaperMarkdownSegmentListHandle } from './PaperMarkdownSegmentList'
 import styles from './PaperMarkdownView.module.css'
+// PERF-PROBE:firstpaint — 临时首屏性能埋点，验证后整体移除
+import { probe } from './perf/paperFirstPaintProfiler'
 
 interface ReadonlyValueRef<T> {
   readonly value: T
@@ -326,10 +328,9 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
 
     // 同步段落元数据并调度懒渲染；invalidateAllMeasurements 由 usePaperVirtualizer layoutKey effect 处理
     const syncMetasAndSchedule = useCallback((): void => {
+      probe.mark('pr:metas-start') // PERF-PROBE:firstpaint
       engine.renderSegmentMetas()
-      if (import.meta.env.DEV) {
-        performance.mark('paper-switch-first-paint')
-      }
+      probe.mark('pr:metas-end') // PERF-PROBE:firstpaint（取代旧 paper-switch-first-paint）
       requestAnimationFrame(() => {
         syncTablesAndRemeasure()
       })

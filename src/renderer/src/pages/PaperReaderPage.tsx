@@ -18,6 +18,8 @@ import { PaperQuoteContext } from '@renderer/contexts/PaperQuoteContext'
 import type { PaperAnnotation } from '@shared/types/paper'
 import type { PaperQuote } from '@shared/types/chat'
 import styles from './PaperReaderPage.module.css'
+// PERF-PROBE:firstpaint — 临时首屏性能埋点，验证后整体移除
+import { probe } from '@renderer/components/paper/perf/paperFirstPaintProfiler'
 
 import PaperMarkdownView, {
   type PaperMarkdownViewHandle
@@ -202,10 +204,17 @@ export default function PaperReaderPage() {
   // 挂载时加载论文列表，自动恢复上一次打开的论文
   useEffect(() => {
     ensureOcrProgressListener()
+    probe.start() // PERF-PROBE:firstpaint
+    probe.mark('pr:list-start') // PERF-PROBE:firstpaint
     void loadPapersWithState().then(() => {
+      probe.mark('pr:list-end') // PERF-PROBE:firstpaint
+      requestAnimationFrame(() => probe.mark('pr:list-commit')) // PERF-PROBE:firstpaint
       const currentId = usePaperListStore.getState().currentPaperId
       if (!currentId && lastPaperIdRef.current) {
-        void openPaper(lastPaperIdRef.current)
+        probe.mark('pr:openpaper-start') // PERF-PROBE:firstpaint
+        void openPaper(lastPaperIdRef.current).finally(() => {
+          probe.mark('pr:openpaper-end') // PERF-PROBE:firstpaint
+        })
       }
     })
   }, [ensureOcrProgressListener])
