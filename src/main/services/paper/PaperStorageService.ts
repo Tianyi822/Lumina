@@ -313,6 +313,8 @@ export class PaperStorageService {
    * 列出所有论文（按创建时间倒序）
    */
   async listPapers(): Promise<{ success: boolean; data?: PaperDocument[]; error?: string }> {
+    const probeT0 = performance.now() // PERF-PROBE:firstpaint
+    let probeReadMetaCount = 0 // PERF-PROBE:firstpaint
     try {
       await this.ensurePapersDir()
 
@@ -325,12 +327,18 @@ export class PaperStorageService {
 
         const paperId = entry.name
         const metaResult = await this.readMeta(paperId)
+        probeReadMetaCount += 1 // PERF-PROBE:firstpaint
         if (metaResult.success && metaResult.data) {
           papers.push(metaResult.data)
         }
       }
 
       papers.sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      logger.debug('[PERF-PROBE:firstpaint] listPapers', 'main', {
+        // PERF-PROBE:firstpaint
+        durationMs: Math.round(performance.now() - probeT0),
+        readMetaCount: probeReadMetaCount
+      })
       return { success: true, data: papers }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
