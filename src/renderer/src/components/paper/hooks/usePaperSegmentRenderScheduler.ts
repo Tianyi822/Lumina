@@ -11,6 +11,9 @@ import {
   PAPER_SEGMENT_RENDER_CONCURRENCY,
   PAPER_SEGMENT_SCROLL_PAUSE_MS
 } from './paperPlatformTuning'
+// PERF-PROBE:firstpaint — 临时首屏性能埋点，验证后整体移除
+import { probe } from '../perf/paperFirstPaintProfiler'
+import { createVisibleCompleteTracker } from '../perf/paperFirstPaintProfilerCore'
 
 interface UsePaperSegmentRenderSchedulerParams {
   segmentCount: number
@@ -45,16 +48,23 @@ export function usePaperSegmentRenderScheduler({
   const isSegmentReadyRef = useRef(isSegmentReady)
   isSegmentReadyRef.current = isSegmentReady
 
+  // PERF-PROBE:firstpaint — 首屏可见段完成追踪（逻辑见 createVisibleCompleteTracker，已单测）
+  const visibleTrackerRef = useRef(createVisibleCompleteTracker())
+
   const schedulerRef = useRef(
     createSegmentRenderScheduler({
       concurrency: PAPER_SEGMENT_RENDER_CONCURRENCY,
       onRender: async (index) => {
         if (isSegmentReadyRef.current(index)) {
           schedulerRef.current.markComplete(index)
-          return
+        } else {
+          await renderSegmentAtIndexRef.current(index)
+          schedulerRef.current.markComplete(index)
         }
-        await renderSegmentAtIndexRef.current(index)
-        schedulerRef.current.markComplete(index)
+        // PERF-PROBE:firstpaint — 全部 ready 时打 visible-end
+        if (visibleTrackerRef.current.markComplete(index)) {
+          probe.mark('pr:visible-end')
+        }
       }
     })
   )
@@ -106,6 +116,7 @@ export function usePaperSegmentRenderScheduler({
         { length: Math.min(segmentCount, PAPER_SEGMENT_PREFETCH_COUNT + 2) },
         (_, index) => index
       )
+      visibleTrackerRef.current.reset(initial) // PERF-PROBE:firstpaint
       schedulerRef.current.enqueue(initial, SegmentRenderPriority.Visible)
       void schedulerRef.current.pump()
       return
