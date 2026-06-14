@@ -1,9 +1,7 @@
 /* eslint-disable no-console -- PERF-PROBE:firstpaint 临时性能埋点，必须用 console 输出 dev 工具，验证后整体移除 */
 // PERF-PROBE:firstpaint — 临时验证代码，根因确认后整体移除
 import {
-  classifyLongTask,
-  summarizeLongTasksByPhase,
-  aggregateSegmentRenderTimes,
+  buildReport,
   isRunIdStale,
   type FirstPaintReport,
   type PerfPhaseSpan,
@@ -38,7 +36,6 @@ export function createFirstPaintProbe(deps: ProbeDeps) {
   let longTasks: PerfLongTaskEntry[] = []
   let samples: number[] = []
   let disconnect: (() => void) | null = null
-  let phasesCache: PerfPhaseSpan[] = []
 
   function isEnabled(): boolean {
     return deps.isDev && deps.getFlag() === '1'
@@ -54,7 +51,6 @@ export function createFirstPaintProbe(deps: ProbeDeps) {
     const session = activeRunId
     longTasks = []
     samples = []
-    phasesCache = computePhases()
     deps.mark('pr:mount')
     disconnect = deps.observeLongTasks((startTime, duration) => {
       longTasks.push({ startTime, duration })
@@ -79,12 +75,11 @@ export function createFirstPaintProbe(deps: ProbeDeps) {
     if (isRunIdStale(session, activeRunId)) return
     activeRunId = -1
     deps.report(buildReportForOutput())
-    // 不在 end 中 disconnect：PerformanceObserver 异步派发，idle 触发后仍可能有
-    // 属于本次会话的 longtask 回调到达。report 使用 getter 惰性归类，确保这些
-    // late longtask 能反映到已生成的 report 中。observer 在下一次 start 时被覆盖断开。
+    disconnect?.()
+    disconnect = null
   }
 
-  function computePhases(): PerfPhaseSpan[] {
+  function buildReportForOutput(): FirstPaintReport {
     const phaseDefs: Array<{ name: string; start: string; end: string }> = [
       { name: 'pr:list', start: 'pr:list-start', end: 'pr:list-end' },
       { name: 'pr:openpaper', start: 'pr:openpaper-start', end: 'pr:openpaper-end' },
@@ -99,10 +94,6 @@ export function createFirstPaintProbe(deps: ProbeDeps) {
         phases.push({ name: def.name, start: startT, end: endT })
       }
     }
-    return phases
-  }
-
-  function buildReportForOutput(): FirstPaintReport {
     const timeline: TimelineEntry[] = [
       entry('pr:list', 'pr:list-start', 'pr:list-end'),
       entry('pr:list-commit', 'pr:list-end', 'pr:list-commit'),
@@ -111,21 +102,12 @@ export function createFirstPaintProbe(deps: ProbeDeps) {
       entry('pr:visible-render', 'pr:mount', 'pr:visible-end'),
       entry('pr:e2e (mount→idle)', 'pr:mount', 'pr:idle')
     ]
-    const phases = phasesCache
-    // getter 惰性求值：idle 触发后异步到达的 longtask 仍能被归类到 report 中
-    const report: FirstPaintReport = {
-      timeline,
-      get longTasksClassified() {
-        return longTasks.map((t) => classifyLongTask(t, phases))
-      },
-      get longTaskSummary() {
-        return summarizeLongTasksByPhase(longTasks.map((t) => classifyLongTask(t, phases)))
-      },
-      get segmentStats() {
-        return aggregateSegmentRenderTimes(samples)
-      }
-    }
-    return report
+    return buildReport({
+      phases,
+      longTasks: longTasks.slice(),
+      samples: samples.slice(),
+      timeline
+    })
   }
 
   function entry(label: string, start: string, end: string): TimelineEntry {

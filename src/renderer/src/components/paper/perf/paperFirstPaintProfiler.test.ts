@@ -51,6 +51,7 @@ test('enabled start 后收集 longtask，idle 触发时 report 含归类结果',
   const marks: string[] = []
   const reports: Array<{ longTasksClassified: unknown[] }> = []
   let longtaskCb: ((s: number, d: number) => void) | null = null
+  let idleCb: (() => void) | null = null
   const probe = createFirstPaintProbe(
     makeFakeDeps({
       mark: (n) => marks.push(n),
@@ -61,13 +62,17 @@ test('enabled start 后收集 longtask，idle 触发时 report 含归类结果',
           longtaskCb = null
         }
       },
-      scheduleIdle: (cb) => cb(), // 立即触发结束
+      scheduleIdle: (cb) => {
+        idleCb = cb // 捕获，不立即触发
+      },
+      scheduleTimeout: () => {},
       report: (r) => reports.push(r as never)
     })
   )
   probe.start()
   assert.ok(longtaskCb, 'observer 应已注册')
   ;(longtaskCb as (s: number, d: number) => void)(150, 60) // 落在 [100,200] → pr:metas
+  ;(idleCb as unknown as () => void)() // 手动触发 idle → end → report
   assert.equal(reports.length, 1)
   assert.equal(reports[0].longTasksClassified.length, 1)
   assert.equal(marks[0], 'pr:mount')
