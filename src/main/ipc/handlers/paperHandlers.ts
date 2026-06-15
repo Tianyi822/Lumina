@@ -24,6 +24,7 @@ import type {
 } from '@shared/types/paper'
 import { statSync } from 'fs'
 import { readFile } from 'fs/promises'
+import { PAPER_BATCH_UPLOAD_MAX_FILES } from '@shared/constants/paper'
 
 /**
  * 注册论文相关的 IPC 处理程序
@@ -217,7 +218,7 @@ export function registerPaperHandlers(): void {
   })
 
   /**
-   * 选择 PDF 文件
+   * 选择单个 PDF 文件
    * 返回: { path: string, name: string, size: number } | null
    */
   ipcMain.handle('paper:selectPdfFile', async () => {
@@ -240,6 +241,44 @@ export function registerPaperHandlers(): void {
       const errorMessage = error instanceof Error ? error.message : String(error)
       logger.error('IPC: 选择 PDF 文件失败', 'main', { error: errorMessage })
       return null
+    }
+  })
+
+  /**
+   * 批量选择 PDF 文件
+   * 返回: { success, data?, error? }；用户取消时 success 为 false 且无 error
+   */
+  ipcMain.handle('paper:selectPdfFiles', async () => {
+    try {
+      const result = await dialog.showOpenDialog({
+        properties: ['openFile', 'multiSelections'],
+        filters: [{ name: 'PDF 文件', extensions: ['pdf'] }]
+      })
+      if (result.canceled || result.filePaths.length === 0) {
+        return { success: false }
+      }
+
+      if (result.filePaths.length > PAPER_BATCH_UPLOAD_MAX_FILES) {
+        return {
+          success: false,
+          error: `一次最多选择 ${PAPER_BATCH_UPLOAD_MAX_FILES} 个 PDF 文件`
+        }
+      }
+
+      const files = result.filePaths.map((filePath) => {
+        const stats = statSync(filePath)
+        return {
+          path: filePath,
+          name: basename(filePath) || 'unknown.pdf',
+          size: stats.size
+        }
+      })
+
+      return { success: true, data: files }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      logger.error('IPC: 批量选择 PDF 文件失败', 'main', { error: errorMessage })
+      return { success: false, error: errorMessage }
     }
   })
 
