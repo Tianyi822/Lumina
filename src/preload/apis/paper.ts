@@ -250,6 +250,17 @@ export const paperApi = {
   },
 
   /**
+   * 批量选择 PDF 文件（弹出系统文件多选对话框）
+   */
+  selectPdfFiles: (): Promise<{
+    success: boolean
+    data?: PdfFileInfo[]
+    error?: string
+  }> => {
+    return ipcRenderer.invoke('paper:selectPdfFiles')
+  },
+
+  /**
    * 读取本地文件内容为 base64 字符串
    */
   readFileAsBase64: (

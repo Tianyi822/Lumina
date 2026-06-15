@@ -25,7 +25,7 @@ export interface OcrProgressInfo {
   /** 失败的页码列表 */
   failedPages: number[]
   /** 当前状态 */
-  status: 'idle' | 'processing' | 'completed' | 'partial_failed' | 'failed' | 'cancelled'
+  status: 'idle' | 'queued' | 'processing' | 'completed' | 'partial_failed' | 'failed' | 'cancelled'
   /** 错误信息（可选） */
   errorMessage?: string
 }

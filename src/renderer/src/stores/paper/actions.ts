@@ -21,6 +21,12 @@ const pendingPaperChatSessionByPaperId = new Map<
 const OCR_QUALITY_NOTICE_STORAGE_PREFIX = 'lumina-paper-ocr-quality-notice:'
 const shownOcrQualityNoticePaperIds = new Set<string>()
 
+interface UploadPdfFileInfo {
+  path: string
+  name: string
+  size: number
+}
+
 // ---------------------------------------------------------------------------
 // 跨 Store 协调函数
 // ---------------------------------------------------------------------------
@@ -127,6 +133,7 @@ export async function deletePaper(paperId: string): Promise<boolean> {
   const listStore = usePaperListStore.getState()
   const targetPaper = listStore.papers.find((paper) => paper.id === paperId)
   listStore.markPipelineDeleted(paperId)
+  listStore.skipOcrQueue(paperId)
   await window.api.paper.cancelOcr(paperId)
 
   const result = await window.api.paper.delete(paperId)
@@ -152,25 +159,17 @@ export async function deletePaper(paperId: string): Promise<boolean> {
   return true
 }
 
-/** 上传并渲染 — 原 uploadAndRenderPdf */
-export async function uploadAndRenderPdf(): Promise<{
-  success: boolean
-  paperId?: string
-  error?: string
-}> {
-  usePaperListStore.getState().ensureOcrProgressListener()
-
+/** 初始化单篇论文的上传进度并启动渲染管线 */
+async function startPaperUploadPipeline(
+  fileInfo: UploadPdfFileInfo
+): Promise<{ success: boolean; paperId?: string; error?: string }> {
+  const listStore = usePaperListStore.getState()
   let rasterizer: ReturnType<typeof usePdfPageRasterizer> | null = null
 
   try {
-    const fileInfo = await window.api.paper.selectPdfFile()
-    if (!fileInfo) {
-      return { success: false, error: '未选择文件' }
-    }
-
     const fileResult = await window.api.paper.readFileAsBase64(fileInfo.path)
     if (!fileResult.success || !fileResult.data) {
-      throw new Error(fileResult.error || '读取 PDF 文件失败')
+      throw new Error(fileResult.error || `读取 PDF 文件失败: ${fileInfo.name}`)
     }
 
     rasterizer = usePdfPageRasterizer()
@@ -182,18 +181,18 @@ export async function uploadAndRenderPdf(): Promise<{
       pageCount: totalPageCount
     })
     if (!createResult.success || !createResult.data) {
-      throw new Error(createResult.error || '创建论文记录失败')
+      throw new Error(createResult.error || `创建论文记录失败: ${fileInfo.name}`)
     }
 
     const newPaperId = createResult.data.id
-    usePaperListStore.getState().upsertPaper({
+    listStore.upsertPaper({
       ...createResult.data,
       status: 'rendering',
       errorMessage: undefined
     })
 
-    usePaperListStore.getState().clearRenderPipelineState(newPaperId)
-    // 设置渲染进度
+    listStore.registerPaperForOcr(newPaperId)
+    listStore.clearRenderPipelineState(newPaperId)
     usePaperListStore.setState((s) => ({
       renderProgressByPaperId: {
         ...s.renderProgressByPaperId,
@@ -210,7 +209,7 @@ export async function uploadAndRenderPdf(): Promise<{
       }
     }))
 
-    void usePaperListStore.getState().runRenderAndOcrPipeline({
+    void listStore.runRenderAndOcrPipeline({
       paperId: newPaperId,
       pageInfos,
       rasterizer
@@ -222,6 +221,76 @@ export async function uploadAndRenderPdf(): Promise<{
     rasterizer?.dispose()
     const errorMessage = error instanceof Error ? error.message : String(error)
     return { success: false, error: errorMessage }
+  }
+}
+
+/** 批量上传并渲染 PDF */
+export async function uploadAndRenderPdfs(): Promise<{
+  success: boolean
+  paperIds?: string[]
+  error?: string
+}> {
+  usePaperListStore.getState().ensureOcrProgressListener()
+
+  const selection = await window.api.paper.selectPdfFiles()
+  if (!selection.success) {
+    if (selection.error) {
+      return { success: false, error: selection.error }
+    }
+    return { success: false, error: '未选择文件' }
+  }
+
+  const files = selection.data ?? []
+  if (files.length === 0) {
+    return { success: false, error: '未选择文件' }
+  }
+
+  const paperIds: string[] = []
+  const errors: string[] = []
+
+  for (const fileInfo of files) {
+    const result = await startPaperUploadPipeline(fileInfo)
+    if (result.success && result.paperId) {
+      paperIds.push(result.paperId)
+      continue
+    }
+    if (result.error) {
+      errors.push(result.error)
+    }
+  }
+
+  if (errors.length > 0) {
+    notifyWarning(
+      '部分论文上传失败',
+      errors.slice(0, 3).join('\n') + (errors.length > 3 ? `\n…等共 ${errors.length} 项失败` : ''),
+      { source: 'paper', duration: 10000 }
+    )
+  }
+
+  if (paperIds.length === 0) {
+    return {
+      success: false,
+      error: errors[0] || '论文上传失败'
+    }
+  }
+
+  return { success: true, paperIds }
+}
+
+/** 上传并渲染 — 原 uploadAndRenderPdf */
+export async function uploadAndRenderPdf(): Promise<{
+  success: boolean
+  paperId?: string
+  error?: string
+}> {
+  const result = await uploadAndRenderPdfs()
+  if (!result.success) {
+    return { success: false, error: result.error }
+  }
+
+  return {
+    success: true,
+    paperId: result.paperIds?.[0]
   }
 }
 
@@ -304,6 +373,8 @@ export async function retryPaper(paperId: string): Promise<{ success: boolean; e
         }
       }))
 
+      listStore.registerPaperForOcr(paperId)
+
       void usePaperListStore.getState().runRenderAndOcrPipeline({
         paperId,
         pageInfos,
@@ -319,11 +390,6 @@ export async function retryPaper(paperId: string): Promise<{ success: boolean; e
   // 渲染已完成，仅重试 OCR
   try {
     const savedCompletedCount = paper.completedPageCount
-
-    await listStore.updatePaperStatus(paperId, 'ocr_processing')
-    usePaperListStore.getState().updatePaperInList(paperId, {
-      completedPageCount: savedCompletedCount
-    })
 
     usePaperListStore.setState((s) => ({
       renderProgressByPaperId: {
@@ -343,17 +409,12 @@ export async function retryPaper(paperId: string): Promise<{ success: boolean; e
           totalPages,
           completedPages: savedCompletedCount,
           failedPages: [],
-          status: 'processing'
+          status: 'queued'
         }
       }
     }))
 
-    const result = await window.api.paper.startOcr(paperId)
-    if (!result.success) {
-      throw new Error(result.error || 'OCR 重试失败')
-    }
-
-    await loadPapersWithState()
+    listStore.requeuePaperForOcr(paperId)
     return { success: true }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)

@@ -175,6 +175,17 @@ export interface PaperApi {
     size: number
   } | null>
 
+  /** 批量选择 PDF 文件（弹出系统文件多选对话框） */
+  selectPdfFiles: () => Promise<{
+    success: boolean
+    data?: Array<{
+      path: string
+      name: string
+      size: number
+    }>
+    error?: string
+  }>
+
   /** 读取本地文件内容为 base64 字符串 */
   readFileAsBase64: (filePath: string) => Promise<{
     success: boolean

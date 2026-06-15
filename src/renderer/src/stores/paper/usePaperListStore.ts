@@ -7,6 +7,12 @@ import {
   type RenderPipelineContext,
   type RenderingProgress
 } from './shared'
+import { runPaperPageRenderPipeline } from './paperPageRenderPipeline'
+import {
+  createPaperOcrAdmissionQueue,
+  isOcrTerminalStatus,
+  type PaperOcrAdmissionQueue
+} from './paperOcrAdmissionQueue'
 
 // ---------------------------------------------------------------------------
 // State 类型
@@ -35,6 +41,9 @@ interface PaperListState {
   markPipelineDeleted: (paperId: string) => void
   clearRenderPipelineState: (paperId: string) => void
   runRenderAndOcrPipeline: (context: RenderPipelineContext) => Promise<void>
+  registerPaperForOcr: (paperId: string) => void
+  skipOcrQueue: (paperId: string) => void
+  requeuePaperForOcr: (paperId: string) => void
 
   // 公开内部方法（供协调函数使用）
   upsertPaper: (paper: PaperDocument) => void
@@ -55,6 +64,8 @@ export const usePaperListStore = create<PaperListState>()((set, get) => {
   const activePipelines = new Set<string>()
   const pipelineControls = new Map<string, PipelineControl>()
   let ocrProgressCleanup: (() => void) | null = null
+  const ocrTerminalWaiters = new Map<string, (progress: OcrProgressInfo) => void>()
+  let ocrAdmissionQueue: PaperOcrAdmissionQueue | null = null
 
   // -------------------------------------------------------------------------
   // 内部辅助
@@ -89,6 +100,74 @@ export const usePaperListStore = create<PaperListState>()((set, get) => {
     const nextControl = { aborted: false, deleted: false }
     pipelineControls.set(paperId, nextControl)
     return nextControl
+  }
+
+  function resolveOcrTerminalWaiter(progress: OcrProgressInfo): void {
+    if (!isOcrTerminalStatus(progress.status)) return
+    const resolve = ocrTerminalWaiters.get(progress.paperId)
+    if (!resolve) return
+    ocrTerminalWaiters.delete(progress.paperId)
+    resolve(progress)
+  }
+
+  function waitForOcrTerminal(paperId: string): Promise<OcrProgressInfo> {
+    return new Promise((resolve) => {
+      ocrTerminalWaiters.set(paperId, resolve)
+    })
+  }
+
+  function ensureOcrAdmissionQueue(): PaperOcrAdmissionQueue {
+    if (ocrAdmissionQueue) return ocrAdmissionQueue
+
+    ocrAdmissionQueue = createPaperOcrAdmissionQueue({
+      startOcr: (paperId) => window.api.paper.startOcr(paperId),
+      waitForOcrTerminal,
+      onQueued: (paperId) => {
+        const paper = get().papers.find((item) => item.id === paperId)
+        const totalPages = paper?.pageCount ?? 0
+        setOcrProgress({
+          paperId,
+          currentPage: 0,
+          totalPages,
+          completedPages: 0,
+          failedPages: [],
+          status: 'queued'
+        })
+      },
+      onOcrStarted: async (paperId) => {
+        const paper = get().papers.find((item) => item.id === paperId)
+        const totalPages = paper?.pageCount ?? 0
+        get().updatePaperInList(paperId, {
+          status: 'ocr_processing',
+          errorMessage: undefined
+        })
+        setOcrProgress({
+          paperId,
+          currentPage: 0,
+          totalPages,
+          completedPages: 0,
+          failedPages: [],
+          status: 'processing'
+        })
+        await get().loadPapersList()
+      },
+      onOcrStartFailed: (paperId, errorMessage) => {
+        const paper = get().papers.find((item) => item.id === paperId)
+        const totalPages = paper?.pageCount ?? 0
+        setOcrProgress({
+          paperId,
+          currentPage: 0,
+          totalPages,
+          completedPages: 0,
+          failedPages: [],
+          status: 'failed',
+          errorMessage
+        })
+        void get().updatePaperStatus(paperId, 'failed', errorMessage)
+      }
+    })
+
+    return ocrAdmissionQueue
   }
 
   return {
@@ -168,6 +247,7 @@ export const usePaperListStore = create<PaperListState>()((set, get) => {
     },
 
     ensureOcrProgressListener: () => {
+      ensureOcrAdmissionQueue()
       if (ocrProgressCleanup) return
 
       ocrProgressCleanup = window.api.paper.onOcrProgress((progress) => {
@@ -175,6 +255,7 @@ export const usePaperListStore = create<PaperListState>()((set, get) => {
         if (!paper) return
 
         setOcrProgress(progress)
+        resolveOcrTerminalWaiter(progress)
 
         if (
           progress.status === 'processing' ||
@@ -192,6 +273,7 @@ export const usePaperListStore = create<PaperListState>()((set, get) => {
 
         const statusMap: Record<OcrProgressInfo['status'], PaperStatus> = {
           idle: 'draft',
+          queued: 'rendering',
           processing: 'ocr_processing',
           completed: 'completed',
           partial_failed: 'partial_failed',
@@ -199,11 +281,13 @@ export const usePaperListStore = create<PaperListState>()((set, get) => {
           cancelled: 'draft'
         }
 
-        get().updatePaperInList(progress.paperId, {
-          status: statusMap[progress.status],
-          completedPageCount: progress.completedPages,
-          errorMessage: progress.errorMessage
-        })
+        if (progress.status !== 'queued') {
+          get().updatePaperInList(progress.paperId, {
+            status: statusMap[progress.status],
+            completedPageCount: progress.completedPages,
+            errorMessage: progress.errorMessage
+          })
+        }
       })
     },
 
@@ -314,43 +398,41 @@ export const usePaperListStore = create<PaperListState>()((set, get) => {
       const totalPages = pageInfos.length
 
       try {
-        for (let pageIndex = 0; pageIndex < totalPages; pageIndex += 1) {
-          if (control.aborted) return
+        const renderResult = await runPaperPageRenderPipeline({
+          totalPages,
+          shouldCancel: () => control.aborted,
+          renderPage: (pageIndex) => rasterizer.renderPage(pageIndex, 2.0),
+          onPageSettled: async (pageIndex, pageRenderResult) => {
+            if (control.aborted) return
 
-          setRenderProgress(paperId, {
-            currentPage: pageIndex,
-            totalPages,
-            completedPages: pageIndex,
-            stage: 'rendering'
-          })
+            const saveResult = await window.api.paper.savePageImage({
+              paperId,
+              pageIndex,
+              base64Data: pageRenderResult.base64,
+              imageWidth: pageRenderResult.width,
+              imageHeight: pageRenderResult.height,
+              sourceWidth: pageInfos[pageIndex]?.width,
+              sourceHeight: pageInfos[pageIndex]?.height,
+              renderScale: 2.0
+            })
 
-          const renderResult = await rasterizer.renderPage(pageIndex, 2.0)
-          if (control.aborted) return
-
-          const saveResult = await window.api.paper.savePageImage({
-            paperId,
-            pageIndex,
-            base64Data: renderResult.base64,
-            imageWidth: renderResult.width,
-            imageHeight: renderResult.height,
-            sourceWidth: pageInfos[pageIndex]?.width,
-            sourceHeight: pageInfos[pageIndex]?.height,
-            renderScale: 2.0
-          })
-
-          if (!saveResult.success) {
-            throw new Error(`保存第 ${pageIndex + 1} 页图片失败: ${saveResult.error || '未知错误'}`)
+            if (!saveResult.success) {
+              throw new Error(
+                `保存第 ${pageIndex + 1} 页图片失败: ${saveResult.error || '未知错误'}`
+              )
+            }
+          },
+          onProgress: (completedPages, progressTotalPages) => {
+            setRenderProgress(paperId, {
+              currentPage: Math.min(completedPages, Math.max(progressTotalPages - 1, 0)),
+              totalPages: progressTotalPages,
+              completedPages,
+              stage: completedPages >= progressTotalPages ? 'completed' : 'rendering'
+            })
           }
+        })
 
-          setRenderProgress(paperId, {
-            currentPage: pageIndex,
-            totalPages,
-            completedPages: pageIndex + 1,
-            stage: pageIndex === totalPages - 1 ? 'completed' : 'rendering'
-          })
-        }
-
-        if (control.aborted) return
+        if (control.aborted || renderResult.aborted) return
 
         setRenderProgress(paperId, {
           currentPage: Math.max(totalPages - 1, 0),
@@ -359,21 +441,7 @@ export const usePaperListStore = create<PaperListState>()((set, get) => {
           stage: 'completed'
         })
 
-        get().updatePaperInList(paperId, {
-          status: 'ocr_processing',
-          errorMessage: undefined
-        })
-
-        setOcrProgress(createIdleOcrProgress(paperId, totalPages))
-
-        const result = await window.api.paper.startOcr(paperId)
-        if (!result.success) {
-          throw new Error(result.error || 'OCR 启动失败')
-        }
-
-        if (!control.deleted) {
-          await get().loadPapersList()
-        }
+        ensureOcrAdmissionQueue().markRenderComplete(paperId)
       } catch (error) {
         if (control.deleted) return
 
@@ -395,6 +463,8 @@ export const usePaperListStore = create<PaperListState>()((set, get) => {
           errorMessage
         })
 
+        ensureOcrAdmissionQueue().skip(paperId)
+
         try {
           await get().updatePaperStatus(paperId, 'failed', errorMessage)
         } catch {
@@ -405,6 +475,21 @@ export const usePaperListStore = create<PaperListState>()((set, get) => {
         activePipelines.delete(paperId)
         pipelineControls.delete(paperId)
       }
+    },
+
+    registerPaperForOcr: (paperId: string) => {
+      get().ensureOcrProgressListener()
+      ensureOcrAdmissionQueue().registerPaper(paperId)
+    },
+
+    skipOcrQueue: (paperId: string) => {
+      ensureOcrAdmissionQueue().skip(paperId)
+      ocrTerminalWaiters.delete(paperId)
+    },
+
+    requeuePaperForOcr: (paperId: string) => {
+      get().ensureOcrProgressListener()
+      ensureOcrAdmissionQueue().requeueForOcr(paperId)
     },
 
     // -----------------------------------------------------------------------
