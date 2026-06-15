@@ -128,6 +128,7 @@ function getOcrProgress(
     // 将 OcrProgressInfo 状态映射为中文提示文本
     const hintMap: Record<OcrProgressInfo['status'], string> = {
       idle: '待开始',
+      queued: 'OCR 排队中',
       processing: '处理中',
       completed: '已完成',
       partial_failed: '部分失败',
@@ -176,11 +177,22 @@ function getOcrProgressPercent(
   return Math.min(100, Math.round((progress.completedPages / progress.totalPages) * 100))
 }
 
-function shouldShowRenderProgress(paper: PaperDocument): boolean {
-  return paper.status === 'rendering'
+function shouldShowRenderProgress(
+  paper: PaperDocument,
+  renderProgressByPaperId: Record<string, RenderingProgress>
+): boolean {
+  if (paper.status !== 'rendering') return false
+  const progress = renderProgressByPaperId[paper.id]
+  if (!progress) return true
+  return progress.stage !== 'completed'
 }
 
-function shouldShowOcrProgress(paper: PaperDocument): boolean {
+function shouldShowOcrProgress(
+  paper: PaperDocument,
+  ocrProgressByPaperId: Record<string, OcrProgressInfo>
+): boolean {
+  const progress = ocrProgressByPaperId[paper.id]
+  if (progress?.status === 'queued') return true
   return paper.status === 'ocr_processing'
 }
 
@@ -332,7 +344,7 @@ const PaperSidebarItem = memo(
           </div>
 
           {/* rendering 状态：显示截图进度条 */}
-          {shouldShowRenderProgress(paper) && (
+          {shouldShowRenderProgress(paper, renderProgressByPaperId) && (
             <div className={styles['paper-item__progress']}>
               <div className={styles['paper-item__progress-line']}>
                 <span className={styles['paper-item__progress-label']}>截图进度</span>
@@ -353,25 +365,26 @@ const PaperSidebarItem = memo(
           )}
 
           {/* ocr_processing 状态（且不在 rendering 中）：显示 OCR 进度条 */}
-          {!shouldShowRenderProgress(paper) && shouldShowOcrProgress(paper) && (
-            <div className={styles['paper-item__progress']}>
-              <div className={styles['paper-item__progress-line']}>
-                <span className={styles['paper-item__progress-label']}>OCR 进度</span>
-                <span>{formatOcrProgressText(paper, ocrProgressByPaperId)}</span>
+          {!shouldShowRenderProgress(paper, renderProgressByPaperId) &&
+            shouldShowOcrProgress(paper, ocrProgressByPaperId) && (
+              <div className={styles['paper-item__progress']}>
+                <div className={styles['paper-item__progress-line']}>
+                  <span className={styles['paper-item__progress-label']}>OCR 进度</span>
+                  <span>{formatOcrProgressText(paper, ocrProgressByPaperId)}</span>
+                </div>
+                <div className={styles['paper-item__progress-track']}>
+                  <span
+                    className={[
+                      styles['paper-item__progress-fill'],
+                      styles['paper-item__progress-fill--ocr']
+                    ].join(' ')}
+                    style={{
+                      width: `${getOcrProgressPercent(paper, ocrProgressByPaperId)}%`
+                    }}
+                  />
+                </div>
               </div>
-              <div className={styles['paper-item__progress-track']}>
-                <span
-                  className={[
-                    styles['paper-item__progress-fill'],
-                    styles['paper-item__progress-fill--ocr']
-                  ].join(' ')}
-                  style={{
-                    width: `${getOcrProgressPercent(paper, ocrProgressByPaperId)}%`
-                  }}
-                />
-              </div>
-            </div>
-          )}
+            )}
 
           {/* failed/partial_failed 状态：显示错误信息和重试按钮 */}
           {shouldShowRetry(paper) && (

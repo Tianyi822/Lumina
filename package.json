@@ -1,7 +1,7 @@
 {
   "name": "lumina",
   "productName": "Lumina",
-  "version": "1.9.4",
+  "version": "1.9.5",
   "author": "Tianyi",
   "description": "A research-oriented paper reading tool with AI-powered interaction, knowledge base management, and Docker/SSH experiment execution",
   "license": "GPL-3.0-only",
@@ -18,6 +18,7 @@
     "test:paper": "node --loader ./scripts/test/tsAliasLoader.mjs --test --experimental-strip-types src/main/services/paper/paperBlockClassifiers.test.ts src/main/services/paper/paperTextProcessing.test.ts src/main/services/paper/paperMarkdownBuilder.test.ts src/main/services/paper/paperFigureExtractor.test.ts src/main/services/paper/paperAssetLocalizer.test.ts src/main/services/paper/PaperService.test.ts",
     "test:paper-perf-probe": "node --test --experimental-strip-types src/renderer/src/components/paper/perf/paperFirstPaintProfilerCore.test.ts src/renderer/src/components/paper/perf/paperFirstPaintProfiler.test.ts",
     "test:paper-ocr": "node --test --experimental-strip-types src/main/services/paper/paperOcrPipeline.test.ts",
+    "test:paper-upload": "node --loader ./scripts/test/tsAliasLoader.mjs --test --experimental-strip-types src/renderer/src/stores/paper/paperOcrAdmissionQueue.test.ts src/renderer/src/stores/paper/paperPageRenderPipeline.test.ts",
     "test:paper-markdown": "node --test --experimental-strip-types src/shared/utils/paperMarkdown.test.mjs && node --loader ./scripts/test/tsAliasLoader.mjs --test --experimental-strip-types src/renderer/src/components/paper/hooks/paperSegmentHeightEstimate.test.mjs src/renderer/src/components/paper/hooks/paperSegmentRenderSchedulerCore.test.mjs src/renderer/src/components/paper/hooks/paperMarkdownPostProcess.test.mjs src/renderer/src/components/paper/composables/paperZoomScrollRestore.test.mjs",
     "test:paper-annotations": "node --loader ./scripts/test/tsAliasLoader.mjs --test --experimental-strip-types src/shared/utils/paperAnnotationAnchors.test.mjs src/shared/utils/paperAnnotationConflicts.test.mjs src/shared/utils/paperQuoteContext.test.mjs src/renderer/src/components/paper/composables/paperCanonicalTextIndex.test.mjs src/renderer/src/components/paper/composables/usePaperHighlightRenderer.test.mjs",
     "test:paper-translation": "node --test --experimental-strip-types src/shared/utils/paperTranslation.test.mjs src/main/services/paper/PaperTranslationCore.test.ts",
