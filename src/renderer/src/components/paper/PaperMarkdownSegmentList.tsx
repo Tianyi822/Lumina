@@ -53,8 +53,10 @@ const PaperMarkdownSegmentItem = memo(
     onRetranslateClick
   }: PaperMarkdownSegmentItemProps) {
     const htmlStatus = segment.htmlStatus ?? (segment.originalHtml ? 'ready' : 'pending')
-    const isReady = htmlStatus === 'ready'
     const showError = htmlStatus === 'error'
+    // 原文区块：只要已有原文 HTML 即直接渲染（即使因译文重渲染被标记为 pending），
+    // 避免翻译进度推送时原文闪回骨架屏
+    const hasOriginalHtml = !!segment.originalHtml
     const translationDisplay = getTranslationBlockDisplay(segment)
 
     return (
@@ -79,7 +81,7 @@ const PaperMarkdownSegmentItem = memo(
           data-view-kind="original"
           data-segment-stable-id={segment.stableId}
         >
-          {isReady ? (
+          {hasOriginalHtml ? (
             <div
               className={[
                 styles['paper-markdown-view__markdown'],

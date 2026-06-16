@@ -349,6 +349,7 @@ export interface PaperMarkdownEngine {
   renderSegmentMetas: () => void
   renderSegmentAtIndex: (index: number) => Promise<void>
   invalidateSegmentHtml: (stableIds: string[]) => void
+  applyTranslationUpdates: () => void
   applyAnnotationUpdates: () => void
   /** @deprecated 使用 renderSegmentMetas + 懒渲染调度 */
   renderContent: () => Promise<void>
@@ -731,6 +732,79 @@ export function usePaperMarkdownEngine(options: PaperMarkdownEngineOptions): Pap
     )
   }, [])
 
+  /**
+   * 增量应用译文更新（翻译进度推送 / 翻译显隐切换）。
+   *
+   * 与 renderSegmentMetas 的全量重建不同：本方法保留每个段落已渲染的原文 HTML 与缓存，
+   * 仅在译文元数据（状态/文本/是否展示）真正变化时更新对应段落，避免翻译过程中
+   * 所有段落被重置为 pending 导致内容塌缩成骨架屏/「正在翻译」、虚拟列表高度剧变触发抖动与滚动跳变。
+   *
+   * - 译文进入 completed 态且缺少对应 HTML（首次完成或重译文本变化）：重置该段 htmlStatus 为 pending
+   *   触发调度器补渲染译文；originalHtml 保留，原文区块据此兜底显示，不会闪回骨架屏。
+   * - 其他态（排队/翻译中/失败/隐藏）：仅更新元数据并清空旧译文 HTML，由占位符按状态展示，原文保持可见。
+   */
+  const applyTranslationUpdates = useCallback((): void => {
+    const ctx = buildSegmentRenderContext()
+    if (!ctx) {
+      return
+    }
+    segmentRenderContextRef.current = ctx
+    // 译文标题可能影响 TOC（译后标题），同步大纲
+    optionsRef.current.setTocOutline(ctx.outline)
+    setRenderedSegments((previous) =>
+      previous.map((segment) => {
+        const translationEntry = ctx.translationMap.get(segment.renderId)
+        const translationStatus = translationEntry?.status ?? 'idle'
+        const translationText = translationEntry?.translatedText
+          ? translationEntry.translatedText
+          : translationEntry?.translatedMarkdown
+            ? stripPaperTranslationMarkdown(translationEntry.translatedMarkdown)
+            : ''
+        const showTranslation = shouldRenderTranslationBlock(
+          ctx.translationVisible,
+          translationStatus,
+          translationEntry?.status === 'completed'
+            ? (translationEntry.translatedMarkdown ?? null)
+            : null
+        )
+
+        const metaChanged =
+          segment.translationStatus !== translationStatus ||
+          segment.translationText !== translationText ||
+          segment.showTranslation !== showTranslation
+
+        if (!metaChanged) {
+          return segment
+        }
+
+        // 译文完成但尚无对应 HTML（首次完成）或译文文本变化（重新翻译）时，需要重渲染译文
+        const needsTranslationHtml =
+          translationStatus === 'completed' &&
+          (!segment.translationHtml || segment.translationText !== translationText)
+
+        if (needsTranslationHtml) {
+          return {
+            ...segment,
+            translationStatus,
+            translationText,
+            showTranslation,
+            translationHtml: null,
+            htmlStatus: 'pending' as const
+          }
+        }
+
+        return {
+          ...segment,
+          translationStatus,
+          translationText,
+          showTranslation,
+          // 非完成态清空旧译文 HTML，确保占位符正确展示当前状态
+          translationHtml: translationStatus === 'completed' ? segment.translationHtml : null
+        }
+      })
+    )
+  }, [])
+
   const applyAnnotationUpdates = useCallback((): void => {
     const ctx = buildSegmentRenderContext()
     if (!ctx) {
@@ -770,6 +844,7 @@ export function usePaperMarkdownEngine(options: PaperMarkdownEngineOptions): Pap
     renderSegmentMetas,
     renderSegmentAtIndex,
     invalidateSegmentHtml,
+    applyTranslationUpdates,
     applyAnnotationUpdates,
     renderContent,
     unresolvedAnnotationIds
