@@ -497,6 +497,8 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
     const prevContentRef = useRef(content)
     const prevBasePathRef = useRef(basePath)
     const prevSourceRevisionIdRef = useRef(readerDocument?.sourceRevisionId)
+    // 是否已完成首次元数据全量构建：首次渲染必须走全量构建，后续仅翻译变化走增量
+    const hasBuiltMetasRef = useRef(false)
     // 翻译渲染键：翻译可见时才基于缓存计算渲染 key，不可见时返回空串避免触发重渲染
     const translationRenderKey = useMemo(
       () => (translationVisible ? getTranslationRenderKey(translationCache) : ''),
@@ -528,13 +530,26 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
       prevBasePathRef.current = basePath
       prevSourceRevisionIdRef.current = readerDocument?.sourceRevisionId
 
-      syncMetasAndSchedule()
+      const structuralChanged = contentChanged || basePathChanged || sourceRevisionIdChanged
+
+      if (!hasBuiltMetasRef.current || structuralChanged) {
+        // 首次渲染或结构性变化（换论文/内容/路径变更）：全量重建段落元数据并调度懒渲染
+        hasBuiltMetasRef.current = true
+        syncMetasAndSchedule()
+      } else {
+        // 仅翻译可见性切换或翻译进度推送：增量更新译文，保留原文 HTML，
+        // 避免全量重置导致内容塌缩、抖动与滚动跳变
+        engine.applyTranslationUpdates()
+        requestAnimationFrame(() => {
+          syncTablesAndRemeasure()
+        })
+      }
 
       if (!composer.selectionActionMenu && !composer.noteEditorDraft) {
         composer.clearComposer()
       }
 
-      if (contentChanged || basePathChanged || sourceRevisionIdChanged) {
+      if (structuralChanged) {
         void restoreScrollPosition(paperId)
       }
       refreshTextSearch({ preserveCurrentIndex: true })
