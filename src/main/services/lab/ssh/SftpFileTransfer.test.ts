@@ -316,4 +316,38 @@ test('SftpFileTransfer', async (t) => {
       sshConnectionManager.getClient = originalGetClient
     }
   })
+
+  // --- readFile / listFiles / deleteFile 未连接分支（Task 5） ---
+  await t.test('readFile 未连接返回错误', async () => {
+    sshConnectionManager.getClient = () => null
+    try {
+      const r = await transfer.readFile('lab-x', '/a.txt')
+      assert.equal(r.success, false)
+      assert.match(r.error!, /未连接/)
+    } finally {
+      sshConnectionManager.getClient = originalGetClient
+    }
+  })
+
+  await t.test('listFiles 未连接返回错误', async () => {
+    sshConnectionManager.getClient = () => null
+    try {
+      const r = await transfer.listFiles('lab-x', '/')
+      assert.equal(r.success, false)
+      assert.match(r.error!, /未连接/)
+    } finally {
+      sshConnectionManager.getClient = originalGetClient
+    }
+  })
+
+  await t.test('deleteFile 未连接返回错误', async () => {
+    sshConnectionManager.getClient = () => null
+    try {
+      const r = await transfer.deleteFile('lab-x', '/a')
+      assert.equal(r.success, false)
+      assert.match(r.error!, /未连接/)
+    } finally {
+      sshConnectionManager.getClient = originalGetClient
+    }
+  })
 })
