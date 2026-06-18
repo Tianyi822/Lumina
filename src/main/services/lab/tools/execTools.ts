@@ -36,7 +36,14 @@ export const execCommandTool: LabToolDefinition = {
         type: 'number',
         description: '命令执行超时时间（秒），默认 30 秒，最大 300 秒',
         default: 30
-      }
+      },
+      max_bytes: {
+        type: 'number',
+        description: 'stdout/stderr 各自最大返回字节数，默认 20000',
+        default: 20000
+      },
+      head: { type: 'number', description: '仅返回 stdout 前 N 行（与 tail 互斥）' },
+      tail: { type: 'number', description: '仅返回 stdout 后 N 行（与 head 互斥）' }
     },
     required: ['command']
   },
@@ -73,7 +80,11 @@ export const execCommandTool: LabToolDefinition = {
     if (!result || result.systemError) {
       return { success: false, error: result?.stderr || 'SSH 命令执行失败' }
     }
-    return formatExecCommandToolResult(command, execCmd.workdir, result)
+    return formatExecCommandToolResult(command, execCmd.workdir, result, {
+      maxBytes: typeof args.max_bytes === 'number' ? args.max_bytes : undefined,
+      head: typeof args.head === 'number' ? args.head : undefined,
+      tail: typeof args.tail === 'number' ? args.tail : undefined
+    })
   }
 }
 
