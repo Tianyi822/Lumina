@@ -3,7 +3,7 @@ import type { MCPTool, MCPToolCallResult } from '@main/types/mcp'
 import type { ToolArgs, LabToolDefinition } from './tools/types'
 import { execTools } from './tools/execTools'
 import { fileTools } from './tools/fileTools'
-import { sshTools } from './tools/sshTools'
+import { fileReadTools } from './tools/fileReadTools'
 
 /**
  * 实验室工具服务
@@ -13,7 +13,7 @@ export class LabToolService {
   private tools: Map<string, LabToolDefinition> = new Map()
 
   constructor() {
-    this.registerTools([...execTools, ...fileTools, ...sshTools])
+    this.registerTools([...execTools, ...fileTools, ...fileReadTools])
   }
 
   /**
@@ -91,14 +91,8 @@ export class LabToolService {
     args: ToolArgs,
     onProgress?: (message: string) => void
   ): Promise<MCPToolCallResult> {
-    // 拷贝参数并在日志中排除敏感字段
-    const safeArgs = { ...args }
-    if (name === 'lab__ssh_connect') {
-      delete safeArgs.password
-      delete safeArgs.key_content
-      delete safeArgs.key_name
-    }
-    logger.info(`执行实验室工具: ${name}`, 'main', { args: safeArgs })
+    // 当前工具的 args 不携带凭据（连接已移至 UI 侧 IPC），可直接记录
+    logger.info(`执行实验室工具: ${name}`, 'main', { args })
 
     try {
       // 检查是否是交互类工具
