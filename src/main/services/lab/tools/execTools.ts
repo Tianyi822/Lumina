@@ -1,7 +1,6 @@
 import type { MCPToolCallResult } from '@main/types/mcp'
 import type { ExecCommand } from '@shared/types/lab'
 import type { ToolArgs, LabToolDefinition } from './types'
-import { getCommandExecutionPolicy } from './commandExecutionPolicy'
 import { findLab } from './toolExecutor'
 import { formatExecCommandToolResult } from './toolHelpers'
 import { sshService } from '../ssh'
@@ -56,32 +55,6 @@ export const execCommandTool: LabToolDefinition = {
       return {
         success: false,
         error: '缺少必需参数: command'
-      }
-    }
-
-    // 检查命令执行策略（是否需用户确认或禁止执行）
-    const policy = getCommandExecutionPolicy('lab_sandbox', command)
-    if (policy.requiresUserInteraction) {
-      return {
-        success: true,
-        content: [
-          {
-            type: 'text',
-            text: JSON.stringify({
-              user_interaction_required: true,
-              question: policy.reason || '是否允许执行该命令？',
-              options: policy.options || []
-            })
-          }
-        ]
-      }
-    }
-
-    // 执行策略明确禁止，拒绝执行
-    if (!policy.canExecute) {
-      return {
-        success: false,
-        error: policy.reason || '当前命令执行策略不允许直接执行'
       }
     }
 
