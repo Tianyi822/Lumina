@@ -11,6 +11,7 @@ import {
 } from './chat'
 import type { KnowledgeBase } from './knowledge'
 import type { MCPTool } from './mcp'
+import type { LabDisciplineId } from './config'
 
 /**
  * 会话的类型
@@ -124,6 +125,10 @@ export interface SessionSelectionState {
   enablePlanMode?: boolean
   /** 当前会话是否启用论文联网搜索（仅论文会话） */
   enablePaperWebSearch?: boolean
+  /** 当前会话激活的实验室学科；null 表示未选 */
+  activeLabDiscipline?: LabDisciplineId | null
+  /** 当前会话绑定的已连接实验室 ID；null 表示未绑定 */
+  activeLabId?: string | null
 }
 
 /**
