@@ -4,6 +4,7 @@ import type { ToolArgs, LabToolDefinition } from './tools/types'
 import { execTools } from './tools/execTools'
 import { fileTools } from './tools/fileTools'
 import { fileReadTools } from './tools/fileReadTools'
+import { ptyTools } from './tools/ptyTools'
 
 /**
  * 实验室工具服务
@@ -13,7 +14,7 @@ export class LabToolService {
   private tools: Map<string, LabToolDefinition> = new Map()
 
   constructor() {
-    this.registerTools([...execTools, ...fileTools, ...fileReadTools])
+    this.registerTools([...execTools, ...fileTools, ...fileReadTools, ...ptyTools])
   }
 
   /**

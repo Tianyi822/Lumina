@@ -16,3 +16,11 @@ test('文件管理工具 read_file/list_files/delete_file 已注册', () => {
   assert.ok(names.includes('lab__list_files'), 'list_files 应已注册')
   assert.ok(names.includes('lab__delete_file'), 'delete_file 应已注册')
 })
+
+test('PTY 工具 pty_open/send/read/close 已注册', () => {
+  const names = labToolService.getTools().map((t) => t.name)
+  assert.ok(names.includes('lab__pty_open'), 'pty_open 应已注册')
+  assert.ok(names.includes('lab__pty_send'), 'pty_send 应已注册')
+  assert.ok(names.includes('lab__pty_read'), 'pty_read 应已注册')
+  assert.ok(names.includes('lab__pty_close'), 'pty_close 应已注册')
+})
