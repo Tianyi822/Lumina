@@ -156,6 +156,8 @@ export const deleteFileTool: LabToolDefinition = {
     }
 
     // 高危路径最先判定（纯路径检查，不依赖任何运行时状态），返回用户交互确认
+    // 已知缺口：用户确认后模型若再次调用 delete_file，isDangerousPath 仍返回 true，
+    // 会再次触发确认（潜在死循环）。spec §2.2 未定义确认后执行机制，留后续迭代。
     if (isDangerousPath(path)) {
       return {
         success: true,
