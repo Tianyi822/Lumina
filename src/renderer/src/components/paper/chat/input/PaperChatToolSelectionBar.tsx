@@ -30,6 +30,7 @@ interface PaperChatToolSelectionBarProps {
     labId: string | null
   }) => void
   onNavigateToLab?: () => void
+  onRefreshLabs?: () => void
   onUpload: () => void
   onSend: () => void
   onStop: () => void
@@ -57,6 +58,7 @@ export default function PaperChatToolSelectionBar({
   onTogglePaperWebSearch,
   onLabSelectionChange,
   onNavigateToLab,
+  onRefreshLabs,
   onUpload,
   onSend,
   onStop,
@@ -114,7 +116,13 @@ export default function PaperChatToolSelectionBar({
 
   // 手风琴切换：同一项再点收起，点不同项切换
   function toggleAccordion(section: AccordionSection): void {
-    setExpandedSection((prev) => (prev === section ? null : section))
+    setExpandedSection((prev) => {
+      // 展开实验室手风琴时刷新实验室列表（spec §5.5，保证数据新鲜）
+      if (prev !== section && section === 'lab') {
+        onRefreshLabs?.()
+      }
+      return prev === section ? null : section
+    })
   }
 
   // 点击上传附件后关闭菜单并触发文件选择

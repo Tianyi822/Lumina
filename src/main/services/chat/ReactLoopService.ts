@@ -25,6 +25,7 @@ import { registerBuiltinCapabilities } from './tools/capabilities/registerBuilti
 import { capabilityManager } from './tools/CapabilityManager'
 import { presetRegistry } from './tools/presets/PresetRegistry'
 import { CHAT_PAPER_PRESET, CHAT_DEFAULT_PRESET } from './tools/presets/builtinPresets'
+import { sshTerminalService } from '../lab/ssh/SshTerminalService'
 import type { TokenUsage } from '../../types/chat'
 import {
   addTokenUsage,
@@ -349,6 +350,15 @@ export class ReactLoopService {
         this.stopController.clearStoppedSession(sessionId)
       }
       this.stopController.deletePendingUserInteraction(sessionId)
+      // 清理本次请求绑定的模型 PTY 会话（spec §7.1，防止资源泄漏）
+      const boundLabId = request.activeLabId ?? null
+      if (boundLabId) {
+        try {
+          sshTerminalService.closeLabTerminals(boundLabId, 'ReAct 循环结束')
+        } catch {
+          // 清理失败不影响主流程
+        }
+      }
     }
   }
 

@@ -97,6 +97,11 @@ export default function PaperChatPanel({ paper }: PaperChatPanelProps) {
     void useUIStateStore.getState().setCurrentView('lab')
   }, [])
 
+  // 刷新实验室列表（手风琴打开时触发，保证数据新鲜）
+  const handleRefreshLabs = useCallback(() => {
+    void useLabListStore.getState().loadLabList()
+  }, [])
+
   // 只有存在有效会话时才查询计划状态，否则保持 null
   const currentPlanState = sessionState.sessionId
     ? usePaperChatStreamStore.getState().getSessionPlanState(sessionState.sessionId)
@@ -328,6 +333,7 @@ export default function PaperChatPanel({ paper }: PaperChatPanelProps) {
             sessionState.updateLabSelection(next.discipline, next.labId)
           }
           onNavigateToLab={handleNavigateToLab}
+          onRefreshLabs={handleRefreshLabs}
           onEnablePaperWebSearch={handleEnablePaperWebSearch}
           onDismissQuickReply={(messageId) => {
             if (!messageId) return

@@ -288,8 +288,8 @@ export function usePaperChatSessionReact(
       setActiveLabId(labId)
       selectionRef.current.activeLabDiscipline = discipline
       selectionRef.current.activeLabId = labId
-      // 选定学科时自动启用实验室工具，清空时自动关闭
-      const nextEnableLabTools = discipline !== null
+      // 选定学科 + 绑定实验室时自动启用实验室工具，否则关闭（spec §5.3）
+      const nextEnableLabTools = discipline !== null && labId !== null
       setEnableLabTools(nextEnableLabTools)
       selectionRef.current.enableLabTools = nextEnableLabTools
       persistSelection()
