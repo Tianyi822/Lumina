@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import type { KnowledgeBase, MCPTool } from '@renderer/types'
+import type { KnowledgeBase, LabListItem, MCPTool } from '@renderer/types'
+import type { LabDisciplineId } from '@shared/types/config'
 import SvgIcon from '@renderer/components/icons/SvgIcon'
-import LabToolsToggle from '@renderer/components/lab/LabToolsToggle'
+import { LabSessionPanel } from '@renderer/components/lab/LabSessionPanel'
+import { LAB_DISCIPLINE_PRESETS } from '@shared/utils/labFeatures'
 import PaperChatMcpToolsPanel from './PaperChatMcpToolsPanel'
 import PaperChatKnowledgeBasePanel from './PaperChatKnowledgeBasePanel'
 import styles from './PaperChatToolSelectionBar.module.css'
@@ -15,17 +17,25 @@ interface PaperChatToolSelectionBarProps {
   enableLabTools?: boolean
   enablePaperWebSearch?: boolean
   totalAttachmentCount?: number
+  activeLabDiscipline?: LabDisciplineId | null
+  activeLabId?: string | null
+  enabledDisciplines?: LabDisciplineId[]
+  connectedLabs?: LabListItem[]
   onUpdateSelectedTools: (value: MCPTool[]) => void
   onUpdateSelectedKnowledgeBases: (value: KnowledgeBase[]) => void
-  onUpdateEnableLabTools: (value: boolean) => void
+  onUpdateEnableLabTools?: (value: boolean) => void
   onTogglePaperWebSearch: () => void
+  onLabSelectionChange?: (next: {
+    discipline: LabDisciplineId | null
+    labId: string | null
+  }) => void
   onUpload: () => void
   onSend: () => void
   onStop: () => void
   children?: ReactNode
 }
 
-type AccordionSection = 'kb' | 'mcp'
+type AccordionSection = 'kb' | 'mcp' | 'lab'
 
 /** 输入工具栏组件，包含附件上传、搜索开关、实验室开关、知识库/MCP 手风琴面板和发送按钮 */
 export default function PaperChatToolSelectionBar({
@@ -37,10 +47,14 @@ export default function PaperChatToolSelectionBar({
   enableLabTools,
   enablePaperWebSearch,
   totalAttachmentCount = 0,
+  activeLabDiscipline = null,
+  activeLabId = null,
+  enabledDisciplines = [],
+  connectedLabs = [],
   onUpdateSelectedTools,
   onUpdateSelectedKnowledgeBases,
-  onUpdateEnableLabTools,
   onTogglePaperWebSearch,
+  onLabSelectionChange,
   onUpload,
   onSend,
   onStop,
@@ -176,15 +190,57 @@ export default function PaperChatToolSelectionBar({
                 </span>
               </button>
 
-              {/* 实验室开关 */}
-              <div className={styles['plus-menu__row']}>
+              {/* 实验室手风琴（学科 + 实验室绑定） */}
+              <div
+                className={`${styles['plus-menu__row']} ${styles['plus-menu__row--interactive']}`}
+                onClick={() => toggleAccordion('lab')}
+              >
                 <SvgIcon name="lab-computer" size={16} />
-                <LabToolsToggle
-                  className={styles['plus-menu__lab-toggle']}
-                  modelValue={Boolean(enableLabTools)}
-                  disabled={controlsDisabled}
-                  onUpdateModelValue={onUpdateEnableLabTools}
-                />
+                <span className={styles['plus-menu__row-label']}>实验室</span>
+                <span className={styles['plus-menu__row-right']}>
+                  {activeLabDiscipline && (
+                    <span className={styles['plus-menu__count-badge']}>
+                      {LAB_DISCIPLINE_PRESETS.find((d) => d.id === activeLabDiscipline)?.label ??
+                        '●'}
+                    </span>
+                  )}
+                  <span
+                    className={[
+                      styles['plus-menu__accordion-arrow'],
+                      expandedSection === 'lab'
+                        ? styles['plus-menu__accordion-arrow--open'] || ''
+                        : ''
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
+                  >
+                    ▶
+                  </span>
+                </span>
+              </div>
+
+              <div
+                className={[
+                  styles['plus-menu__accordion-body'],
+                  expandedSection !== 'lab'
+                    ? styles['plus-menu__accordion-body--collapsed'] || ''
+                    : ''
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+              >
+                <div className={styles['plus-menu__accordion-inner']}>
+                  <div className={styles['plus-menu__accordion-content']}>
+                    <LabSessionPanel
+                      discipline={activeLabDiscipline}
+                      labId={activeLabId}
+                      enabledDisciplines={enabledDisciplines}
+                      connectedLabs={connectedLabs}
+                      disabled={controlsDisabled}
+                      onChange={(next) => onLabSelectionChange?.(next)}
+                    />
+                  </div>
+                </div>
               </div>
 
               {/* 知识库手风琴 */}
