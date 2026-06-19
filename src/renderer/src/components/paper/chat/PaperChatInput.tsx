@@ -326,7 +326,7 @@ export default function PaperChatInput({
           {showUserInteractionDock && userInteraction && (
             <UserInteractionList
               interaction={userInteraction}
-              onSelect={(option) => handleSend(`我选择：${option.label}`)}
+              onSelect={(option) => handleSend(`我选择：${option.value}`)}
               onLater={onHideUserInteraction}
             />
           )}
