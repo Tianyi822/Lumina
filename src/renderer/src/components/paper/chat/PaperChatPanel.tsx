@@ -61,6 +61,8 @@ export default function PaperChatPanel({ paper }: PaperChatPanelProps) {
     selectedKnowledgeBases: sessionState.selectedKnowledgeBases,
     enableLabTools: sessionState.enableLabTools,
     enablePaperWebSearch: sessionState.enablePaperWebSearch,
+    activeLabDiscipline: sessionState.activeLabDiscipline,
+    activeLabId: sessionState.activeLabId,
     saveCurrentSession: sessionState.saveCurrentSession,
     setError: sessionState.setError,
     onRequestError: () => {
