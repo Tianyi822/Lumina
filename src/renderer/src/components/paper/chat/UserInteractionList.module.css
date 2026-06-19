@@ -1,0 +1,97 @@
+.interactionCard {
+  background-color: var(--sm-color-surface-2);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-md);
+  padding: var(--sm-space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sm-space-3);
+}
+
+.questionRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sm-space-3);
+}
+
+.question {
+  flex: 1;
+  font-size: 14px;
+  color: var(--sm-color-text-primary);
+  line-height: var(--sm-line-height);
+  overflow-x: auto;
+}
+
+.question :global(.katex-display) {
+  margin: var(--sm-space-2) 0;
+}
+
+.laterButton {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--sm-color-text-secondary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: var(--sm-space-2);
+  border-radius: var(--sm-radius-sm);
+  transition: color var(--sm-transition-fast);
+}
+
+.laterButton:hover {
+  color: var(--sm-color-text-primary);
+}
+
+.optionList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sm-space-2);
+}
+
+.optionItem {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sm-space-2);
+  padding: var(--sm-space-2) var(--sm-space-3);
+  background-color: var(--sm-color-surface-1);
+  border: 1px solid var(--sm-color-border-subtle);
+  border-radius: var(--sm-radius-sm);
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  transition:
+    background-color var(--sm-transition-fast),
+    border-color var(--sm-transition-fast);
+}
+
+.optionItem:hover {
+  background-color: var(--sm-color-surface-hover);
+  border-color: var(--sm-color-border-selected);
+}
+
+.optionItem:active {
+  background-color: var(--sm-color-surface-active);
+}
+
+.optionLabel {
+  font-size: 13px;
+  color: var(--sm-color-text-primary);
+  overflow-x: auto;
+}
+
+.optionDesc {
+  font-size: 12px;
+  color: var(--sm-color-text-secondary);
+  overflow-x: auto;
+}
+
+.expandMore {
+  font-size: 12px;
+  color: var(--sm-color-accent-hover);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: var(--sm-space-2);
+  align-self: center;
+}

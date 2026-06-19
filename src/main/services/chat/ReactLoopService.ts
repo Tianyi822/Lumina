@@ -25,6 +25,7 @@ import { registerBuiltinCapabilities } from './tools/capabilities/registerBuilti
 import { capabilityManager } from './tools/CapabilityManager'
 import { presetRegistry } from './tools/presets/PresetRegistry'
 import { CHAT_PAPER_PRESET, CHAT_DEFAULT_PRESET } from './tools/presets/builtinPresets'
+import { sshTerminalService } from '../lab/ssh/SshTerminalService'
 import type { TokenUsage } from '../../types/chat'
 import {
   addTokenUsage,
@@ -47,6 +48,35 @@ export function extractOriginalQuery(
     }
   }
   return ''
+}
+
+/**
+ * 构建 capability composer 上下文（纯函数，便于单测）
+ * 从 ChatRequest 提取实验室学科/绑定等字段，缺失时默认 null
+ */
+export function buildComposerContext(
+  request: Pick<
+    ChatRequest,
+    | 'paperId'
+    | 'enableLabTools'
+    | 'enablePaperWebSearch'
+    | 'activeLabDiscipline'
+    | 'activeLabId'
+    | 'selectedTools'
+  >,
+  selectedKnowledgeBases?: KnowledgeBaseReference[],
+  mcpService?: unknown
+): Record<string, unknown> {
+  return {
+    paperId: request.paperId,
+    enableLabTools: request.enableLabTools,
+    enablePaperWebSearch: request.enablePaperWebSearch,
+    selectedKnowledgeBases,
+    selectedTools: request.selectedTools,
+    mcpService,
+    labDiscipline: request.activeLabDiscipline ?? null,
+    labId: request.activeLabId ?? null
+  }
 }
 
 /** ReAct 循环运行时选项 */
@@ -320,6 +350,15 @@ export class ReactLoopService {
         this.stopController.clearStoppedSession(sessionId)
       }
       this.stopController.deletePendingUserInteraction(sessionId)
+      // 清理本次请求绑定的模型 PTY 会话（spec §7.1，防止资源泄漏）
+      const boundLabId = request.activeLabId ?? null
+      if (boundLabId) {
+        try {
+          sshTerminalService.closeLabTerminals(boundLabId, 'ReAct 循环结束')
+        } catch {
+          // 清理失败不影响主流程
+        }
+      }
     }
   }
 
@@ -375,14 +414,11 @@ export class ReactLoopService {
     const preset = presetRegistry.get(capState.presetId)
     const composition = preset?.defaultComposition ?? { stages: [] }
 
-    const composerContext = {
-      paperId: request.paperId,
-      enableLabTools: request.enableLabTools,
-      enablePaperWebSearch: request.enablePaperWebSearch,
+    const composerContext = buildComposerContext(
+      request,
       selectedKnowledgeBases,
-      selectedTools: request.selectedTools,
-      mcpService: this.mcpAdapter ? this.mcpAdapter.getMcpService() : undefined
-    }
+      this.mcpAdapter ? this.mcpAdapter.getMcpService() : undefined
+    )
 
     // 使用能力组合器将已激活的能力编排为工具管道
     const composed = await this.capabilityComposer.compose(

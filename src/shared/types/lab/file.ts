@@ -49,3 +49,61 @@ export interface FileWriteEntryResult {
   /** 错误信息 */
   error?: string
 }
+
+/**
+ * 文件读取结果
+ */
+export interface FileReadResult {
+  /** 是否成功 */
+  success: boolean
+  /** 文件路径 */
+  path?: string
+  /** 文件大小（字节） */
+  size?: number
+  /** 文件内容 */
+  content?: string
+  /** 是否被截断 */
+  truncated?: boolean
+  /** 截断前的总字节数 */
+  totalBytes?: number
+  /** 错误信息 */
+  error?: string
+}
+
+/**
+ * 文件列表条目
+ */
+export interface FileListEntry {
+  /** 名称 */
+  name: string
+  /** 类型 */
+  type: 'file' | 'dir'
+  /** 大小（字节，文件才有） */
+  size?: number
+}
+
+/**
+ * 文件列表结果
+ */
+export interface FileListResult {
+  /** 是否成功 */
+  success: boolean
+  /** 列表路径 */
+  path?: string
+  /** 条目列表 */
+  entries?: FileListEntry[]
+  /** 是否被截断（超过 max_entries） */
+  truncated?: boolean
+  /** 错误信息 */
+  error?: string
+}
+
+/**
+ * 文件删除结果
+ */
+export interface FileDeleteResult {
+  /** 是否成功 */
+  success: boolean
+  /** 错误信息 */
+  error?: string
+}

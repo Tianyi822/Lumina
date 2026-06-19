@@ -3,10 +3,12 @@ import type {
   AttachedDocument,
   AttachedImage,
   KnowledgeBase,
+  LabListItem,
   MCPTool,
   UserInteractionRequest
 } from '@renderer/types'
 import type { PaperQuote } from '@shared/types/chat'
+import type { LabDisciplineId } from '@shared/types/config'
 import type { CapabilitySuggestionData } from '@renderer/stores/paperChatStreamStore'
 import SvgIcon from '@renderer/components/icons/SvgIcon'
 import {
@@ -27,6 +29,7 @@ import {
 } from './input/attachmentUtils'
 import PaperChatModelSelector from './input/PaperChatModelSelector'
 import PaperChatToolSelectionBar from './input/PaperChatToolSelectionBar'
+import { UserInteractionList } from './UserInteractionList'
 import inputStyles from './PaperChatInput.module.css'
 import toolbarStyles from './input/PaperChatToolSelectionBar.module.css'
 import textareaStyles from './input/PaperChatTextarea.module.css'
@@ -56,6 +59,10 @@ interface PaperChatInputProps {
   selectedKnowledgeBases: KnowledgeBase[]
   enableLabTools: boolean
   enablePaperWebSearch: boolean
+  activeLabDiscipline?: LabDisciplineId | null
+  activeLabId?: string | null
+  enabledDisciplines?: LabDisciplineId[]
+  connectedLabs?: LabListItem[]
   isSending: boolean
   disabled?: boolean
   isDragging?: boolean
@@ -70,6 +77,12 @@ interface PaperChatInputProps {
   onUpdateSelectedKnowledgeBases: (value: KnowledgeBase[]) => void
   onUpdateEnableLabTools: (value: boolean) => void
   onUpdateEnablePaperWebSearch: (value: boolean) => void
+  onLabSelectionChange?: (next: {
+    discipline: LabDisciplineId | null
+    labId: string | null
+  }) => void
+  onNavigateToLab?: () => void
+  onRefreshLabs?: () => void
   onEnablePaperWebSearch?: () => Promise<boolean>
   onDismissQuickReply?: (messageId: string) => void
   onHideUserInteraction?: () => void
@@ -98,6 +111,10 @@ export default function PaperChatInput({
   selectedKnowledgeBases,
   enableLabTools,
   enablePaperWebSearch,
+  activeLabDiscipline = null,
+  activeLabId = null,
+  enabledDisciplines = [],
+  connectedLabs = [],
   isSending,
   disabled,
   isDragging = false,
@@ -112,6 +129,9 @@ export default function PaperChatInput({
   onUpdateSelectedKnowledgeBases,
   onUpdateEnableLabTools,
   onUpdateEnablePaperWebSearch,
+  onLabSelectionChange,
+  onNavigateToLab,
+  onRefreshLabs,
   onEnablePaperWebSearch,
   onDismissQuickReply,
   onHideUserInteraction,
@@ -304,33 +324,11 @@ export default function PaperChatInput({
           )}
 
           {showUserInteractionDock && userInteraction && (
-            <section className={inputStyles['paper-chat-input__interaction-card']}>
-              <div className={inputStyles['paper-chat-input__interaction-header']}>
-                <span className={inputStyles['paper-chat-input__interaction-title']}>
-                  {userInteraction.question}
-                </span>
-                <button
-                  className={inputStyles['paper-chat-input__interaction-button']}
-                  type="button"
-                  onClick={onHideUserInteraction}
-                >
-                  \u7a0d\u540e
-                </button>
-              </div>
-              <div className={toolbarStyles['paper-chat-input-toolbar']}>
-                {userInteraction.options.map((option) => (
-                  <button
-                    key={option.value}
-                    className="sm-button sm-button--secondary"
-                    type="button"
-                    title={option.description}
-                    onClick={() => handleSend(`\u6211\u9009\u62e9\uff1a${option.label}`)}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-            </section>
+            <UserInteractionList
+              interaction={userInteraction}
+              onSelect={(option) => handleSend(`我选择：${option.value}`)}
+              onLater={onHideUserInteraction}
+            />
           )}
         </div>
       )}
@@ -518,10 +516,17 @@ export default function PaperChatInput({
           enableLabTools={enableLabTools}
           enablePaperWebSearch={enablePaperWebSearch}
           totalAttachmentCount={totalAttachmentCount}
+          activeLabDiscipline={activeLabDiscipline}
+          activeLabId={activeLabId}
+          enabledDisciplines={enabledDisciplines}
+          connectedLabs={connectedLabs}
           onUpdateSelectedTools={onUpdateSelectedTools}
           onUpdateSelectedKnowledgeBases={onUpdateSelectedKnowledgeBases}
           onUpdateEnableLabTools={onUpdateEnableLabTools}
           onTogglePaperWebSearch={() => void togglePaperWebSearch()}
+          onLabSelectionChange={onLabSelectionChange}
+          onNavigateToLab={onNavigateToLab}
+          onRefreshLabs={onRefreshLabs}
           onUpload={() => fileInputRef.current?.click()}
           onSend={() => void handleSend()}
           onStop={() => void onStop()}

@@ -1,5 +1,6 @@
 import type { KnowledgeBaseReference } from './knowledge'
 import type { PaperAnnotationTextAnchor } from './paper'
+import type { LabDisciplineId } from './config'
 
 /**
  * 定义聊天消息中发送者的角色类型
@@ -448,6 +449,10 @@ export interface ChatRequest {
   maxReactIterations?: number
   /** 是否启用实验室管理工具 */
   enableLabTools?: boolean
+  /** 会话激活的实验室学科（启用实验室工具时传入） */
+  activeLabDiscipline?: LabDisciplineId | null
+  /** 会话绑定的实验室 ID（启用实验室工具时传入） */
+  activeLabId?: string | null
   /** 会话类型标识，用于启用会话专属功能 */
   sessionType?: string
   /** 是否启用规划模式（仅论文会话可用） */

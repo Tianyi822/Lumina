@@ -153,4 +153,17 @@ test('SshTerminalService', async (t) => {
     assert.equal(service.writeTerminal(result.sessionId, 'pwd\r').success, false)
     service.shutdown()
   })
+
+  // --- readBuffer 模型专用缓冲读取（Task 8）---
+  await t.test('readBuffer 不存在的 session 返回 closed', async () => {
+    const standalone = new SshTerminalService()
+    const r = await standalone.readBuffer('nonexist-session')
+    assert.equal(r.closed, true)
+    assert.equal(r.data, '')
+  })
+
+  await t.test('readBuffer 是 SshTerminalService 的方法', () => {
+    const standalone = new SshTerminalService()
+    assert.equal(typeof standalone.readBuffer, 'function')
+  })
 })

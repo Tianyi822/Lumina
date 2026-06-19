@@ -6,6 +6,7 @@ import type {
   SshTerminalDataEvent,
   SshTerminalExitEvent,
   SshTerminalOpenResult,
+  SshTerminalReadResult,
   SshTerminalSize
 } from '@shared/types/lab'
 import { sshConnectionManager } from './SshConnectionManager'
@@ -19,6 +20,10 @@ interface SshTerminalSession {
   exitCode?: number | null
   signal?: string
   closed: boolean
+  /** 模型专用缓冲（不影响 UI onData 推流） */
+  modelBuffer: string
+  /** 等待缓冲数据的 readBuffer 调用方 */
+  bufferWaiters: Array<() => void>
 }
 
 type SshTerminalDataListener = (event: SshTerminalDataEvent) => void
@@ -97,7 +102,9 @@ export class SshTerminalService {
               sessionId,
               labId,
               stream,
-              closed: false
+              closed: false,
+              modelBuffer: '',
+              bufferWaiters: []
             }
 
             this.sessions.set(sessionId, session)
@@ -131,6 +138,91 @@ export class SshTerminalService {
       return { success: true }
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : String(error) }
+    }
+  }
+
+  /**
+   * 读取模型专用缓冲区数据
+   * 若缓冲为空，最多等待 waitMs 毫秒等新数据到达；会话关闭/退出时立即返回
+   * @param sessionId - 终端会话 ID
+   * @param waitMs - 等待新数据的超时毫秒，默认 0（不等待）
+   * @param maxBytes - 单次返回的最大字符数（UTF-16 code units），默认 20000
+   */
+  async readBuffer(
+    sessionId: string,
+    waitMs: number = 0,
+    maxBytes: number = 20000
+  ): Promise<SshTerminalReadResult> {
+    const session = this.sessions.get(sessionId)
+    // 会话不存在于映射表：缓冲不可达，返回空数据
+    if (!session) {
+      return { data: '', closed: true }
+    }
+
+    // 缓冲为空且未关闭且允许等待：挂起直到数据到达、会话退出或超时
+    if (!session.closed && session.modelBuffer.length === 0 && waitMs > 0) {
+      await this.waitForBuffer(session, waitMs)
+    }
+
+    // 已关闭/退出：返回剩余缓冲（不丢弃退出前的输出）+ closed 标记
+    if (session.closed) {
+      const remaining = session.modelBuffer
+      session.modelBuffer = ''
+      return {
+        data: remaining,
+        closed: true,
+        exited: session.exitCode !== undefined,
+        exitCode: session.exitCode
+      }
+    }
+
+    const total = session.modelBuffer
+    const truncated = total.length > maxBytes
+    const data = truncated ? total.slice(0, maxBytes) : total
+    // 仅消费已返回部分，剩余留在缓冲供下次读取
+    session.modelBuffer = truncated ? total.slice(maxBytes) : ''
+
+    return {
+      data,
+      closed: false,
+      truncated: truncated || undefined,
+      exited: session.exitCode !== undefined,
+      exitCode: session.exitCode
+    }
+  }
+
+  /**
+   * 等待缓冲区出现数据或会话结束（最多 waitMs 毫秒）
+   */
+  private waitForBuffer(session: SshTerminalSession, waitMs: number): Promise<void> {
+    return new Promise((resolve) => {
+      let settled = false
+      const finish = (): void => {
+        if (settled) return
+        settled = true
+        clearTimeout(timer)
+        const idx = session.bufferWaiters.indexOf(wake)
+        if (idx >= 0) session.bufferWaiters.splice(idx, 1)
+        resolve()
+      }
+      const wake = finish
+      session.bufferWaiters.push(wake)
+      const timer = setTimeout(finish, waitMs)
+    })
+  }
+
+  /**
+   * 唤醒所有等待该会话缓冲的 readBuffer 调用方
+   */
+  private wakeBufferWaiters(session: SshTerminalSession): void {
+    if (session.bufferWaiters.length === 0) return
+    const waiters = session.bufferWaiters.splice(0)
+    for (const wake of waiters) {
+      try {
+        wake()
+      } catch {
+        // 单个唤醒失败不影响其他等待者
+      }
     }
   }
 
@@ -232,16 +324,22 @@ export class SshTerminalService {
    */
   private bindStream(session: SshTerminalSession): void {
     session.stream.on('data', (chunk: Buffer | string) => {
+      const text = typeof chunk === 'string' ? chunk : chunk.toString('utf-8')
+      // 写入模型专用缓冲（UI 推流 onData 保持不变）
+      session.modelBuffer += text
+      this.wakeBufferWaiters(session)
       this.emitData({
         labId: session.labId,
         sessionId: session.sessionId,
-        data: typeof chunk === 'string' ? chunk : chunk.toString('utf-8')
+        data: text
       })
     })
 
     session.stream.once('exit', (code: number | null, signal?: string) => {
       session.exitCode = code
       session.signal = signal
+      // 退出时唤醒所有等待中的 readBuffer，使其返回已退出状态
+      this.wakeBufferWaiters(session)
     })
 
     session.stream.once('error', (error: Error) => {
@@ -272,6 +370,8 @@ export class SshTerminalService {
     }
 
     session.closed = true
+    // 唤醒阻塞中的 readBuffer，使其返回 closed 状态
+    this.wakeBufferWaiters(session)
     this.sessions.delete(session.sessionId)
     this.removeLabSession(session.labId, session.sessionId)
 

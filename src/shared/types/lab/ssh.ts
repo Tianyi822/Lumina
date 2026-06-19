@@ -87,6 +87,19 @@ export interface SshTerminalActionResult {
   error?: string
 }
 
+/** SSH 终端缓冲读取结果（模型专用缓冲） */
+export interface SshTerminalReadResult {
+  /** 读取到的数据 */
+  data: string
+  /** 会话是否已关闭 */
+  closed: boolean
+  /** 是否被字节上限截断 */
+  truncated?: boolean
+  /** 会话是否已退出（含退出码） */
+  exited?: boolean
+  exitCode?: number | null
+}
+
 /** SSH 终端输出事件（通过 IPC 推送） */
 export interface SshTerminalDataEvent {
   labId: string

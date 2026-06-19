@@ -1,4 +1,10 @@
-import type { FileWriteRequest, FileWriteResult } from '@shared/types/lab'
+import type {
+  FileWriteRequest,
+  FileWriteResult,
+  FileReadResult,
+  FileListResult,
+  FileDeleteResult
+} from '@shared/types/lab'
 
 /**
  * 文件传输抽象接口
@@ -12,9 +18,26 @@ import type { FileWriteRequest, FileWriteResult } from '@shared/types/lab'
  */
 export interface FileTransfer {
   writeFiles(
-    targetId: string,
+    labId: string,
     files: FileWriteRequest[],
     projectRoot?: string,
     onProgress?: (message: string) => void
   ): Promise<FileWriteResult>
+
+  /** 读取远程文件内容 */
+  readFile(
+    labId: string,
+    path: string,
+    options?: { offset?: number; maxBytes?: number }
+  ): Promise<FileReadResult>
+
+  /** 列出远程目录内容 */
+  listFiles(
+    labId: string,
+    path: string,
+    options?: { recursive?: boolean; maxEntries?: number }
+  ): Promise<FileListResult>
+
+  /** 删除远程文件或目录 */
+  deleteFile(labId: string, path: string): Promise<FileDeleteResult>
 }
