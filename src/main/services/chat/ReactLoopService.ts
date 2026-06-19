@@ -49,6 +49,35 @@ export function extractOriginalQuery(
   return ''
 }
 
+/**
+ * 构建 capability composer 上下文（纯函数，便于单测）
+ * 从 ChatRequest 提取实验室学科/绑定等字段，缺失时默认 null
+ */
+export function buildComposerContext(
+  request: Pick<
+    ChatRequest,
+    | 'paperId'
+    | 'enableLabTools'
+    | 'enablePaperWebSearch'
+    | 'activeLabDiscipline'
+    | 'activeLabId'
+    | 'selectedTools'
+  >,
+  selectedKnowledgeBases?: KnowledgeBaseReference[],
+  mcpService?: unknown
+): Record<string, unknown> {
+  return {
+    paperId: request.paperId,
+    enableLabTools: request.enableLabTools,
+    enablePaperWebSearch: request.enablePaperWebSearch,
+    selectedKnowledgeBases,
+    selectedTools: request.selectedTools,
+    mcpService,
+    labDiscipline: request.activeLabDiscipline ?? null,
+    labId: request.activeLabId ?? null
+  }
+}
+
 /** ReAct 循环运行时选项 */
 interface ReactLoopRuntimeOptions {
   abortController?: AbortController
@@ -375,14 +404,11 @@ export class ReactLoopService {
     const preset = presetRegistry.get(capState.presetId)
     const composition = preset?.defaultComposition ?? { stages: [] }
 
-    const composerContext = {
-      paperId: request.paperId,
-      enableLabTools: request.enableLabTools,
-      enablePaperWebSearch: request.enablePaperWebSearch,
+    const composerContext = buildComposerContext(
+      request,
       selectedKnowledgeBases,
-      selectedTools: request.selectedTools,
-      mcpService: this.mcpAdapter ? this.mcpAdapter.getMcpService() : undefined
-    }
+      this.mcpAdapter ? this.mcpAdapter.getMcpService() : undefined
+    )
 
     // 使用能力组合器将已激活的能力编排为工具管道
     const composed = await this.capabilityComposer.compose(

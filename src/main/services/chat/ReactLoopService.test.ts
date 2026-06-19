@@ -607,7 +607,9 @@ test('并发 ReAct 请求使用独立工具和提示词运行时快照', async (
     sessionId: 'react-loop-concurrent-lab',
     turnId: 'turn-react-loop-concurrent-lab',
     selectedTools: undefined,
-    enableLabTools: true
+    enableLabTools: true,
+    activeLabDiscipline: 'computer',
+    activeLabId: 'lab-concurrent'
   }
 
   const [mcpResult, labResult] = await Promise.all([
