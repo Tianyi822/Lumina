@@ -5,6 +5,8 @@ import { execTools } from './tools/execTools'
 import { fileTools } from './tools/fileTools'
 import { fileReadTools } from './tools/fileReadTools'
 import { ptyTools } from './tools/ptyTools'
+import { getDisciplineToolSet, stripLabPrefix } from './disciplineToolSets'
+import type { LabDisciplineId } from '@shared/types/config'
 
 /**
  * 实验室工具服务
@@ -27,56 +29,64 @@ export class LabToolService {
   }
 
   /**
-   * 获取所有实验室管理工具定义（含交互类工具 lab__ask_user）
+   * 获取实验室管理工具定义（含交互类工具 lab__ask_user）
+   * 按 ctx.discipline 过滤：无 ctx 或未知学科返回空数组
+   * @param ctx - 会话上下文（含学科），无 ctx 返回空
    * @returns MCP 工具定义数组
    */
-  getTools(): MCPTool[] {
-    const mcpTools = Array.from(this.tools.values()).map((tool) => ({
-      name: tool.name,
-      description: tool.description,
-      inputSchema: tool.inputSchema,
-      serverName: tool.serverName
-    }))
+  getTools(ctx?: { discipline?: LabDisciplineId | null }): MCPTool[] {
+    // 无 ctx 或无学科：返回空（工具暴露由 LabCapability 按 context 决策）
+    if (!ctx || !ctx.discipline) {
+      return []
+    }
 
-    // 添加交互类工具定义
-    mcpTools.push({
-      name: 'lab__ask_user',
-      description:
-        '向用户提问并提供选项，等待用户选择后继续。仅在缺少无法根据上下文安全推断的关键决策、继续会产生高成本/不可逆影响，或用户明确要求选择时使用；能用合理默认值继续时不要调用此工具',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          question: {
-            type: 'string',
-            description: '向用户提出的问题，应只包含当前无法自行判断且必须由用户决定的内容'
-          },
-          options: {
-            type: 'array',
-            description: '供用户选择的选项列表',
-            items: {
-              type: 'object',
-              properties: {
-                value: {
-                  type: 'string',
-                  description: '选项的值，将作为用户选择结果返回'
+    const allowed = getDisciplineToolSet(ctx.discipline)?.toolIds
+    // 未知学科：返回空
+    if (!allowed) {
+      return []
+    }
+
+    const mcpTools = Array.from(this.tools.values())
+      .filter((tool) => allowed.includes(stripLabPrefix(tool.name)))
+      .map((tool) => ({
+        name: tool.name,
+        description: tool.description,
+        inputSchema: tool.inputSchema,
+        serverName: tool.serverName
+      }))
+
+    // ask_user 仅在该学科允许列表包含时添加
+    if (allowed.includes('ask_user')) {
+      mcpTools.push({
+        name: 'lab__ask_user',
+        description:
+          '向用户提问并提供选项，等待用户选择后继续。仅在缺少无法根据上下文安全推断的关键决策、继续会产生高成本/不可逆影响，或用户明确要求选择时使用；能用合理默认值继续时不要调用此工具',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            question: {
+              type: 'string',
+              description: '向用户提出的问题，应只包含当前无法自行判断且必须由用户决定的内容'
+            },
+            options: {
+              type: 'array',
+              description: '供用户选择的选项列表',
+              items: {
+                type: 'object',
+                properties: {
+                  value: { type: 'string', description: '选项的值，将作为用户选择结果返回' },
+                  label: { type: 'string', description: '选项显示的标签文本' },
+                  description: { type: 'string', description: '选项的详细描述（可选）' }
                 },
-                label: {
-                  type: 'string',
-                  description: '选项显示的标签文本'
-                },
-                description: {
-                  type: 'string',
-                  description: '选项的详细描述（可选）'
-                }
-              },
-              required: ['value', 'label']
+                required: ['value', 'label']
+              }
             }
-          }
+          },
+          required: ['question', 'options']
         },
-        required: ['question', 'options']
-      },
-      serverName: 'lab'
-    })
+        serverName: 'lab'
+      })
+    }
 
     return mcpTools
   }
