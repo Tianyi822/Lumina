@@ -29,6 +29,7 @@ interface PaperChatToolSelectionBarProps {
     discipline: LabDisciplineId | null
     labId: string | null
   }) => void
+  onNavigateToLab?: () => void
   onUpload: () => void
   onSend: () => void
   onStop: () => void
@@ -55,6 +56,7 @@ export default function PaperChatToolSelectionBar({
   onUpdateSelectedKnowledgeBases,
   onTogglePaperWebSearch,
   onLabSelectionChange,
+  onNavigateToLab,
   onUpload,
   onSend,
   onStop,
@@ -238,6 +240,7 @@ export default function PaperChatToolSelectionBar({
                       connectedLabs={connectedLabs}
                       disabled={controlsDisabled}
                       onChange={(next) => onLabSelectionChange?.(next)}
+                      onNavigateToLab={onNavigateToLab}
                     />
                   </div>
                 </div>

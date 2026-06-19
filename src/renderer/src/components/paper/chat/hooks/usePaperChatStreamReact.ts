@@ -269,8 +269,8 @@ export function usePaperChatStreamReact(
             enablePlanMode: targetSession.selectionState?.enablePlanMode === true,
             sessionType: 'paper',
             enablePaperWebSearch: selected.enablePaperWebSearch,
-            activeLabDiscipline: selected.activeLabDiscipline,
-            activeLabId: selected.activeLabId
+            activeLabDiscipline: selected.enableLabTools ? selected.activeLabDiscipline : undefined,
+            activeLabId: selected.enableLabTools ? selected.activeLabId : undefined
           })
         )
 

@@ -18,6 +18,8 @@ export interface LabSessionPanelProps {
   disabled?: boolean
   /** 选择变更回调 */
   onChange: (next: { discipline: LabDisciplineId | null; labId: string | null }) => void
+  /** 跳转到实验室页面回调（空状态提示中触发） */
+  onNavigateToLab?: () => void
 }
 
 /**
@@ -30,7 +32,8 @@ export const LabSessionPanel: FC<LabSessionPanelProps> = ({
   enabledDisciplines,
   connectedLabs,
   disabled = false,
-  onChange
+  onChange,
+  onNavigateToLab
 }) => {
   // 可选学科：取预设与已启用学科的交集，保持预设顺序
   const availableDisciplines = LAB_DISCIPLINE_PRESETS.filter((p) =>
@@ -93,8 +96,12 @@ export const LabSessionPanel: FC<LabSessionPanelProps> = ({
         <p className={styles.sectionTitle}>实验室</p>
         {connectedLabs.length === 0 ? (
           <p className={styles.emptyHint}>
-            请先在实验室页面连接一个 SSH 服务器，或前往实验室页面。
-            {/* TODO: 后续任务接入 useUIStateStore.setCurrentView('lab') 实现跳转 */}
+            请先在实验室页面连接一个 SSH 服务器，
+            {onNavigateToLab && (
+              <button type="button" className={styles.emptyHintLink} onClick={onNavigateToLab}>
+                前往实验室页面
+              </button>
+            )}
           </p>
         ) : (
           <div className={styles.labList}>

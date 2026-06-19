@@ -81,6 +81,7 @@ interface PaperChatInputProps {
     discipline: LabDisciplineId | null
     labId: string | null
   }) => void
+  onNavigateToLab?: () => void
   onEnablePaperWebSearch?: () => Promise<boolean>
   onDismissQuickReply?: (messageId: string) => void
   onHideUserInteraction?: () => void
@@ -128,6 +129,7 @@ export default function PaperChatInput({
   onUpdateEnableLabTools,
   onUpdateEnablePaperWebSearch,
   onLabSelectionChange,
+  onNavigateToLab,
   onEnablePaperWebSearch,
   onDismissQuickReply,
   onHideUserInteraction,
@@ -521,6 +523,7 @@ export default function PaperChatInput({
           onUpdateEnableLabTools={onUpdateEnableLabTools}
           onTogglePaperWebSearch={() => void togglePaperWebSearch()}
           onLabSelectionChange={onLabSelectionChange}
+          onNavigateToLab={onNavigateToLab}
           onUpload={() => fileInputRef.current?.click()}
           onSend={() => void handleSend()}
           onStop={() => void onStop()}

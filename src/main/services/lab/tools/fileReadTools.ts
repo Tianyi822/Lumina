@@ -51,8 +51,6 @@ export const readFileTool: LabToolDefinition = {
   inputSchema: {
     type: 'object',
     properties: {
-      lab_id: { type: 'string', description: '实验室 ID' },
-      lab_name: { type: 'string', description: '实验室名称，支持模糊匹配' },
       path: { type: 'string', description: '远程文件绝对路径或相对工作目录路径' },
       max_bytes: { type: 'number', description: '最大返回字节数，默认 20000', default: 20000 },
       offset: {
@@ -104,8 +102,6 @@ export const listFilesTool: LabToolDefinition = {
   inputSchema: {
     type: 'object',
     properties: {
-      lab_id: { type: 'string', description: '实验室 ID' },
-      lab_name: { type: 'string', description: '实验室名称，支持模糊匹配' },
       path: { type: 'string', description: '远程目录路径，默认工作目录' },
       recursive: { type: 'boolean', description: '是否递归列举', default: false },
       max_entries: { type: 'number', description: '最大返回条目数，默认 500', default: 500 }
@@ -148,8 +144,6 @@ export const deleteFileTool: LabToolDefinition = {
   inputSchema: {
     type: 'object',
     properties: {
-      lab_id: { type: 'string', description: '实验室 ID' },
-      lab_name: { type: 'string', description: '实验室名称，支持模糊匹配' },
       path: { type: 'string', description: '远程文件或目录路径（目录递归删除）' }
     },
     required: ['path']

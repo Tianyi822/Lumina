@@ -15,8 +15,6 @@ export const writeProjectFilesTool: LabToolDefinition = {
   inputSchema: {
     type: 'object',
     properties: {
-      lab_id: { type: 'string', description: '实验室 ID' },
-      lab_name: { type: 'string', description: '实验室名称，支持模糊匹配' },
       project_root: {
         type: 'string',
         description: '项目根目录（可选）'

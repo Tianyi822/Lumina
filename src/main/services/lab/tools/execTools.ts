@@ -16,14 +16,6 @@ export const execCommandTool: LabToolDefinition = {
   inputSchema: {
     type: 'object',
     properties: {
-      lab_id: {
-        type: 'string',
-        description: '实验室的唯一标识符（ID）'
-      },
-      lab_name: {
-        type: 'string',
-        description: '实验室的名称，支持模糊匹配'
-      },
       command: {
         type: 'string',
         description: '要执行的命令，如 "ls -la" 或 "mysql -e SHOW DATABASES"'

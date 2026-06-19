@@ -14,8 +14,6 @@ export const ptyOpenTool: LabToolDefinition = {
   inputSchema: {
     type: 'object',
     properties: {
-      lab_id: { type: 'string', description: '实验室 ID' },
-      lab_name: { type: 'string', description: '实验室名称，支持模糊匹配' },
       cols: { type: 'number', description: '终端列数，默认 80', default: 80 },
       rows: { type: 'number', description: '终端行数，默认 24', default: 24 }
     }
