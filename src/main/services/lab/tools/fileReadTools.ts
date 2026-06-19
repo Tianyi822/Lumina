@@ -79,7 +79,7 @@ export const readFileTool: LabToolDefinition = {
 
     const result = await sshService.readFile(lab.labId, path, {
       offset: typeof args.offset === 'number' ? args.offset : undefined,
-      maxBytes: typeof args.max_bytes === 'number' ? args.max_bytes : undefined
+      maxBytes: typeof args.max_bytes === 'number' ? args.max_bytes : 20000
     })
     if (!result.success) {
       return { success: false, error: result.error || '文件读取失败' }
@@ -121,7 +121,7 @@ export const listFilesTool: LabToolDefinition = {
 
     const result = await sshService.listFiles(lab.labId, path, {
       recursive: typeof args.recursive === 'boolean' ? args.recursive : undefined,
-      maxEntries: typeof args.max_entries === 'number' ? args.max_entries : undefined
+      maxEntries: typeof args.max_entries === 'number' ? args.max_entries : 500
     })
     if (!result.success) {
       return { success: false, error: result.error || '列目录失败' }
