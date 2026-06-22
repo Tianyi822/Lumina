@@ -1,10 +1,11 @@
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { MutableRefObject } from 'react'
 import type { PaperAnnotation, PaperAnnotationColorKey } from '@shared/types/paper'
 import {
   PAPER_ANNOTATION_HIGHLIGHT_COLOR_KEYS,
   PAPER_ANNOTATION_NOTE_COLOR_KEY
 } from '@shared/types/paper'
+import { PAPER_ANNOTATION_INDEX_LOADING_MESSAGE } from '@shared/utils/paperAnnotationReadiness'
 import {
   PAPER_ANNOTATION_NOTE_CONFLICT_MESSAGE,
   findPaperAnnotationNoteConflict
@@ -118,6 +119,7 @@ export function usePaperAnnotationComposer(
   const noteEditorCommentRef = useLatestRef(noteEditorComment)
   const noteEditorOriginalCommentRef = useLatestRef(noteEditorOriginalComment)
   const annotationHoverPopoverRef = useLatestRef(annotationHoverPopover)
+  const annotationReady = options.annotationReady()
   const savedSelectionRangeRef = useRef<Range | null>(null)
 
   const currentAnnotations = options.annotations() ?? []
@@ -222,6 +224,19 @@ export function usePaperAnnotationComposer(
   const clearNativeSelection = useCallback((): void => {
     window.getSelection()?.removeAllRanges()
   }, [])
+
+  const ensureAnnotationReady = useCallback(
+    (setInlineError?: (message: string) => void): boolean => {
+      if (optionsRef.current.annotationReady()) {
+        return true
+      }
+
+      setInlineError?.(PAPER_ANNOTATION_INDEX_LOADING_MESSAGE)
+      optionsRef.current.onAnnotationUnavailable?.(PAPER_ANNOTATION_INDEX_LOADING_MESSAGE)
+      return false
+    },
+    [optionsRef]
+  )
 
   const handleCancelComposer = useCallback((): void => {
     clearComposer()
@@ -351,6 +366,10 @@ export function usePaperAnnotationComposer(
 
   const updateComposerFromSelection = useCallback(
     (event?: MouseEvent): void => {
+      if (!ensureAnnotationReady()) {
+        return
+      }
+
       const selectionResult = selectionResolver.buildSelectionDraftFromCurrentSelection(event)
       if (!selectionResult) {
         return
@@ -365,7 +384,7 @@ export function usePaperAnnotationComposer(
       savedSelectionRangeRef.current = savedRange
       openSelectionActionMenu(selectionResult.draft, selectionResult.rect)
     },
-    [openSelectionActionMenu, selectionResolver]
+    [ensureAnnotationReady, openSelectionActionMenu, selectionResolver]
   )
 
   // 在 React 提交 DOM 变更后、浏览器绘制前同步恢复选区
@@ -394,6 +413,10 @@ export function usePaperAnnotationComposer(
         return
       }
 
+      if (!ensureAnnotationReady(setSelectionActionMenuError)) {
+        return
+      }
+
       const result = await actions.persistSelectionDraft(menu.draft, 'highlight', colorKey, '')
       if (!result.success) {
         setSelectionActionMenuError(result.error || '创建标记失败')
@@ -403,12 +426,16 @@ export function usePaperAnnotationComposer(
       clearSelectionUi()
       clearNativeSelection()
     },
-    [actions, clearNativeSelection, clearSelectionUi, selectionActionMenuRef]
+    [actions, clearNativeSelection, clearSelectionUi, ensureAnnotationReady, selectionActionMenuRef]
   )
 
   const handleOpenNoteEditorFromSelection = useCallback((): void => {
     const menu = selectionActionMenuRef.current
     if (!menu) {
+      return
+    }
+
+    if (!ensureAnnotationReady(setSelectionActionMenuError)) {
       return
     }
 
@@ -419,7 +446,13 @@ export function usePaperAnnotationComposer(
 
     const targetAnnotation = getAnnotationById(menu.draft.annotationId || null)
     openNoteEditorAtPosition(menu.draft, menu.x, menu.y, targetAnnotation?.comment || '', 'create')
-  }, [findNoteConflict, getAnnotationById, openNoteEditorAtPosition, selectionActionMenuRef])
+  }, [
+    ensureAnnotationReady,
+    findNoteConflict,
+    getAnnotationById,
+    openNoteEditorAtPosition,
+    selectionActionMenuRef
+  ])
 
   const handleAddToChat = useCallback((): void => {
     const menu = selectionActionMenuRef.current
@@ -442,6 +475,10 @@ export function usePaperAnnotationComposer(
   const handleSaveNote = useCallback(async (): Promise<void> => {
     const draft = noteEditorDraftRef.current
     if (!draft) {
+      return
+    }
+
+    if (!ensureAnnotationReady(setNoteEditorError)) {
       return
     }
 
@@ -473,6 +510,7 @@ export function usePaperAnnotationComposer(
     actions,
     clearNativeSelection,
     clearSelectionUi,
+    ensureAnnotationReady,
     findNoteConflict,
     noteEditorCommentRef,
     noteEditorDraftRef
@@ -485,6 +523,10 @@ export function usePaperAnnotationComposer(
       !noteEditorSaving &&
       noteEditorCommentRef.current !== noteEditorOriginalCommentRef.current
     if (!annotationId || !canUpdate) {
+      return
+    }
+
+    if (!ensureAnnotationReady(setNoteEditorError)) {
       return
     }
 
@@ -513,6 +555,7 @@ export function usePaperAnnotationComposer(
   }, [
     getAnnotationById,
     handleUpgradeHighlightToNote,
+    ensureAnnotationReady,
     noteEditorCommentRef,
     noteEditorDraftRef,
     noteEditorOriginalCommentRef,
@@ -535,6 +578,13 @@ export function usePaperAnnotationComposer(
       setNoteEditorError(result.error || '删除笔记失败')
     }
   }, [actions, noteEditorDraftRef])
+
+  // 权威段落索引失效时关闭创建类 UI，避免 fallback 段落 ID 被提交
+  useEffect(() => {
+    if (!annotationReady) {
+      clearSelectionUi()
+    }
+  }, [annotationReady, clearSelectionUi])
 
   const handleCloseNoteEditor = useCallback((): void => {
     clearSelectionUi()

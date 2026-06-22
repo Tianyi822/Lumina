@@ -36,6 +36,10 @@ import type {
 import { PAPER_ANNOTATION_NOTE_COLOR_KEY } from '@shared/types/paper'
 import { buildPaperTextAnchor } from '@shared/utils/paperAnnotationAnchors'
 import {
+  PAPER_ANNOTATION_INDEX_LOADING_MESSAGE,
+  isFallbackPaperSegmentStableId
+} from '@shared/utils/paperAnnotationReadiness'
+import {
   PAPER_ANNOTATION_NOTE_CONFLICT_MESSAGE,
   findPaperAnnotationNoteConflict
 } from '@shared/utils/paperAnnotationConflicts'
@@ -933,9 +937,12 @@ export class PaperService {
         return segment.stableId === params.semanticAnchor.segmentStableId
       })
       if (!targetSegment) {
+        const segmentStableId = params.semanticAnchor.segmentStableId
         return {
           success: false,
-          error: `当前批注对应的原文段落不存在 (segmentStableId: ${params.semanticAnchor.segmentStableId})`
+          error: isFallbackPaperSegmentStableId(segmentStableId)
+            ? PAPER_ANNOTATION_INDEX_LOADING_MESSAGE
+            : `当前批注对应的原文段落不存在 (segmentStableId: ${segmentStableId})`
         }
       }
 
