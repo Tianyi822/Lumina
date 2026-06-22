@@ -41,6 +41,11 @@ import {
 import { usePaperHighlightRenderer } from '../composables/usePaperHighlightRenderer'
 import type { RenderSourceSegment, QuoteHighlight } from '../composables/usePaperHighlightRenderer'
 import { postProcessRenderedHtml } from './paperMarkdownPostProcess'
+import {
+  getSegmentAnnotationRenderKey,
+  mergeSegmentAnnotationsForRender,
+  sortPaperAnnotationsForRender
+} from './paperAnnotationRenderState'
 // PERF-PROBE:firstpaint — 临时首屏性能埋点，验证后整体移除
 import { probe } from '../perf/paperFirstPaintProfiler'
 
@@ -144,27 +149,6 @@ async function getOrCreateCachedHtmlResult(
   const result = await factory()
   setBoundedCacheValue(cache, key, result, SEGMENT_HTML_CACHE_LIMIT)
   return result
-}
-
-function getSegmentAnnotationRenderKey(annotations: PaperAnnotation[]): string {
-  return annotations
-    .map((annotation) =>
-      [
-        annotation.id,
-        annotation.kind,
-        annotation.noteType,
-        annotation.createdInView,
-        annotation.colorKey,
-        annotation.status,
-        annotation.updatedAt,
-        annotation.semanticAnchor.segmentTextHash,
-        annotation.originalAnchor?.startOffset ?? '',
-        annotation.originalAnchor?.endOffset ?? '',
-        annotation.translationAnchor?.startOffset ?? '',
-        annotation.translationAnchor?.endOffset ?? ''
-      ].join('\u0002')
-    )
-    .join('\u0001')
 }
 
 function createFallbackSourceSegments(markdown: string): RenderSourceSegment[] {
@@ -350,7 +334,7 @@ export interface PaperMarkdownEngine {
   renderSegmentAtIndex: (index: number) => Promise<void>
   invalidateSegmentHtml: (stableIds: string[]) => void
   applyTranslationUpdates: () => void
-  applyAnnotationUpdates: () => void
+  applyAnnotationUpdates: () => string[]
   /** @deprecated 使用 renderSegmentMetas + 懒渲染调度 */
   renderContent: () => Promise<void>
   unresolvedAnnotationIds: string[]
@@ -517,9 +501,7 @@ export function usePaperMarkdownEngine(options: PaperMarkdownEngineOptions): Pap
         ),
         segmentAnchorId,
         isCenteredMeta: ctx.frontMatterMetadataIds.has(segment.renderId),
-        annotations: [...annotations].sort((left, right) =>
-          left.createdAt.localeCompare(right.createdAt)
-        ),
+        annotations: sortPaperAnnotationsForRender(annotations),
         htmlStatus: 'pending' as const
       }
     })
@@ -805,32 +787,35 @@ export function usePaperMarkdownEngine(options: PaperMarkdownEngineOptions): Pap
     )
   }, [])
 
-  const applyAnnotationUpdates = useCallback((): void => {
+  const applyAnnotationUpdates = useCallback((): string[] => {
     const ctx = buildSegmentRenderContext()
     if (!ctx) {
-      return
+      return []
     }
     segmentRenderContextRef.current = ctx
-    setRenderedSegments((previous) =>
-      previous.map((segment) => {
-        const annotations = ctx.annotationsBySegmentId.get(segment.stableId) || []
-        const sorted = [...annotations].sort((left, right) =>
-          left.createdAt.localeCompare(right.createdAt)
-        )
-        const prevKey = getSegmentAnnotationRenderKey(segment.annotations)
-        const nextKey = getSegmentAnnotationRenderKey(sorted)
-        if (prevKey === nextKey) {
-          return { ...segment, annotations: sorted }
-        }
-        return {
-          ...segment,
-          annotations: sorted,
-          originalHtml: '',
-          translationHtml: null,
-          htmlStatus: 'pending' as const
-        }
-      })
-    )
+    const affectedStableIds: string[] = []
+    let hasSegmentChanges = false
+    const nextSegments = renderedSegmentsRef.current.map((segment) => {
+      const mergeResult = mergeSegmentAnnotationsForRender(
+        segment,
+        ctx.annotationsBySegmentId.get(segment.stableId) || []
+      )
+      if (mergeResult.segment !== segment) {
+        hasSegmentChanges = true
+      }
+      if (mergeResult.visualChanged) {
+        affectedStableIds.push(segment.stableId)
+      }
+      return mergeResult.segment
+    })
+
+    if (!hasSegmentChanges) {
+      return affectedStableIds
+    }
+
+    renderedSegmentsRef.current = nextSegments
+    setRenderedSegments(nextSegments)
+    return affectedStableIds
   }, [])
 
   const renderContent = useCallback(async (): Promise<void> => {

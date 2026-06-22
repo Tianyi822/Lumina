@@ -10,10 +10,7 @@ export function getTranslationBlockDisplay(segment: {
   translationHtml: string | null
   translationStatus: PaperTranslationStatus | 'idle'
 }): TranslationBlockDisplay {
-  const htmlStatus = segment.htmlStatus ?? (segment.originalHtml ? 'ready' : 'pending')
-  const isReady = htmlStatus === 'ready'
-
-  if (isReady && segment.translationHtml) {
+  if (segment.translationHtml) {
     return 'content'
   }
   if (segment.translationStatus === 'failed') {

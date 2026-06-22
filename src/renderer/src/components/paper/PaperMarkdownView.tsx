@@ -19,6 +19,10 @@ import type {
 } from '@shared/types/paper'
 import type { PaperQuote } from '@shared/types/chat'
 import {
+  PAPER_ANNOTATION_INDEX_LOADING_MESSAGE,
+  isPaperAnnotationIndexReady
+} from '@shared/utils/paperAnnotationReadiness'
+import {
   usePaperMarkdownEngine,
   getTranslationRenderKey,
   type RenderedSegment
@@ -100,6 +104,16 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
 
     // Text search
     const textSearch = usePaperTextSearch()
+    const annotationReady = isPaperAnnotationIndexReady(paperId, readerDocument)
+    const handleAnnotationUnavailable = useCallback(
+      (message: string): void => {
+        notify.warning('论文批注', message || PAPER_ANNOTATION_INDEX_LOADING_MESSAGE, {
+          source: 'paper',
+          dedupeKey: `paper-annotation-index-loading:${paperId}`
+        })
+      },
+      [notify, paperId]
+    )
 
     // Zoom anchor
     const zoomAnchorRef = useRef(useZoomAnchor())
@@ -195,6 +209,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
 
     const composer = usePaperAnnotationComposer({
       paperId: () => paperId,
+      annotationReady: () => annotationReady,
       translationCache: () => translationCache,
       annotations: () => annotations,
       renderedSegments: renderedSegmentsRef,
@@ -202,7 +217,8 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
       createAnnotation,
       updateAnnotation,
       deleteAnnotation,
-      onAddToChat
+      onAddToChat,
+      onAnnotationUnavailable: handleAnnotationUnavailable
     })
 
     const hasContent = content.trim().length > 0
@@ -337,6 +353,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
     }, [engine, syncTablesAndRemeasure])
 
     const annotationInvalidateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+    const pendingAnnotationRemeasureStableIdsRef = useRef<Set<string>>(new Set())
 
     // 通知未恢复批注
     // 论文切换时重置通知标记，并清理缩放/重测的定时器和回调队列
@@ -569,10 +586,15 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
       }
       annotationInvalidateTimerRef.current = setTimeout(() => {
         annotationInvalidateTimerRef.current = null
-        engine.applyAnnotationUpdates()
-        requestAnimationFrame(() => {
-          syncTablesAndRemeasure()
-        })
+        const affectedStableIds = engine.applyAnnotationUpdates()
+        if (affectedStableIds.length > 0) {
+          affectedStableIds.forEach((stableId) => {
+            pendingAnnotationRemeasureStableIdsRef.current.add(stableId)
+          })
+          requestAnimationFrame(() => {
+            syncTablesAndRemeasure()
+          })
+        }
       }, 50)
       return () => {
         if (annotationInvalidateTimerRef.current) {
@@ -580,6 +602,34 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
         }
       }
     }, [annotationUpdateKey, engine, syncTablesAndRemeasure])
+
+    // 批注 HTML 原子替换完成后立即重测，避免虚拟列表沿用旧高度导致段落重叠
+    useLayoutEffect(() => {
+      const pendingStableIds = pendingAnnotationRemeasureStableIdsRef.current
+      if (pendingStableIds.size === 0) {
+        return
+      }
+
+      let shouldRemeasure = false
+      for (const segment of engine.renderedSegments) {
+        if (!pendingStableIds.has(segment.stableId) || segment.htmlStatus === 'pending') {
+          continue
+        }
+        pendingStableIds.delete(segment.stableId)
+        shouldRemeasure = true
+      }
+
+      if (!shouldRemeasure) {
+        return
+      }
+
+      syncScrollableTableWrapState()
+      virtualizerResult.remeasureMountedSegments()
+      requestAnimationFrame(() => {
+        syncScrollableTableWrapState()
+        virtualizerResult.remeasureMountedSegments()
+      })
+    }, [engine.renderedSegments, syncScrollableTableWrapState, virtualizerResult])
 
     // Search query change effect：搜索查询变化时重新执行搜索，更新高亮和匹配计数
     useEffect(() => {
