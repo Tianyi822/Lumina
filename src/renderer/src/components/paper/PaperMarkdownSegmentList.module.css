@@ -123,6 +123,10 @@
   opacity: 1;
 }
 
+.paper-markdown-view__retranslate-btn--visible {
+  opacity: 1;
+}
+
 .paper-markdown-view__retranslate-btn:hover:not(:disabled) {
   color: var(--sm-color-text-secondary);
   background: color-mix(in srgb, var(--sm-color-surface-hover) 90%, transparent);
