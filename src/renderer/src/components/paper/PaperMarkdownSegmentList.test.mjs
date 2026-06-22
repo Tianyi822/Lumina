@@ -1,5 +1,8 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { getTranslationBlockDisplay } from './composables/paperTranslationBlockDisplay.ts'
 
 describe('getTranslationBlockDisplay', () => {
@@ -73,5 +76,28 @@ it('API 翻译进行中时显示正在翻译', () => {
       }),
       'failed'
     )
+  })
+})
+
+describe('PaperMarkdownSegmentList 翻译失败态', () => {
+  it('应提供可点击的重新翻译入口', () => {
+    const source = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), 'PaperMarkdownSegmentList.tsx'),
+      'utf8'
+    )
+    const failedBranchStart = source.indexOf("translationDisplay === 'failed'")
+    const nextBranchStart = source.indexOf(
+      "translationDisplay === 'translating'",
+      failedBranchStart
+    )
+
+    assert.notEqual(failedBranchStart, -1)
+    assert.notEqual(nextBranchStart, -1)
+
+    const failedBranchSource = source.slice(failedBranchStart, nextBranchStart)
+
+    assert.match(failedBranchSource, /paper-markdown-view__retranslate-btn/)
+    assert.match(failedBranchSource, /paper-markdown-view__retranslate-btn--visible/)
+    assert.match(failedBranchSource, /onRetranslateClick\(segment\)/)
   })
 })
