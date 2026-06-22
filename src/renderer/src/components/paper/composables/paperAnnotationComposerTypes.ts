@@ -57,6 +57,7 @@ export interface AnnotationHoverPopoverState {
 
 export interface PaperAnnotationComposerOptions {
   paperId: () => string
+  annotationReady: () => boolean
   translationCache: () => PaperTranslationCache | null | undefined
   annotations: () => PaperAnnotation[] | undefined
   renderedSegments: ComputedRef<RenderedSegment[]>
@@ -72,4 +73,5 @@ export interface PaperAnnotationComposerOptions {
     annotationId: string
   ) => Promise<{ success: boolean; error?: string }>
   onAddToChat?: (quote: PaperQuote) => void
+  onAnnotationUnavailable?: (message: string) => void
 }
