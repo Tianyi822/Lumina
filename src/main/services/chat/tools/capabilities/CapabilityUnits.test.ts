@@ -88,15 +88,16 @@ describe('LabCapability', () => {
     assert.ok(cap.tags.includes('命令执行'))
   })
 
-  it('createAdapter 始终返回非 null（无上下文依赖）', () => {
+  it('createAdapter 按 discipline 决策（无 discipline 返回 null）', () => {
     const unit: CapabilityUnit = cap
-    assert.notEqual(unit.createAdapter({}), null)
-    assert.notEqual(unit.createAdapter(null), null)
-    assert.notEqual(unit.createAdapter(undefined), null)
+    assert.equal(unit.createAdapter({}), null)
+    assert.equal(unit.createAdapter({ labDiscipline: null }), null)
+    assert.notEqual(unit.createAdapter({ labDiscipline: 'computer', labId: 'lab-1' }), null)
   })
 
-  it('describeTools 返回 lab 工具', () => {
-    const tools = cap.describeTools()
+  it('describeTools 按 discipline 返回 lab 工具', () => {
+    assert.equal(cap.describeTools({}).length, 0)
+    const tools = cap.describeTools({ labDiscipline: 'computer' })
     assert.ok(tools.length > 0)
     assert.ok(tools.some((t) => t.name.includes('lab')))
   })

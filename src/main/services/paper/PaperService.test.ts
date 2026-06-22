@@ -443,7 +443,7 @@ test('createAnnotation 会拒绝空笔记内容', async () => {
   assert.equal(result.error, '请先填写笔记内容')
 })
 
-test('createAnnotation 会拒绝同一段落重复创建笔记', async () => {
+test('createAnnotation 会拒绝与已有笔记范围重叠的新笔记', async () => {
   const service = new PaperService()
   const mutableService = asMutableService(service)
   const segment = createSegment()

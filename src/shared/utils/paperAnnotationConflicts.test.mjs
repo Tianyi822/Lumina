@@ -85,15 +85,14 @@ test('findPaperAnnotationNoteConflict 会识别包含已有笔记范围的选区
   assert.equal(conflict?.reason, 'range_overlap')
 })
 
-test('findPaperAnnotationNoteConflict 会禁止同一段落的第二个笔记', () => {
+test('findPaperAnnotationNoteConflict 允许同一段落不重叠的第二个笔记', () => {
   const conflict = findPaperAnnotationNoteConflict([createAnnotation()], {
     kind: 'note',
     segmentStableId: 'segment-1',
     originalAnchor: createAnchor(24, 30)
   })
 
-  assert.equal(conflict?.annotation.id, 'annotation-1')
-  assert.equal(conflict?.reason, 'same_segment')
+  assert.equal(conflict, null)
 })
 
 test('findPaperAnnotationNoteConflict 允许不同段落创建笔记', () => {
@@ -106,7 +105,7 @@ test('findPaperAnnotationNoteConflict 允许不同段落创建笔记', () => {
   assert.equal(conflict, null)
 })
 
-test('findPaperAnnotationNoteConflict 会让原文与译文笔记按同一段落互斥', () => {
+test('findPaperAnnotationNoteConflict 允许原文与译文笔记在同段不重叠时共存', () => {
   const existingTranslationNote = createAnnotation({
     noteType: 'translation_view',
     createdInView: 'translation',
@@ -123,8 +122,7 @@ test('findPaperAnnotationNoteConflict 会让原文与译文笔记按同一段落
     originalAnchor: createAnchor(24, 30)
   })
 
-  assert.equal(conflict?.annotation.id, 'annotation-1')
-  assert.equal(conflict?.reason, 'same_segment')
+  assert.equal(conflict, null)
 })
 
 test('findPaperAnnotationNoteConflict 不限制普通标记重叠', () => {
@@ -162,12 +160,12 @@ test('findPaperAnnotationNoteConflict 支持忽略当前笔记且不再按异常
     {
       kind: 'note',
       segmentStableId: 'segment-1',
-      originalAnchor: createAnchor(12, 16),
+      originalAnchor: createAnchor(24, 28),
       ignoreAnnotationId: 'annotation-current'
     }
   )
 
   assert.equal(conflict?.annotation.id, 'annotation-invalid')
-  assert.equal(conflict?.reason, 'same_segment')
-  assert.equal(PAPER_ANNOTATION_NOTE_CONFLICT_MESSAGE, '该段内容已存在笔记，不能重复添加')
+  assert.equal(conflict?.reason, 'range_overlap')
+  assert.equal(PAPER_ANNOTATION_NOTE_CONFLICT_MESSAGE, '该段已有笔记覆盖了选中范围，请调整选区或编辑已有笔记')
 })

@@ -1,0 +1,115 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sm-space-3);
+  padding: var(--sm-space-3);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sm-space-2);
+}
+
+.sectionTitle {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--sm-color-text-secondary);
+  margin: 0;
+}
+
+.chipGroup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sm-space-2);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sm-space-2);
+  padding: var(--sm-space-2) var(--sm-space-3);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: 9999px;
+  background: var(--sm-color-surface-1);
+  color: var(--sm-color-text-primary);
+  font-size: 13px;
+  cursor: pointer;
+  transition:
+    background-color var(--sm-transition-fast),
+    border-color var(--sm-transition-fast);
+}
+
+.chip:hover {
+  border-color: var(--sm-color-border-selected);
+}
+
+.chipActive {
+  background-color: var(--sm-color-surface-selected);
+  border-color: var(--sm-color-border-selected);
+  color: var(--sm-color-text-selected);
+}
+
+.chip:disabled,
+.panelDisabled .chip {
+  cursor: not-allowed;
+  opacity: var(--sm-disabled-opacity);
+}
+
+.labList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sm-space-2);
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.labItem {
+  display: flex;
+  align-items: center;
+  gap: var(--sm-space-2);
+  padding: var(--sm-space-2) var(--sm-space-3);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-md);
+  background: var(--sm-color-surface-1);
+  color: var(--sm-color-text-primary);
+  font-size: 13px;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  transition:
+    background-color var(--sm-transition-fast),
+    border-color var(--sm-transition-fast);
+}
+
+.labItem:hover {
+  border-color: var(--sm-color-border-selected);
+}
+
+.labItemActive {
+  background-color: var(--sm-color-surface-selected);
+  border-color: var(--sm-color-border-selected);
+  color: var(--sm-color-text-selected);
+}
+
+.labItem:disabled,
+.panelDisabled .labItem {
+  cursor: not-allowed;
+  opacity: var(--sm-disabled-opacity);
+}
+
+.emptyHint {
+  font-size: 12px;
+  color: var(--sm-color-text-tertiary);
+  margin: 0;
+}
+
+.emptyHintLink {
+  color: var(--sm-color-accent-hover);
+  cursor: pointer;
+  text-decoration: underline;
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+}

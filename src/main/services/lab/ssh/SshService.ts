@@ -8,7 +8,10 @@ import type {
   ExecResult,
   LabResult,
   FileWriteRequest,
-  FileWriteResult
+  FileWriteResult,
+  FileReadResult,
+  FileListResult,
+  FileDeleteResult
 } from '@shared/types/lab'
 import type {
   SshConnectionConfig,
@@ -107,6 +110,35 @@ export class SshService {
     onProgress?: (message: string) => void
   ): Promise<FileWriteResult> {
     return this.fileTransfer.writeFiles(labId, files, projectRoot, onProgress)
+  }
+
+  /**
+   * 读取远程文件内容（转发到 SftpFileTransfer）
+   */
+  async readFile(
+    labId: string,
+    path: string,
+    options?: { offset?: number; maxBytes?: number }
+  ): Promise<FileReadResult> {
+    return this.fileTransfer.readFile(labId, path, options)
+  }
+
+  /**
+   * 列出远程目录内容（转发到 SftpFileTransfer）
+   */
+  async listFiles(
+    labId: string,
+    path: string,
+    options?: { recursive?: boolean; maxEntries?: number }
+  ): Promise<FileListResult> {
+    return this.fileTransfer.listFiles(labId, path, options)
+  }
+
+  /**
+   * 删除远程文件或目录（转发到 SftpFileTransfer）
+   */
+  async deleteFile(labId: string, path: string): Promise<FileDeleteResult> {
+    return this.fileTransfer.deleteFile(labId, path)
   }
 
   /**

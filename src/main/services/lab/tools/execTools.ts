@@ -1,7 +1,6 @@
 import type { MCPToolCallResult } from '@main/types/mcp'
 import type { ExecCommand } from '@shared/types/lab'
 import type { ToolArgs, LabToolDefinition } from './types'
-import { getCommandExecutionPolicy } from './commandExecutionPolicy'
 import { findLab } from './toolExecutor'
 import { formatExecCommandToolResult } from './toolHelpers'
 import { sshService } from '../ssh'
@@ -17,14 +16,6 @@ export const execCommandTool: LabToolDefinition = {
   inputSchema: {
     type: 'object',
     properties: {
-      lab_id: {
-        type: 'string',
-        description: '实验室的唯一标识符（ID）'
-      },
-      lab_name: {
-        type: 'string',
-        description: '实验室的名称，支持模糊匹配'
-      },
       command: {
         type: 'string',
         description: '要执行的命令，如 "ls -la" 或 "mysql -e SHOW DATABASES"'
@@ -37,7 +28,14 @@ export const execCommandTool: LabToolDefinition = {
         type: 'number',
         description: '命令执行超时时间（秒），默认 30 秒，最大 300 秒',
         default: 30
-      }
+      },
+      max_bytes: {
+        type: 'number',
+        description: 'stdout/stderr 各自最大返回字节数，默认 20000',
+        default: 20000
+      },
+      head: { type: 'number', description: '仅返回 stdout 前 N 行（与 tail 互斥）' },
+      tail: { type: 'number', description: '仅返回 stdout 后 N 行（与 head 互斥）' }
     },
     required: ['command']
   },
@@ -59,32 +57,6 @@ export const execCommandTool: LabToolDefinition = {
       }
     }
 
-    // 检查命令执行策略（是否需用户确认或禁止执行）
-    const policy = getCommandExecutionPolicy('lab_sandbox', command)
-    if (policy.requiresUserInteraction) {
-      return {
-        success: true,
-        content: [
-          {
-            type: 'text',
-            text: JSON.stringify({
-              user_interaction_required: true,
-              question: policy.reason || '是否允许执行该命令？',
-              options: policy.options || []
-            })
-          }
-        ]
-      }
-    }
-
-    // 执行策略明确禁止，拒绝执行
-    if (!policy.canExecute) {
-      return {
-        success: false,
-        error: policy.reason || '当前命令执行策略不允许直接执行'
-      }
-    }
-
     const timeout = typeof args.timeout === 'number' ? Math.min(args.timeout, 300) : 30
     const execCmd: ExecCommand = {
       command,
@@ -100,7 +72,11 @@ export const execCommandTool: LabToolDefinition = {
     if (!result || result.systemError) {
       return { success: false, error: result?.stderr || 'SSH 命令执行失败' }
     }
-    return formatExecCommandToolResult(command, execCmd.workdir, result)
+    return formatExecCommandToolResult(command, execCmd.workdir, result, {
+      maxBytes: typeof args.max_bytes === 'number' ? args.max_bytes : undefined,
+      head: typeof args.head === 'number' ? args.head : undefined,
+      tail: typeof args.tail === 'number' ? args.tail : undefined
+    })
   }
 }
 
