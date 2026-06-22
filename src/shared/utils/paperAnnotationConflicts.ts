@@ -4,9 +4,9 @@ import type {
   PaperAnnotationTextAnchor
 } from '../types/paper'
 
-export const PAPER_ANNOTATION_NOTE_CONFLICT_MESSAGE = '该段内容已存在笔记，不能重复添加'
+export const PAPER_ANNOTATION_NOTE_CONFLICT_MESSAGE = '该段已有笔记覆盖了选中范围，请调整选区或编辑已有笔记'
 
-export type PaperAnnotationNoteConflictReason = 'range_overlap' | 'same_segment'
+export type PaperAnnotationNoteConflictReason = 'range_overlap'
 
 export interface PaperAnnotationNoteConflictTarget {
   kind: PaperAnnotationKind
@@ -58,14 +58,15 @@ export function findPaperAnnotationNoteConflict(
     if (
       annotation.kind !== 'note' ||
       annotation.id === target.ignoreAnnotationId ||
-      annotation.semanticAnchor.segmentStableId !== target.segmentStableId
+      annotation.semanticAnchor.segmentStableId !== target.segmentStableId ||
+      !hasOverlappingAnchor(annotation, target)
     ) {
       continue
     }
 
     return {
       annotation,
-      reason: hasOverlappingAnchor(annotation, target) ? 'range_overlap' : 'same_segment'
+      reason: 'range_overlap'
     }
   }
 
