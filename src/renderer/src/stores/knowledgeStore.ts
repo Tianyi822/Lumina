@@ -61,6 +61,32 @@ interface KnowledgeState {
 }
 
 /**
+ * 从知识库本地索引失效状态中移除指定文件
+ * 若移除后失效文件列表为空，则清空整个失效状态
+ * @param kb 知识库数据
+ * @param fileId 文件 ID
+ * @returns 更新后的知识库数据
+ */
+function clearLocalFileInvalidation(kb: KnowledgeBase, fileId: string): KnowledgeBase {
+  const invalidation = kb.indexInvalidation
+  if (!invalidation) {
+    return kb
+  }
+
+  const nextFiles = invalidation.files.filter((file) => file.fileId !== fileId)
+  return {
+    ...kb,
+    indexInvalidation:
+      nextFiles.length > 0
+        ? {
+            ...invalidation,
+            files: nextFiles
+          }
+        : undefined
+  }
+}
+
+/**
  * 知识库 Store
  * 管理知识库的 CRUD、嵌入模型配置、知识库切换及表单状态
  */
@@ -198,15 +224,19 @@ export const useKnowledgeStore = create<KnowledgeState>()(
       /** 取消文件与知识库的关联 */
       unlinkFileFromKB: (kbId, fileId) => {
         set((state) => ({
-          knowledgeBases: state.knowledgeBases.map((kb) =>
-            kb.id === kbId
-              ? {
-                  ...kb,
-                  linkedFileIds: (kb.linkedFileIds || []).filter((id) => id !== fileId),
-                  documentCount: Math.max(0, (kb.linkedFileIds?.length || 0) - 1)
-                }
-              : kb
-          )
+          knowledgeBases: state.knowledgeBases.map((kb) => {
+            if (kb.id !== kbId) {
+              return kb
+            }
+
+            const nextKb: KnowledgeBase = {
+              ...kb,
+              linkedFileIds: (kb.linkedFileIds || []).filter((id) => id !== fileId),
+              documentCount: Math.max(0, (kb.linkedFileIds?.length || 0) - 1)
+            }
+
+            return clearLocalFileInvalidation(nextKb, fileId)
+          })
         }))
       },
 
