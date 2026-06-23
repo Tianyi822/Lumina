@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef } from 'react'
-import { useFileStore, useKnowledgeIndexStore } from '@renderer/stores'
+import { useFileStore } from '@renderer/stores/fileStore'
+import { useKnowledgeIndexStore } from '@renderer/stores/knowledgeIndexStore'
 import { useNotification } from '@renderer/composables/useNotification'
 import { isSupportedDocumentExtension } from '@shared/constants/document'
 import type { FileItem } from '@renderer/types'
@@ -89,10 +90,10 @@ export function useKnowledgeFiles(
   )
 
   const handleUnlinkFile = useCallback(
-    async (fileId: string, onReindex: () => Promise<void>): Promise<void> => {
+    async (fileId: string): Promise<void> => {
       if (!kbId) return
 
-      const confirmed = await notify.confirm('移除后索引将与文档不匹配，需要手动重新索引。', {
+      const confirmed = await notify.confirm('将从知识库移除该文档，并删除对应索引。', {
         title: '移除知识库文档',
         source: 'knowledge',
         danger: true
@@ -106,29 +107,13 @@ export function useKnowledgeFiles(
 
       if (result.success) {
         setLinkedFiles((prev) => prev.filter((f) => f.id !== fileId))
-        await window.api.knowledge.removeFileIndex(kbId, fileId)
         await onStatsNeedUpdate()
         onFileUnlinked(kbId, fileId)
-
-        const remainingFiles = linkedFiles.filter((f) => f.id !== fileId)
-        if (remainingFiles.length > 0) {
-          const shouldReindex = await notify.confirm(
-            '文档删除后，索引与原文可能不匹配。是否立即重新索引？',
-            {
-              title: '重新索引知识库',
-              source: 'knowledge'
-            }
-          )
-
-          if (shouldReindex) {
-            await onReindex()
-          }
-        }
       } else {
         notify.error('取消关联失败', result.error || '未知错误', { source: 'knowledge' })
       }
     },
-    [kbId, linkedFiles, fileStore, notify, onStatsNeedUpdate, onFileUnlinked]
+    [kbId, fileStore, notify, onStatsNeedUpdate, onFileUnlinked]
   )
 
   const handleAddFiles = useCallback(() => {

@@ -1,49 +1,39 @@
 # Lumina
 
-面向科研的桌面端论文阅读工具，支持 AI 交互式阅读、知识库文献管理、Docker 实验环境以及远程 SSH 操作。
+面向科研的桌面端论文阅读工具，让阅读、思考与检索在同一界面中完成。
 
-[![Version](https://img.shields.io/github/v/release/Tianyi822/Lumina?color=blue&label=version)](https://github.com/Tianyi822/Lumina/releases)
 [![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows-lightgrey.svg)](https://github.com/Tianyi822/Lumina/releases)
-[![Electron](https://img.shields.io/badge/built%20with-Electron-47848F.svg)](https://www.electronjs.org/)
-[![Vue](https://img.shields.io/badge/Vue-3.x-4FC08D.svg)](https://vuejs.org/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-6.x-3178C6.svg)](https://www.typescriptlang.org/)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
-## 功能
+## 核心功能
 
 ### 论文阅读
 
-支持 PDF 解析、OCR 文字识别、翻译和批注。通过多阶段 OCR 流水线将论文中的文字、公式、图表结构化提取为 Markdown，自动识别段落类型（标题、正文、公式、表格、图注等），并支持图表提取与资源本地化。
+导入 PDF 论文后，Lumina 会自动识别其中的文字、公式、表格与图注，将内容整理为清晰可读的版式，方便逐段阅读。阅读时可以为任意段落添加高亮与笔记，笔记与原文位置自动关联，随时回顾。
 
-阅读过程中，可以为论文段落添加批注笔记，批注与原文位置自动关联，所有标注数据同步保存至文件资源池。
+论文中的图表会被单独提取展示，阅读过程中所有数据本地保存，保护研究隐私。
 
 ### AI 交互阅读
 
-兼容 OpenAI API 的流式对话能力，支持配置多个服务商（OpenAI、阿里云、智谱等）并按需切换。在论文阅读中，可以直接引用原文段落向 AI 提问，AI 结合论文上下文给出回答，适合论文精读、文献综述和思路讨论等场景。
+阅读论文时，可以直接引用原文段落向 AI 提问，AI 结合论文上下文给出回答，适合精读、文献综述和思路探讨。支持配置多个服务商并按需切换，兼容主流大模型，也支持展开查看推理模型的完整思考过程。
 
-支持 DeepSeek-R1 等推理模型，可展开查看完整的思考过程。
+### 智能助手
 
-### ReAct 智能体
-
-AI 能够自主判断何时调用工具，通过思考-行动-观察循环完成多步任务。当会话关联了知识库或工具时，系统自动切换为 ReAct 模式——构建包含工具描述的系统提示词，LLM 返回推理过程与工具调用，调度器并行执行无依赖的工具，执行结果反馈给 LLM 继续推理，最多支持 10 轮迭代。
+面对复杂问题时，AI 能自主规划步骤、按需调用工具、根据中间结果继续推理，逐步完成多步任务。工具调用与思考过程全程可见，结果可追溯。
 
 ### 知识库
 
-支持导入 PDF、Word、Markdown、TXT、CSV 等格式文档，自动提取内容并切片，通过 LanceDB 向量数据库实现语义检索。知识库以工具形式提供给 AI 模型，由模型自主决定是否检索以及检索什么内容，而非每次对话自动搜索。
+将 PDF、Word、Markdown、TXT、CSV 等文档导入知识库后，Lumina 会自动提取并整理内容。在对话中，AI 会自主判断是否需要检索知识库，以及检索哪些内容，而不是机械地全文搜索。
 
-支持 OpenAI、阿里云、Ollama 本地模型等多种嵌入服务，知识库也可以作为 MCP 服务器暴露给外部工具调用。
+支持接入多种嵌入服务，知识库也可以作为工具开放给外部应用调用。
 
-### MCP 工具集成
+### 工具扩展
 
-支持连接任意兼容 MCP 协议的服务器，覆盖 stdio、SSE、Streamable HTTP 三种传输协议。连接后自动获取工具列表和参数定义，AI 可在对话中调用这些工具扩展自身能力，多个独立工具支持并行调用。
+支持连接符合通用协议的外部工具服务，连接后 AI 可在对话中调用这些工具扩展能力，多个独立工具支持并行调用。
 
-### Docker 实验环境
+### 远程实验室
 
-在隔离的 Docker 容器中安全运行实验代码。支持 Docker Compose 多服务编排、Dockerfile 构建以及预定义模板快速启动。内置前端开发模板（Vue、React、Vanilla），支持代码热重载和实时预览，容器端口自动映射到本机。所有命令执行受细粒度权限策略控制。
-
-### SSH 远程连接
-
-管理远程服务器连接，支持交互式终端、命令执行和文件传输（SFTP）。可以将本地实验无缝扩展到远程算力环境。
+通过 SSH 连接远程服务器，在应用内直接使用交互式终端、执行命令、传输文件，将本地研究无缝扩展到远程算力环境。
 
 ## 安装
 
