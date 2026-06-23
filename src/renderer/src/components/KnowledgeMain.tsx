@@ -227,7 +227,7 @@ export default function KnowledgeMain({
             onDrop={handleDrop}
             onAddFiles={handleAddFiles}
             onReindex={handleReindex}
-            onUnlinkFile={(id) => handleUnlinkFile(id, handleReindex)}
+            onUnlinkFile={handleUnlinkFile}
           />
         </div>
       ) : (

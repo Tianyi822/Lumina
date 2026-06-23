@@ -1,6 +1,6 @@
-import test from 'node:test'
+import test, { mock } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 
@@ -12,6 +12,7 @@ import {
 } from './FileService.ts'
 import { getFilesMetadataPath, getKnowledgeBaseFilePath } from '../knowledge/knowledgePaths.ts'
 import { getKnowledgeDirPath } from '../config/configPaths.ts'
+import { getVectorDBService } from '../vector/index.ts'
 import type { KnowledgeBase, FileItem } from '../../../shared/types/knowledge.ts'
 import type {
   PaperAnnotation,
@@ -123,6 +124,25 @@ function createKnowledgeBase(): KnowledgeBase {
     updatedAt: '2026-01-01T00:00:00.000Z',
     documentCount: 0,
     linkedFileIds: []
+  }
+}
+
+function mockDeleteFileChunks(
+  behavior: (kbId: string, fileId: string) => Promise<void> | void = () => undefined
+): { calls: Array<{ kbId: string; fileId: string }>; restore: () => void } {
+  const calls: Array<{ kbId: string; fileId: string }> = []
+  const deleteMock = mock.method(
+    getVectorDBService(),
+    'deleteFileChunks',
+    async (kbId: string, fileId: string) => {
+      calls.push({ kbId, fileId })
+      await behavior(kbId, fileId)
+    }
+  )
+
+  return {
+    calls,
+    restore: () => deleteMock.mock.restore()
   }
 }
 
@@ -359,4 +379,112 @@ test('unlinkFileFromKB 会清理论文笔记对应的索引失效状态', async 
 
   assert.equal(result.success, true)
   assert.equal(nextKnowledgeBases[0].indexInvalidation, undefined)
+})
+
+test('unlinkFileFromKB 会先删除该文件向量块再清理关联', async () => {
+  resetKnowledgeStorage()
+  mkdirSync(getKnowledgeDirPath(), { recursive: true })
+  writeFileSync(getKnowledgeBaseFilePath(), JSON.stringify([createKnowledgeBase()], null, 2))
+  const service = new FileService()
+  await service.initialize()
+  const uploadResult = await service.uploadFile(Buffer.from('knowledge text'), 'knowledge.md')
+  const file = uploadResult.file as FileItem
+
+  assert.equal(uploadResult.success, true)
+  assert.equal((await service.linkFileToKB(file.id, 'kb-1')).success, true)
+
+  const vectorDelete = mockDeleteFileChunks()
+  try {
+    const result = await service.unlinkFileFromKB(file.id, 'kb-1')
+
+    assert.equal(result.success, true)
+    assert.deepEqual(vectorDelete.calls, [{ kbId: 'kb-1', fileId: file.id }])
+    assert.deepEqual(service.getFileById(file.id)?.usedByKBIds, [])
+  } finally {
+    vectorDelete.restore()
+  }
+})
+
+test('unlinkFileFromKB 删除向量失败时不会修改关联元数据', async () => {
+  resetKnowledgeStorage()
+  mkdirSync(getKnowledgeDirPath(), { recursive: true })
+  writeFileSync(getKnowledgeBaseFilePath(), JSON.stringify([createKnowledgeBase()], null, 2))
+  const service = new FileService()
+  await service.initialize()
+  const uploadResult = await service.uploadFile(Buffer.from('knowledge text'), 'knowledge.md')
+  const file = uploadResult.file as FileItem
+
+  assert.equal(uploadResult.success, true)
+  assert.equal((await service.linkFileToKB(file.id, 'kb-1')).success, true)
+
+  const vectorDelete = mockDeleteFileChunks(async () => {
+    throw new Error('vector unavailable')
+  })
+
+  try {
+    const result = await service.unlinkFileFromKB(file.id, 'kb-1')
+    const nextKnowledgeBases = JSON.parse(
+      readFileSync(getKnowledgeBaseFilePath(), 'utf-8')
+    ) as KnowledgeBase[]
+
+    assert.equal(result.success, false)
+    assert.match(result.error || '', /vector unavailable/)
+    assert.deepEqual(vectorDelete.calls, [{ kbId: 'kb-1', fileId: file.id }])
+    assert.deepEqual(service.getFileById(file.id)?.usedByKBIds, ['kb-1'])
+    assert.deepEqual(nextKnowledgeBases[0].linkedFileIds, [file.id])
+    assert.equal(nextKnowledgeBases[0].documentCount, 1)
+  } finally {
+    vectorDelete.restore()
+  }
+})
+
+test('deleteFile 强制删除多知识库文件时向量删除失败会保留所有元数据', async () => {
+  resetKnowledgeStorage()
+  mkdirSync(getKnowledgeDirPath(), { recursive: true })
+  const kb1 = createKnowledgeBase()
+  const kb2: KnowledgeBase = { ...createKnowledgeBase(), id: 'kb-2', name: '测试知识库二' }
+  writeFileSync(getKnowledgeBaseFilePath(), JSON.stringify([kb1, kb2], null, 2))
+  const service = new FileService()
+  await service.initialize()
+  const uploadResult = await service.uploadFile(Buffer.from('shared knowledge'), 'shared.md')
+  const file = uploadResult.file as FileItem
+  const uploadedPath = file.absolutePath
+
+  assert.equal(uploadResult.success, true)
+  assert.equal((await service.linkFileToKB(file.id, 'kb-1')).success, true)
+  assert.equal((await service.linkFileToKB(file.id, 'kb-2')).success, true)
+  assert.equal(existsSync(uploadedPath), true)
+
+  const vectorDelete = mockDeleteFileChunks(async (kbId) => {
+    if (kbId === 'kb-2') {
+      throw new Error('kb-2 vector delete failed')
+    }
+  })
+
+  try {
+    const result = await service.deleteFile(file.id, true)
+    const nextKnowledgeBases = JSON.parse(
+      readFileSync(getKnowledgeBaseFilePath(), 'utf-8')
+    ) as KnowledgeBase[]
+
+    assert.equal(result.success, false)
+    assert.match(result.error || '', /kb-2 vector delete failed/)
+    assert.deepEqual(vectorDelete.calls, [
+      { kbId: 'kb-1', fileId: file.id },
+      { kbId: 'kb-2', fileId: file.id }
+    ])
+    assert.notEqual(service.getFileById(file.id), null)
+    assert.deepEqual(service.getFileById(file.id)?.usedByKBIds.sort(), ['kb-1', 'kb-2'])
+    assert.deepEqual(
+      nextKnowledgeBases.map((kb) => kb.linkedFileIds),
+      [[file.id], [file.id]]
+    )
+    assert.deepEqual(
+      nextKnowledgeBases.map((kb) => kb.documentCount),
+      [1, 1]
+    )
+    assert.equal(existsSync(uploadedPath), true)
+  } finally {
+    vectorDelete.restore()
+  }
 })
