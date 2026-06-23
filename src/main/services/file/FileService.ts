@@ -250,24 +250,38 @@ function createUploadedOrigin(): FileOriginInfo {
   }
 }
 
+interface RemoveFileChunksResult {
+  success: boolean
+  error?: string
+}
+
 /**
- * 从多个知识库中删除文件的向量索引
+ * 从多个知识库中删除文件的向量索引（fail-fast：任一知识库失败即立即返回错误）
  * @param fileId 文件 ID
  * @param kbIds 知识库 ID 列表
  */
-async function removeFileChunksFromKnowledgeBases(fileId: string, kbIds: string[]): Promise<void> {
+async function removeFileChunksFromKnowledgeBases(
+  fileId: string,
+  kbIds: string[]
+): Promise<RemoveFileChunksResult> {
   for (const kbId of kbIds) {
     try {
       await getVectorDBService().deleteFileChunks(kbId, fileId)
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
-      logger.warn('删除文件索引失败，继续清理文件元数据', 'main', {
+      logger.error('删除文件索引失败，阻止清理文件元数据', 'main', {
         fileId,
         kbId,
         error: errorMessage
       })
+      return {
+        success: false,
+        error: `删除知识库 ${kbId} 中的文件索引失败: ${errorMessage}`
+      }
     }
   }
+
+  return { success: true }
 }
 
 /**
@@ -1074,6 +1088,14 @@ export class FileService {
     if (file.usedByKBIds.length > 0) {
       const usedByKBIds = [...file.usedByKBIds]
       const knowledgeBases = await readKnowledgeBases()
+      const indexRemovalResult = await removeFileChunksFromKnowledgeBases(file.id, usedByKBIds)
+
+      if (!indexRemovalResult.success) {
+        return {
+          success: false,
+          error: indexRemovalResult.error || '删除文件索引失败'
+        }
+      }
 
       for (const kbId of usedByKBIds) {
         const kbIndex = knowledgeBases.findIndex((kb) => kb.id === kbId)
@@ -1090,7 +1112,6 @@ export class FileService {
         }
       }
 
-      await removeFileChunksFromKnowledgeBases(file.id, usedByKBIds)
       await writeKnowledgeBases(knowledgeBases)
       logger.info('删除文件时已从关联知识库移除', 'main', {
         fileId: file.id,
@@ -1202,6 +1223,14 @@ export class FileService {
       const kbIndex = file.usedByKBIds.indexOf(kbId)
       if (kbIndex === -1) {
         return { success: false, error: '文件未关联到此知识库' }
+      }
+
+      const indexRemovalResult = await removeFileChunksFromKnowledgeBases(fileId, [kbId])
+      if (!indexRemovalResult.success) {
+        return {
+          success: false,
+          error: indexRemovalResult.error || '删除文件索引失败'
+        }
       }
 
       file.usedByKBIds.splice(kbIndex, 1)
