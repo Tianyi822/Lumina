@@ -18,6 +18,7 @@ export interface PaperBeforeZoomChangeParams {
 }
 
 export type PaperBeforeZoomChangeListener = (params: PaperBeforeZoomChangeParams) => void
+export type PaperBeforePaperLeaveListener = () => void
 
 // ---------------------------------------------------------------------------
 // 缩放常量
@@ -65,6 +66,8 @@ interface PaperViewState {
 
   // Actions
   registerBeforeZoomChange: (fn: PaperBeforeZoomChangeListener) => () => void
+  registerBeforePaperLeave: (fn: PaperBeforePaperLeaveListener) => () => void
+  notifyBeforePaperLeave: () => void
   registerScrollToHeading: (fn: (headingId: string) => boolean) => void
   zoomIn: () => void
   zoomOut: () => void
@@ -92,6 +95,7 @@ export const usePaperViewStore = create<PaperViewState>()((set, get) => {
   const markdownScrollPositionByPaperId = new Map<string, PaperViewScrollPosition>()
   const originalPdfScrollPositionByPaperId = new Map<string, PaperViewScrollPosition>()
   const beforeZoomChangeListeners = new Set<PaperBeforeZoomChangeListener>()
+  const beforePaperLeaveListeners = new Set<PaperBeforePaperLeaveListener>()
 
   // 缩放持久化闭包
   let zoomPersistenceReady = false
@@ -164,6 +168,19 @@ export const usePaperViewStore = create<PaperViewState>()((set, get) => {
       beforeZoomChangeListeners.add(fn)
       return () => {
         beforeZoomChangeListeners.delete(fn)
+      }
+    },
+
+    registerBeforePaperLeave: (fn: PaperBeforePaperLeaveListener): (() => void) => {
+      beforePaperLeaveListeners.add(fn)
+      return () => {
+        beforePaperLeaveListeners.delete(fn)
+      }
+    },
+
+    notifyBeforePaperLeave: (): void => {
+      for (const listener of Array.from(beforePaperLeaveListeners)) {
+        listener()
       }
     },
 

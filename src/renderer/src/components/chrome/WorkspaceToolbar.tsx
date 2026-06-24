@@ -116,12 +116,16 @@ export default function WorkspaceToolbar() {
     closeTocPanel()
     closeFigurePanel()
     closeFigurePreview()
+    if (!originalPdfVisible) {
+      usePaperViewStore.getState().notifyBeforePaperLeave()
+    }
     toggleOriginalPdfVisible()
   }, [
     closeFigurePanel,
     closeFigurePreview,
     closeTocPanel,
     currentPaperId,
+    originalPdfVisible,
     toggleOriginalPdfVisible
   ])
 

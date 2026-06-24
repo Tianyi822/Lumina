@@ -115,6 +115,9 @@ export async function openPaper(paperId: string): Promise<PaperDocument | null> 
 
   const prevId = listStore.currentPaperId
   if (prevId !== paperId) {
+    if (prevId) {
+      usePaperViewStore.getState().notifyBeforePaperLeave()
+    }
     resetReaderViewState()
   }
 
