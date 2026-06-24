@@ -343,12 +343,12 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
     const unresolvedNotifiedRef = useRef(false)
 
     // 同步段落元数据并调度懒渲染；invalidateAllMeasurements 由 usePaperVirtualizer layoutKey effect 处理
-    const syncMetasAndSchedule = useCallback((): void => {
+    const syncMetasAndSchedule = useCallback((onAfterLayout?: () => void): void => {
       probe.mark('pr:metas-start') // PERF-PROBE:firstpaint
       engine.renderSegmentMetas()
       probe.mark('pr:metas-end') // PERF-PROBE:firstpaint（取代旧 paper-switch-first-paint）
       requestAnimationFrame(() => {
-        syncTablesAndRemeasure()
+        syncTablesAndRemeasure(onAfterLayout)
       })
     }, [engine, syncTablesAndRemeasure])
 
@@ -548,11 +548,20 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
       prevSourceRevisionIdRef.current = readerDocument?.sourceRevisionId
 
       const structuralChanged = contentChanged || basePathChanged || sourceRevisionIdChanged
+      const shouldRestoreScroll = !hasBuiltMetasRef.current || structuralChanged
 
       if (!hasBuiltMetasRef.current || structuralChanged) {
         // 首次渲染或结构性变化（换论文/内容/路径变更）：全量重建段落元数据并调度懒渲染
         hasBuiltMetasRef.current = true
-        syncMetasAndSchedule()
+        if (shouldRestoreScroll) {
+          syncMetasAndSchedule(() => {
+            requestAnimationFrame(() => {
+              void restoreScrollPosition(paperId)
+            })
+          })
+        } else {
+          syncMetasAndSchedule()
+        }
       } else {
         // 仅翻译可见性切换或翻译进度推送：增量更新译文，保留原文 HTML，
         // 避免全量重置导致内容塌缩、抖动与滚动跳变
@@ -566,9 +575,6 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
         composer.clearComposer()
       }
 
-      if (structuralChanged) {
-        void restoreScrollPosition(paperId)
-      }
       refreshTextSearch({ preserveCurrentIndex: true })
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [

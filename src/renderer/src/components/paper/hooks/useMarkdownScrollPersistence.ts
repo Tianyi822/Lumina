@@ -3,6 +3,13 @@ import type { PaperReadingProgress } from '@shared/types/paper'
 import { usePaperListStore, usePaperViewStore } from '@renderer/stores/paper'
 import { clampContainerScrollTop } from './usePaperVirtualizer'
 import type { ZoomAnchorController } from '../composables/useZoomAnchor'
+import {
+  buildReadingProgressPatch,
+  computeScrollPercent,
+  isScrollContainerReady,
+  isScrollTopSettled,
+  resolveScrollPercentForRestore
+} from './markdownScrollPersistenceUtils'
 
 interface UseMarkdownScrollPersistenceParams {
   scrollContainerRef: React.RefObject<HTMLDivElement | null>
@@ -14,11 +21,8 @@ interface UseMarkdownScrollPersistenceParams {
   translationVisible: boolean
 }
 
-function computeScrollPercent(container: HTMLElement): number {
-  const scrollableHeight = container.scrollHeight - container.clientHeight
-  if (scrollableHeight <= 0) return 0
-  return Math.min(100, Math.max(0, (container.scrollTop / scrollableHeight) * 100))
-}
+const READING_PROGRESS_SAVE_DEBOUNCE_MS = 500
+const READING_PROGRESS_RESTORE_MAX_ATTEMPTS = 120
 
 /** 管理 Markdown 视图的滚动位置持久化：缩放恢复、阅读进度保存和会话滚动位置恢复 */
 export function useMarkdownScrollPersistence({
@@ -33,13 +37,8 @@ export function useMarkdownScrollPersistence({
   const setMarkdownScrollPosition = usePaperViewStore((state) => state.setMarkdownScrollPosition)
   const getMarkdownScrollPosition = usePaperViewStore((state) => state.getMarkdownScrollPosition)
 
-  // Scroll RAF for markdown scroll position persistence
   const scrollRafIdRef = useRef<number | null>(null)
-
-  // Reading progress persistence refs
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  // 仅标记「有待保存的滚动」，scrollPercent 推迟到定时器触发时再读，
-  // 避免每个 scroll 事件都读取 container.scrollHeight 触发强制回流，导致滚动卡顿。
   const pendingDirtyRef = useRef(false)
   const pendingSavePaperIdRef = useRef<string | null>(null)
   const isRestoringRef = useRef(false)
@@ -53,7 +52,112 @@ export function useMarkdownScrollPersistence({
   const translationVisibleRef = useRef(translationVisible)
   translationVisibleRef.current = translationVisible
 
-  // Record exact scroll position（切换论文时恢复精确 scrollTop）
+  const syncSessionScrollPosition = useCallback(
+    (targetPaperId: string, container: HTMLElement) => {
+      if (!targetPaperId) return
+      setMarkdownScrollPosition(targetPaperId, {
+        scrollTop: container.scrollTop,
+        scrollLeft: container.scrollLeft
+      })
+    },
+    [setMarkdownScrollPosition]
+  )
+
+  const persistReadingProgressForPaper = useCallback(
+    (targetPaperId: string, container: HTMLElement) => {
+      if (!targetPaperId || !isScrollContainerReady(container)) return
+
+      const percent = Math.round(computeScrollPercent(container) * 100) / 100
+      const isTranslated = translationVisibleRef.current
+      const existingProgress = usePaperListStore
+        .getState()
+        .papers.find((p) => p.id === targetPaperId)?.readingProgress
+      const progress = buildReadingProgressPatch(existingProgress, {
+        percent,
+        translationVisible: isTranslated,
+        zoomLevel: zoomLevelRef.current
+      })
+
+      syncSessionScrollPosition(targetPaperId, container)
+
+      void window.api.paper.saveReadingProgress({
+        paperId: targetPaperId,
+        scrollPercentOriginal: isTranslated ? undefined : percent,
+        scrollPercentTranslated: isTranslated ? percent : undefined,
+        zoomLevel: progress.zoomLevel,
+        translationVisible: progress.translationVisible
+      })
+
+      usePaperListStore.getState().updatePaperInList(targetPaperId, { readingProgress: progress })
+    },
+    [syncSessionScrollPosition]
+  )
+
+  const saveProgress = useCallback(
+    (targetPaperId: string, percent: number) => {
+      if (!targetPaperId) return
+
+      const isTranslated = translationVisibleRef.current
+      const existingProgress = usePaperListStore
+        .getState()
+        .papers.find((p) => p.id === targetPaperId)?.readingProgress
+      const progress = buildReadingProgressPatch(existingProgress, {
+        percent,
+        translationVisible: isTranslated,
+        zoomLevel: zoomLevelRef.current
+      })
+
+      void window.api.paper.saveReadingProgress({
+        paperId: targetPaperId,
+        scrollPercentOriginal: isTranslated ? undefined : percent,
+        scrollPercentTranslated: isTranslated ? percent : undefined,
+        zoomLevel: progress.zoomLevel,
+        translationVisible: progress.translationVisible
+      })
+
+      usePaperListStore.getState().updatePaperInList(targetPaperId, { readingProgress: progress })
+    },
+    []
+  )
+
+  const flushPendingSaveForPaper = useCallback(
+    (targetPaperId: string | null) => {
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current)
+        saveTimerRef.current = null
+      }
+
+      if (!targetPaperId || !pendingDirtyRef.current || pendingSavePaperIdRef.current !== targetPaperId) {
+        return
+      }
+
+      pendingDirtyRef.current = false
+      pendingSavePaperIdRef.current = null
+
+      if (zoomAnchor.isZooming()) {
+        return
+      }
+
+      const container = scrollContainerRef.current
+      if (!container || !isScrollContainerReady(container)) {
+        return
+      }
+
+      saveProgress(targetPaperId, computeScrollPercent(container))
+      syncSessionScrollPosition(targetPaperId, container)
+    },
+    [saveProgress, syncSessionScrollPosition, zoomAnchor, scrollContainerRef]
+  )
+
+  const discardPendingReadingProgress = useCallback(() => {
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current)
+      saveTimerRef.current = null
+    }
+    pendingDirtyRef.current = false
+    pendingSavePaperIdRef.current = null
+  }, [])
+
   const recordScrollPosition = useCallback(() => {
     const targetPaperId = paperId
     if (
@@ -71,71 +175,20 @@ export function useMarkdownScrollPersistence({
 
     scrollRafIdRef.current = requestAnimationFrame(() => {
       scrollRafIdRef.current = null
+      const container = scrollContainerRef.current
       if (
-        latestPaperIdRef.current !== targetPaperId ||
-        !scrollContainerRef.current ||
+        !container ||
+        !isScrollContainerReady(container) ||
         zoomAnchor.isZooming() ||
         loadingRef.current
       ) {
         return
       }
 
-      setMarkdownScrollPosition(targetPaperId, {
-        scrollTop: scrollContainerRef.current.scrollTop,
-        scrollLeft: scrollContainerRef.current.scrollLeft
-      })
+      // 即使已切换论文，也要把旧论文的最后滚动位置写入会话缓存
+      syncSessionScrollPosition(targetPaperId, container)
     })
-  }, [paperId, setMarkdownScrollPosition, zoomAnchor, scrollContainerRef])
-
-  // Save reading progress to backend
-  const saveProgress = useCallback((targetPaperId: string, percent: number) => {
-    if (!targetPaperId) return
-
-    void window.api.paper.saveReadingProgress({
-      paperId: targetPaperId,
-      scrollPercentOriginal: translationVisibleRef.current
-        ? undefined
-        : Math.round(percent * 100) / 100,
-      scrollPercentTranslated: translationVisibleRef.current
-        ? Math.round(percent * 100) / 100
-        : undefined,
-      zoomLevel: zoomLevelRef.current,
-      translationVisible: translationVisibleRef.current
-    })
-  }, [])
-
-  const flushPendingSave = useCallback(() => {
-    if (saveTimerRef.current) {
-      clearTimeout(saveTimerRef.current)
-      saveTimerRef.current = null
-    }
-    if (!pendingDirtyRef.current) {
-      return
-    }
-    const targetPaperId = pendingSavePaperIdRef.current
-    pendingDirtyRef.current = false
-    pendingSavePaperIdRef.current = null
-    if (!targetPaperId || targetPaperId !== latestPaperIdRef.current) {
-      return
-    }
-    if (zoomAnchor.isZooming()) {
-      return
-    }
-    const container = scrollContainerRef.current
-    if (!container) {
-      return
-    }
-    saveProgress(targetPaperId, computeScrollPercent(container))
-  }, [saveProgress, zoomAnchor, scrollContainerRef])
-
-  const discardPendingReadingProgress = useCallback(() => {
-    if (saveTimerRef.current) {
-      clearTimeout(saveTimerRef.current)
-      saveTimerRef.current = null
-    }
-    pendingDirtyRef.current = false
-    pendingSavePaperIdRef.current = null
-  }, [])
+  }, [paperId, syncSessionScrollPosition, zoomAnchor, scrollContainerRef])
 
   const scheduleSave = useCallback(() => {
     if (!paperId) {
@@ -162,13 +215,13 @@ export function useMarkdownScrollPersistence({
         return
       }
       const container = scrollContainerRef.current
-      if (!container) {
+      if (!container || !isScrollContainerReady(container)) {
         return
       }
-      // 滚动停止后才读取 scrollHeight 计算百分比，避免滚动过程中的强制回流
       saveProgress(targetPaperId, computeScrollPercent(container))
-    }, 500)
-  }, [paperId, saveProgress, zoomAnchor, scrollContainerRef])
+      syncSessionScrollPosition(targetPaperId, container)
+    }, READING_PROGRESS_SAVE_DEBOUNCE_MS)
+  }, [paperId, saveProgress, syncSessionScrollPosition, zoomAnchor, scrollContainerRef])
 
   const handleScroll = useCallback(() => {
     if (isRestoringRef.current) return
@@ -177,55 +230,16 @@ export function useMarkdownScrollPersistence({
     scheduleSave()
   }, [scheduleSave, zoomAnchor])
 
-  /** 缩放手势结束后立即持久化阅读进度与精确 scrollTop（缩放期间 scroll 事件被跳过） */
   const persistReadingProgressNow = useCallback(() => {
     const container = scrollContainerRef.current
     if (!container || !paperId) {
       return
     }
 
-    if (saveTimerRef.current) {
-      clearTimeout(saveTimerRef.current)
-      saveTimerRef.current = null
-    }
-    pendingDirtyRef.current = false
-    pendingSavePaperIdRef.current = null
+    discardPendingReadingProgress()
+    persistReadingProgressForPaper(paperId, container)
+  }, [discardPendingReadingProgress, paperId, persistReadingProgressForPaper, scrollContainerRef])
 
-    const percent = Math.round(computeScrollPercent(container) * 100) / 100
-    const isTranslated = translationVisibleRef.current
-    // 从 store 读取已有进度，保留未更新的那个状态字段
-    const existingProgress = usePaperListStore
-      .getState()
-      .papers.find((p) => p.id === paperId)?.readingProgress
-    const progress: PaperReadingProgress = {
-      scrollPercentOriginal: isTranslated
-        ? (existingProgress?.scrollPercentOriginal ?? 0)
-        : percent,
-      scrollPercentTranslated: isTranslated
-        ? percent
-        : (existingProgress?.scrollPercentTranslated ?? 0),
-      zoomLevel: zoomLevelRef.current,
-      readAt: new Date().toISOString(),
-      translationVisible: isTranslated
-    }
-
-    setMarkdownScrollPosition(paperId, {
-      scrollTop: container.scrollTop,
-      scrollLeft: container.scrollLeft
-    })
-
-    void window.api.paper.saveReadingProgress({
-      paperId,
-      scrollPercentOriginal: isTranslated ? undefined : percent,
-      scrollPercentTranslated: isTranslated ? percent : undefined,
-      zoomLevel: progress.zoomLevel,
-      translationVisible: progress.translationVisible
-    })
-
-    usePaperListStore.getState().updatePaperInList(paperId, { readingProgress: progress })
-  }, [paperId, setMarkdownScrollPosition, scrollContainerRef])
-
-  // Setup scroll listener for reading progress
   useEffect(() => {
     const container = scrollContainerRef.current
     if (!container) return
@@ -248,14 +262,24 @@ export function useMarkdownScrollPersistence({
       }
 
       const storedPosition = getMarkdownScrollPosition(targetPaperId)
-      if (storedPosition) {
-        container.scrollTop = storedPosition.scrollTop
+      const progress = readingProgress
+      const fallbackPercent = progress
+        ? resolveScrollPercentForRestore(progress, translationVisibleRef.current)
+        : 0
+      const shouldUseStoredPosition =
+        storedPosition !== null && (storedPosition.scrollTop > 0 || fallbackPercent <= 0)
+
+      if (shouldUseStoredPosition && storedPosition) {
+        const targetScrollTop = storedPosition.scrollTop
+        container.scrollTop = targetScrollTop
         container.scrollLeft = storedPosition.scrollLeft
         clampContainerScrollTop(container)
+        if (!isScrollTopSettled(container, targetScrollTop)) {
+          return false
+        }
         return true
       }
 
-      const progress = readingProgress
       if (!progress) {
         return false
       }
@@ -265,17 +289,17 @@ export function useMarkdownScrollPersistence({
         return false
       }
 
-      // 选取对应译文状态的滚动百分比
-      const isTranslated = progress.translationVisible ?? false
-      const percent = isTranslated
-        ? (progress.scrollPercentTranslated ?? progress.scrollPercentOriginal ?? 0)
-        : (progress.scrollPercentOriginal ?? progress.scrollPercentTranslated ?? 0)
-
-      container.scrollTop = (percent / 100) * scrollableHeight
+      const percent = resolveScrollPercentForRestore(progress, translationVisibleRef.current)
+      const targetScrollTop = (percent / 100) * scrollableHeight
+      container.scrollTop = targetScrollTop
       clampContainerScrollTop(container)
+      if (!isScrollTopSettled(container, targetScrollTop)) {
+        return false
+      }
+      syncSessionScrollPosition(targetPaperId, container)
       return true
     },
-    [readingProgress, getMarkdownScrollPosition, scrollContainerRef]
+    [readingProgress, getMarkdownScrollPosition, scrollContainerRef, syncSessionScrollPosition]
   )
 
   const scheduleReadingProgressRestore = useCallback(
@@ -293,7 +317,6 @@ export function useMarkdownScrollPersistence({
       isRestoringRef.current = true
 
       let attempt = 0
-      const maxAttempts = 8
 
       const tryRestore = (): void => {
         if (
@@ -314,7 +337,7 @@ export function useMarkdownScrollPersistence({
         }
 
         attempt += 1
-        if (attempt >= maxAttempts) {
+        if (attempt >= READING_PROGRESS_RESTORE_MAX_ATTEMPTS) {
           isRestoringRef.current = false
           return
         }
@@ -327,7 +350,6 @@ export function useMarkdownScrollPersistence({
     [readingProgress, getMarkdownScrollPosition, restoreReadingProgressScroll]
   )
 
-  // Restore exact session scroll or persisted reading progress after current content is rendered.
   const restoreScrollPosition = useCallback(
     async (targetPaperId: string) => {
       scheduleReadingProgressRestore(targetPaperId)
@@ -335,15 +357,18 @@ export function useMarkdownScrollPersistence({
     [scheduleReadingProgressRestore]
   )
 
-  // 论文切换时取消旧任务；pending 保存只允许写回原论文，不能落到新论文上。
+  const previousPaperIdRef = useRef(paperId)
   useEffect(() => {
-    discardPendingReadingProgress()
-    restoreRunIdRef.current += 1
-    isRestoringRef.current = false
-  }, [paperId, discardPendingReadingProgress])
+    const previousPaperId = previousPaperIdRef.current
+    if (previousPaperId !== paperId) {
+      flushPendingSaveForPaper(previousPaperId)
+      previousPaperIdRef.current = paperId
+      restoreRunIdRef.current += 1
+      isRestoringRef.current = false
+    }
+  }, [paperId, flushPendingSaveForPaper])
 
-  // Restore on loading complete（初始值 true 确保 remount 时也能触发恢复）
-  const wasLoadingRef = useRef(true)
+  const wasLoadingRef = useRef(loading)
   useEffect(() => {
     const wasLoading = wasLoadingRef.current
     wasLoadingRef.current = loading
@@ -353,21 +378,17 @@ export function useMarkdownScrollPersistence({
     scheduleReadingProgressRestore(paperId)
   }, [loading, paperId, scheduleReadingProgressRestore])
 
-  // Cleanup on unmount
+  useEffect(() => {
+    return usePaperViewStore.getState().registerBeforePaperLeave(() => {
+      persistReadingProgressNow()
+    })
+  }, [persistReadingProgressNow])
+
   useEffect(() => {
     return () => {
-      flushPendingSave()
-      // 直接同步写入滚动位置，不使用 RAF，避免组件卸载后 ref 被置空导致位置丢失
-      const container = scrollContainerRef.current
-      const currentId = latestPaperIdRef.current
-      if (container && currentId && !loadingRef.current && !zoomAnchor.isZooming()) {
-        setMarkdownScrollPosition(currentId, {
-          scrollTop: container.scrollTop,
-          scrollLeft: container.scrollLeft
-        })
-      }
+      flushPendingSaveForPaper(latestPaperIdRef.current)
     }
-  }, [])
+  }, [flushPendingSaveForPaper])
 
   return {
     recordScrollPosition,
