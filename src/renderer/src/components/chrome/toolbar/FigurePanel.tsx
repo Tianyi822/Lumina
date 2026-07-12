@@ -38,23 +38,27 @@ export default function FigurePanel({
 }: FigurePanelProps) {
   return (
     <div ref={containerRef} className={styles['sm-workspace-toolbar__figures']}>
-      <button
-        className={[
-          'sm-icon-button',
-          styles['sm-workspace-toolbar__button'],
-          showFigurePanel && styles['is-active']
-        ]
-          .filter(Boolean)
-          .join(' ')}
-        title="论文图片"
-        aria-label="打开论文图片列表"
-        aria-haspopup="dialog"
-        aria-expanded={showFigurePanel}
-        disabled={!canOpenFigurePanel}
-        onClick={onToggle}
-      >
-        <SvgIcon name="image" size={18} />
-      </button>
+      <div className={styles['sm-workspace-toolbar__item-wrap']}>
+        <button
+          className={[
+            'sm-icon-button',
+            styles['sm-workspace-toolbar__button'],
+            showFigurePanel && styles['is-active']
+          ]
+            .filter(Boolean)
+            .join(' ')}
+          aria-label="打开论文图片列表"
+          aria-haspopup="dialog"
+          aria-expanded={showFigurePanel}
+          disabled={!canOpenFigurePanel}
+          onClick={onToggle}
+        >
+          <SvgIcon name="image" size={18} />
+        </button>
+        <span className={styles['sm-workspace-toolbar__tooltip']} role="tooltip">
+          论文图片
+        </span>
+      </div>
 
       {showFigurePanel && (
         <div

@@ -107,23 +107,27 @@ export default function TocPanel({
 
   return (
     <div ref={containerRef} className={styles['sm-workspace-toolbar__toc']}>
-      <button
-        className={[
-          'sm-icon-button',
-          styles['sm-workspace-toolbar__button'],
-          showTocPanel && styles['is-active']
-        ]
-          .filter(Boolean)
-          .join(' ')}
-        title="论文目录"
-        aria-label="打开论文目录"
-        aria-haspopup="dialog"
-        aria-expanded={showTocPanel}
-        disabled={!canOpenToc}
-        onClick={onToggle}
-      >
-        <SvgIcon name="toc" size={18} />
-      </button>
+      <div className={styles['sm-workspace-toolbar__item-wrap']}>
+        <button
+          className={[
+            'sm-icon-button',
+            styles['sm-workspace-toolbar__button'],
+            showTocPanel && styles['is-active']
+          ]
+            .filter(Boolean)
+            .join(' ')}
+          aria-label="打开论文目录"
+          aria-haspopup="dialog"
+          aria-expanded={showTocPanel}
+          disabled={!canOpenToc}
+          onClick={onToggle}
+        >
+          <SvgIcon name="toc" size={18} />
+        </button>
+        <span className={styles['sm-workspace-toolbar__tooltip']} role="tooltip">
+          论文目录
+        </span>
+      </div>
 
       {showTocPanel && (
         <div

@@ -312,3 +312,37 @@
   padding-left: 12px;
   color: var(--sm-color-text-tertiary);
 }
+
+/* 工具按钮 hover tooltip（对齐 PrimarySidebar 导航项样式） */
+.sm-workspace-toolbar__item-wrap {
+  position: relative;
+  width: 100%;
+}
+
+.sm-workspace-toolbar__tooltip {
+  position: absolute;
+  left: calc(100% + var(--sm-space-2));
+  top: 50%;
+  z-index: 20;
+  transform: translateY(-50%) translateX(-4px);
+  padding: 6px 10px;
+  border-radius: var(--sm-radius-sm);
+  background: var(--sm-color-surface-2);
+  border: 1px solid var(--sm-color-border-default);
+  color: var(--sm-color-text-primary);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.2;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  pointer-events: none;
+  opacity: 0;
+  transition:
+    opacity var(--sm-transition-fast),
+    transform var(--sm-transition-fast);
+}
+
+.sm-workspace-toolbar__item-wrap:hover .sm-workspace-toolbar__tooltip {
+  opacity: 1;
+  transform: translateY(-50%) translateX(0);
+}
