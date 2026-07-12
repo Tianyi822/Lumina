@@ -16,20 +16,24 @@ export default function TranslationToggleButton({
   onToggle
 }: TranslationToggleButtonProps) {
   return (
-    <button
-      className={[
-        'sm-icon-button',
-        styles['sm-workspace-toolbar__button'],
-        isActive && styles['is-active'],
-        isPending && styles['is-pending']
-      ]
-        .filter(Boolean)
-        .join(' ')}
-      title={title}
-      aria-label={title}
-      onClick={onToggle}
-    >
-      <SvgIcon name="translate" size={18} />
-    </button>
+    <div className={styles['sm-workspace-toolbar__item-wrap']}>
+      <button
+        className={[
+          'sm-icon-button',
+          styles['sm-workspace-toolbar__button'],
+          isActive && styles['is-active'],
+          isPending && styles['is-pending']
+        ]
+          .filter(Boolean)
+          .join(' ')}
+        aria-label={title}
+        onClick={onToggle}
+      >
+        <SvgIcon name="translate" size={18} />
+      </button>
+      <span className={styles['sm-workspace-toolbar__tooltip']} role="tooltip">
+        {title}
+      </span>
+    </div>
   )
 }

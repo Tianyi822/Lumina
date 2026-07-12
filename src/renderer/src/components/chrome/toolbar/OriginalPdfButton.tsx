@@ -9,20 +9,24 @@ interface OriginalPdfButtonProps {
 
 export default function OriginalPdfButton({ isActive, onClick }: OriginalPdfButtonProps) {
   return (
-    <button
-      className={[
-        'sm-icon-button',
-        styles['sm-workspace-toolbar__button'],
-        isActive && styles['is-active']
-      ]
-        .filter(Boolean)
-        .join(' ')}
-      title="PDF 原件"
-      aria-label="PDF 原件"
-      type="button"
-      onClick={onClick}
-    >
-      <SvgIcon name="file-pdf" size={18} />
-    </button>
+    <div className={styles['sm-workspace-toolbar__item-wrap']}>
+      <button
+        className={[
+          'sm-icon-button',
+          styles['sm-workspace-toolbar__button'],
+          isActive && styles['is-active']
+        ]
+          .filter(Boolean)
+          .join(' ')}
+        aria-label="PDF 原件"
+        type="button"
+        onClick={onClick}
+      >
+        <SvgIcon name="file-pdf" size={18} />
+      </button>
+      <span className={styles['sm-workspace-toolbar__tooltip']} role="tooltip">
+        PDF 原件
+      </span>
+    </div>
   )
 }
