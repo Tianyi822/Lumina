@@ -186,14 +186,6 @@ export interface AppConfig {
   paperReader?: PaperReaderConfig
   /** 实验室功能开关 */
   labFeatures?: LabFeaturesConfig
-  /**
-   * Harness 用户全局覆盖（spec §3.2 第 1 层）。
-   *
-   * 阶段 A 占位类型:shared 层无法引用 @main(tsconfig.web 无 @main 别名,
-   * 且 shared → main 会形成跨层依赖)。运行时为 Partial<HarnessConfig>,
-   * 类型安全在 resolveHarnessConfig(Task 8)合并边界通过 cast 为 HarnessConfig 保证。
-   */
-  agent?: Record<string, unknown>
 }
 
 /**

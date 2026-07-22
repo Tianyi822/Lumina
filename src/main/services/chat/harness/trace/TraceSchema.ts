@@ -4,7 +4,11 @@
  *
  * Spec: docs/superpowers/specs/2026-07-21-agent-harness-design.md §5.2
  */
-import type { SessionType, EngineKind } from '../HarnessContext'
+/** 三条调度路径 */
+export type EngineKind = 'react' | 'plan_execute' | 'direct'
+
+/** 会话类型(与 ChatRequest.sessionType 对齐) */
+export type SessionType = 'paper' | 'knowledge' | 'lab' | 'default'
 
 /** 复杂度评分(spec §4.1) */
 export interface ComplexityScore {

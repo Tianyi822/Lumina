@@ -8,7 +8,13 @@
  * Spec: docs/superpowers/specs/2026-07-21-agent-harness-design.md §5.4
  */
 import type { ChatMessage } from '@shared/types/chat'
-import type { ToolDef } from '../middleware/types'
+
+/** OpenAI function 工具定义(简化,与现有 ToolDef 对齐) */
+interface ToolDef {
+  name: string
+  description?: string
+  parameters?: unknown // JSON Schema
+}
 
 const CHARS_PER_TOKEN = 3.5
 const MIN_CALIBRATION = 0.5

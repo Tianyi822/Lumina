@@ -5,8 +5,7 @@
  *
  * Spec: docs/superpowers/specs/2026-07-21-agent-harness-design.md §5.2
  */
-import type { SessionType } from '../HarnessContext'
-import type { TraceEvent, TraceRecord } from './TraceSchema'
+import type { SessionType, TraceEvent, TraceRecord } from './TraceSchema'
 
 const SECRET_PATTERNS = [
   /api[_-]?key\s*[=:]\s*["']?sk-[A-Za-z0-9_-]+/gi,
