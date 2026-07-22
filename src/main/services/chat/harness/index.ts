@@ -48,3 +48,5 @@ export type {
 export type { TraceEvent, TraceRecord, ComplexityScore } from './trace/TraceSchema'
 export { TraceRecorder } from './trace/TraceRecorder'
 export type { TraceRecorderOptions } from './trace/TraceRecorder'
+export { TraceWriter, cleanupOldTraces } from './trace/TraceWriter'
+export type { TraceWriterOptions } from './trace/TraceWriter'
