@@ -32,6 +32,7 @@ export type {
 export { DEFAULT_HARNESS_CONFIG } from './config/defaultConfig'
 export { PRESET_OVERRIDES } from './config/presetOverrides'
 export { translateLegacyFlags } from './config/requestOverrides'
+export { resolveHarnessConfig, deepMerge } from './config/resolveConfig'
 
 export type {
   HarnessMiddleware,
