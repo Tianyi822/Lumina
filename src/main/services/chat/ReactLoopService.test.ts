@@ -102,7 +102,8 @@ function createNamedToolCallStream(index: number, name: string): AsyncIterable<S
                 type: 'function',
                 function: {
                   name,
-                  arguments: '{}'
+                  // 每次调用参数不同，避免被 UnifiedToolExecutor 连续重复调用检测拦截
+                  arguments: `{"i":${index}}`
                 }
               }
             ]
