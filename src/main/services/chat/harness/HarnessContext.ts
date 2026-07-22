@@ -6,6 +6,7 @@
  * Spec: docs/superpowers/specs/2026-07-21-agent-harness-design.md §2.1
  */
 import type { ChatMessage, TokenUsage } from '@shared/types/chat'
+import type { ResolvedHarnessConfig } from './config/HarnessConfig'
 
 /** 三条调度路径 */
 export type EngineKind = 'react' | 'plan_execute' | 'direct'
@@ -79,7 +80,7 @@ export interface HarnessContext {
   readonly paperId?: string
   readonly isSharedPaperSession: boolean
 
-  readonly config: unknown // 阶段 A 用 unknown,Task 6 替换为 ResolvedHarnessConfig
+  readonly config: ResolvedHarnessConfig
 
   readonly state: HarnessState
 

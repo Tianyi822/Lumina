@@ -3,6 +3,7 @@
  * Harness 测试夹具。后续所有中间件/引擎测试用此构造 ctx。
  */
 import type { HarnessContext, HarnessState, SessionType, EngineKind } from '../HarnessContext'
+import { DEFAULT_HARNESS_CONFIG } from '../config/defaultConfig'
 
 interface TestContextOverrides {
   requestId?: string
@@ -17,7 +18,7 @@ interface TestContextOverrides {
 /**
  * 构造测试用 HarnessContext。
  * - trace.log 收集到 __recorded 数组,供测试断言
- * - config 默认 unknown(Task 6 后可传 ResolvedHarnessConfig)
+ * - config 默认使用 DEFAULT_HARNESS_CONFIG(三层默认值的第 1 层)
  */
 export function createTestContext(overrides: TestContextOverrides = {}): HarnessContext {
   const recordedEvents: unknown[] = []
@@ -59,9 +60,9 @@ export function createTestContext(overrides: TestContextOverrides = {}): Harness
     conversationMessages: [],
     paperId: overrides.paperId,
     isSharedPaperSession: overrides.isSharedPaperSession ?? false,
-    config: {},
+    config: DEFAULT_HARNESS_CONFIG,
     state: defaultState,
     trace,
     meta: {}
-  } as unknown as HarnessContext
+  }
 }

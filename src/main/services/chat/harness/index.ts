@@ -19,6 +19,19 @@ export type {
 } from './HarnessContext'
 
 export type {
+  HarnessConfig,
+  ResolvedHarnessConfig,
+  BudgetConfig,
+  RouterConfig,
+  ToolSelectionConfig,
+  MiddlewareConfig,
+  ToolExecutionConfig,
+  TraceConfig
+} from './config/HarnessConfig'
+
+export { DEFAULT_HARNESS_CONFIG } from './config/defaultConfig'
+
+export type {
   HarnessMiddleware,
   ToolDef,
   ToolCall,

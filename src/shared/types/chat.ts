@@ -464,8 +464,9 @@ export interface ChatRequest {
    * 与现有 enablePlanMode/enableLabTools 等布尔开关并存：
    * 布尔开关内部翻译为 harnessOverrides（向后兼容）。
    *
-   * 阶段 A：用 Record<string, unknown> 占位；
-   * Task 6 定义 HarnessConfig 后收紧为 Partial<HarnessConfig>。
+   * 阶段 A 占位类型：shared 层无法引用 @main（tsconfig.web 无 @main 别名，
+   * 且 shared → main 会形成跨层依赖）。类型安全在 resolveConfig（Task 8）
+   * 内部通过 cast 为 HarnessConfig 保证，运行时行为与收紧版完全一致。
    */
   harnessOverrides?: Record<string, unknown>
 }
