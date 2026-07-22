@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-import { migrateConfig } from './ConfigManager.ts'
+import { migrateConfig } from './ConfigManager'
 import type { AppConfig } from '@shared/types/config'
 
 // 构造仅含必填字段的最小合法 AppConfig,便于在用例中扩展

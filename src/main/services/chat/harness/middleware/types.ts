@@ -8,8 +8,8 @@
  *
  * Spec: docs/superpowers/specs/2026-07-21-agent-harness-design.md §2.2
  */
-import type { ChatMessage } from '@shared/types/chat'
-import type { HarnessContext, ToolExecutionResult } from '../HarnessContext'
+import type { ChatMessage, ChatResult } from '@shared/types/chat'
+import type { EngineKind, HarnessContext, ToolExecutionResult } from '../HarnessContext'
 
 /** OpenAI function 工具定义(简化,与现有 ToolDef 对齐) */
 export interface ToolDef {
@@ -42,7 +42,7 @@ export interface MutableModelRequest {
 
 /** 路由决策(resolveRoute 返回) */
 export interface RouteDecision {
-  engineKind: 'react' | 'plan_execute' | 'direct'
+  engineKind: EngineKind
   reason: string
 }
 
@@ -54,7 +54,7 @@ export type IterationDecision =
 
 /** run 结局 */
 export type RunOutcome =
-  | { kind: 'success'; result: unknown }
+  | { kind: 'success'; result: ChatResult }
   | { kind: 'error'; error: string }
   | { kind: 'aborted' }
 
