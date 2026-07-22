@@ -44,3 +44,7 @@ export type {
   IterationDecision,
   RunOutcome
 } from './middleware/types'
+
+export type { TraceEvent, TraceRecord, ComplexityScore } from './trace/TraceSchema'
+export { TraceRecorder } from './trace/TraceRecorder'
+export type { TraceRecorderOptions } from './trace/TraceRecorder'

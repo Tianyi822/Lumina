@@ -3,6 +3,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
 import type { HarnessContext, ToolCallRecord, BudgetState, EngineKind } from '../HarnessContext'
+import { TraceRecorder } from '../trace/TraceRecorder'
 
 test('HarnessContext 类型可导入且结构正确', () => {
   // 构造一个最小 ctx 验证类型(运行时不执行真实逻辑)
@@ -31,7 +32,12 @@ test('HarnessContext 类型可导入且结构正确', () => {
         userInteractionPending: false
       }
     },
-    trace: {} as never,
+    trace: new TraceRecorder({
+      requestId: 'r1',
+      sessionId: 's1',
+      sessionType: 'paper',
+      paperId: 'p1'
+    }),
     meta: {}
   } satisfies HarnessContext
 

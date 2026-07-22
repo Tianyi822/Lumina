@@ -7,6 +7,7 @@
  */
 import type { ChatMessage, TokenUsage } from '@shared/types/chat'
 import type { ResolvedHarnessConfig } from './config/HarnessConfig'
+import type { TraceRecorder } from './trace/TraceRecorder'
 
 /** 三条调度路径 */
 export type EngineKind = 'react' | 'plan_execute' | 'direct'
@@ -84,10 +85,8 @@ export interface HarnessContext {
 
   readonly state: HarnessState
 
-  /** trace 收集器,Task 8 替换为具体类型 */
-  readonly trace: {
-    log: (event: unknown) => void
-  }
+  /** trace 收集器(内存版 TraceRecorder,Task 11 接落盘 TraceWriter) */
+  readonly trace: TraceRecorder
 
   readonly meta: Record<string, unknown>
 }

@@ -29,9 +29,18 @@ test('createTestContext 支持 overrides', () => {
 
 test('trace.log 记录事件供断言', () => {
   const ctx = createTestContext()
-  ctx.trace.log({ event: 'test' })
-  ctx.trace.log({ event: 'another' })
-  // 夹具应暴露已记录事件(通过 meta 或专门字段)
-  const events = (ctx.trace as unknown as { __recorded: unknown[] }).__recorded
+  ctx.trace.log({
+    event: 'route_decided',
+    requestId: 'test-req-1',
+    engineKind: 'react',
+    reason: 'test'
+  })
+  ctx.trace.log({
+    event: 'run_finished',
+    requestId: 'test-req-1',
+    outcome: 'success',
+    durationMs: 100
+  })
+  const events = ctx.trace.getEvents()
   assert.equal(events.length, 2)
 })
