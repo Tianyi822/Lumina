@@ -103,6 +103,8 @@ interface ReactRequestRuntime {
 const DEFAULT_REACT_MAX_ITERATIONS = 30
 // ReAct 循环最小迭代次数
 const MIN_REACT_MAX_ITERATIONS = 1
+// ReAct 循环默认 Token 预算上限（累计 total_tokens）
+const DEFAULT_TOKEN_BUDGET = 60000
 const REACT_MAX_ITERATIONS_FINAL_PROMPT =
   '本轮 ReAct 工具推理已达到最大迭代次数。请不要再调用工具，基于以上工具结果给出当前可完成的最终回答；如果任务仍未完全完成，请明确说明已完成内容、限制原因和建议的下一步。'
 // 模型在达到迭代上限后未返回内容时的兜底回复
@@ -166,6 +168,8 @@ export class ReactLoopService {
     const { messages, modelKey, sessionId, turnId } = request
     // 规范化最大迭代次数，确保在有效范围内
     const maxReactIterations = this.normalizeMaxReactIterations(request.maxReactIterations)
+    // 解析 Token 预算上限，默认 60000；用于在模型陷入循环时强制收尾
+    const tokenBudget = this.normalizeTokenBudget(request.tokenBudget)
 
     this.logger.info('开始发送聊天消息（ReAct 模式）', 'main', {
       sessionId,
@@ -296,6 +300,33 @@ export class ReactLoopService {
             maxReactIterations,
             toolIterations,
             totalToolCallCount
+          })
+
+          const finalResult = await this.executeFinalReactResponse({
+            client,
+            llmConfig,
+            sessionId,
+            webContents,
+            request,
+            conversationMessages,
+            modelTranscript,
+            totalUsage,
+            iterations: toolIterations,
+            abortController,
+            turnId
+          })
+          modelCalls++
+          finalContent = finalResult.finalContent
+          break
+        }
+
+        // Token 预算熔断：累计 token 超过阈值时强制收尾，避免模型循环消耗
+        if (totalUsage.total_tokens >= tokenBudget) {
+          this.logger.warn('ReAct 循环 Token 预算耗尽，进入无工具收尾回复', 'main', {
+            sessionId,
+            tokenBudget,
+            toolIterations,
+            totalTokens: totalUsage.total_tokens
           })
 
           const finalResult = await this.executeFinalReactResponse({
@@ -882,6 +913,17 @@ export class ReactLoopService {
     }
 
     return Math.max(MIN_REACT_MAX_ITERATIONS, Math.floor(maxReactIterations))
+  }
+
+  /**
+   * 规范化 Token 预算上限，非有效数值时回退到默认预算
+   */
+  private normalizeTokenBudget(tokenBudget?: number): number {
+    if (typeof tokenBudget !== 'number' || !Number.isFinite(tokenBudget) || tokenBudget <= 0) {
+      return DEFAULT_TOKEN_BUDGET
+    }
+
+    return Math.floor(tokenBudget)
   }
 
   /**

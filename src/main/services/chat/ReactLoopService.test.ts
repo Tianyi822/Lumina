@@ -131,6 +131,54 @@ function createContentStream(content: string): AsyncIterable<StreamChunk> {
   ])
 }
 
+/**
+ * 构造一个带工具调用和 usage 的流（用于 Token 预算测试）
+ * usage 中的 total_tokens 会被 StreamProcessor 累加到 totalUsage
+ */
+function createToolCallStreamWithUsage(
+  index: number,
+  totalTokens: number
+): AsyncIterable<StreamChunk> {
+  return createStream([
+    {
+      id: `chunk-tool-${index}`,
+      object: 'chat.completion.chunk',
+      created: index,
+      model: 'model',
+      choices: [
+        {
+          index: 0,
+          delta: {
+            tool_calls: [
+              {
+                index: 0,
+                id: `call-${index}`,
+                type: 'function',
+                function: {
+                  name: 'mock__lookup',
+                  arguments: `{"i":${index}}`
+                }
+              }
+            ]
+          }
+        }
+      ]
+    } as StreamChunk,
+    {
+      id: `chunk-usage-${index}`,
+      object: 'chat.completion.chunk',
+      created: index,
+      model: 'model',
+      choices: [],
+      usage: {
+        prompt_tokens: Math.floor(totalTokens / 2),
+        completion_tokens: Math.ceil(totalTokens / 2),
+        total_tokens: totalTokens
+      }
+    } as StreamChunk
+  ])
+}
+
 function createHarness(options: HarnessOptions): Harness {
   const events: StreamEvent[] = []
   const createParams: StreamingParams[] = []
@@ -293,6 +341,35 @@ test('达到显式 ReAct 上限后追加一次无工具收尾回复', async () =
   assert.equal(result.success, true, result.error)
   assert.equal(result.finalContent, '上限收尾')
   assert.equal(harness.createParams.length, 3)
+  assert.equal(harness.createParams[2].tools, undefined)
+  assert.match(String(harness.createParams[2].messages.at(-1)?.content), /不要再调用工具/)
+})
+
+test('token 预算耗尽时触发强制收尾', async () => {
+  // 每轮模型返回 25000 token，预算设为 50000：第 2 轮后累计 50000 即触发熔断
+  const toolStreams = [
+    createToolCallStreamWithUsage(0, 25000),
+    createToolCallStreamWithUsage(1, 25000)
+  ]
+  const harness = createHarness({
+    streams: [...toolStreams, createContentStream('预算耗尽收尾')]
+  })
+  const request: ChatRequest = {
+    ...harness.request,
+    maxReactIterations: 30,
+    tokenBudget: 50000
+  }
+
+  const result = await harness.service.sendMessageWithReact(
+    request,
+    createWebContents(harness.events)
+  )
+
+  assert.equal(result.success, true, result.error)
+  assert.equal(result.finalContent, '预算耗尽收尾')
+  // 前两轮工具调用 + 第三轮无工具收尾 = 3 次模型请求
+  assert.equal(harness.createParams.length, 3)
+  // 收尾调用应不携带 tools（无工具）
   assert.equal(harness.createParams[2].tools, undefined)
   assert.match(String(harness.createParams[2].messages.at(-1)?.content), /不要再调用工具/)
 })
