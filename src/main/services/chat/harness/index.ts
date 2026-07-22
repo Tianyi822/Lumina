@@ -17,3 +17,14 @@ export type {
   EngineKind,
   SessionType
 } from './HarnessContext'
+
+export type {
+  HarnessMiddleware,
+  ToolDef,
+  ToolCall,
+  ToolChoice,
+  MutableModelRequest,
+  RouteDecision,
+  IterationDecision,
+  RunOutcome
+} from './middleware/types'
