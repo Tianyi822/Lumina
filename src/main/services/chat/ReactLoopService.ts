@@ -10,6 +10,7 @@ import type {
 import type { KnowledgeBaseReference } from '@shared/types/knowledge'
 import type { LLMConfig } from '../../types/config'
 import { promptBuilder } from './PromptBuilder'
+import { getFewShotExamples } from './prompts/fewShotExamples'
 import { formatMessagesWithKnowledge } from './message'
 import { ModelRetryHandler } from './ModelRetryHandler'
 import { MCPToolAdapter, UnifiedToolExecutor, UnifiedToolRegistry } from './tools'
@@ -221,7 +222,8 @@ export class ReactLoopService {
         reactRuntime.toolRegistry.getAllToolReferences(),
         {
           pipeline: reactRuntime.pipeline,
-          suggestableCapabilities: reactRuntime.suggestableCapabilities
+          suggestableCapabilities: reactRuntime.suggestableCapabilities,
+          fewShotExamples: getFewShotExamples(request.sessionType)
         }
       )
       // 构建对话消息列表（系统提示 + 用户历史消息 + 知识库结果）

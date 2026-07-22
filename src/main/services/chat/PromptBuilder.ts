@@ -14,10 +14,26 @@ export interface SuggestableCapability {
   description: string
 }
 
+/** Few-shot 示例中的工具调用描述 */
+export interface FewShotToolCall {
+  name: string
+  args: unknown
+}
+
+/** Few-shot 示例，用于在系统提示词中演示何时、如何选择工具 */
+export interface FewShotExample {
+  userQuery: string
+  reasoning: string
+  toolCalls: FewShotToolCall[]
+  answer: string
+}
+
 /** Prompt 构建上下文，携带管道信息和可建议能力列表 */
 export interface PromptBuildContext {
   pipeline?: ToolPipeline
   suggestableCapabilities?: SuggestableCapability[]
+  /** Few-shot 示例，注入到系统提示词末尾，帮助模型理解工具选择时机 */
+  fewShotExamples?: FewShotExample[]
 }
 
 /**
@@ -67,6 +83,11 @@ export class PromptBuilder {
     )
     if (suggestableCapabilities.length > 0) {
       prompt += '\n\n' + this.buildCapabilitySuggestionPrompt(suggestableCapabilities)
+    }
+
+    // Few-shot 示例放在所有现有段之后，帮助模型理解工具选择时机
+    if (context.fewShotExamples && context.fewShotExamples.length > 0) {
+      prompt += '\n\n' + this.buildFewShotPrompt(context.fewShotExamples)
     }
 
     return prompt
@@ -125,6 +146,35 @@ export class PromptBuilder {
     }
 
     return lines.join('\n')
+  }
+
+  /**
+   * 构建 Few-shot 示例提示词
+   * 通过具体示例展示「思考→工具选择→回答」的决策路径，改善模型的工具选择
+   */
+  buildFewShotPrompt(examples: FewShotExample[]): string {
+    if (examples.length === 0) return ''
+
+    const lines = [
+      '## 示例（Few-Shot）',
+      '',
+      '以下示例展示典型问题应如何思考、选择工具并组织回答。仅作决策参考，不要照搬内容。',
+      ''
+    ]
+
+    for (const ex of examples) {
+      lines.push(`### 用户：${ex.userQuery}`)
+      lines.push(`思考：${ex.reasoning}`)
+      const toolCallsText =
+        ex.toolCalls.length > 0
+          ? ex.toolCalls.map((t) => `${t.name}(${JSON.stringify(t.args)})`).join(', ')
+          : '（无需调用工具，直接回答）'
+      lines.push(`工具调用：${toolCallsText}`)
+      lines.push(`回答：${ex.answer}`)
+      lines.push('')
+    }
+
+    return lines.join('\n').trimEnd()
   }
 
   /**

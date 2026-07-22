@@ -255,3 +255,57 @@ test('每次构建使用独立的建议能力上下文', async () => {
 
   assert.doesNotMatch(prompt, /可建议的能力/)
 })
+
+// ===== few-shot 示例注入 =====
+
+test('few-shot 示例段在有工具时注入', async () => {
+  const builder = new PromptBuilder()
+  const prompt = await builder.buildSystemPrompt(true, [], {
+    fewShotExamples: [
+      {
+        userQuery: '帮我找这篇论文的方法部分',
+        reasoning: '需要搜索论文内容',
+        toolCalls: [{ name: 'paper__search_context', args: { query: '方法' } }],
+        answer: '论文方法部分在第3章...'
+      }
+    ]
+  })
+
+  assert.match(prompt, /## 示例/)
+  assert.match(prompt, /paper__search_context/)
+})
+
+test('few-shot 空列表不注入', async () => {
+  const builder = new PromptBuilder()
+  const prompt = await builder.buildSystemPrompt(true, [], { fewShotExamples: [] })
+
+  assert.doesNotMatch(prompt, /## 示例/)
+})
+
+test('few-shot 不影响其他段顺序', async () => {
+  // 验证 few-shot 段在所有现有段之后
+  const builder = new PromptBuilder()
+  const prompt = await builder.buildSystemPrompt(
+    true,
+    [{ serverName: 'paper', toolName: 'search_context', description: '', inputSchema: {} }],
+    {
+      fewShotExamples: [
+        {
+          userQuery: '解释这段方法',
+          reasoning: '先检索论文原文',
+          toolCalls: [{ name: 'paper__search_context', args: { query: '方法' } }],
+          answer: '该方法是...'
+        }
+      ]
+    }
+  )
+
+  const fewShotPos = prompt.indexOf('## 示例')
+  const lastExistingPos = Math.max(
+    prompt.lastIndexOf('核心指令'),
+    prompt.lastIndexOf('ReAct'),
+    prompt.lastIndexOf('论文内容检索工具')
+  )
+
+  assert.ok(fewShotPos > lastExistingPos, 'few-shot 应在现有段之后')
+})
