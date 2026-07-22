@@ -6,4 +6,14 @@
  *
  * 阶段 A:仅类型与基础设施,未接入主流程。
  */
-export {}
+export type {
+  HarnessContext,
+  HarnessState,
+  HarnessFlags,
+  ToolCallRecord,
+  IterationRecord,
+  BudgetState,
+  ToolExecutionResult,
+  EngineKind,
+  SessionType
+} from './HarnessContext'
