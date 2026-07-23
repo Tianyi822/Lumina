@@ -902,3 +902,28 @@ test('图片块保留在正文 markdown 中（不删除 img 标记）', () => {
   assert.match(readerMarkdown, /img src=['"]https:\/\/example\.com\/figure-inline\.png['"]/)
   assert.match(readerMarkdown, /Figure 1: Sample figure/)
 })
+
+test('正文图片带有 data-paper-figure-id 属性', () => {
+  const imageUrl = 'https://example.com/figure-id-test.png'
+  const pageResult: PaperPageOcrResult = {
+    paperId: 'paper-figid',
+    pageIndex: 0,
+    status: 'completed',
+    markdown: [
+      'Text before.',
+      `<img src='${imageUrl}' alt='OCR图片'/>`,
+      'Text after.'
+    ].join('\n\n'),
+    blocks: [
+      createTextBlock(0, 'Text before.'),
+      createImageBlock(1, imageUrl),
+      createTextBlock(2, 'Text after.')
+    ]
+  }
+
+  const extracted = extractFigures(pageResult)
+  const readerMarkdown = buildReaderMarkdown([pageResult], extracted)
+
+  // figure id 格式为 <groupId>:<blockIndex>，blockIndex=1
+  assert.match(readerMarkdown, /data-paper-figure-id="[^"]+:1"/)
+})

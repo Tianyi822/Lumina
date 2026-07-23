@@ -8,6 +8,7 @@ import type {
 } from '../../../shared/types/paper'
 import { parsePaperTranslationSegments } from '../../../shared/utils/paperTranslation'
 import {
+  getBlockImageSourceCandidates,
   getPlainText,
   isTableCaptionBlock
 } from './paperBlockClassifiers.ts'
@@ -484,7 +485,7 @@ function extractLeadingFloatingTableLayout(
 
 function buildReaderPageFragment(
   pageResult: PaperPageOcrResult,
-  figureData: Pick<ExtractedPaperFigureData, 'pageRemovalBlockIndexes' | 'pageRemovalGroups'>
+  figureData: Pick<ExtractedPaperFigureData, 'figures' | 'pageRemovalBlockIndexes' | 'pageRemovalGroups'>
 ): ReaderPageFragment {
   const removalIndexes = new Set(figureData.pageRemovalBlockIndexes[pageResult.pageIndex] || [])
 
@@ -493,6 +494,29 @@ function buildReaderPageFragment(
   // extractLeadingFloatingTableLayout / findBoundaryBlock 跳过图片块做文本锚点计算
   // （图片不是文本，不应参与锚点）。
   let pageMarkdown = pageResult.markdown
+
+  // 给正文图片注入 data-paper-figure-id，供前端点击图片时查找对应 figure
+  const pageFigures = figureData.figures.filter((f) => f.pageIndex === pageResult.pageIndex)
+  for (const figure of pageFigures) {
+    const block = pageResult.blocks.find((b) => b.index === figure.blockIndex)
+    if (!block) continue
+    const sources = getBlockImageSourceCandidates(block)
+    for (const source of sources) {
+      const escapedSource = escapeRegExp(source)
+      const imgPattern = new RegExp(
+        `(<img\\b[^>]*?\\bsrc=['"])(${escapedSource})(['"])`,
+        'i'
+      )
+      const injected = pageMarkdown.replace(
+        imgPattern,
+        `$1$2$3 data-paper-figure-id="${figure.id}"`
+      )
+      if (injected !== pageMarkdown) {
+        pageMarkdown = injected
+        break
+      }
+    }
+  }
 
   pageMarkdown = normalizeVisibleTextBlocks(pageMarkdown, pageResult.blocks, removalIndexes)
   pageMarkdown = mergeAdjacentTextBlocks(pageMarkdown, pageResult.blocks, removalIndexes)
@@ -672,7 +696,7 @@ function buildReaderSegments(
 export function buildReaderDocument(
   paperId: string,
   pageResults: PaperPageOcrResult[],
-  figureData: Pick<ExtractedPaperFigureData, 'pageRemovalBlockIndexes' | 'pageRemovalGroups'>
+  figureData: Pick<ExtractedPaperFigureData, 'figures' | 'pageRemovalBlockIndexes' | 'pageRemovalGroups'>
 ): PaperReaderDocument {
   const normalizedPageResults = normalizeReaderPageResults(pageResults)
   const markdown = buildReaderMarkdown(normalizedPageResults, figureData)
@@ -699,7 +723,7 @@ export function buildReaderDocument(
  */
 export function buildReaderMarkdown(
   pageResults: PaperPageOcrResult[],
-  figureData: Pick<ExtractedPaperFigureData, 'pageRemovalBlockIndexes' | 'pageRemovalGroups'>
+  figureData: Pick<ExtractedPaperFigureData, 'figures' | 'pageRemovalBlockIndexes' | 'pageRemovalGroups'>
 ): string {
   const normalizedPageResults = normalizeReaderPageResults(pageResults)
   let combinedMarkdown = ''
