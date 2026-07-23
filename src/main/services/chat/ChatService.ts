@@ -85,8 +85,12 @@ export class ChatService {
       hasPaperContextTool
 
     // 路由决策：Plan-Execute -> ReAct -> 直接调用（优先级依次降低）
-    // 只有显式开启规划模式时才进入 Plan-Execute；实验室开关仅注册工具能力
-    const isPlanMode = shouldUsePlanExecute(request)
+    // 显式开启规划模式 → Plan-Execute;否则按最后一条用户消息复杂度自动路由(仅 paper 会话)
+    const lastUserMessage = [...request.messages]
+      .reverse()
+      .find((m) => m.role === 'user' && typeof m.content === 'string')
+    const lastUserContent = lastUserMessage?.content ?? undefined
+    const isPlanMode = shouldUsePlanExecute({ ...request, content: lastUserContent })
     if (isPlanMode) {
       const result = await this.planExecuteService.sendMessageWithPlan(request, webContents)
       this.stopController.clearStoppedSession(sessionId)

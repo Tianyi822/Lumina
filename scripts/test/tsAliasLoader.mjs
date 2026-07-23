@@ -12,6 +12,13 @@ const aliasRoots = {
   '@renderer/': path.join(projectRoot, 'src', 'renderer', 'src')
 }
 
+// mcp 服务入口的真实绝对路径(用于将相对/别名导入匹配到 mcp 桩)
+const mcpServiceIndexPath = path.join(projectRoot, 'src', 'main', 'services', 'mcp', 'index.ts')
+
+function isMcpServicePath(resolvedPath) {
+  return Boolean(resolvedPath) && path.resolve(resolvedPath) === mcpServiceIndexPath
+}
+
 const electronStubModule = `
   import path from 'node:path'
   import { tmpdir } from 'node:os'
@@ -96,6 +103,43 @@ const configStubModule = `
 `
 
 const configStubUrl = `data:text/javascript,${encodeURIComponent(configStubModule)}`
+
+// mcp 服务桩:始终短路。
+// mcp 服务(@main/services/mcp)在模块加载时会实例化 MCPConfigManager 并拉起
+// @modelcontextprotocol/sdk,依赖 electron app、文件系统等主进程能力,在
+// node:test 下无法运行。此外 MCPConfigManager 对纯类型接口(MCPConfigFile)
+// 做了值导入,在 --experimental-strip-types 下会抛
+// "does not provide an export named 'MCPConfigFile'"。
+// ChatService 在模块顶层 `import { mcpService } from '../mcp'`,任何直接导入
+// ChatService 的测试都会触发该链路。与 electron/ssh2/logger/config 一致,
+// mcp 属于无法在 node:test 下运行的主进程依赖,统一桩化。chat 树对 mcp 的
+// 使用全部经构造器注入(ReactLoopService/PlanExecuteService 接收 mcpService
+// 作为 options),运行时并不依赖桩的具体行为。
+const mcpStubModule = `
+  const noop = () => []
+  const noopAsync = async () => ({ success: true })
+
+  export const mcpService = {
+    getAllTools: noop,
+    getConnectedServerNames: noop,
+    getTools: noop,
+    getConnectionStatus: () => undefined,
+    callTool: noopAsync,
+    connect: noopAsync,
+    disconnect: noopAsync,
+    reconnect: noopAsync,
+    setOnStatusChange: () => {}
+  }
+
+  export const mcpConfigManager = {
+    getConfig: () => ({ servers: {} }),
+    getAllConfigs: () => []
+  }
+
+  export default { mcpService, mcpConfigManager }
+`
+
+const mcpStubUrl = `data:text/javascript,${encodeURIComponent(mcpStubModule)}`
 
 const ssh2StubModule = `
   import { EventEmitter } from 'node:events'
@@ -294,6 +338,18 @@ export async function resolve(specifier, context, nextResolve) {
     }
   }
 
+  if (
+    specifier === '@main/services/mcp' ||
+    specifier.endsWith('/services/mcp') ||
+    specifier === '../mcp' ||
+    specifier === '../../mcp'
+  ) {
+    return {
+      shortCircuit: true,
+      url: mcpStubUrl
+    }
+  }
+
   for (const [prefix, baseDir] of Object.entries(aliasRoots)) {
     if (!specifier.startsWith(prefix)) {
       continue
@@ -302,6 +358,13 @@ export async function resolve(specifier, context, nextResolve) {
     const resolvedPath = resolveAliasPath(baseDir, specifier)
     if (!resolvedPath) {
       break
+    }
+
+    if (isMcpServicePath(resolvedPath)) {
+      return {
+        shortCircuit: true,
+        url: mcpStubUrl
+      }
     }
 
     return {
@@ -313,6 +376,12 @@ export async function resolve(specifier, context, nextResolve) {
   if (specifier.startsWith('./') || specifier.startsWith('../')) {
     const resolvedPath = resolveRelativePath(specifier, context.parentURL)
     if (resolvedPath) {
+      if (isMcpServicePath(resolvedPath)) {
+        return {
+          shortCircuit: true,
+          url: mcpStubUrl
+        }
+      }
       return {
         shortCircuit: true,
         url: pathToFileURL(resolvedPath).href
