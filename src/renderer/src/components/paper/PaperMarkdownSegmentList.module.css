@@ -438,6 +438,7 @@
   border-radius: 8px;
   margin: 16px auto;
   display: block;
+  cursor: pointer;
 }
 
 .paper-markdown-view__markdown :global(.paper-markdown-view__table-wrap) {
