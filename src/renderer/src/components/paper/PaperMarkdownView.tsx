@@ -10,6 +10,7 @@ import {
 import { usePaperViewStore } from '@renderer/stores/paper'
 import { usePaperAnnotationStore } from '@renderer/stores/paper'
 import { retranslateSegment } from '@renderer/stores/paper'
+import { usePaperFigureStore } from '@renderer/stores/paper/usePaperFigureStore'
 import { useNotification } from '@renderer/composables/useNotification'
 import type {
   PaperAnnotation,
@@ -471,9 +472,25 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
           return
         }
 
+        // 点击正文图片时打开 figure 预览窗口
+        const imgTarget = (event.target as HTMLElement).closest('img[data-paper-figure-id]')
+        if (imgTarget) {
+          const figureId = imgTarget.getAttribute('data-paper-figure-id')
+          if (figureId && paperId) {
+            const figure = usePaperFigureStore
+              .getState()
+              .figuresByPaperId[paperId]?.find((f) => f.id === figureId)
+            if (figure) {
+              usePaperFigureStore.getState().openFigurePreview(figure)
+              event.preventDefault()
+              return
+            }
+          }
+        }
+
         composer.handleSurfaceAnnotationClick(event.nativeEvent)
       },
-      [composer, lastDragEndedAt]
+      [composer, lastDragEndedAt, paperId]
     )
 
     // Retranslate handler
