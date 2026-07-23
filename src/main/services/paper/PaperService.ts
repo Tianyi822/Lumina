@@ -78,7 +78,7 @@ async function downloadCropImage(remoteUrl: string, localPath: string): Promise<
   }
 }
 
-const READER_DOCUMENT_BUILDER_VERSION = 1
+const READER_DOCUMENT_BUILDER_VERSION = 2
 
 interface ReaderDocumentPageSignature {
   pageIndex: number

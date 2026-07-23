@@ -11,7 +11,7 @@ import {
   extractFigures
 } from './paperFigureExtractor.testUtils.ts'
 
-test('图片块切开的英文续写正文会重新合并为同一段', () => {
+test('图片块保留在正文中时，图片前后的正文段各自独立（不再跨图片合并）', () => {
   const imageUrl = 'https://example.com/figure-continuation.png'
   const pageResult: PaperPageOcrResult = {
     paperId: 'paper-continuation',
@@ -38,15 +38,17 @@ test('图片块切开的英文续写正文会重新合并为同一段', () => {
   const extracted = extractFigures(pageResult)
   const readerMarkdown = buildReaderMarkdown([pageResult], extracted)
 
+  // 图片块保留后，正文段不再跨图片合并，但前后段各自保留，caption 也保留在原位
+  assert.match(readerMarkdown, /In the downstream task/)
   assert.match(
     readerMarkdown,
-    /In the downstream task of object detection, CNNs and Transformer structures are predominantly used\./
+    /of object detection, CNNs and Transformer structures are predominantly used\./
   )
-  assert.doesNotMatch(readerMarkdown, /task\s*\n\s*\n\s*of object detection/)
-  assert.doesNotMatch(readerMarkdown, /Figure 3:/)
+  assert.match(readerMarkdown, /Figure 3: Detection benchmark/)
+  assert.match(readerMarkdown, /img src=['"]https:\/\/example\.com\/figure-continuation\.png['"]/)
 })
 
-test('图片块结束后如果进入新段落，则保留段落分隔', () => {
+test('图片块保留在正文中时，图片前后的不同段落仍各自独立', () => {
   const imageUrl = 'https://example.com/figure-paragraph.png'
   const pageResult: PaperPageOcrResult = {
     paperId: 'paper-paragraph',
@@ -74,10 +76,11 @@ test('图片块结束后如果进入新段落，则保留段落分隔', () => {
   const extracted = extractFigures(pageResult)
   const readerMarkdown = buildReaderMarkdown([pageResult], extracted)
 
-  assert.match(
-    readerMarkdown,
-    /The method achieves strong results\.\n\nHowever, the training cost remains high\./
-  )
+  // 图片保留后，前后段落各自独立且都存在，caption 与图片标记也保留在原位
+  assert.match(readerMarkdown, /The method achieves strong results\./)
+  assert.match(readerMarkdown, /However, the training cost remains high\./)
+  assert.match(readerMarkdown, /Figure 4: Quantitative comparison/)
+  assert.match(readerMarkdown, /img src=['"]https:\/\/example\.com\/figure-paragraph\.png['"]/)
 })
 
 test('同页 OCR 断开的正文续写会重新合并为同一段', () => {
@@ -678,7 +681,7 @@ test('分页切开的连字符断词会无空格拼接', () => {
   assert.doesNotMatch(readerMarkdown, /self-\s+<!-- Page 2 -->\s+attention/)
 })
 
-test('连字符断词被图片切断时会无空格拼接', () => {
+test('连字符断词被图片切断时，图片保留在正文中不再跨图片拼接', () => {
   const imageUrl = 'https://example.com/figure-hyphen.png'
   const pageResult: PaperPageOcrResult = {
     paperId: 'paper-hyphen',
@@ -706,11 +709,14 @@ test('连字符断词被图片切断时会无空格拼接', () => {
   const extracted = extractFigures(pageResult)
   const readerMarkdown = buildReaderMarkdown([pageResult], extracted)
 
-  assert.match(readerMarkdown, /self-attention improves global modeling\./)
-  assert.doesNotMatch(readerMarkdown, /self-\s+attention/)
+  // 图片保留后，连字符断词不再跨图片拼接，前后片段与图片标记/caption 都保留在原位
+  assert.match(readerMarkdown, /self-/)
+  assert.match(readerMarkdown, /attention improves global modeling\./)
+  assert.match(readerMarkdown, /Figure 5: Attention map/)
+  assert.match(readerMarkdown, /img src=['"]https:\/\/example\.com\/figure-hyphen\.png['"]/)
 })
 
-test('页尾图片清理后，下一页正文续写仍会跨页合并', () => {
+test('页尾图片保留在正文后，下一页正文续写仍跨页合并到页尾内容', () => {
   const imageUrl = 'https://example.com/figure-page-merge.png'
   const pageResults: PaperPageOcrResult[] = [
     {
@@ -757,12 +763,13 @@ test('页尾图片清理后，下一页正文续写仍会跨页合并', () => {
   const figureData = extractFigureData(pageResults)
   const readerMarkdown = buildReaderMarkdown(pageResults, figureData)
 
+  // 图片保留后，页尾的 caption 与下一页续写正文仍跨页合并；图片标记与 caption 保留在原位
   assert.match(
     readerMarkdown,
-    /In the downstream task\s*<!-- Page 2 -->\s*of object detection, CNNs are predominantly used\./
+    /Figure 6: Detection benchmark[\s\S]*<!-- Page 2 -->[\s\S]*of object detection, CNNs are predominantly used\./
   )
-  assert.doesNotMatch(readerMarkdown, /Figure 6:/)
-  assert.doesNotMatch(readerMarkdown, /img src=/)
+  assert.match(readerMarkdown, /img src=['"]https:\/\/example\.com\/figure-page-merge\.png['"]/)
+  assert.match(readerMarkdown, /In the downstream task/)
 })
 
 test('页首表格打断的跨页续写会先接正文再回插表格', () => {
@@ -867,4 +874,56 @@ test('页首表格后若不是续写正文则保持原始顺序', () => {
 
   assert.ok(tableIndex >= 0)
   assert.ok(nextParagraphIndex > tableIndex)
+})
+
+test('图片块保留在正文 markdown 中（不删除 img 标记）', () => {
+  const imageUrl = 'https://example.com/figure-inline.png'
+  const pageResult: PaperPageOcrResult = {
+    paperId: 'paper-inline',
+    pageIndex: 0,
+    status: 'completed',
+    markdown: [
+      'First paragraph before figure.',
+      `<div style='text-align: center;'><img src='${imageUrl}' alt='OCR图片'/></div>`,
+      '<div align="center">\n\nFigure 1: Sample figure.\n\n</div>',
+      'Second paragraph after figure.'
+    ].join('\n\n'),
+    blocks: [
+      createTextBlock(0, 'First paragraph before figure.'),
+      createImageBlock(1, imageUrl),
+      createTextBlock(2, '<div align="center">\n\nFigure 1: Sample figure.\n\n</div>'),
+      createTextBlock(3, 'Second paragraph after figure.', { x: 120, y: 620, width: 680, height: 40 })
+    ]
+  }
+
+  const extracted = extractFigures(pageResult)
+  const readerMarkdown = buildReaderMarkdown([pageResult], extracted)
+
+  assert.match(readerMarkdown, /img src=['"]https:\/\/example\.com\/figure-inline\.png['"]/)
+  assert.match(readerMarkdown, /Figure 1: Sample figure/)
+})
+
+test('正文图片带有 data-paper-figure-id 属性', () => {
+  const imageUrl = 'https://example.com/figure-id-test.png'
+  const pageResult: PaperPageOcrResult = {
+    paperId: 'paper-figid',
+    pageIndex: 0,
+    status: 'completed',
+    markdown: [
+      'Text before.',
+      `<img src='${imageUrl}' alt='OCR图片'/>`,
+      'Text after.'
+    ].join('\n\n'),
+    blocks: [
+      createTextBlock(0, 'Text before.'),
+      createImageBlock(1, imageUrl),
+      createTextBlock(2, 'Text after.')
+    ]
+  }
+
+  const extracted = extractFigures(pageResult)
+  const readerMarkdown = buildReaderMarkdown([pageResult], extracted)
+
+  // figure id 格式为 <groupId>:<blockIndex>，blockIndex=1
+  assert.match(readerMarkdown, /data-paper-figure-id="[^"]+:1"/)
 })

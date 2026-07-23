@@ -43,8 +43,8 @@ test('单图与主图注可以正确提取并从阅读版正文移除', () => {
   const readerMarkdown = buildReaderMarkdown([pageResult], extracted)
   assert.match(readerMarkdown, /前置正文。/)
   assert.match(readerMarkdown, /后置正文。/)
-  assert.doesNotMatch(readerMarkdown, /Figure 1:/)
-  assert.doesNotMatch(readerMarkdown, /img src=/)
+  assert.match(readerMarkdown, /Figure 1: Overview of the method/)
+  assert.match(readerMarkdown, /img src=['"]https:\/\/example\.com\/figure-1\.png['"]/)
 })
 
 test('多图共享同一主图注时不会把正文错误并入图注块', () => {
@@ -102,10 +102,14 @@ test('多图共享同一主图注时不会把正文错误并入图注块', () =>
   assert.equal(extracted.figures[1].subCaption, '(b) Decoder branch')
 
   const readerMarkdown = buildReaderMarkdown([pageResult], extracted)
-  assert.match(readerMarkdown, /The network is composed of two branches\./)
-  assert.doesNotMatch(readerMarkdown, /Encoder branch/)
-  assert.doesNotMatch(readerMarkdown, /Decoder branch/)
-  assert.doesNotMatch(readerMarkdown, /Figure 2:/)
+  // 图片块保留后，前后正文不再跨图片合并；子图注、主图注与图片标记都保留在正文中
+  assert.match(readerMarkdown, /The network is composed of/)
+  assert.match(readerMarkdown, /two branches\./)
+  assert.match(readerMarkdown, /\(a\) Encoder branch/)
+  assert.match(readerMarkdown, /\(b\) Decoder branch/)
+  assert.match(readerMarkdown, /Figure 2: Architecture details/)
+  assert.match(readerMarkdown, /img src=['"]https:\/\/example\.com\/figure-2a\.png['"]/)
+  assert.match(readerMarkdown, /img src=['"]https:\/\/example\.com\/figure-2b\.png['"]/)
 })
 
 test('首页标题中的装饰图片不会被错误收集进图库', () => {
@@ -196,8 +200,8 @@ test('无主图注时可以按图片组落地并保留后续正文', () => {
 
   const readerMarkdown = buildReaderMarkdown([pageResult], extracted)
   assert.match(readerMarkdown, /这里开始恢复正文内容。/)
-  assert.doesNotMatch(readerMarkdown, /Target Domain/)
-  assert.doesNotMatch(readerMarkdown, /img src=/)
+  assert.match(readerMarkdown, /Target Domain/)
+  assert.match(readerMarkdown, /img src=['"]https:\/\/example\.com\/figure-3\.png['"]/)
 })
 
 test('图片块只在 content 中提供远程 URL 时也能作为图片源处理', () => {
@@ -215,5 +219,5 @@ test('图片块只在 content 中提供远程 URL 时也能作为图片源处理
   assert.equal(extracted.figures[0].imagePath, imageUrl)
 
   const readerMarkdown = buildReaderMarkdown([pageResult], extracted)
-  assert.doesNotMatch(readerMarkdown, /img src=/)
+  assert.match(readerMarkdown, /img src=['"]https:\/\/example\.com\/figure-4\.png['"]/)
 })
