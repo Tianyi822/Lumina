@@ -25,7 +25,6 @@ import type {
   BlockOccurrence,
   ExtractedPaperFigureData,
   ReaderPageFragment,
-  ReplaceBlockResult,
   TextRunReplacement
 } from './paperFigureExtractorTypes.ts'
 
@@ -38,98 +37,6 @@ interface ReaderVisibleBlockOccurrence {
 
 function escapeRegExp(content: string): string {
   return content.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-}
-
-function replaceLiteral(
-  markdown: string,
-  searchValue: string,
-  replacement: string
-): ReplaceBlockResult {
-  const matchIndex = markdown.indexOf(searchValue)
-  if (matchIndex < 0) {
-    return { markdown, replaced: false }
-  }
-
-  return {
-    markdown:
-      markdown.slice(0, matchIndex) + replacement + markdown.slice(matchIndex + searchValue.length),
-    replaced: true
-  }
-}
-
-function replaceImageBlock(
-  markdown: string,
-  block: PaperLayoutBlock,
-  replacement: string
-): ReplaceBlockResult {
-  for (const source of getBlockImageSourceCandidates(block)) {
-    const escapedSource = escapeRegExp(source)
-    const patterns = [
-      new RegExp(
-        `<div[^>]*>\\s*<img\\b[^>]*src=['"]${escapedSource}['"][^>]*\\/?>(?:\\s*</img>)?\\s*</div>`,
-        'i'
-      ),
-      new RegExp(`<img\\b[^>]*src=['"]${escapedSource}['"][^>]*\\/?>(?:\\s*</img>)?`, 'i'),
-      new RegExp(`!\\[[^\\]]*\\]\\(${escapedSource}\\)`, 'i')
-    ]
-
-    for (const pattern of patterns) {
-      const nextMarkdown = markdown.replace(pattern, replacement)
-      if (nextMarkdown !== markdown) {
-        return { markdown: nextMarkdown, replaced: true }
-      }
-    }
-  }
-
-  return { markdown, replaced: false }
-}
-
-function replaceNonImageBlock(
-  markdown: string,
-  block: PaperLayoutBlock,
-  replacement: string
-): ReplaceBlockResult {
-  if (!block.content) {
-    return { markdown, replaced: false }
-  }
-
-  return replaceLiteral(markdown, block.content, replacement)
-}
-
-function replaceBlockWithToken(
-  markdown: string,
-  block: PaperLayoutBlock,
-  replacement: string
-): ReplaceBlockResult {
-  return block.label === 'image'
-    ? replaceImageBlock(markdown, block, replacement)
-    : replaceNonImageBlock(markdown, block, replacement)
-}
-
-function replaceRemovalGroupWithToken(
-  markdown: string,
-  pageBlocks: PaperLayoutBlock[],
-  blockIndexes: Set<number>,
-  token: string
-): string {
-  let nextMarkdown = markdown
-  let insertedToken = false
-
-  for (const block of pageBlocks) {
-    if (!blockIndexes.has(block.index)) {
-      continue
-    }
-
-    const result = replaceBlockWithToken(nextMarkdown, block, insertedToken ? '' : token)
-    if (!result.replaced) {
-      continue
-    }
-
-    nextMarkdown = result.markdown
-    insertedToken = true
-  }
-
-  return nextMarkdown
 }
 
 function replaceTokenWithGap(markdown: string, token: string, replacement: string): string {
@@ -578,57 +485,37 @@ function extractLeadingFloatingTableLayout(
 
 function buildReaderPageFragment(
   pageResult: PaperPageOcrResult,
-  figureData: Pick<ExtractedPaperFigureData, 'pageRemovalBlockIndexes' | 'pageRemovalGroups'>
+  figureData: Pick<ExtractedPaperFigureData, 'figures' | 'pageRemovalBlockIndexes' | 'pageRemovalGroups'>
 ): ReaderPageFragment {
   const removalIndexes = new Set(figureData.pageRemovalBlockIndexes[pageResult.pageIndex] || [])
-  const blockPositions = new Map(
-    pageResult.blocks.map((block, position) => [block.index, position] as const)
-  )
-  const removalGroups = [...(figureData.pageRemovalGroups[pageResult.pageIndex] || [])].sort(
-    (left, right) =>
-      (blockPositions.get(left.startBlockIndex) ?? Number.MAX_SAFE_INTEGER) -
-      (blockPositions.get(right.startBlockIndex) ?? Number.MAX_SAFE_INTEGER)
-  )
 
+  // 图片块保留在正文中（inline 显示），不再删除 <img> 标记。
+  // removalIndexes 仍用于 normalizeVisibleTextBlocks / mergeAdjacentTextBlocks /
+  // extractLeadingFloatingTableLayout / findBoundaryBlock 跳过图片块做文本锚点计算
+  // （图片不是文本，不应参与锚点）。
   let pageMarkdown = pageResult.markdown
-  const gapReplacements: Array<{ token: string; replacement: string }> = []
 
-  for (let groupIndex = 0; groupIndex < removalGroups.length; groupIndex += 1) {
-    const group = removalGroups[groupIndex]
-    const startPosition = blockPositions.get(group.startBlockIndex)
-    const endPosition = blockPositions.get(group.endBlockIndex)
-    if (startPosition === undefined || endPosition === undefined) {
-      continue
+  // 给正文图片注入 data-paper-figure-id，供前端点击图片时查找对应 figure
+  const pageFigures = figureData.figures.filter((f) => f.pageIndex === pageResult.pageIndex)
+  for (const figure of pageFigures) {
+    const block = pageResult.blocks.find((b) => b.index === figure.blockIndex)
+    if (!block) continue
+    const sources = getBlockImageSourceCandidates(block)
+    for (const source of sources) {
+      const escapedSource = escapeRegExp(source)
+      const imgPattern = new RegExp(
+        `(<img\\b[^>]*?\\bsrc=['"])(${escapedSource})(['"])`,
+        'i'
+      )
+      const injected = pageMarkdown.replace(
+        imgPattern,
+        `$1$2$3 data-paper-figure-id="${figure.id}"`
+      )
+      if (injected !== pageMarkdown) {
+        pageMarkdown = injected
+        break
+      }
     }
-
-    const previousBlock = findNeighborBlock(
-      pageResult.blocks,
-      startPosition - 1,
-      -1,
-      removalIndexes
-    )
-    const nextBlock = findNeighborBlock(pageResult.blocks, endPosition + 1, 1, removalIndexes)
-    const token = `__PAPER_FIGURE_GAP_${pageResult.pageIndex}_${groupIndex}__`
-
-    pageMarkdown = replaceRemovalGroupWithToken(
-      pageMarkdown,
-      pageResult.blocks,
-      new Set(group.blockIndexes),
-      token
-    )
-
-    gapReplacements.push({
-      token,
-      replacement: getBodyBlockGapReplacement(previousBlock, nextBlock)
-    })
-  }
-
-  for (const gapReplacement of gapReplacements) {
-    pageMarkdown = replaceTokenWithGap(
-      pageMarkdown,
-      gapReplacement.token,
-      gapReplacement.replacement
-    )
   }
 
   pageMarkdown = normalizeVisibleTextBlocks(pageMarkdown, pageResult.blocks, removalIndexes)
@@ -809,7 +696,7 @@ function buildReaderSegments(
 export function buildReaderDocument(
   paperId: string,
   pageResults: PaperPageOcrResult[],
-  figureData: Pick<ExtractedPaperFigureData, 'pageRemovalBlockIndexes' | 'pageRemovalGroups'>
+  figureData: Pick<ExtractedPaperFigureData, 'figures' | 'pageRemovalBlockIndexes' | 'pageRemovalGroups'>
 ): PaperReaderDocument {
   const normalizedPageResults = normalizeReaderPageResults(pageResults)
   const markdown = buildReaderMarkdown(normalizedPageResults, figureData)
@@ -836,7 +723,7 @@ export function buildReaderDocument(
  */
 export function buildReaderMarkdown(
   pageResults: PaperPageOcrResult[],
-  figureData: Pick<ExtractedPaperFigureData, 'pageRemovalBlockIndexes' | 'pageRemovalGroups'>
+  figureData: Pick<ExtractedPaperFigureData, 'figures' | 'pageRemovalBlockIndexes' | 'pageRemovalGroups'>
 ): string {
   const normalizedPageResults = normalizeReaderPageResults(pageResults)
   let combinedMarkdown = ''

@@ -447,6 +447,8 @@ export interface ChatRequest {
   selectedKnowledgeBases?: KnowledgeBaseReference[]
   /** ReAct 工具推理的最大迭代次数，默认 30 次；达到上限后会追加一次无工具收尾回复 */
   maxReactIterations?: number
+  /** ReAct 循环 Token 预算上限（累计 total_tokens），默认 60000；超过后触发无工具收尾回复 */
+  tokenBudget?: number
   /** 是否启用实验室管理工具 */
   enableLabTools?: boolean
   /** 会话激活的实验室学科（启用实验室工具时传入） */

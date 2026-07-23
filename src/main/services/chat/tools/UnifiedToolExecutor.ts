@@ -14,6 +14,76 @@ import { toolStatsCollector } from './ToolStatsCollector'
 const FORCED_SEQUENTIAL_TOOLS = new Set(['lab__ask_user'])
 
 /**
+ * 连续重复调用拦截阈值：同一 sessionId 内连续相同参数（规范化后）
+ * 的工具调用达到此次数即拦截，避免模型陷入死循环（spec §4.4）。
+ */
+const MAX_REPEATED = 3
+
+/**
+ * 重复检测白名单：轮询/分页/检索类工具的重复调用是合理的业务行为，不应拦截。
+ */
+const DUPLICATE_WHITELIST = new Set([
+  'lab__stats',
+  'lab__list',
+  'paper__read_page',
+  'knowledge__search'
+])
+
+/**
+ * 规范化参数值：递归处理对象/数组，使等价参数产生相同字符串。
+ * - 对象 key 排序
+ * - 字符串：trim + lowercase
+ * - 路径类字符串：去尾斜杠（识别 path/file/dir/url 等常见 key）
+ */
+function normalizeValue(value: unknown, keyHint?: string): unknown {
+  if (value === null || value === undefined) {
+    return null
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => normalizeValue(item))
+  }
+  if (typeof value === 'object') {
+    const sortedKeys = Object.keys(value as Record<string, unknown>).sort()
+    const result: Record<string, unknown> = {}
+    for (const key of sortedKeys) {
+      result[key] = normalizeValue((value as Record<string, unknown>)[key], key)
+    }
+    return result
+  }
+  if (typeof value === 'string') {
+    let normalized = value.trim().toLowerCase()
+    // 路径类参数：去掉尾部斜杠（/tmp/a/ == /tmp/a）
+    if (keyHint && /^(path|file|dir|directory|url|src|dst|dest|target)$/i.test(keyHint)) {
+      normalized = normalized.replace(/\/+$/, '')
+    }
+    return normalized
+  }
+  return value
+}
+
+/**
+ * 计算工具调用的规范化参数 hash（FNV-1a 32 位）。
+ * 同一工具 + 等价参数（对象 key 顺序无关、路径尾斜杠无关、字符串大小写无关）必产生相同 hash。
+ * 纯函数，可独立测试。
+ */
+export function computeArgsHash(toolName: string, args: unknown): string {
+  const normalized = {
+    tool: toolName,
+    args: normalizeValue(args)
+  }
+  const str = JSON.stringify(normalized)
+  // FNV-1a 32 位
+  let hash = 0x811c9dc5
+  for (let i = 0; i < str.length; i++) {
+    hash ^= str.charCodeAt(i)
+    // 等价于 hash * 16777619，用 Math.imul 保持 32 位语义
+    hash = Math.imul(hash, 0x01000193)
+  }
+  // 转为无符号 16 进制
+  return (hash >>> 0).toString(16).padStart(8, '0')
+}
+
+/**
  * 工具调用定义（兼容 OpenAI 工具调用格式）
  */
 export interface ToolCallDefinition {
@@ -102,6 +172,13 @@ export class UnifiedToolExecutor {
   private readonly pendingUserInteraction: Set<string>
   private readonly maxConcurrency: number
 
+  /**
+   * per-session 连续重复调用检测状态。
+   * key = sessionId，value = 上一次非白名单工具调用的规范化 hash 及连续次数。
+   * 当连续相同 hash 达到 MAX_REPEATED 时拦截，防止死循环（spec §4.4）。
+   */
+  private readonly duplicateState: Map<string, { hash: string; count: number }> = new Map()
+
   constructor(options: UnifiedToolExecutorOptions) {
     this.logger = options.logger
     this.registry = options.registry
@@ -131,6 +208,25 @@ export class UnifiedToolExecutor {
     turnId?: string
   ): Promise<ToolExecutionSummary> {
     this.checkStopped(sessionId)
+
+    // 连续重复调用检测（spec §4.4）：在依赖分析之前拦截，避免死循环
+    const blocked = this.checkDuplicate(toolCalls, webContents, sessionId, turnId)
+    if (blocked) {
+      // 被拦截的调用仍写入对话上下文，让模型感知到"该换思路了"
+      for (const result of blocked.results) {
+        conversationMessages.push({
+          role: 'tool',
+          tool_call_id: result.toolCallId,
+          content: result.content
+        })
+      }
+      return {
+        needUserInteraction: false,
+        failedToolCount: blocked.results.length,
+        errors: blocked.results.map((r) => r.error || '[duplicate] 连续重复调用'),
+        results: blocked.results
+      }
+    }
 
     const { independent, sequential } = this.analyzeDependencies(toolCalls)
     const results: ToolExecutionResult[] = []
@@ -266,6 +362,97 @@ export class UnifiedToolExecutor {
   }
 
   // ========== 内部实现 ==========
+
+  /**
+   * 检测连续重复调用（spec §4.4）
+   *
+   * 策略：以本轮 toolCalls 的规范化签名（工具名 + 参数 hash，白名单工具跳过）
+   * 与上一次记录比对。相同则累计 count，达到 MAX_REPEATED 即拦截并返回结构化错误；
+   * 不同则重置为新的签名（被其他工具穿插后自动恢复）。
+   *
+   * 只针对"连续相同签名"拦截；同轮内多工具调用按整体签名判定，
+   * 避免误伤合法的并行调用。
+   *
+   * @returns 拦截结果（含 [duplicate] 错误），未拦截时返回 null
+   */
+  private checkDuplicate(
+    toolCalls: ToolCallDefinition[],
+    webContents: WebContents,
+    sessionId: string,
+    turnId?: string
+  ): { results: ToolExecutionResult[] } | null {
+    if (toolCalls.length === 0) {
+      return null
+    }
+
+    // 计算本轮签名：用所有非白名单工具调用的 hash 组合，保证整体语义稳定
+    const signatureParts: string[] = []
+    let hasNonWhitelisted = false
+    for (const tc of toolCalls) {
+      const name = tc.function.name
+      if (DUPLICATE_WHITELIST.has(name)) {
+        // 白名单工具参与签名（保持稳定），但不触发拦截逻辑
+        signatureParts.push(`wl:${name}`)
+        continue
+      }
+      hasNonWhitelisted = true
+      const parsedArgs = this.parseArguments(tc.function.arguments)
+      signatureParts.push(computeArgsHash(name, parsedArgs))
+    }
+
+    // 本轮全为白名单工具：不参与重复检测，直接放行
+    if (!hasNonWhitelisted) {
+      return null
+    }
+
+    const signature = signatureParts.join('|')
+    const state = this.duplicateState.get(sessionId)
+    if (state && state.hash === signature) {
+      state.count += 1
+      if (state.count > MAX_REPEATED) {
+        this.logger.warn('拦截连续重复工具调用（疑似死循环）', 'main', {
+          sessionId,
+          signature,
+          count: state.count,
+          toolNames: toolCalls.map((tc) => tc.function.name)
+        })
+        const results = toolCalls.map((tc) => {
+          const error =
+            `[duplicate] 连续重复调用 "${tc.function.name}" 已达 ${state.count} 次，` +
+            '疑似陷入死循环。请改用不同参数或更换思路（例如先检查状态、分步操作或换用其他工具）。'
+          // 发送 tool_call 事件，保持与正常执行路径一致的 tool_call→tool_result 配对
+          const blockedArgs = this.parseArguments(tc.function.arguments)
+          const blockedRegistered = this.registry.getTool(tc.function.name)
+          this.sendStreamEvent(webContents, {
+            type: 'tool_call',
+            sessionId,
+            turnId,
+            toolCall: {
+              id: tc.id,
+              name: blockedRegistered?.functionDef.name ?? tc.function.name,
+              serverName: blockedRegistered?.serverName ?? tc.function.name,
+              arguments: blockedArgs
+            }
+          })
+          // 对模型友好的结构化错误
+          this.sendErrorToolResult(webContents, sessionId, tc.id, tc.function.name, error, turnId)
+          return {
+            toolCallId: tc.id,
+            toolName: tc.function.name,
+            content: JSON.stringify({ error, duplicate: true, count: state.count }),
+            success: false,
+            error
+          }
+        })
+        return { results }
+      }
+    } else {
+      // 签名变化（不同参数/不同工具/被穿插打断）：重置计数
+      this.duplicateState.set(sessionId, { hash: signature, count: 1 })
+    }
+
+    return null
+  }
 
   /**
    * 执行单个工具调用（统一调度入口）
