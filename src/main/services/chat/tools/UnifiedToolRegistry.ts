@@ -81,7 +81,7 @@ export interface RegisteredTool {
   registeredAt: Date
   /** 当前可用状态 */
   status: 'available' | 'unavailable'
-  /** 执行超时时间（ms），lab 默认 180s，其他 60s */
+  /** 执行超时时间（ms），统一 60s */
   timeoutMs: number
 }
 
@@ -269,7 +269,7 @@ export class UnifiedToolRegistry {
   }
 
   /**
-   * 对非 lab/knowledge/paper 的工具进行描述增强
+   * 对非 knowledge/paper 的工具进行描述增强
    * 内置工具的描述已人工优化，不需要再次增强
    */
   private enhanceDescriptionsByCategory(
