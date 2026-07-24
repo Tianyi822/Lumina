@@ -188,7 +188,7 @@ export class UnifiedToolRegistry {
 
   /**
    * 构建 OpenAI tools 定义数组
-   * 从注册表中直接生成，按类别添加前缀（lab__、knowledge__、paper__、paper_web__），
+   * 从注册表中直接生成，按类别添加前缀（knowledge__、paper__、paper_web__），
    * 并对 MCP 工具进行安全名称处理和描述增强
    */
   buildOpenAITools(): OpenAI.Chat.Completions.ChatCompletionTool[] {

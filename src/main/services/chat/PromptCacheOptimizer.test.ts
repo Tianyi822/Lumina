@@ -18,7 +18,6 @@ function createRequest(messages: ChatRequest['messages']): ChatRequest {
     sessionId: 'session-cache-test',
     sessionType: 'paper',
     paperId: 'paper-001',
-    enableLabTools: true,
     selectedTools: [
       {
         serverName: 'mock',

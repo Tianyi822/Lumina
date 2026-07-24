@@ -103,7 +103,6 @@ function createRequest(): ChatRequest {
     modelKey: 'test-model',
     sessionId: 'session-plan-test',
     turnId: 'turn-plan-test',
-    enableLabTools: true,
     sessionType: 'paper'
   }
 }
@@ -151,7 +150,7 @@ test('计划步骤会把实验室标识和预览地址传递给后续步骤', as
         toolResults: [
           {
             toolCallId: 'call-create',
-            toolName: 'lab__create_frontend_lab',
+            toolName: 'paper__read_page',
             success: true,
             content: JSON.stringify([
               {
@@ -206,7 +205,7 @@ test('计划步骤会保留非零退出码命令的 stderr 作为后续观察', 
         toolResults: [
           {
             toolCallId: 'call-exec',
-            toolName: 'lab__exec_command',
+            toolName: 'paper__search_context',
             success: true,
             content: JSON.stringify([
               {
