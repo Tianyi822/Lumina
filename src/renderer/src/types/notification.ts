@@ -13,8 +13,6 @@ export interface NotificationAction {
 
 /** 通知来源模块 */
 export type NotificationSource =
-  | 'lab'
-  | 'creator'
   | 'config'
   | 'settings'
   | 'knowledge'

@@ -2,7 +2,6 @@ import { useCallback, useMemo, useRef, useState } from 'react'
 import type { MutableRefObject } from 'react'
 import type { KnowledgeBase, MCPTool, Message, SessionData } from '@renderer/types'
 import type { PaperDocument } from '@shared/types/paper'
-import type { LabDisciplineId } from '@shared/types/config'
 import { ensurePaperChatSession } from '@renderer/stores/paper'
 import { usePaperChatMessageCacheStore } from '@renderer/stores'
 import { messageToSessionMessage, sessionMessageToMessage } from '@renderer/utils/messageHelpers'
@@ -17,10 +16,7 @@ interface UsePaperChatSessionReactReturn {
   selectedModel: string
   selectedMCPTools: MCPTool[]
   selectedKnowledgeBases: KnowledgeBase[]
-  enableLabTools: boolean
   enablePaperWebSearch: boolean
-  activeLabDiscipline: LabDisciplineId | null
-  activeLabId: string | null
   loading: boolean
   error: string
   ensureSession: () => Promise<SessionData | null>
@@ -32,9 +28,7 @@ interface UsePaperChatSessionReactReturn {
   updateSelectedModel: (value: string) => void
   updateSelectedTools: (value: MCPTool[]) => void
   updateSelectedKnowledgeBases: (value: KnowledgeBase[]) => void
-  updateEnableLabTools: (value: boolean) => void
   updateEnablePaperWebSearch: (value: boolean) => void
-  updateLabSelection: (discipline: LabDisciplineId | null, labId: string | null) => void
   setError: (message: string) => void
 }
 
@@ -66,10 +60,7 @@ export function usePaperChatSessionReact(
   const [selectedModel, setSelectedModel] = useState('')
   const [selectedMCPTools, setSelectedMCPTools] = useState<MCPTool[]>([])
   const [selectedKnowledgeBases, setSelectedKnowledgeBases] = useState<KnowledgeBase[]>([])
-  const [enableLabTools, setEnableLabTools] = useState(false)
   const [enablePaperWebSearch, setEnablePaperWebSearch] = useState(false)
-  const [activeLabDiscipline, setActiveLabDiscipline] = useState<LabDisciplineId | null>(null)
-  const [activeLabId, setActiveLabId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setErrorState] = useState('')
 
@@ -81,10 +72,7 @@ export function usePaperChatSessionReact(
     selectedModel,
     selectedMCPTools,
     selectedKnowledgeBases,
-    enableLabTools,
-    enablePaperWebSearch,
-    activeLabDiscipline,
-    activeLabId
+    enablePaperWebSearch
   })
 
   paperRef.current = paper
@@ -93,10 +81,7 @@ export function usePaperChatSessionReact(
     selectedModel,
     selectedMCPTools,
     selectedKnowledgeBases,
-    enableLabTools,
-    enablePaperWebSearch,
-    activeLabDiscipline,
-    activeLabId
+    enablePaperWebSearch
   }
 
   const sessionId = useMemo(() => session?.sessionId || '', [session])
@@ -124,11 +109,8 @@ export function usePaperChatSessionReact(
         selectionState: {
           selectedMCPTools: selection.selectedMCPTools,
           selectedKnowledgeBases: selection.selectedKnowledgeBases,
-          enableLabTools: selection.enableLabTools,
           selectedModel: selection.selectedModel,
-          enablePaperWebSearch: selection.enablePaperWebSearch,
-          activeLabDiscipline: selection.activeLabDiscipline,
-          activeLabId: selection.activeLabId
+          enablePaperWebSearch: selection.enablePaperWebSearch
         }
       }
 
@@ -170,10 +152,7 @@ export function usePaperChatSessionReact(
       setMessages(removeLegacyPaperFulltextMessages(nextMessages))
       setSelectedMCPTools(nextSession.selectionState?.selectedMCPTools || [])
       setSelectedKnowledgeBases(nextSession.selectionState?.selectedKnowledgeBases || [])
-      setEnableLabTools(nextSession.selectionState?.enableLabTools || false)
       setEnablePaperWebSearch(nextSession.selectionState?.enablePaperWebSearch || false)
-      setActiveLabDiscipline(nextSession.selectionState?.activeLabDiscipline ?? null)
-      setActiveLabId(nextSession.selectionState?.activeLabId ?? null)
       setSelectedModel(nextSession.selectionState?.selectedModel || '')
     },
     [setMessages]
@@ -261,37 +240,10 @@ export function usePaperChatSessionReact(
     [persistSelection]
   )
 
-  // 注意：updateEnableLabTools 可独立关闭 enableLabTools 而不清空 activeLabDiscipline，
-  // 即可能出现 discipline 有值但 enableLabTools=false 的状态。
-  // ChatRequest 组装时的优先级由 Task 14 的 usePaperChatStreamReact 决定。
-  const updateEnableLabTools = useCallback(
-    (value: boolean): void => {
-      setEnableLabTools(value)
-      selectionRef.current.enableLabTools = value
-      persistSelection()
-    },
-    [persistSelection]
-  )
-
   const updateEnablePaperWebSearch = useCallback(
     (value: boolean): void => {
       setEnablePaperWebSearch(value)
       selectionRef.current.enablePaperWebSearch = value
-      persistSelection()
-    },
-    [persistSelection]
-  )
-
-  const updateLabSelection = useCallback(
-    (discipline: LabDisciplineId | null, labId: string | null): void => {
-      setActiveLabDiscipline(discipline)
-      setActiveLabId(labId)
-      selectionRef.current.activeLabDiscipline = discipline
-      selectionRef.current.activeLabId = labId
-      // 选定学科 + 绑定实验室时自动启用实验室工具，否则关闭（spec §5.3）
-      const nextEnableLabTools = discipline !== null && labId !== null
-      setEnableLabTools(nextEnableLabTools)
-      selectionRef.current.enableLabTools = nextEnableLabTools
       persistSelection()
     },
     [persistSelection]
@@ -306,10 +258,7 @@ export function usePaperChatSessionReact(
     selectedModel,
     selectedMCPTools,
     selectedKnowledgeBases,
-    enableLabTools,
     enablePaperWebSearch,
-    activeLabDiscipline,
-    activeLabId,
     loading,
     error,
     ensureSession,
@@ -321,9 +270,7 @@ export function usePaperChatSessionReact(
     updateSelectedModel,
     updateSelectedTools,
     updateSelectedKnowledgeBases,
-    updateEnableLabTools,
     updateEnablePaperWebSearch,
-    updateLabSelection,
     setError
   }
 }

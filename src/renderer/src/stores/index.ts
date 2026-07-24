@@ -16,9 +16,6 @@ export { usePaperChatImageUploadStore } from './paperChatImageUploadStore'
 export { usePaperChatQuoteStore } from './paperChatQuoteStore'
 export { useUpdateStore } from './updateStore'
 
-// Lab Stores (Zustand)
-export { useLabStore, useLabCreatorStore, useLabListStore, useLabOperationStore } from './lab'
-
 // Paper Reader Store（已拆分为子 Store，从 paper/ 直接导入）
 export {
   usePaperListStore,

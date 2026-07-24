@@ -44,9 +44,6 @@ export * from '@shared/types/config'
 // 知识库相关类型
 export * from '@shared/types/knowledge'
 
-// 实验室相关类型（renderer 本地命名适配）
-export * from './lab'
-
 // 附件文件类型（从 preload 全局类型中获取）
 export type AttachmentFile = {
   path: string

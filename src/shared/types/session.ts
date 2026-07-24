@@ -118,7 +118,7 @@ export interface SessionSelectionState {
   /** 当前会话选中的知识库 */
   selectedKnowledgeBases: KnowledgeBase[]
   /** 当前会话是否启用实验室工具 */
-  enableLabTools: boolean
+  enableLabTools?: boolean
   /** 当前会话选中的模型 */
   selectedModel: string
   /** 当前会话是否启用规划模式（仅论文会话） */
