@@ -120,7 +120,7 @@ export class UnifiedToolRegistry {
         adapter,
         registeredAt: new Date(),
         status: 'available',
-        timeoutMs: category === 'lab' ? 180000 : 60000
+        timeoutMs: 60000
       })
       this.aliases.set(openAIName, fullName)
     }
@@ -139,7 +139,7 @@ export class UnifiedToolRegistry {
   }
 
   /**
-   * 按类别注销工具（如关闭实验室时清除所有 lab 类别工具）
+   * 按类别注销工具
    */
   unregisterByCategory(category: ToolCategory): void {
     for (const [fullName, tool] of this.tools.entries()) {
@@ -203,18 +203,6 @@ export class UnifiedToolRegistry {
     for (const rt of this.getAllTools()) {
       const { name, description, parameters } = rt.functionDef
       const stableParameters = deepSortPromptCacheValue(parameters) as Record<string, unknown>
-
-      if (rt.category === 'lab') {
-        openAITools.push({
-          type: 'function' as const,
-          function: {
-            name: `lab__${name}`,
-            description,
-            parameters: stableParameters
-          }
-        })
-        continue
-      }
 
       if (rt.category === 'knowledge') {
         openAITools.push({
@@ -290,10 +278,7 @@ export class UnifiedToolRegistry {
   ): Map<string, string> {
     const mcpTools = tools.filter(
       (t) =>
-        t.serverName !== 'lab' &&
-        t.serverName !== 'knowledge' &&
-        t.serverName !== 'paper' &&
-        t.serverName !== 'paper_web'
+        t.serverName !== 'knowledge' && t.serverName !== 'paper' && t.serverName !== 'paper_web'
     )
     return enhanceToolDescriptions(mcpTools, level)
   }
@@ -309,7 +294,6 @@ export class UnifiedToolRegistry {
    */
   private getOpenAIToolName(tool: RegisteredTool): string {
     const { name } = tool.functionDef
-    if (tool.category === 'lab') return `lab__${name}`
     if (tool.category === 'knowledge') return `knowledge__${name}`
     if (tool.category === 'paper') return `paper__${name}`
     if (tool.category === 'paper_web') return `paper_web__${name}`

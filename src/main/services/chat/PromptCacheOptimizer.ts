@@ -144,7 +144,6 @@ function isOfficialOpenAIProvider(llmConfig: LLMConfig): boolean {
 
 function buildToolSelectionSignature(request: ChatRequest, toolSignature?: unknown): unknown {
   return {
-    enableLabTools: request.enableLabTools === true,
     enablePaperWebSearch: request.enablePaperWebSearch === true,
     enablePlanMode: request.enablePlanMode === true,
     hasPaperContext: request.sessionType === 'paper' && Boolean(request.paperId),

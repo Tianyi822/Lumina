@@ -31,7 +31,7 @@ function hasKnowledgeBases(ctx: RegistrationContext): boolean {
   return (ctx.selectedKnowledgeBases?.length ?? 0) > 0
 }
 
-/** 论文会话的工具注册规则（按优先级：论文 > 知识库 > 论文联网搜索 > MCP > 实验室） */
+/** 论文会话的工具注册规则（按优先级：论文 > 知识库 > 论文联网搜索 > MCP） */
 const PAPER_TOOL_RULES: ToolRegistrationRule[] = [
   {
     category: 'paper' as ToolCategory,
@@ -71,12 +71,6 @@ const PAPER_TOOL_RULES: ToolRegistrationRule[] = [
     basePriority: 40,
     condition: (ctx: RegistrationContext) => (ctx.selectedTools?.length ?? 0) > 0,
     adapterResolver: (ctx: RegistrationContext) => ctx.adapters.mcp
-  },
-  {
-    category: 'lab' as ToolCategory,
-    basePriority: 50,
-    condition: (ctx: RegistrationContext) => ctx.request.enableLabTools === true,
-    adapterResolver: (ctx: RegistrationContext) => ctx.adapters.lab
   }
 ]
 
@@ -106,12 +100,6 @@ const DEFAULT_TOOL_RULES: ToolRegistrationRule[] = [
     basePriority: 40,
     condition: (ctx: RegistrationContext) => (ctx.selectedTools?.length ?? 0) > 0,
     adapterResolver: (ctx: RegistrationContext) => ctx.adapters.mcp
-  },
-  {
-    category: 'lab' as ToolCategory,
-    basePriority: 50,
-    condition: (ctx: RegistrationContext) => ctx.request.enableLabTools === true,
-    adapterResolver: (ctx: RegistrationContext) => ctx.adapters.lab
   }
 ]
 
