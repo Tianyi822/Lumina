@@ -8,7 +8,6 @@ import { registerEmbeddingHandlers } from './handlers/embeddingHandlers'
 import { registerKnowledgeHandlers } from './handlers/knowledgeHandlers'
 import { registerEmbeddingModelHandlers } from './handlers/embeddingModelHandlers'
 import { registerFileHandlers } from './handlers/fileHandlers'
-import { registerLabHandlers, initializeLab } from './handlers/labHandlers'
 import {
   registerKnowledgeMCPHandlers,
   initializeKnowledgeMCP
@@ -27,7 +26,6 @@ export { initializeEmbedding } from './handlers/embeddingHandlers'
 export { initializeKnowledge } from './handlers/knowledgeHandlers'
 export { initializeEmbeddingModels } from './handlers/embeddingModelHandlers'
 export { initializeFileService } from './handlers/fileHandlers'
-export { initializeLab }
 export { initializeKnowledgeMCP }
 
 /**
@@ -63,9 +61,6 @@ export function registerAllIpcHandlers(): void {
 
   // 注册文件管理相关处理程序
   registerFileHandlers()
-
-  // 注册实验室相关处理程序
-  registerLabHandlers()
 
   // 注册知识库 MCP 服务相关处理程序
   registerKnowledgeMCPHandlers()

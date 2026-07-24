@@ -11,10 +11,8 @@ import {
   initializeEmbedding,
   initializeKnowledge,
   initializeEmbeddingModels,
-  initializeFileService,
-  initializeLab
+  initializeFileService
 } from '@main/ipc'
-import { sshService } from '@main/services/lab/ssh'
 import { mcpService } from '@main/services/mcp'
 import { getKnowledgeMCPServerService } from '@main/services/knowledge/KnowledgeMCPServerService'
 import { toolStatsCollector } from '@main/services/chat/tools/ToolStatsCollector'
@@ -102,7 +100,6 @@ function requestShutdown(exitCode: number, reason: string): void {
       runShutdownTask('tool-stats', () => toolStatsCollector.stopPersist()),
       runShutdownTask('paper-translation', () => paperTranslationService.flushPendingCaches()),
       runShutdownTask('mcp', () => mcpService.disconnectAll()),
-      runShutdownTask('ssh', () => sshService.shutdown()),
       runShutdownTask('knowledge-mcp', async () => {
         if (knowledgeMCPStatus.running) {
           await knowledgeMCPService.stop()
@@ -168,9 +165,6 @@ export function initializeApp(): void {
 
     // 初始化文件服务，并修复历史论文资源池数据
     await initializeFileService()
-
-    // 初始化实验室服务
-    await initializeLab()
 
     // 创建主窗口
     const mainWindow = createMainWindow()
