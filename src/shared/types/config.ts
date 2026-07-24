@@ -171,6 +171,8 @@ export interface AppConfig {
   knowledgeMCP?: KnowledgeMCPConfig
   /** 论文阅读配置（含 OCR 与翻译模型） */
   paperReader?: PaperReaderConfig
+  /** @deprecated 一次性迁移标记，lab 数据清理完成后未来可移除此字段 */
+  labRemovalMigrated?: boolean
 }
 
 /**

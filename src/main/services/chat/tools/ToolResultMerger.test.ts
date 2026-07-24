@@ -6,7 +6,7 @@ import type { EnrichedToolResult } from './PipelineTypes'
 function makeEnrichedResult(
   toolName: string,
   content: string,
-  sourceType: 'paper' | 'knowledge' | 'lab' | 'paper_web' | 'mcp' = 'paper',
+  sourceType: 'paper' | 'knowledge' | 'paper_web' | 'mcp' = 'paper',
   coverage: 'high' | 'medium' | 'low' = 'high',
   confidence: number = 0.8
 ): EnrichedToolResult {

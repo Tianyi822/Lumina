@@ -89,12 +89,6 @@ export default function ToolStatsSettings() {
                 全部
               </button>
               <button
-                className={categoryFilter === 'lab' ? styles['is-active'] : undefined}
-                onClick={() => setCategoryFilter('lab' as CategoryFilter)}
-              >
-                实验室
-              </button>
-              <button
                 className={categoryFilter === 'knowledge' ? styles['is-active'] : undefined}
                 onClick={() => setCategoryFilter('knowledge' as CategoryFilter)}
               >
