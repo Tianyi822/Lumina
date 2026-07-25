@@ -29,6 +29,7 @@ export interface MCPServerConfig {
 
 /**
  * MCP 工具输入参数的结构定义
+ * @public preload/types/mcp.ts 重导出作为 MCPApi 公共契约（knip 跨 barrel 假阳性）
  */
 export interface MCPToolInputSchema {
   type: string
@@ -143,6 +144,7 @@ export interface MCPConfigFile {
 
 /**
  * MCP 状态变更事件
+ * @public preload/types/mcp.ts 与 preload/apis/mcp.ts 重导出作为 MCPApi 公共契约（knip 跨 barrel 假阳性）
  */
 export interface MCPStatusChangeEvent {
   /** MCP 服务器名称 */

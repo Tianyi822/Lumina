@@ -15,7 +15,7 @@ export interface SuggestableCapability {
 }
 
 /** Few-shot 示例中的工具调用描述 */
-export interface FewShotToolCall {
+interface FewShotToolCall {
   name: string
   args: unknown
 }

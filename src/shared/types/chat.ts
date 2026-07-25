@@ -203,6 +203,7 @@ export type ReactIterationStatus = 'thinking' | 'calling_tools' | 'processing'
 /**
  * 流式传输时的事件类型
  * 定义了聊天过程中可能发生的各种事件
+ * @public 经 renderer/types + main/types/chat.ts 的 re-export 链被消费（knip 跨 barrel 假阳性）
  */
 export type StreamEventType =
   | 'content'
@@ -222,6 +223,7 @@ export type StreamEventType =
 
 /**
  * 知识库搜索操作的信息展示
+ * @public 经 renderer/types + preload re-export 链被消费（knip 跨 barrel 假阳性）
  */
 export interface KnowledgeSearchInfo {
   /** 知识库的唯一标识 */
@@ -234,6 +236,7 @@ export interface KnowledgeSearchInfo {
 
 /**
  * 知识库搜索完成后的结果信息展示
+ * @public 经 renderer/types + preload re-export 链被消费（knip 跨 barrel 假阳性）
  */
 export interface KnowledgeResultInfo {
   /** 知识库的唯一标识 */
@@ -401,6 +404,7 @@ export interface TokenUsage {
 /**
  * 知识库搜索的完整结果
  * 包含搜索到的文档片段和相关度信息
+ * @public 经 renderer/types + main/types/chat.ts 的 re-export 链被消费（knip 跨 barrel 假阳性）
  */
 export interface KnowledgeSearchResult {
   /** 知识库的唯一标识 */

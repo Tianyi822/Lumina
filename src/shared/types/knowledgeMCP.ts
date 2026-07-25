@@ -31,6 +31,7 @@ export interface KnowledgeMCPServerStatus {
 /**
  * MCP 客户端配置格式
  * 用于外部工具连接
+ * @public preload/types/knowledgeMCP.ts 重导出作为 KnowledgeMCPApi 公共契约（knip 跨 barrel 假阳性）
  */
 export interface MCPClientConfig {
   mcpServers: {
@@ -43,6 +44,7 @@ export interface MCPClientConfig {
 
 /**
  * 知识库搜索工具参数
+ * @public preload/types/knowledgeMCP.ts 重导出作为 KnowledgeMCPApi 公共契约（knip 跨 barrel 假阳性）
  */
 export interface KnowledgeSearchToolArgs {
   /** 搜索查询文本 */

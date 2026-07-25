@@ -18,23 +18,5 @@
   // preload/types 是 contextBridge 的类型契约（含 declare global Window.api），
   // 被 renderer 全代码库经 window.api.* 隐式消费，knip 不追踪 global augmentation 故误报。
   // 经 Task 3 验证：删除会导致 renderer typecheck 崩塌，确认为假阳性，整目录忽略。
-  "ignore": ["src/preload/types/**", "src/preload/index.d.ts"],
-  // Task 6：以下 shared 层导出经 preload/types 或 main/types 的 export * 链被间接消费，
-  // knip 未追踪跨 barrel 的 re-export，确认为假阳性，整组保留。
-  "ignoreExports": [
-    // chat.ts：经 renderer/types + main/types/chat.ts 的 re-export 链被消费（如 ChatService）
-    "StreamEventType",
-    "KnowledgeSearchInfo",
-    "KnowledgeResultInfo",
-    "KnowledgeSearchResult",
-    // knowledge.ts：经 renderer/types export * 被 knowledgeStore/useKnowledgeSearch 消费
-    "KnowledgeBaseEmbeddingConfig",
-    "KnowledgeSearchHit",
-    // knowledgeMCP.ts：preload/types/knowledgeMCP.ts 重导出作为 KnowledgeMCPApi 公共契约
-    "MCPClientConfig",
-    "KnowledgeSearchToolArgs",
-    // mcp.ts：preload/types/mcp.ts 与 preload/apis/mcp.ts 重导出作为 MCPApi 公共契约
-    "MCPToolInputSchema",
-    "MCPStatusChangeEvent"
-  ]
+  "ignore": ["src/preload/types/**", "src/preload/index.d.ts"]
 }

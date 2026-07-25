@@ -54,7 +54,7 @@ export function extractOriginalQuery(
  * 构建 capability composer 上下文（纯函数，便于单测）
  * 从 ChatRequest 提取工具能力相关字段
  */
-export function buildComposerContext(
+function buildComposerContext(
   request: Pick<ChatRequest, 'paperId' | 'enablePaperWebSearch' | 'selectedTools'>,
   selectedKnowledgeBases?: KnowledgeBaseReference[],
   mcpService?: unknown

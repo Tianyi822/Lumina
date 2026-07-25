@@ -84,21 +84,6 @@ export function scoreComplexity(content: string): ComplexityScore {
 }
 
 /**
- * 路由决策入参
- *
- * `content` 派生自最后一条用户消息(由 ChatService 调用前提取)。
- * 不直接从 ChatRequest 取字段,因 ChatRequest 仅持有 messages 数组。
- */
-export interface ChatRoutingRequest {
-  /** 会话类型标识 */
-  sessionType?: string
-  /** 是否显式启用规划模式(最高优先级,向后兼容) */
-  enablePlanMode?: boolean
-  /** 待路由判定的文本内容(通常为最后一条用户消息) */
-  content?: string
-}
-
-/**
  * 判断是否应走 Plan-Execute 路由
  *
  * 决策优先级:

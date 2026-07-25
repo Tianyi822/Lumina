@@ -11,7 +11,7 @@ const RETRYABLE_MODEL_STATUS_CODES = new Set([408, 429, 500, 502, 503, 504])
 const MODEL_REQUEST_MAX_ATTEMPTS = 3
 const MODEL_REQUEST_RETRY_DELAY_MS = 1500
 
-export interface ModelApiError extends Error {
+interface ModelApiError extends Error {
   status?: number
   code?: string
   headers?: Headers | Record<string, string>

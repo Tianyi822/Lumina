@@ -26,6 +26,7 @@ import {
 /**
  * 聊天服务
  * 处理与 OpenAI 兼容 API 的通信，支持流式响应和 ReAct 推理模式
+ * @public 聊天服务对外公共 API（经 services/chat barrel re-export）
  */
 export class ChatService {
   private stopController: StopController

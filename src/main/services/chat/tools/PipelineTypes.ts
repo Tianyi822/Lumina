@@ -8,10 +8,10 @@ import type { ChatRequest } from '../../../types/chat'
 // ========== 管道阶段 ==========
 
 /** 阶段执行模式：必须执行 / 条件执行 */
-export type StageExecution = 'required' | 'conditional'
+type StageExecution = 'required' | 'conditional'
 
 /** 自动触发配置：当模型未调用某类工具时，系统自动生成一次调用 */
-export interface AutoTriggerConfig {
+interface AutoTriggerConfig {
   /** 要自动触发的工具名称 */
   toolName: string
   /** 根据原始查询和上下文生成自动调用参数的转换函数 */
@@ -159,10 +159,10 @@ export interface SessionToolConfig {
 // ========== 能力组合 ==========
 
 /** 能力编排模式：必须 / 条件 / 按需 */
-export type CompositionMode = 'required' | 'conditional' | 'on_demand'
+type CompositionMode = 'required' | 'conditional' | 'on_demand'
 
 /** 自动触发定义 */
-export interface AutoTriggerDef {
+interface AutoTriggerDef {
   /** 要自动触发的工具名称 */
   toolName: string
   /** 根据查询和上下文生成参数的转换函数 */

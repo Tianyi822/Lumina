@@ -55,11 +55,6 @@ ${REMINDERS}
 现在，请根据用户的问题开始你的工作。`.trim()
 }
 
-/** 获取默认的 ReAct 系统提示词 */
-export function getDefaultReactPrompt(): string {
-  return buildReactSystemPrompt()
-}
-
 /**
  * 知识库工具使用指南
  * 当会话中选中了知识库时追加到系统提示词，指导模型何时及如何使用知识库工具

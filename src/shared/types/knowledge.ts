@@ -62,6 +62,7 @@ export interface FileItem {
 /**
  * 知识库绑定的嵌入模型完整配置
  * 知识库创建时绑定，不依赖全局配置
+ * @public 经 renderer/types export * 被 knowledgeStore 消费（knip 跨 barrel 假阳性）
  */
 export interface KnowledgeBaseEmbeddingConfig {
   /** API 基础地址 */
@@ -176,6 +177,7 @@ export interface FilePreviewData {
 
 /**
  * 知识库搜索命中的文档块
+ * @public 经 renderer/types export * 被 useKnowledgeSearch 消费（knip 跨 barrel 假阳性）
  */
 export interface KnowledgeSearchHit {
   /** 向量索引中的块 ID */
