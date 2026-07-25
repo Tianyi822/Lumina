@@ -9,7 +9,7 @@
   "scripts": {
     "knip": "knip --config knip.json5",
     "format": "prettier --write .",
-    "lint": "eslint --cache .",
+    "lint": "eslint --cache . && knip --config knip.json5",
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json --composite false",
     "typecheck": "npm run typecheck:node && npm run typecheck:web",

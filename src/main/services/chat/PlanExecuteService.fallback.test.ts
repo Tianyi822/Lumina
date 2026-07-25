@@ -232,6 +232,7 @@ test('AbortError 步骤级联:中途抛 AbortError 时后续步骤标记 cancell
       { title: '第二步', description: '会 abort' },
       { title: '第三步', description: '应被标记 cancelled' }
     ],
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 参数为匹配 reactImpl 签名而保留，本用例通过 reactCounter 计数
     reactImpl: (_request, _opts): Promise<ChatResult> => {
       const callIndex = harness.reactCounter.count // 当前是第几次调用(1-based)
       if (callIndex === 2) {
@@ -347,6 +348,7 @@ test('AbortError 在规划阶段抛出时也标记为 cancelled', async () => {
     }) as unknown as OpenAI
 
   const reactLoopService = {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- webContents 为匹配签名保留，本回退用例不消费
     sendMessageWithReact: async (request: ChatRequest, _wc: WebContents) => {
       reactRequests.push({ request, runtimeOptions: undefined })
       return { success: true }
