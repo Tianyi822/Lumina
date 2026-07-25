@@ -21,6 +21,12 @@
 - `yarn typecheck:node`：PASS。
 - `git diff --check`：PASS。
 
+## Fix round 2
+
+- RED：新增“writing 协议拒绝文档目录符号链接跨文档读取 assets”后，运行 `node --loader ./scripts/test/tsAliasLoader.mjs --test --experimental-strip-types src/main/core/luminaProtocolResolver.test.ts`，失败为 `true !== false`；请求 ID 的目录链接到同根另一文档时被错误放行。
+- GREEN：读取前对 `documents`、URL 对应的文档目录和 `assets` 根逐级执行非符号链接目录验证，并验证 canonical 层级；同一聚焦命令通过 8/8。
+- 回归：`yarn test:writer` PASS 29/29；`yarn test:paper` PASS 63/63；`yarn typecheck:node` PASS；`git diff --check` PASS。
+
 ## 文件变更
 
 - 新增：`WriterAssetService.ts`、其测试、`luminaProtocolResolver.ts`、其测试。

@@ -1,5 +1,5 @@
 import { lstat, realpath } from 'fs/promises'
-import { relative, resolve, sep } from 'path'
+import { dirname, relative, resolve, sep } from 'path'
 import { isValidWriterDocumentId } from '@main/services/writer/writerPaths'
 
 const IMMUTABLE_CACHE_CONTROL = 'private, max-age=31536000, immutable'
@@ -71,7 +71,10 @@ export async function resolveLuminaResourceFile(
     const canonicalRoot = await getCanonicalDirectory(resourceRoot)
     if (isWritingUrl(rawUrl)) {
       const canonicalWritingRoot = await realpath(roots.writingRoot)
-      if (!isPathInside(canonicalWritingRoot, canonicalRoot)) {
+      if (
+        !isPathInside(canonicalWritingRoot, canonicalRoot) ||
+        !(await hasSafeWritingDirectoryChain(resourceRoot, canonicalWritingRoot))
+      ) {
         return denied('写作资源根目录越界')
       }
     }
@@ -158,6 +161,25 @@ async function getCanonicalDirectory(path: string): Promise<string> {
     throw new Error('资源根目录不是普通目录')
   }
   return realpath(path)
+}
+
+/** 仅允许 URL 指向其自身的真实 documents/<id>/assets 目录链 */
+async function hasSafeWritingDirectoryChain(
+  assetsPath: string,
+  canonicalWritingRoot: string
+): Promise<boolean> {
+  const documentPath = dirname(assetsPath)
+  const documentsPath = dirname(documentPath)
+  try {
+    const canonicalDocumentsPath = await getCanonicalDirectory(documentsPath)
+    const canonicalDocumentPath = await getCanonicalDirectory(documentPath)
+    return (
+      isPathInside(canonicalWritingRoot, canonicalDocumentsPath) &&
+      isPathInside(canonicalDocumentsPath, canonicalDocumentPath)
+    )
+  } catch {
+    return false
+  }
 }
 
 function decodePathSegments(pathname: string): string[] | null {

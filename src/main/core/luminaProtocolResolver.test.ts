@@ -120,3 +120,22 @@ test('writing 协议拒绝通过符号链接逃逸 assets 根目录的文件', a
 
   assert.equal(result.success, false)
 })
+
+test('writing 协议拒绝文档目录符号链接跨文档读取 assets', async (t) => {
+  const roots = createRoots(t)
+  const requestedDocumentId = 'writer-12345678'
+  const peerDocumentId = 'writer-87654321'
+  const documentsPath = join(roots.writingRoot, 'documents')
+  const peerAssetsPath = join(documentsPath, peerDocumentId, 'assets')
+  mkdirSync(peerAssetsPath, { recursive: true })
+  writeFileSync(join(peerAssetsPath, 'peer.png'), 'not an image')
+  symlinkSync(join(documentsPath, peerDocumentId), join(documentsPath, requestedDocumentId))
+
+  const { resolveLuminaResourceFile } = await import('./luminaProtocolResolver')
+  const result = await resolveLuminaResourceFile(
+    `lumina://writing/${requestedDocumentId}/assets/peer.png`,
+    roots
+  )
+
+  assert.equal(result.success, false)
+})
