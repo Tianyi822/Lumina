@@ -2,9 +2,9 @@ import { ipcRenderer } from 'electron'
 import { createIpcListener } from './base'
 
 /**
- * MCP 支持的传输方式
+ * MCP 支持的传输方式（文件内部使用，不对外导出）
  */
-export type MCPTransportType = 'stdio' | 'sse' | 'streamableHttp'
+type MCPTransportType = 'stdio' | 'sse' | 'streamableHttp'
 
 /**
  * MCP 服务器的配置
