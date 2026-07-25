@@ -2,11 +2,13 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import SvgIcon from '@renderer/components/icons/SvgIcon'
 import { useNotification } from '@renderer/composables/useNotification'
-import { useWriterLibraryStore } from '@renderer/stores/writer'
+import {
+  getWriterDocumentVirtualizationConfig,
+  groupWriterFolderDocuments,
+  useWriterLibraryStore
+} from '@renderer/stores/writer'
 import type { WriterCollection } from '@renderer/stores/writer'
 import styles from './WriterSidebarSection.module.css'
-
-const VIRTUALIZATION_THRESHOLD = 200
 
 function formatUpdatedAt(updatedAt: string): string {
   const date = new Date(updatedAt)
@@ -35,7 +37,7 @@ const WriterSidebarSection = memo(function WriterSidebarSection() {
   const toggleFavorite = useWriterLibraryStore((state) => state.toggleFavorite)
   const visibleDocuments = useWriterLibraryStore((state) => state.visibleDocuments)
   const notify = useNotification()
-  const listRef = useRef<HTMLDivElement>(null)
+  const documentListRef = useRef<HTMLDivElement>(null)
   const [expandedFolderIds, setExpandedFolderIds] = useState<Set<string>>(() => new Set())
 
   useEffect(() => {
@@ -46,13 +48,20 @@ const WriterSidebarSection = memo(function WriterSidebarSection() {
     () => visibleDocuments(),
     [activeCollection, documents, searchQuery, visibleDocuments]
   )
-  const usesVirtualization = filteredDocuments.length > VIRTUALIZATION_THRESHOLD
+  const virtualization = getWriterDocumentVirtualizationConfig(filteredDocuments.length)
   const virtualizer = useVirtualizer({
-    count: usesVirtualization ? filteredDocuments.length : 0,
-    getScrollElement: () => listRef.current,
-    estimateSize: () => 52,
+    count: virtualization.enabled ? filteredDocuments.length : 0,
+    getScrollElement: () => documentListRef.current,
+    estimateSize: () => 64,
     overscan: 8
   })
+  const folderDocumentGroups = useMemo(() => {
+    const query = searchQuery.trim().toLocaleLowerCase()
+    const searchableDocuments = query
+      ? documents.filter((document) => document.title.toLocaleLowerCase().includes(query))
+      : documents
+    return groupWriterFolderDocuments(searchableDocuments, folders)
+  }, [documents, folders, searchQuery])
 
   const selectCollection = useCallback(
     (collection: WriterCollection): void => {
@@ -136,12 +145,6 @@ const WriterSidebarSection = memo(function WriterSidebarSection() {
     { id: 'recent', label: '最近' },
     { id: 'all', label: '全部' }
   ]
-  const activeFolderExpanded =
-    folders.some((folder) => folder.id === activeCollection) &&
-    expandedFolderIds.has(activeCollection)
-  const shouldShowDocuments =
-    !folders.some((folder) => folder.id === activeCollection) || activeFolderExpanded
-
   const handleSegmentKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>): void => {
     if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return
     event.preventDefault()
@@ -205,7 +208,7 @@ const WriterSidebarSection = memo(function WriterSidebarSection() {
             </div>
           )}
 
-          <div ref={listRef} className={styles.list}>
+          <div className={styles.list}>
             <div className={styles.collections} aria-label="文档集合">
               {collectionItems.map((item) => (
                 <button
@@ -230,6 +233,9 @@ const WriterSidebarSection = memo(function WriterSidebarSection() {
                 <span className={styles.groupLabel}>文件夹</span>
                 {folders.map((folder) => {
                   const isExpanded = expandedFolderIds.has(folder.id)
+                  const folderDocuments =
+                    folderDocumentGroups.find((group) => group.folderId === folder.id)?.documents ??
+                    []
                   return (
                     <div key={folder.id} className={styles.folder}>
                       <div className={styles.folderHeader}>
@@ -237,11 +243,7 @@ const WriterSidebarSection = memo(function WriterSidebarSection() {
                           type="button"
                           className={styles.folderSelect}
                           aria-expanded={isExpanded}
-                          aria-pressed={activeCollection === folder.id}
-                          onClick={() => {
-                            toggleFolder(folder.id)
-                            selectCollection(folder.id)
-                          }}
+                          onClick={() => toggleFolder(folder.id)}
                         >
                           <span aria-hidden="true">{isExpanded ? '⌄' : '›'}</span>
                           {folder.name}
@@ -255,6 +257,15 @@ const WriterSidebarSection = memo(function WriterSidebarSection() {
                           <SvgIcon name="trash" size={14} />
                         </button>
                       </div>
+                      {isExpanded && (
+                        <div className={styles.folderDocuments}>
+                          {folderDocuments.length > 0 ? (
+                            folderDocuments.map(renderDocument)
+                          ) : (
+                            <span className={styles.folderEmpty}>文件夹内暂无文档</span>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )
                 })}
@@ -262,7 +273,7 @@ const WriterSidebarSection = memo(function WriterSidebarSection() {
             )}
 
             {isLoading ? <div className={styles.empty}>正在加载文档…</div> : null}
-            {!isLoading && shouldShowDocuments && filteredDocuments.length === 0 ? (
+            {!isLoading && filteredDocuments.length === 0 ? (
               <div className={styles.empty}>
                 <span>{searchQuery ? '未找到匹配的文档' : '暂无文档'}</span>
                 {!searchQuery && (
@@ -277,21 +288,25 @@ const WriterSidebarSection = memo(function WriterSidebarSection() {
               </div>
             ) : null}
 
-            {shouldShowDocuments && usesVirtualization ? (
-              <div className={styles.virtualList} style={{ height: virtualizer.getTotalSize() }}>
-                {virtualizer.getVirtualItems().map((virtualItem) => (
-                  <div
-                    key={virtualItem.key}
-                    className={styles.virtualRow}
-                    style={{ transform: `translateY(${virtualItem.start}px)` }}
-                  >
-                    {renderDocument(filteredDocuments[virtualItem.index])}
-                  </div>
-                ))}
-              </div>
-            ) : shouldShowDocuments ? (
-              filteredDocuments.map(renderDocument)
-            ) : null}
+            <div ref={documentListRef} className={styles.documentList}>
+              {virtualization.enabled ? (
+                <div className={styles.virtualList} style={{ height: virtualizer.getTotalSize() }}>
+                  {virtualizer.getVirtualItems().map((virtualItem) => (
+                    <div
+                      key={virtualItem.key}
+                      className={styles.virtualRow}
+                      data-index={virtualItem.index}
+                      ref={virtualization.measureRows ? virtualizer.measureElement : undefined}
+                      style={{ transform: `translateY(${virtualItem.start}px)` }}
+                    >
+                      {renderDocument(filteredDocuments[virtualItem.index])}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                filteredDocuments.map(renderDocument)
+              )}
+            </div>
           </div>
         </div>
       )}

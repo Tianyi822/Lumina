@@ -2,7 +2,11 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import type { WriterApi } from '../../../../preload/types/writer'
 import type { WriterDocument, WriterDocumentSummary, WriterIndex } from '@shared/types/writer'
-import { useWriterLibraryStore } from './writerLibraryStore'
+import {
+  getWriterDocumentVirtualizationConfig,
+  groupWriterFolderDocuments,
+  useWriterLibraryStore
+} from './writerLibraryStore'
 
 function createDocumentFixture(overrides: Partial<WriterDocumentSummary> = {}): WriterDocument {
   return {
@@ -139,4 +143,34 @@ test('永久删除失败时保留列表项并暴露错误', async () => {
     ['writer-keep']
   )
   assert.equal(useWriterLibraryStore.getState().error, '磁盘不可用')
+})
+
+test('超过 200 个文档时使用独立滚动容器并启用实际行高测量', () => {
+  assert.deepEqual(getWriterDocumentVirtualizationConfig(200), {
+    enabled: false,
+    scrollContainer: 'document-list',
+    measureRows: true
+  })
+  assert.deepEqual(getWriterDocumentVirtualizationConfig(201), {
+    enabled: true,
+    scrollContainer: 'document-list',
+    measureRows: true
+  })
+})
+
+test('文件夹分组只包含所属文档，供展开节点直接渲染', () => {
+  const groups = groupWriterFolderDocuments(
+    [
+      createDocumentFixture({ id: 'writer-in-folder', folderId: 'folder-1' }),
+      createDocumentFixture({ id: 'writer-root' })
+    ],
+    [{ id: 'folder-1', name: '项目文档', sortOrder: 0, createdAt: '', updatedAt: '' }]
+  )
+
+  assert.equal(groups.length, 1)
+  assert.equal(groups[0].folderId, 'folder-1')
+  assert.deepEqual(
+    groups[0].documents.map((document) => document.id),
+    ['writer-in-folder']
+  )
 })

@@ -4,6 +4,34 @@ import type { WriterDocument, WriterDocumentSummary, WriterFolder } from '@share
 export type WriterSidebarMode = 'documents' | 'outline'
 export type WriterCollection = 'all' | 'favorites' | 'recent' | string
 
+export interface WriterDocumentVirtualizationConfig {
+  enabled: boolean
+  scrollContainer: 'document-list'
+  measureRows: boolean
+}
+
+/** 返回文档列表的虚拟化策略，滚动容器只包裹可虚拟化的文档项。 */
+export function getWriterDocumentVirtualizationConfig(
+  documentCount: number
+): WriterDocumentVirtualizationConfig {
+  return {
+    enabled: documentCount > 200,
+    scrollContainer: 'document-list',
+    measureRows: true
+  }
+}
+
+/** 按文件夹分组，供侧边栏展开节点直接渲染其子文档。 */
+export function groupWriterFolderDocuments(
+  documents: WriterDocumentSummary[],
+  folders: WriterFolder[]
+): Array<{ folderId: string; documents: WriterDocumentSummary[] }> {
+  return folders.map((folder) => ({
+    folderId: folder.id,
+    documents: sortDocuments(documents.filter((document) => document.folderId === folder.id))
+  }))
+}
+
 export interface WriterLibraryStore {
   documents: WriterDocumentSummary[]
   folders: WriterFolder[]

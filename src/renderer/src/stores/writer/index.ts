@@ -1,2 +1,11 @@
-export { useWriterLibraryStore } from './writerLibraryStore'
-export type { WriterCollection, WriterLibraryStore, WriterSidebarMode } from './writerLibraryStore'
+export {
+  getWriterDocumentVirtualizationConfig,
+  groupWriterFolderDocuments,
+  useWriterLibraryStore
+} from './writerLibraryStore'
+export type {
+  WriterCollection,
+  WriterDocumentVirtualizationConfig,
+  WriterLibraryStore,
+  WriterSidebarMode
+} from './writerLibraryStore'

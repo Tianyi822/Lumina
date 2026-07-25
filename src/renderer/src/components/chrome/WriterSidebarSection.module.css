@@ -89,9 +89,10 @@
 }
 
 .list {
+  display: flex;
   flex: 1;
+  flex-direction: column;
   min-height: 0;
-  overflow-y: auto;
   padding: var(--sm-space-3);
 }
 
@@ -144,6 +145,18 @@
   gap: var(--sm-space-2);
 }
 
+.folderDocuments {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sm-space-2);
+  padding: 0 var(--sm-space-3) var(--sm-space-2);
+}
+
+.folderEmpty {
+  padding: var(--sm-space-2) var(--sm-space-3);
+  color: var(--sm-color-text-secondary);
+}
+
 .folderDelete,
 .documentAction {
   display: inline-flex;
@@ -169,10 +182,18 @@
 }
 
 .document {
-  margin-top: var(--sm-space-2);
   padding: var(--sm-space-2);
   border: 1px solid transparent;
   border-radius: var(--sm-radius-sm);
+}
+
+.documentList {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  gap: var(--sm-space-2);
+  overflow-y: auto;
 }
 
 .document:hover {
