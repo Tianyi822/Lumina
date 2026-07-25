@@ -14,7 +14,7 @@
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json --composite false",
     "typecheck": "npm run typecheck:node && npm run typecheck:web",
     "test:theme": "node --test --experimental-strip-types src/shared/utils/theme.test.mjs",
-    "test:writer": "node --loader ./scripts/test/tsAliasLoader.mjs --test --experimental-strip-types src/shared/schemas/writerSchema.test.ts",
+    "test:writer": "node --loader ./scripts/test/tsAliasLoader.mjs --test --experimental-strip-types src/shared/schemas/writerSchema.test.ts src/main/services/writer/WriterStorageService.test.ts",
     "test:update": "node --loader ./scripts/test/tsAliasLoader.mjs --test --experimental-strip-types src/main/services/update/updateDiagnostics.test.ts src/main/services/update/ReleaseNotesService.test.ts && node --test scripts/build/validateReleaseAssets.test.mjs",
     "test:file": "node --loader ./scripts/test/tsAliasLoader.mjs --test --experimental-strip-types src/main/services/file/FileService.test.ts",
     "test:knowledge-store": "node --loader ./scripts/test/tsAliasLoader.mjs --test --experimental-strip-types src/renderer/src/stores/knowledgeStore.test.ts",
