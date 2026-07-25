@@ -1,7 +1,9 @@
-import { protocol } from 'electron'
-import { join, normalize } from 'path'
+import { net, protocol } from 'electron'
+import { pathToFileURL } from 'url'
 import { logger } from '@main/services/logger'
 import { getPapersDirPath } from '@main/services/paper/paperPaths'
+import { getWritingRootPath } from '@main/services/writer/writerPaths'
+import { resolveLuminaResource } from './luminaProtocolResolver'
 
 const PROTOCOL_SCHEME = 'lumina'
 
@@ -17,34 +19,42 @@ protocol.registerSchemesAsPrivileged([
  * 注册 lumina:// 自定义协议
  * URL 格式: lumina://paper/{paperId}/pages/{filename}
  *           lumina://paper/{paperId}/assets/{path}
- * 将 URL 路径映射到本地论文资源目录，直接返回文件（避免 Base64 IPC 传输）
+ *           lumina://writing/{documentId}/assets/{filename}
+ * 将 URL 路径映射到本地安全资源，直接返回文件（避免 Base64 IPC 传输）
  */
 export function registerLuminaProtocol(): void {
-  protocol.registerFileProtocol(PROTOCOL_SCHEME, (request, callback) => {
+  protocol.handle(PROTOCOL_SCHEME, async (request) => {
+    const resolution = resolveLuminaResource(request.url, {
+      papersRoot: getPapersDirPath(),
+      writingRoot: getWritingRootPath()
+    })
+    if (!resolution.success) {
+      logger.warn('lumina 协议请求被拒绝', 'main', {
+        url: request.url,
+        reason: resolution.reason
+      })
+      return new Response(null, { status: 403 })
+    }
     try {
-      const url = new URL(request.url)
-      const relativePath = url.pathname // e.g. /paper/{id}/pages/page-0001.jpg
-      const papersDir = getPapersDirPath()
-      const resolvedPath = normalize(join(papersDir, relativePath))
-
-      // 安全校验：防止路径穿越攻击
-      if (!resolvedPath.startsWith(normalize(papersDir))) {
-        logger.warn('lumina 协议请求路径越界', 'main', {
-          url: request.url,
-          resolved: resolvedPath
-        })
-        callback({ error: -10 }) // ACCESS_DENIED
-        return
+      const response = await net.fetch(pathToFileURL(resolution.path).toString())
+      if (!response.ok) {
+        return new Response(null, { status: response.status })
       }
-
-      callback({ path: resolvedPath })
+      return new Response(response.body, {
+        status: response.status,
+        headers: {
+          'Content-Type': resolution.mimeType,
+          'X-Content-Type-Options': 'nosniff',
+          'Cache-Control': resolution.cacheControl
+        }
+      })
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
       logger.error('lumina 协议请求处理失败', 'main', {
         url: request.url,
         error: errorMessage
       })
-      callback({ error: -2 }) // FAILED
+      return new Response(null, { status: 500 })
     }
   })
 }

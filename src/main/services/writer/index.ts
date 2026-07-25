@@ -1,4 +1,5 @@
 export { WriterStorageService } from './WriterStorageService'
+export { WriterAssetService } from './WriterAssetService'
 export {
   getWriterAssetsDir,
   getWriterDocumentDir,

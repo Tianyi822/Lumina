@@ -59,6 +59,22 @@ export interface WriterResult<T> {
   code?: 'not_found' | 'invalid_input' | 'revision_conflict' | 'io_error'
 }
 
+export interface WriterAsset {
+  assetId: string
+  fileName: string
+  relativePath: string
+  mimeType: 'image/png' | 'image/jpeg' | 'image/webp' | 'image/gif'
+  size: number
+  sha256: string
+  url: string
+}
+
+export interface WriterAssetImportInput {
+  fileName: string
+  declaredMimeType: string
+  bytes: Uint8Array
+}
+
 export interface SaveWriterDocumentRequest {
   documentId: string
   expectedRevision: number
