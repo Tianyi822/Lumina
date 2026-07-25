@@ -10,6 +10,13 @@ export interface WriterDocumentVirtualizationConfig {
   measureRows: boolean
 }
 
+export interface WriterSidebarDocumentRenderBucket {
+  id: string
+  placement: 'root' | 'folder' | 'collection'
+  documents: WriterDocumentSummary[]
+  virtualized: boolean
+}
+
 /** 返回文档列表的虚拟化策略，滚动容器只包裹可虚拟化的文档项。 */
 export function getWriterDocumentVirtualizationConfig(
   documentCount: number
@@ -30,6 +37,58 @@ export function groupWriterFolderDocuments(
     folderId: folder.id,
     documents: sortDocuments(documents.filter((document) => document.folderId === folder.id))
   }))
+}
+
+/**
+ * 为侧边栏生成互斥文档渲染节点：全部视图只在根节点和已展开文件夹间分配文档，
+ * 收藏/最近视图则只有一个集合节点，避免同一文档出现多个操作入口。
+ */
+export function getWriterSidebarDocumentRenderPlan({
+  documents,
+  folders,
+  collection,
+  expandedFolderIds
+}: {
+  documents: WriterDocumentSummary[]
+  folders: WriterFolder[]
+  collection: WriterCollection
+  expandedFolderIds: ReadonlySet<string>
+}): WriterSidebarDocumentRenderBucket[] {
+  if (collection !== 'all') {
+    return [
+      {
+        id: 'collection',
+        placement: 'collection',
+        documents,
+        virtualized: getWriterDocumentVirtualizationConfig(documents.length).enabled
+      }
+    ]
+  }
+
+  const rootDocuments = sortDocuments(documents.filter((document) => !document.folderId))
+  const folderBuckets = folders
+    .filter((folder) => expandedFolderIds.has(folder.id))
+    .map((folder) => {
+      const folderDocuments = sortDocuments(
+        documents.filter((document) => document.folderId === folder.id)
+      )
+      return {
+        id: folder.id,
+        placement: 'folder' as const,
+        documents: folderDocuments,
+        virtualized: getWriterDocumentVirtualizationConfig(folderDocuments.length).enabled
+      }
+    })
+
+  return [
+    {
+      id: 'root',
+      placement: 'root',
+      documents: rootDocuments,
+      virtualized: getWriterDocumentVirtualizationConfig(rootDocuments.length).enabled
+    },
+    ...folderBuckets
+  ]
 }
 
 export interface WriterLibraryStore {

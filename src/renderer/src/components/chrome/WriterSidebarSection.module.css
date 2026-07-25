@@ -157,6 +157,10 @@
   color: var(--sm-color-text-secondary);
 }
 
+.folderDocumentList {
+  max-height: calc(var(--sm-space-6) * 12);
+}
+
 .folderDelete,
 .documentAction {
   display: inline-flex;

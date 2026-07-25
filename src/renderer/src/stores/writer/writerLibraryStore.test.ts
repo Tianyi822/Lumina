@@ -4,6 +4,7 @@ import type { WriterApi } from '../../../../preload/types/writer'
 import type { WriterDocument, WriterDocumentSummary, WriterIndex } from '@shared/types/writer'
 import {
   getWriterDocumentVirtualizationConfig,
+  getWriterSidebarDocumentRenderPlan,
   groupWriterFolderDocuments,
   useWriterLibraryStore
 } from './writerLibraryStore'
@@ -172,5 +173,38 @@ test('文件夹分组只包含所属文档，供展开节点直接渲染', () =>
   assert.deepEqual(
     groups[0].documents.map((document) => document.id),
     ['writer-in-folder']
+  )
+})
+
+test('展开大文件夹时每个文档只分配到一个渲染节点，并为文件夹选择虚拟列表', () => {
+  const folder = { id: 'folder-1', name: '项目文档', sortOrder: 0, createdAt: '', updatedAt: '' }
+  const documents = [
+    createDocumentFixture({ id: 'writer-root' }),
+    ...Array.from({ length: 201 }, (_, index) =>
+      createDocumentFixture({ id: `writer-folder-${index}`, folderId: folder.id })
+    )
+  ]
+
+  const plan = getWriterSidebarDocumentRenderPlan({
+    documents,
+    folders: [folder],
+    collection: 'all',
+    expandedFolderIds: new Set([folder.id])
+  })
+
+  assert.deepEqual(
+    plan.map((bucket) => [bucket.id, bucket.placement, bucket.virtualized]),
+    [
+      ['root', 'root', false],
+      ['folder-1', 'folder', true]
+    ]
+  )
+  assert.equal(
+    new Set(plan.flatMap((bucket) => bucket.documents.map((document) => document.id))).size,
+    202
+  )
+  assert.deepEqual(
+    new Set(plan[1].documents.map((document) => document.id)),
+    new Set(Array.from({ length: 201 }, (_, index) => `writer-folder-${index}`))
   )
 })

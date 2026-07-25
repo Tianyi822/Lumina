@@ -1,5 +1,6 @@
 export {
   getWriterDocumentVirtualizationConfig,
+  getWriterSidebarDocumentRenderPlan,
   groupWriterFolderDocuments,
   useWriterLibraryStore
 } from './writerLibraryStore'

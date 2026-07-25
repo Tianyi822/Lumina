@@ -1,10 +1,11 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import SvgIcon from '@renderer/components/icons/SvgIcon'
 import { useNotification } from '@renderer/composables/useNotification'
 import {
   getWriterDocumentVirtualizationConfig,
-  groupWriterFolderDocuments,
+  getWriterSidebarDocumentRenderPlan,
   useWriterLibraryStore
 } from '@renderer/stores/writer'
 import type { WriterCollection } from '@renderer/stores/writer'
@@ -14,6 +15,57 @@ function formatUpdatedAt(updatedAt: string): string {
   const date = new Date(updatedAt)
   if (Number.isNaN(date.getTime())) return ''
   return new Intl.DateTimeFormat('zh-CN', { month: 'numeric', day: 'numeric' }).format(date)
+}
+
+interface WriterDocumentListProps {
+  documents: ReturnType<typeof useWriterLibraryStore.getState>['documents']
+  nested?: boolean
+  renderDocument: (
+    document: ReturnType<typeof useWriterLibraryStore.getState>['documents'][number]
+  ) => ReactNode
+}
+
+/** 每个文档集合独立滚动和测量，静态导航不参与虚拟列表坐标计算。 */
+function WriterDocumentList({
+  documents,
+  nested = false,
+  renderDocument
+}: WriterDocumentListProps) {
+  const documentListRef = useRef<HTMLDivElement>(null)
+  const virtualization = getWriterDocumentVirtualizationConfig(documents.length)
+  const virtualizer = useVirtualizer({
+    count: virtualization.enabled ? documents.length : 0,
+    getScrollElement: () => documentListRef.current,
+    estimateSize: () => 64,
+    overscan: 8
+  })
+
+  return (
+    <div
+      ref={documentListRef}
+      className={[styles.documentList, nested && styles.folderDocumentList]
+        .filter(Boolean)
+        .join(' ')}
+    >
+      {virtualization.enabled ? (
+        <div className={styles.virtualList} style={{ height: virtualizer.getTotalSize() }}>
+          {virtualizer.getVirtualItems().map((virtualItem) => (
+            <div
+              key={virtualItem.key}
+              className={styles.virtualRow}
+              data-index={virtualItem.index}
+              ref={virtualization.measureRows ? virtualizer.measureElement : undefined}
+              style={{ transform: `translateY(${virtualItem.start}px)` }}
+            >
+              {renderDocument(documents[virtualItem.index])}
+            </div>
+          ))}
+        </div>
+      ) : (
+        documents.map(renderDocument)
+      )}
+    </div>
+  )
 }
 
 /** 写作侧边栏，提供文档库筛选、文件夹与当前文档大纲入口。 */
@@ -37,7 +89,6 @@ const WriterSidebarSection = memo(function WriterSidebarSection() {
   const toggleFavorite = useWriterLibraryStore((state) => state.toggleFavorite)
   const visibleDocuments = useWriterLibraryStore((state) => state.visibleDocuments)
   const notify = useNotification()
-  const documentListRef = useRef<HTMLDivElement>(null)
   const [expandedFolderIds, setExpandedFolderIds] = useState<Set<string>>(() => new Set())
 
   useEffect(() => {
@@ -48,36 +99,37 @@ const WriterSidebarSection = memo(function WriterSidebarSection() {
     () => visibleDocuments(),
     [activeCollection, documents, searchQuery, visibleDocuments]
   )
-  const virtualization = getWriterDocumentVirtualizationConfig(filteredDocuments.length)
-  const virtualizer = useVirtualizer({
-    count: virtualization.enabled ? filteredDocuments.length : 0,
-    getScrollElement: () => documentListRef.current,
-    estimateSize: () => 64,
-    overscan: 8
-  })
-  const folderDocumentGroups = useMemo(() => {
-    const query = searchQuery.trim().toLocaleLowerCase()
-    const searchableDocuments = query
-      ? documents.filter((document) => document.title.toLocaleLowerCase().includes(query))
-      : documents
-    return groupWriterFolderDocuments(searchableDocuments, folders)
-  }, [documents, folders, searchQuery])
+  const documentRenderPlan = useMemo(
+    () =>
+      getWriterSidebarDocumentRenderPlan({
+        documents: filteredDocuments,
+        folders,
+        collection: activeCollection,
+        expandedFolderIds
+      }),
+    [activeCollection, expandedFolderIds, filteredDocuments, folders]
+  )
 
   const selectCollection = useCallback(
     (collection: WriterCollection): void => {
+      if (collection !== 'all') setExpandedFolderIds(new Set())
       setActiveCollection(collection)
     },
     [setActiveCollection]
   )
 
-  const toggleFolder = useCallback((folderId: string): void => {
-    setExpandedFolderIds((current) => {
-      const next = new Set(current)
-      if (next.has(folderId)) next.delete(folderId)
-      else next.add(folderId)
-      return next
-    })
-  }, [])
+  const toggleFolder = useCallback(
+    (folderId: string): void => {
+      setActiveCollection('all')
+      setExpandedFolderIds((current) => {
+        const next = new Set(current)
+        if (next.has(folderId)) next.delete(folderId)
+        else next.add(folderId)
+        return next
+      })
+    },
+    [setActiveCollection]
+  )
 
   const handleDeleteDocument = useCallback(
     async (documentId: string): Promise<void> => {
@@ -233,9 +285,7 @@ const WriterSidebarSection = memo(function WriterSidebarSection() {
                 <span className={styles.groupLabel}>文件夹</span>
                 {folders.map((folder) => {
                   const isExpanded = expandedFolderIds.has(folder.id)
-                  const folderDocuments =
-                    folderDocumentGroups.find((group) => group.folderId === folder.id)?.documents ??
-                    []
+                  const folderBucket = documentRenderPlan.find((bucket) => bucket.id === folder.id)
                   return (
                     <div key={folder.id} className={styles.folder}>
                       <div className={styles.folderHeader}>
@@ -259,8 +309,12 @@ const WriterSidebarSection = memo(function WriterSidebarSection() {
                       </div>
                       {isExpanded && (
                         <div className={styles.folderDocuments}>
-                          {folderDocuments.length > 0 ? (
-                            folderDocuments.map(renderDocument)
+                          {folderBucket && folderBucket.documents.length > 0 ? (
+                            <WriterDocumentList
+                              documents={folderBucket.documents}
+                              nested
+                              renderDocument={renderDocument}
+                            />
                           ) : (
                             <span className={styles.folderEmpty}>文件夹内暂无文档</span>
                           )}
@@ -288,25 +342,12 @@ const WriterSidebarSection = memo(function WriterSidebarSection() {
               </div>
             ) : null}
 
-            <div ref={documentListRef} className={styles.documentList}>
-              {virtualization.enabled ? (
-                <div className={styles.virtualList} style={{ height: virtualizer.getTotalSize() }}>
-                  {virtualizer.getVirtualItems().map((virtualItem) => (
-                    <div
-                      key={virtualItem.key}
-                      className={styles.virtualRow}
-                      data-index={virtualItem.index}
-                      ref={virtualization.measureRows ? virtualizer.measureElement : undefined}
-                      style={{ transform: `translateY(${virtualItem.start}px)` }}
-                    >
-                      {renderDocument(filteredDocuments[virtualItem.index])}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                filteredDocuments.map(renderDocument)
-              )}
-            </div>
+            <WriterDocumentList
+              documents={
+                documentRenderPlan.find((bucket) => bucket.placement !== 'folder')?.documents ?? []
+              }
+              renderDocument={renderDocument}
+            />
           </div>
         </div>
       )}
