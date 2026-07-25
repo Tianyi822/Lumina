@@ -6,7 +6,7 @@ import type { ChatMessage, KnowledgeSearchResult } from '../../../types/chat'
 /**
  * 构建知识库上下文文本
  */
-export function buildKnowledgeContext(knowledgeResults?: KnowledgeSearchResult[]): string {
+function buildKnowledgeContext(knowledgeResults?: KnowledgeSearchResult[]): string {
   if (!knowledgeResults || knowledgeResults.length === 0) {
     return ''
   }
@@ -39,7 +39,7 @@ export function buildKnowledgeContext(knowledgeResults?: KnowledgeSearchResult[]
 /**
  * 格式化文档内容为文本
  */
-export function formatDocumentsContext(documents: AttachedDocument[]): string {
+function formatDocumentsContext(documents: AttachedDocument[]): string {
   if (!documents || documents.length === 0) {
     return ''
   }
@@ -180,7 +180,7 @@ function shouldKeepAssistantMessage(msg: ChatMessage): boolean {
 /**
  * 清理发送给模型的工具消息配对，避免历史裁剪后出现孤立 tool 消息。
  */
-export function sanitizeToolMessagePairs(messages: ChatMessage[]): ChatMessage[] {
+function sanitizeToolMessagePairs(messages: ChatMessage[]): ChatMessage[] {
   const filteredMessages = messages.map(cloneChatMessage).filter((msg) => {
     if (msg.role === 'assistant') {
       return shouldKeepAssistantMessage(msg)

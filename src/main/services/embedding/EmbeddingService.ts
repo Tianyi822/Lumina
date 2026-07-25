@@ -86,7 +86,7 @@ interface EmbeddingReservation {
   reservedTokens: number
 }
 
-export interface BatchEmbeddingProgress {
+interface BatchEmbeddingProgress {
   processedTexts: number
   totalTexts: number
   currentBatchSize: number
@@ -410,7 +410,7 @@ export function isEmbeddingFailure(result: unknown): result is EmbeddingFailure 
 /**
  * 预定义的嵌入模型配置
  */
-export const PRESET_EMBEDDING_MODELS: Record<
+const PRESET_EMBEDDING_MODELS: Record<
   string,
   { name: string; dimension: number; config: Partial<EmbeddingConfig> }
 > = {

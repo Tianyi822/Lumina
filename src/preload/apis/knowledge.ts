@@ -12,9 +12,9 @@ import type {
 import { createIpcListener } from './base'
 
 /**
- * API 响应的通用格式
+ * API 响应的通用格式（文件内部使用，不对外导出）
  */
-export interface ApiResponse<T = unknown> {
+interface ApiResponse<T = unknown> {
   success: boolean
   data?: T
   error?: string

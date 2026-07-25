@@ -16,7 +16,7 @@ interface MathFence {
 
 const FENCE_OPEN_PATTERN = /^ {0,3}(`{3,}|~{3,})/
 
-export function parseMarkdownFenceOpener(line: string): MarkdownFence | null {
+function parseMarkdownFenceOpener(line: string): MarkdownFence | null {
   const match = line.match(FENCE_OPEN_PATTERN)
   if (!match) {
     return null
@@ -29,7 +29,7 @@ export function parseMarkdownFenceOpener(line: string): MarkdownFence | null {
   }
 }
 
-export function isMarkdownFenceCloser(line: string, fence: MarkdownFence): boolean {
+function isMarkdownFenceCloser(line: string, fence: MarkdownFence): boolean {
   const leadingSpaceLength = line.match(/^ */)?.[0].length ?? 0
   if (leadingSpaceLength > 3) {
     return false
@@ -49,7 +49,7 @@ export function isMarkdownFenceCloser(line: string, fence: MarkdownFence): boole
   return true
 }
 
-export function isFencedCodeBlock(block: string): boolean {
+function isFencedCodeBlock(block: string): boolean {
   const firstLine = block.replace(/\r\n/g, '\n').trim().split('\n')[0] || ''
   return !!parseMarkdownFenceOpener(firstLine)
 }
@@ -115,7 +115,7 @@ function findNextNonBlankLine(lines: string[], startIndex: number): string | nul
 
 // ─── 块分割 ───
 
-export function splitPaperMarkdownBlocks(markdown: string): string[] {
+function splitPaperMarkdownBlocks(markdown: string): string[] {
   const blocks: string[] = []
   const lines = markdown.replace(/\r\n/g, '\n').trim().split('\n')
   let buffer: string[] = []
@@ -199,7 +199,7 @@ export function splitPaperMarkdownBlocks(markdown: string): string[] {
   return blocks
 }
 
-export function splitMarkdownBlockByBlankLines(block: string): string[] {
+function splitMarkdownBlockByBlankLines(block: string): string[] {
   const chunks: string[] = []
   const lines = block.replace(/\r\n/g, '\n').trim().split('\n')
   let buffer: string[] = []
@@ -305,7 +305,7 @@ export function extractFencedCodeText(markdown: string): string {
   return lines.slice(1, closeIndex).join('\n')
 }
 
-export function isImageOnlyBlock(block: string): boolean {
+function isImageOnlyBlock(block: string): boolean {
   const trimmed = block.trim()
   if (!trimmed) {
     return false
@@ -329,7 +329,7 @@ export function isImageOnlyBlock(block: string): boolean {
   return withoutImgTags.length === 0
 }
 
-export function isTableLikeBlock(block: string): boolean {
+function isTableLikeBlock(block: string): boolean {
   // HTML 表格
   if (/<table[\s>]/i.test(block)) {
     return true

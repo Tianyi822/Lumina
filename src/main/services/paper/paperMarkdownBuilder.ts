@@ -71,7 +71,7 @@ function normalizeReaderPageResults(pageResults: PaperPageOcrResult[]): PaperPag
  * 在 Markdown 中查找每个可见块的出现位置（start/end offset）
  * 跳过 removalIndexes 中的块
  */
-export function findBlockOccurrences(
+function findBlockOccurrences(
   markdown: string,
   pageBlocks: PaperLayoutBlock[],
   removalIndexes: Set<number>

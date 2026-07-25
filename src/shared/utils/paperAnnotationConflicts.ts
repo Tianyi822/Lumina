@@ -6,7 +6,7 @@ import type {
 
 export const PAPER_ANNOTATION_NOTE_CONFLICT_MESSAGE = '该段已有笔记覆盖了选中范围，请调整选区或编辑已有笔记'
 
-export type PaperAnnotationNoteConflictReason = 'range_overlap'
+type PaperAnnotationNoteConflictReason = 'range_overlap'
 
 export interface PaperAnnotationNoteConflictTarget {
   kind: PaperAnnotationKind

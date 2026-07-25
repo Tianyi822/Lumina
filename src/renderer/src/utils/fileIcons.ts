@@ -63,7 +63,7 @@ const DEFAULT_ICON: FileIconConfig = {
  * @param fileName 文件名
  * @returns 文件扩展名（小写，不包含点）
  */
-export function getFileExtension(fileName: string): string {
+function getFileExtension(fileName: string): string {
   const lastDotIndex = fileName.lastIndexOf('.')
   return lastDotIndex > -1 ? fileName.slice(lastDotIndex + 1).toLowerCase() : ''
 }

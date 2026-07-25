@@ -112,5 +112,3 @@ export class PaperSemanticExtractor {
     return segments
   }
 }
-
-export const paperSemanticExtractor = new PaperSemanticExtractor()

@@ -1,35 +1,5 @@
-export {
-  ToolDescriptionEnhancer,
-  enhanceToolDescription,
-  enhanceToolDescriptions,
-  toolDescriptionEnhancer
-} from './ToolDescriptionEnhancer'
-
-// 统一工具注册表 + 适配器（阶段四）
+// 统一工具入口（仅保留经本 barrel 消费的符号；
+// 其余工具类消费方均直接从子模块导入，对应 re-export 已确证零引用并移除）
 export { UnifiedToolRegistry } from './UnifiedToolRegistry'
-export type { ToolAdapter, ToolCategory, RegisteredTool } from './UnifiedToolRegistry'
-export { KnowledgeToolAdapter } from './adapters/KnowledgeToolAdapter'
 export { MCPToolAdapter } from './adapters/MCPToolAdapter'
-export { PaperContextToolAdapter } from './adapters/PaperContextToolAdapter'
-
-// 统一工具执行器（阶段五：合并 ToolExecutor + ToolCallScheduler）
 export { UnifiedToolExecutor } from './UnifiedToolExecutor'
-export type { ToolCallDefinition, UnifiedToolExecutorOptions } from './UnifiedToolExecutor'
-
-// 工具统计收集器（阶段六）
-export { ToolStatsCollector, toolStatsCollector } from './ToolStatsCollector'
-
-// 工具编排框架
-export { ToolResultEnricher } from './ToolResultEnricher'
-export { ToolResultMerger } from './ToolResultMerger'
-export { ToolOrchestrator } from './ToolOrchestrator'
-export type { ToolOrchestratorOptions } from './ToolOrchestrator'
-export { ToolRegistrationStrategy } from './ToolRegistrationStrategy'
-export { PaperSemanticExtractor, paperSemanticExtractor } from './PaperSemanticExtractor'
-
-// 能力单元系统
-export { capabilityRegistry } from './capabilities/CapabilityRegistry'
-export { registerBuiltinCapabilities } from './capabilities/registerBuiltinCapabilities'
-export { CapabilityComposer } from './orchestration/CapabilityComposer'
-export { CapabilityManager, capabilityManager } from './CapabilityManager'
-export { presetRegistry } from './presets/PresetRegistry'

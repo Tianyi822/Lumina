@@ -110,7 +110,7 @@ function renderRawTableInlineMath(root: Element, renderInline: (content: string)
 
 /** 将表格内块级 KaTeX 降级为行内布局，避免 tr/td 塌缩为竖排 */
 /** 将表格内的块级 KaTeX 降级为行内布局，防止 display 公式撑破 tr/td 导致竖排 */
-export function normalizeTableDisplayMath(root: Element): void {
+function normalizeTableDisplayMath(root: Element): void {
   root.querySelectorAll('table .katex-display').forEach((display) => {
     const element = display as HTMLElement
     element.classList.add('paper-katex-table-inline')

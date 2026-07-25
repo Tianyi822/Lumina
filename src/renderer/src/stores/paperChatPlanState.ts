@@ -13,7 +13,7 @@ function createValueRef<T>(value: T): ValueRef<T> {
 }
 
 /** Plan 步骤内的 ReAct 迭代阶段 */
-export interface PlanStepIteration {
+interface PlanStepIteration {
   /** 步骤内阶段编号（1-based） */
   localPhaseNumber: number
   /** 步骤编号（1-based） */

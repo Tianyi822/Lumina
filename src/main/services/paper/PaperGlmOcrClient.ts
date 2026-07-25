@@ -3,7 +3,7 @@ import { logger } from '@main/services/logger'
 import type { OcrProviderId } from '@shared/types/config'
 import { getOcrProviderPreset } from '@shared/types/config'
 
-export const OCR_REQUEST_TIMEOUT_MS = 120_000
+const OCR_REQUEST_TIMEOUT_MS = 120_000
 
 export interface GlmOcrRequestParams {
   provider: OcrProviderId

@@ -22,7 +22,7 @@ export interface RunPaperOcrPipelineResult {
   results: PaperPageOcrResult[]
 }
 
-export function createPendingOcrResult(paperId: string, pageIndex: number): PaperPageOcrResult {
+function createPendingOcrResult(paperId: string, pageIndex: number): PaperPageOcrResult {
   return {
     paperId,
     pageIndex,

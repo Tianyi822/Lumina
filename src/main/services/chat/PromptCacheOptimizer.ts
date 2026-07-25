@@ -503,7 +503,7 @@ export function recordPromptCacheDiagnostics(
  * 构建 Prompt Cache 诊断的 scope 字符串
  * 格式：{host}:{model}:{scope}:{mode}
  */
-export function buildPromptCacheDiagnosticScope(options: PromptCacheDiagnosticOptions): string {
+function buildPromptCacheDiagnosticScope(options: PromptCacheDiagnosticOptions): string {
   const cacheScope =
     options.request.sessionType === 'paper' && options.request.paperId
       ? `paper:${options.request.paperId}`

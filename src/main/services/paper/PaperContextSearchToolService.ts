@@ -18,28 +18,6 @@ export interface PaperContextSearchArgs {
   limit?: number
 }
 
-export interface PaperContextSentenceMatch {
-  source: Exclude<PaperContextSearchSource, 'both'>
-  segmentIndex: number
-  segmentStableId?: string
-  pageIndexes?: number[]
-  sentence: string
-  score: number
-  matchedKeywords: string[]
-}
-
-export interface PaperContextSearchOutput {
-  paperId: string
-  source: PaperContextSearchSource
-  query: string
-  selectedText?: string
-  iterations: number
-  keywords: string[]
-  usedReadingProgressFallback: boolean
-  matches: PaperContextSentenceMatch[]
-  warnings: string[]
-}
-
 interface PaperContextSearchDependencies {
   getReaderDocument: (paperId: string) => Promise<{
     success: boolean

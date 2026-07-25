@@ -206,5 +206,3 @@ export class StopController {
     this.sessionKnowledgeBases.delete(sessionId)
   }
 }
-
-export const stopController = new StopController()

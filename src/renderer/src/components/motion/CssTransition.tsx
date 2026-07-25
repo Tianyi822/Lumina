@@ -138,6 +138,14 @@ function getToPhase(phase: TransitionPhase): TransitionPhase {
   return phase
 }
 
+/**
+ * 单元素 CSS 过渡动画组件。
+ *
+ * 当前未在应用内直接使用（`CssSwitchTransition` / `CssTransitionGroup` 覆盖了实际场景），
+ * 作为通用动画原语保留供后续 UI 复用。
+ *
+ * @public
+ */
 export function CssTransition({
   show,
   name,

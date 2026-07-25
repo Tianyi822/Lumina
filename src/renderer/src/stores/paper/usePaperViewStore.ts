@@ -12,7 +12,7 @@ export interface PaperViewScrollPosition {
   scrollLeft: number
 }
 
-export interface PaperBeforeZoomChangeParams {
+interface PaperBeforeZoomChangeParams {
   previousZoomLevel: number
   nextZoomLevel: number
 }

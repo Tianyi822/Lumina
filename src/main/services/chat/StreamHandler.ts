@@ -172,5 +172,3 @@ export class StreamHandler {
     })
   }
 }
-
-export const streamHandler = new StreamHandler()

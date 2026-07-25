@@ -2,7 +2,7 @@ import { join, normalize, basename } from 'path'
 import { getConfigDirPath } from '../config/configPaths'
 
 // 数据目录名称
-export const DATA_DIR_NAME = 'sessions'
+const DATA_DIR_NAME = 'sessions'
 
 // 获取数据目录路径
 export function getDataDirPath(): string {

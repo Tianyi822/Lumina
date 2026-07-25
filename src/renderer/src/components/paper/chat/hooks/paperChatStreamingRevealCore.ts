@@ -1,4 +1,4 @@
-export const PAPER_CHAT_REVEAL_CHUNK_SIZE = 3
+const PAPER_CHAT_REVEAL_CHUNK_SIZE = 3
 export const PAPER_CHAT_REVEAL_INTERVAL_MS = 18
 
 export interface PaperChatRevealState {

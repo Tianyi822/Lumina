@@ -26,7 +26,7 @@ export function createEmptyPaperAnnotationStore(paperId: string): PaperAnnotatio
   }
 }
 
-export function isHighlightColorKey(colorKey: PaperAnnotationColorKey): boolean {
+function isHighlightColorKey(colorKey: PaperAnnotationColorKey): boolean {
   return PAPER_ANNOTATION_HIGHLIGHT_COLOR_KEYS.includes(
     colorKey as (typeof PAPER_ANNOTATION_HIGHLIGHT_COLOR_KEYS)[number]
   )
@@ -89,7 +89,7 @@ function normalizeAnnotationColorKey(value: unknown): PaperAnnotationColorKey {
 /**
  * 归一化从磁盘读取的单条批注（确保 kind 和 colorKey 的合法性）
  */
-export function normalizeStoredAnnotation(annotation: PaperAnnotation): PaperAnnotation {
+function normalizeStoredAnnotation(annotation: PaperAnnotation): PaperAnnotation {
   return {
     ...annotation,
     kind: normalizeAnnotationKind((annotation as PaperAnnotation & { kind?: unknown }).kind),

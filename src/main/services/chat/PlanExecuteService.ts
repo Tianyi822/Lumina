@@ -29,6 +29,7 @@ import {
 
 /**
  * PlanExecuteService 配置选项
+ * @public 规划执行服务对外公共 API（经 services/chat barrel re-export）
  */
 export interface PlanExecuteServiceOptions {
   logger: Logger
@@ -76,6 +77,7 @@ const TOOL_RESULT_MAX_CHARS = 1600
 /**
  * 规划执行服务
  * 在 ReAct 循环之上增加"先规划再执行"的编排层
+ * @public 规划执行服务对外公共 API（经 services/chat barrel re-export）
  */
 export class PlanExecuteService {
   private readonly logger: PlanExecuteServiceOptions['logger']

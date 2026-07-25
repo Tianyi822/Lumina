@@ -29,7 +29,7 @@ export interface RenderSourceSegment {
   sourceRefs: import('@shared/types/paper').PaperReaderSegmentSourceRefs
 }
 
-export interface QuoteHighlight {
+interface QuoteHighlight {
   id: string
   startOffset: number
   endOffset: number
@@ -38,9 +38,9 @@ export interface QuoteHighlight {
   colorKey: PaperAnnotationColorKey
 }
 
-export const PAPER_ANNOTATION_HIGHLIGHT_SELECTOR = 'mark.paper-annotation-highlight'
-export const PAPER_ANNOTATION_FORMULA_HIGHLIGHT_CLASS = 'paper-annotation-formula-highlight'
-export const PAPER_ANNOTATION_FORMULA_HIGHLIGHT_SELECTOR = `.${PAPER_ANNOTATION_FORMULA_HIGHLIGHT_CLASS}`
+const PAPER_ANNOTATION_HIGHLIGHT_SELECTOR = 'mark.paper-annotation-highlight'
+const PAPER_ANNOTATION_FORMULA_HIGHLIGHT_CLASS = 'paper-annotation-formula-highlight'
+const PAPER_ANNOTATION_FORMULA_HIGHLIGHT_SELECTOR = `.${PAPER_ANNOTATION_FORMULA_HIGHLIGHT_CLASS}`
 export const PAPER_ANNOTATION_INTERACTIVE_SELECTOR = [
   PAPER_ANNOTATION_HIGHLIGHT_SELECTOR,
   PAPER_ANNOTATION_FORMULA_HIGHLIGHT_SELECTOR
@@ -87,7 +87,7 @@ function resolveTranslationViewAnchor(
   return null
 }
 
-export interface HighlightCollectResult {
+interface HighlightCollectResult {
   highlights: QuoteHighlight[]
   failedIds: string[]
 }
@@ -365,7 +365,7 @@ function removeEmptyHighlightMarks(root: Element): void {
   })
 }
 
-export interface ApplyHighlightsResult {
+interface ApplyHighlightsResult {
   html: string
   failedIds: string[]
 }

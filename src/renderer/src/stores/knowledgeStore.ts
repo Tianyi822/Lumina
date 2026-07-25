@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware'
 import type { KnowledgeBase, KnowledgeBaseEmbeddingConfig } from '@renderer/types'
 import type { EmbeddingConfig } from '@shared/types/config'
 
-export interface CreateKnowledgeBaseInput {
+interface CreateKnowledgeBaseInput {
   name: string
   description: string
   embeddingConfig: KnowledgeBaseEmbeddingConfig

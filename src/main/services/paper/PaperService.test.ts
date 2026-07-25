@@ -319,7 +319,7 @@ test('getReaderDocument 会生成并命中 reader-document 缓存', async () => 
       builderVersion?: number
       readerDocument?: PaperReaderDocument
     }
-    assert.equal(cache.builderVersion, 1)
+    assert.equal(cache.builderVersion, 2)
     assert.match(cache.readerDocument?.markdown ?? '', /First cached paragraph/)
 
     paperStorageService.listNormalizedResults = () => {

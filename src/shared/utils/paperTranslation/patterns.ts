@@ -2,30 +2,30 @@ import type { PaperTranslationSegment } from '../../types/paper'
 
 // ─── 正则常量 ───
 
-export const PERSON_NAME_CHUNK_PATTERN =
+const PERSON_NAME_CHUNK_PATTERN =
   /(?:[A-Z][A-Za-z.'-]+(?:\s+[A-Z][A-Za-z.'-]+){1,3})(?:\s+[0-9¹²³⁴⁵⁶⁷⁸⁹⁰]+(?:,[0-9¹²³⁴⁵⁶⁷⁸⁹⁰]+)*[*†‡]*)*/g
-export const AFFILIATION_KEYWORD_PATTERN =
+const AFFILIATION_KEYWORD_PATTERN =
   /\b(?:university|institute|school|college|laboratory|department|academy|center|centre|ministry|faculty|hospital|research\s+center|engineering\s+research|research\s+institute|company|technology|technologies)\b|(?:大学|学院|研究所|实验室|中心|系|院|部|国家|中国|公司)/gi
-export const AFFILIATION_KEYWORD_TEST_PATTERN =
+const AFFILIATION_KEYWORD_TEST_PATTERN =
   /\b(?:university|institute|school|college|laboratory|department|academy|center|centre|ministry|faculty|hospital|research\s+center|engineering\s+research|research\s+institute|company|technology|technologies)\b|(?:大学|学院|研究所|实验室|中心|系|院|部|国家|中国|公司)/i
-export const REFERENCE_AUTHOR_TOKEN_PATTERN =
+const REFERENCE_AUTHOR_TOKEN_PATTERN =
   /(?:^|[;,(]\s*|\s+)(?:[A-Z][A-Za-z'`-]+,\s*(?:[A-Z]\.\s*){1,4})/g
-export const REFERENCE_PUBLICATION_KEYWORD_PATTERN =
+const REFERENCE_PUBLICATION_KEYWORD_PATTERN =
   /\b(?:arxiv|doi|journal|transactions|conference|proceedings|proc\.|symposium|workshop|letters|press|springer|elsevier|wiley|acm|ieee|cvpr|iccv|eccv|aaai|neurips|icml|iclr|pattern\s+analysis|machine\s+intelligence|vol\.|no\.|pp\.|pages)\b|(?:会议|期刊|学报|出版社|卷|页)/i
-export const REFERENCE_HEADING_PATTERN = /^(?:references?|bibliography|参考文献|文献)\s*[：:\s]*$/i
-export const REFERENCE_MARKER_PATTERN = /^\s*(?:\[\d+\]|\[\[\d+\]\]|\d+\.)\s+/
+const REFERENCE_HEADING_PATTERN = /^(?:references?|bibliography|参考文献|文献)\s*[：:\s]*$/i
+const REFERENCE_MARKER_PATTERN = /^\s*(?:\[\d+\]|\[\[\d+\]\]|\d+\.)\s+/
 
-export const HEADING_PREFIX_PATTERN = /^(#{1,6})\s+(.+?)\s*$/
+const HEADING_PREFIX_PATTERN = /^(#{1,6})\s+(.+?)\s*$/
 export const HEADING_NUMBERING_PATTERN = /^(\d+(?:\.\d+)*)(?:\.)?(?:\s+|$)/
 export const APPENDIX_EXPLICIT_HEADING_PATTERN =
   /^(?:appendix|附录)\s*([A-Z])(?:\.(\d+(?:\.\d+)*))?(?:[\s:：.-]+|$)/i
 export const APPENDIX_DOTTED_HEADING_PATTERN = /^([A-Z])\.(\d+(?:\.\d+)*)(?:\.)?(?:\s+|$)/i
 export const APPENDIX_ROOT_HEADING_PATTERN = /^([A-Z])\s+\S.+$/
-export const ABSTRACT_PARAGRAPH_PATTERN = /^(abstract|摘要)\s*(?:[:：.。]\s*|\s+|$)/i
-export const KEYWORD_SECTION_PATTERN = /^(?:keywords?|index terms)\s*[:：.。]|^关键词\s*[:：.。]/i
-export const PAGE_COMMENT_PATTERN = /^\s*<!--\s*Page\s+\d+\s*-->\s*$/i
+const ABSTRACT_PARAGRAPH_PATTERN = /^(abstract|摘要)\s*(?:[:：.。]\s*|\s+|$)/i
+const KEYWORD_SECTION_PATTERN = /^(?:keywords?|index terms)\s*[:：.。]|^关键词\s*[:：.。]/i
+const PAGE_COMMENT_PATTERN = /^\s*<!--\s*Page\s+\d+\s*-->\s*$/i
 
-export const STRUCTURAL_SECTION_TITLES = new Set([
+const STRUCTURAL_SECTION_TITLES = new Set([
   'abstract',
   '摘要',
   'introduction',
@@ -56,7 +56,7 @@ export const STRUCTURAL_SECTION_TITLES = new Set([
   '致谢'
 ])
 
-export const BACK_MATTER_SECTION_TITLES = new Set([
+const BACK_MATTER_SECTION_TITLES = new Set([
   'references',
   'bibliography',
   '参考文献',
@@ -91,7 +91,7 @@ export function normalizePaperHeadingText(text: string): string {
     .trim()
 }
 
-export function normalizePaperSectionTitleForMatch(text: string): string {
+function normalizePaperSectionTitleForMatch(text: string): string {
   return normalizePaperHeadingText(text)
     .replace(HEADING_NUMBERING_PATTERN, '')
     .replace(/^[\s:：.。-]+/, '')
@@ -115,7 +115,7 @@ export function isPaperAppendixSectionTitle(titleText: string): boolean {
   return ['appendix', 'appendices', '附录'].includes(normalizePaperSectionTitleForMatch(titleText))
 }
 
-export function isPaperPersonClusterText(text: string): boolean {
+function isPaperPersonClusterText(text: string): boolean {
   const matches = text.match(PERSON_NAME_CHUNK_PATTERN) ?? []
   if (matches.length < 2) {
     return false

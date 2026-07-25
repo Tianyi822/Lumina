@@ -4,13 +4,6 @@ import type { Logger } from '../logger'
 import type { MCPService } from '../mcp'
 import type { StopController } from './StopController'
 import type { StreamHandler } from './StreamHandler'
-import type {
-  ChatRequest,
-  KnowledgeSearchResult,
-  MCPToolReference,
-  TokenUsage
-} from '../../types/chat'
-import type { KnowledgeBaseReference } from '@shared/types/knowledge'
 import type { LLMConfig } from '../../types/config'
 
 /**
@@ -45,56 +38,3 @@ export interface StreamAccumulatorState {
   >
   hasToolCalls: boolean
 }
-
-/**
- * 创建流式响应累积状态
- */
-export function createStreamAccumulatorState(): StreamAccumulatorState {
-  return {
-    assistantContent: '',
-    assistantReasoningContent: '',
-    assistantApiReasoningContent: '',
-    toolCalls: new Map(),
-    hasToolCalls: false
-  }
-}
-
-/**
- * 流式响应上下文
- */
-export interface StreamContext {
-  webContents: WebContents
-  sessionId: string
-  totalUsage: TokenUsage
-  conversationMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[]
-}
-
-/**
- * ReAct 循环执行参数
- */
-export interface ReactLoopParams {
-  request: ChatRequest
-  webContents: WebContents
-  knowledgeResults?: KnowledgeSearchResult[]
-  selectedKnowledgeBases?: KnowledgeBaseReference[]
-}
-
-/**
- * ReAct 循环内部状态
- */
-export interface ReactLoopState {
-  llmConfig: LLMConfig
-  client: OpenAI
-  allTools: MCPToolReference[]
-  conversationMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[]
-  totalUsage: TokenUsage
-  iterations: number
-  maxReactIterations: number
-}
-
-export type TimeoutAndStopRunner = <T>(
-  promise: Promise<T>,
-  sessionId: string,
-  timeoutMs?: number,
-  operationName?: string
-) => Promise<T>

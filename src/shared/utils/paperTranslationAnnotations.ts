@@ -6,7 +6,7 @@ export interface TranslationAnnotationSummary {
   noteCount: number
 }
 
-export function isTranslationViewAnnotation(annotation: PaperAnnotation): boolean {
+function isTranslationViewAnnotation(annotation: PaperAnnotation): boolean {
   return annotation.noteType === 'translation_view'
 }
 

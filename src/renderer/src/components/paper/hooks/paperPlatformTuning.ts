@@ -1,6 +1,6 @@
 /** 论文阅读器平台相关渲染参数 */
 
-export function isPaperReaderWindowsPlatform(): boolean {
+function isPaperReaderWindowsPlatform(): boolean {
   if (typeof document === 'undefined') {
     return false
   }

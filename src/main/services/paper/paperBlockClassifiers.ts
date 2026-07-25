@@ -25,23 +25,23 @@ export function getPlainText(content: string): string {
   return decodeHtmlEntities(withoutMarkdown).replace(/\s+/g, ' ').trim()
 }
 
-export function getBlockTopRatio(block: PaperLayoutBlock): number {
+function getBlockTopRatio(block: PaperLayoutBlock): number {
   return block.height > 0 ? block.bbox.y / block.height : 0
 }
 
-export function getBlockBottomRatio(block: PaperLayoutBlock): number {
+function getBlockBottomRatio(block: PaperLayoutBlock): number {
   return block.height > 0 ? (block.bbox.y + block.bbox.height) / block.height : 0
 }
 
-export function getBlockWidthRatio(block: PaperLayoutBlock): number {
+function getBlockWidthRatio(block: PaperLayoutBlock): number {
   return block.width > 0 ? block.bbox.width / block.width : 0
 }
 
-export function getBlockHeightRatio(block: PaperLayoutBlock): number {
+function getBlockHeightRatio(block: PaperLayoutBlock): number {
   return block.height > 0 ? block.bbox.height / block.height : 0
 }
 
-export function getBlockAreaRatio(block: PaperLayoutBlock): number {
+function getBlockAreaRatio(block: PaperLayoutBlock): number {
   const pageArea = block.width * block.height
   if (pageArea <= 0) {
     return 0
@@ -50,7 +50,7 @@ export function getBlockAreaRatio(block: PaperLayoutBlock): number {
   return (block.bbox.width * block.bbox.height) / pageArea
 }
 
-export function isRemoteImageUrl(content: string): boolean {
+function isRemoteImageUrl(content: string): boolean {
   return /^https?:\/\/\S+$/i.test(content.trim())
 }
 
@@ -99,7 +99,7 @@ export function isHeadingBlock(block: PaperLayoutBlock): boolean {
   return block.label === 'text' && /^\s{0,3}#{1,6}\s+/.test(block.content)
 }
 
-export function hasExplicitCenteredAlignment(content: string): boolean {
+function hasExplicitCenteredAlignment(content: string): boolean {
   return /align\s*=\s*["']center["']/i.test(content) || /text-align\s*:\s*center/i.test(content)
 }
 
@@ -142,7 +142,7 @@ export function isFigureSupportBlock(block: PaperLayoutBlock): boolean {
 /**
  * 判断是否为装饰性页眉图片（位于页面顶部、面积很小的图片，如顶部的标志性图标）
  */
-export function isLikelyDecorativeHeaderImage(block: PaperLayoutBlock): boolean {
+function isLikelyDecorativeHeaderImage(block: PaperLayoutBlock): boolean {
   return (
     getBlockTopRatio(block) <= 0.16 &&
     getBlockBottomRatio(block) <= 0.22 &&
@@ -156,7 +156,7 @@ export function isLikelyDecorativeHeaderImage(block: PaperLayoutBlock): boolean 
  * 判断是否为论文头部文本块（标题、作者、机构等）
  * 通常位于页面上半部分、居中且包含机构名称等信息
  */
-export function isLikelyPaperHeaderTextBlock(block: PaperLayoutBlock): boolean {
+function isLikelyPaperHeaderTextBlock(block: PaperLayoutBlock): boolean {
   if (block.label !== 'text' || isHeadingBlock(block) || isFigureCaptionBlock(block)) {
     return false
   }

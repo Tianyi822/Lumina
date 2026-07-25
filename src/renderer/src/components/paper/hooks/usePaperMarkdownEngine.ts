@@ -39,7 +39,7 @@ import {
   isFileUrl
 } from '@shared/utils'
 import { usePaperHighlightRenderer } from '../composables/usePaperHighlightRenderer'
-import type { RenderSourceSegment, QuoteHighlight } from '../composables/usePaperHighlightRenderer'
+import type { RenderSourceSegment } from '../composables/usePaperHighlightRenderer'
 import { postProcessRenderedHtml } from './paperMarkdownPostProcess'
 import {
   getSegmentAnnotationRenderKey,
@@ -48,8 +48,6 @@ import {
 } from './paperAnnotationRenderState'
 // PERF-PROBE:firstpaint — 临时首屏性能埋点，验证后整体移除
 import { probe } from '../perf/paperFirstPaintProfiler'
-
-export type { RenderSourceSegment, QuoteHighlight }
 
 /** 生成翻译缓存的渲染缓存键，用于判断是否需要重新渲染译文 */
 export function getTranslationRenderKey(cache: PaperTranslationCache | null | undefined): string {

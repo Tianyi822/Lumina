@@ -1,5 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+/* eslint-disable @typescript-eslint/explicit-function-return-type */
 import {
   getSegmentAnnotationRenderKey,
   mergeSegmentAnnotationsForRender

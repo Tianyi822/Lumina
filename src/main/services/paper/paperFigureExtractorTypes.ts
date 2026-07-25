@@ -27,11 +27,6 @@ export interface ExtractPaperFigureDataOptions {
   resolveImagePath: (pageResult: PaperPageOcrResult, block: PaperLayoutBlock) => string | undefined
 }
 
-export interface ReplaceBlockResult {
-  markdown: string
-  replaced: boolean
-}
-
 export interface ReaderPageFragment {
   pageIndex: number
   markdown: string

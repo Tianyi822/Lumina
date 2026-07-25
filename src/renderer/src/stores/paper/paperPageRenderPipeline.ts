@@ -1,6 +1,6 @@
 import { PAPER_PAGE_RENDER_CONCURRENCY } from '@shared/constants/paper'
 
-export interface PageRenderResult {
+interface PageRenderResult {
   base64: string
   width: number
   height: number

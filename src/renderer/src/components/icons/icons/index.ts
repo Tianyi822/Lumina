@@ -539,5 +539,3 @@ export const icons: Record<string, IconData> = {
   ...arrowIcons,
   ...fileIcons
 }
-
-export type IconName = keyof typeof icons

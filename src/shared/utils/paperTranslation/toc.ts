@@ -178,7 +178,7 @@ function resolvePaperTocLevel(
   }
 }
 
-export function slugifyPaperHeadingText(text: string): string {
+function slugifyPaperHeadingText(text: string): string {
   const normalized = text
     .trim()
     .toLowerCase()

@@ -6,7 +6,7 @@ import type { ToolDescriptionLevel } from '../prompts/types'
  * 为 MCP 工具添加详细的参数说明和使用建议，
  * 支持 minimal（< 50 tokens）、basic（50-150 tokens）、detailed（150-300 tokens）三种级别
  */
-export class ToolDescriptionEnhancer {
+class ToolDescriptionEnhancer {
   /**
    * 增强工具描述
    * @param tool 待增强的 MCP 工具引用
@@ -364,12 +364,12 @@ export class ToolDescriptionEnhancer {
 /**
  * 单例实例
  */
-export const toolDescriptionEnhancer = new ToolDescriptionEnhancer()
+const toolDescriptionEnhancer = new ToolDescriptionEnhancer()
 
 /**
  * 增强单个工具描述的便捷函数
  */
-export function enhanceToolDescription(
+function enhanceToolDescription(
   tool: MCPToolReference,
   level: ToolDescriptionLevel = 'detailed'
 ): string {

@@ -173,6 +173,7 @@ export function migrateConfig(config: AppConfig): AppConfig {
 /**
  * 配置管理器
  * 负责配置的加载、保存和状态管理
+ * @public 配置系统对外公共 API（经 services/config barrel re-export 作为稳定导出表面）
  */
 export class ConfigManager {
   private config: AppConfig | null = null

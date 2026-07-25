@@ -42,7 +42,7 @@ interface PdfjsModule {
 }
 
 // 支持的文件类型
-export const SUPPORTED_FILE_TYPES = new Set<string>(SUPPORTED_DOCUMENT_EXTENSIONS)
+const SUPPORTED_FILE_TYPES = new Set<string>(SUPPORTED_DOCUMENT_EXTENSIONS)
 
 /**
  * 读取文本文件内容（UTF-8 编码）

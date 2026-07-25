@@ -61,7 +61,7 @@ function normalizeValue(value: unknown, keyHint?: string): unknown {
  * 同一工具 + 等价参数（对象 key 顺序无关、路径尾斜杠无关、字符串大小写无关）必产生相同 hash。
  * 纯函数，可独立测试。
  */
-export function computeArgsHash(toolName: string, args: unknown): string {
+function computeArgsHash(toolName: string, args: unknown): string {
   const normalized = {
     tool: toolName,
     args: normalizeValue(args)

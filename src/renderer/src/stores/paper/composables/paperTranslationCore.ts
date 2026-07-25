@@ -4,7 +4,7 @@ import type {
   PaperTranslationStatus
 } from '@shared/types/paper'
 
-export const STATUS_PRIORITY: Record<PaperTranslationStatus, number> = {
+const STATUS_PRIORITY: Record<PaperTranslationStatus, number> = {
   queued: 0,
   translating: 1,
   failed: 2,
