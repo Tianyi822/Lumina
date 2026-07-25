@@ -1,7 +1,6 @@
-import { createHash } from 'crypto'
-import { lstat } from 'fs/promises'
-import { mkdir, open, readdir, readFile, unlink } from 'fs/promises'
-import { basename, extname, relative, resolve, sep } from 'path'
+import { createHash, randomUUID } from 'crypto'
+import { link, lstat, mkdir, open, readdir, readFile, rm, unlink } from 'fs/promises'
+import { basename, dirname, extname, join, relative, resolve, sep } from 'path'
 import { logger } from '@main/services/logger'
 import type { WriterAsset, WriterAssetImportInput, WriterResult } from '@shared/types/writer'
 import {
@@ -220,25 +219,44 @@ export class WriterAssetService {
 
   private async writeDeduplicatedFile(path: string, bytes: Buffer, sha256: string): Promise<void> {
     try {
-      const file = await open(path, 'wx')
+      await this.verifyExistingFile(path, sha256)
+      return
+    } catch (error) {
+      if (!this.isNotFoundError(error)) {
+        throw error
+      }
+    }
+
+    const temporaryPath = join(dirname(path), `.${basename(path)}-${randomUUID()}.tmp`)
+    try {
+      const file = await open(temporaryPath, 'wx')
       try {
         await file.writeFile(bytes)
         await file.sync()
       } finally {
         await file.close()
       }
-    } catch (error) {
-      if (!this.isAlreadyExistsError(error)) {
-        throw error
+      try {
+        await link(temporaryPath, path)
+      } catch (error) {
+        if (!this.isAlreadyExistsError(error)) {
+          throw error
+        }
+        await this.verifyExistingFile(path, sha256)
       }
-      const stat = await lstat(path)
-      if (!stat.isFile() || stat.isSymbolicLink()) {
-        throw new Error('重复资源不是普通文件')
-      }
-      const existing = await readFile(path)
-      if (createHash('sha256').update(existing).digest('hex') !== sha256) {
-        throw new Error('重复资源哈希不一致')
-      }
+    } finally {
+      await rm(temporaryPath, { force: true })
+    }
+  }
+
+  private async verifyExistingFile(path: string, sha256: string): Promise<void> {
+    const stat = await lstat(path)
+    if (!stat.isFile() || stat.isSymbolicLink()) {
+      throw new Error('重复资源不是普通文件')
+    }
+    const existing = await readFile(path)
+    if (createHash('sha256').update(existing).digest('hex') !== sha256) {
+      throw new Error('重复资源哈希不一致')
     }
   }
 

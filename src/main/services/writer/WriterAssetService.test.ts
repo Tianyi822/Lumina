@@ -92,6 +92,28 @@ test('导入拒绝超过 20MB 的图像', async (t) => {
   assert.equal(result.code, 'invalid_input')
 })
 
+test('并发导入同一哈希的图片不会读取未完成文件', async (t) => {
+  const { service } = createService(t)
+  const png = Buffer.alloc(20 * 1024 * 1024)
+  Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).copy(png)
+
+  const results = await Promise.all(
+    Array.from({ length: 8 }, (_, index) =>
+      service.importBytes('writer-12345678', {
+        fileName: `figure-${index}.png`,
+        declaredMimeType: 'image/png',
+        bytes: png
+      })
+    )
+  )
+
+  assert.equal(
+    results.every((result) => result.success),
+    true
+  )
+  assert.equal(new Set(results.map((result) => result.data?.relativePath)).size, 1)
+})
+
 test('垃圾回收仅删除当前文档 assets 顶层未引用的普通图像文件', async (t) => {
   const { rootPath, service } = createService(t)
   const documentId = 'writer-12345678'

@@ -3,7 +3,7 @@ import { pathToFileURL } from 'url'
 import { logger } from '@main/services/logger'
 import { getPapersDirPath } from '@main/services/paper/paperPaths'
 import { getWritingRootPath } from '@main/services/writer/writerPaths'
-import { resolveLuminaResource } from './luminaProtocolResolver'
+import { resolveLuminaResourceFile } from './luminaProtocolResolver'
 
 const PROTOCOL_SCHEME = 'lumina'
 
@@ -24,7 +24,7 @@ protocol.registerSchemesAsPrivileged([
  */
 export function registerLuminaProtocol(): void {
   protocol.handle(PROTOCOL_SCHEME, async (request) => {
-    const resolution = resolveLuminaResource(request.url, {
+    const resolution = await resolveLuminaResourceFile(request.url, {
       papersRoot: getPapersDirPath(),
       writingRoot: getWritingRootPath()
     })

@@ -1,3 +1,4 @@
+import { lstat, realpath } from 'fs/promises'
 import { relative, resolve, sep } from 'path'
 import { isValidWriterDocumentId } from '@main/services/writer/writerPaths'
 
@@ -53,6 +54,41 @@ export function resolveLuminaResource(
   }
 }
 
+/** 在读取前确认目标及其资源根目录均未通过符号链接逃逸 */
+export async function resolveLuminaResourceFile(
+  rawUrl: string,
+  roots: LuminaProtocolRoots
+): Promise<WriterProtocolResolution> {
+  const resolution = resolveLuminaResource(rawUrl, roots)
+  if (!resolution.success) {
+    return resolution
+  }
+  try {
+    const resourceRoot = getResourceRoot(rawUrl, roots)
+    if (!resourceRoot) {
+      return denied('协议资源路径无效')
+    }
+    const canonicalRoot = await getCanonicalDirectory(resourceRoot)
+    if (isWritingUrl(rawUrl)) {
+      const canonicalWritingRoot = await realpath(roots.writingRoot)
+      if (!isPathInside(canonicalWritingRoot, canonicalRoot)) {
+        return denied('写作资源根目录越界')
+      }
+    }
+    const fileStat = await lstat(resolution.path)
+    if (!fileStat.isFile() || fileStat.isSymbolicLink()) {
+      return denied('协议资源不是普通文件')
+    }
+    const canonicalFilePath = await realpath(resolution.path)
+    if (!isPathInside(canonicalRoot, canonicalFilePath)) {
+      return denied('协议资源真实路径越界')
+    }
+    return { ...resolution, path: canonicalFilePath }
+  } catch {
+    return denied('协议资源不存在或无法安全读取')
+  }
+}
+
 function resolveWritingResource(segments: string[], writingRoot: string): WriterProtocolResolution {
   if (segments.length !== 3 || segments[1] !== 'assets' || !isValidWriterDocumentId(segments[0])) {
     return denied('写作资源路径无效')
@@ -70,21 +106,58 @@ function resolveWritingResource(segments: string[], writingRoot: string): Writer
 }
 
 function resolvePaperResource(segments: string[], papersRoot: string): WriterProtocolResolution {
-  const isPaperImage = segments.length >= 3 && (segments[1] === 'pages' || segments[1] === 'assets')
-  const isSourcePdf = segments.length === 2 && segments[1] === 'source.pdf'
-  if (!isPaperImage && !isSourcePdf) {
+  if (segments.length < 2) {
     return denied('论文资源路径无效')
   }
-  const mimeType = isSourcePdf ? 'application/pdf' : getImageMimeType(segments[segments.length - 1])
-  if (!mimeType) {
-    return denied('论文资源类型无效')
-  }
+  const mimeType = getPaperMimeType(segments)
   const paperRoot = resolve(papersRoot, segments[0])
   const path = resolve(paperRoot, ...segments.slice(1))
   if (!isPathInside(paperRoot, path)) {
     return denied('论文资源路径越界')
   }
   return { success: true, path, mimeType, cacheControl: IMMUTABLE_CACHE_CONTROL }
+}
+
+function getPaperMimeType(segments: string[]): string {
+  if (segments.length === 2 && segments[1] === 'source.pdf') {
+    return 'application/pdf'
+  }
+  return getImageMimeType(segments[segments.length - 1]) ?? 'application/octet-stream'
+}
+
+function getResourceRoot(rawUrl: string, roots: LuminaProtocolRoots): string | null {
+  try {
+    const url = new URL(rawUrl)
+    const segments = decodePathSegments(url.pathname)
+    if (!segments) {
+      return null
+    }
+    if (url.hostname === 'writing' && segments.length === 3 && segments[1] === 'assets') {
+      return resolve(roots.writingRoot, 'documents', segments[0], 'assets')
+    }
+    if (url.hostname === 'paper' && segments.length >= 2) {
+      return resolve(roots.papersRoot, segments[0])
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+function isWritingUrl(rawUrl: string): boolean {
+  try {
+    return new URL(rawUrl).hostname === 'writing'
+  } catch {
+    return false
+  }
+}
+
+async function getCanonicalDirectory(path: string): Promise<string> {
+  const stat = await lstat(path)
+  if (!stat.isDirectory() || stat.isSymbolicLink()) {
+    throw new Error('资源根目录不是普通目录')
+  }
+  return realpath(path)
 }
 
 function decodePathSegments(pathname: string): string[] | null {

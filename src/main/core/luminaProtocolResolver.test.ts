@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { resolveLuminaResource } from './luminaProtocolResolver'
@@ -89,4 +89,34 @@ test('paper 路由保持原始 PDF 的既有映射', (t) => {
     mimeType: 'application/pdf',
     cacheControl: 'private, max-age=31536000, immutable'
   })
+})
+
+test('paper 路由保留未知扩展名并降级为安全 MIME', (t) => {
+  const roots = createRoots(t)
+  const result = resolveLuminaResource('lumina://paper/paper-123/assets/vector.svg', roots)
+
+  assert.deepEqual(result, {
+    success: true,
+    path: join(roots.papersRoot, 'paper-123', 'assets', 'vector.svg'),
+    mimeType: 'application/octet-stream',
+    cacheControl: 'private, max-age=31536000, immutable'
+  })
+})
+
+test('writing 协议拒绝通过符号链接逃逸 assets 根目录的文件', async (t) => {
+  const roots = createRoots(t)
+  const documentId = 'writer-12345678'
+  const assetsPath = join(roots.writingRoot, 'documents', documentId, 'assets')
+  const outsidePath = join(roots.writingRoot, 'outside.png')
+  mkdirSync(assetsPath, { recursive: true })
+  writeFileSync(outsidePath, 'not an image')
+  symlinkSync(outsidePath, join(assetsPath, 'escape.png'))
+
+  const { resolveLuminaResourceFile } = await import('./luminaProtocolResolver')
+  const result = await resolveLuminaResourceFile(
+    `lumina://writing/${documentId}/assets/escape.png`,
+    roots
+  )
+
+  assert.equal(result.success, false)
 })
