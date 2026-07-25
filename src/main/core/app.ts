@@ -11,7 +11,8 @@ import {
   initializeEmbedding,
   initializeKnowledge,
   initializeEmbeddingModels,
-  initializeFileService
+  initializeFileService,
+  initializeWriterService
 } from '@main/ipc'
 import { mcpService } from '@main/services/mcp'
 import { getKnowledgeMCPServerService } from '@main/services/knowledge/KnowledgeMCPServerService'
@@ -20,6 +21,7 @@ import { logger } from '@main/services/logger'
 import { updateService } from '@main/services/update'
 import { paperTranslationService } from '@main/services/paper'
 import { startEventLoopMonitoring } from '@main/services/monitoring/eventLoopMonitor'
+import { writerService } from '@main/services/writer'
 
 const appDisplayName = 'Lumina'
 const SHUTDOWN_TASK_TIMEOUT_MS = 5_000
@@ -104,6 +106,10 @@ function requestShutdown(exitCode: number, reason: string): void {
         if (knowledgeMCPStatus.running) {
           await knowledgeMCPService.stop()
         }
+      }),
+      runShutdownTask('writer', async () => {
+        await writerService.requestRendererFlush()
+        await writerService.flushPendingSaves()
       })
     ])
 
@@ -111,6 +117,19 @@ function requestShutdown(exitCode: number, reason: string): void {
   })().finally(() => {
     app.exit(exitCode)
   })
+}
+
+/** 创建受统一退出流程保护的应用窗口 */
+function createApplicationWindow(): BrowserWindow {
+  const window = createMainWindow()
+  window.on('close', (event) => {
+    if (shutdownPromise || updateService.isQuittingForUpdate) {
+      return
+    }
+    event.preventDefault()
+    requestShutdown(0, 'window-close')
+  })
+  return window
 }
 
 /**
@@ -166,8 +185,11 @@ export function initializeApp(): void {
     // 初始化文件服务，并修复历史论文资源池数据
     await initializeFileService()
 
+    // 初始化写作服务（依赖通用文件服务已完成启动）
+    await initializeWriterService()
+
     // 创建主窗口
-    const mainWindow = createMainWindow()
+    const mainWindow = createApplicationWindow()
 
     // 初始化更新服务（需要主窗口引用来推送状态）
     updateService.setMainWindow(mainWindow)
@@ -175,7 +197,7 @@ export function initializeApp(): void {
     // 在 macOS 上，当点击 dock 图标且没有其他窗口打开时，通常会重新创建一个窗口
     app.on('activate', function () {
       if (!shutdownPromise && BrowserWindow.getAllWindows().length === 0) {
-        createMainWindow()
+        createApplicationWindow()
       }
     })
   })

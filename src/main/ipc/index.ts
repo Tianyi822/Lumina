@@ -15,6 +15,7 @@ import { registerToolStatsHandlers } from './handlers/toolStatsHandlers'
 import { registerPaperWebSearchHandlers } from './handlers/paperWebSearchHandlers'
 import { registerCapabilityHandlers } from './handlers/capabilityHandlers'
 import { registerUpdateHandlers } from './handlers/updateHandlers'
+import { registerWriterHandlers } from './handlers/writerHandlers'
 
 export { initializeConfig } from './handlers/configHandlers'
 export { initializeLogger } from './handlers/loggerHandlers'
@@ -23,6 +24,7 @@ export { initializeEmbedding } from './handlers/embeddingHandlers'
 export { initializeKnowledge } from './handlers/knowledgeHandlers'
 export { initializeEmbeddingModels } from './handlers/embeddingModelHandlers'
 export { initializeFileService } from './handlers/fileHandlers'
+export { initializeWriterService } from '@main/services/writer'
 
 /**
  * 注册所有 IPC 处理程序
@@ -78,4 +80,7 @@ export function registerAllIpcHandlers(): void {
 
   // 注册自动更新相关处理程序
   registerUpdateHandlers()
+
+  // 注册写作工作区相关处理程序
+  registerWriterHandlers()
 }
