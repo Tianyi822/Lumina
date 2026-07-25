@@ -1,4 +1,4 @@
-export type Platform = 'darwin' | 'win32' | 'linux' | 'unknown'
+type Platform = 'darwin' | 'win32' | 'linux' | 'unknown'
 
 export interface RuntimePlatformInfo {
   platform: Platform

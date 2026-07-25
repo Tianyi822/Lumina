@@ -1,4 +1,4 @@
-export interface ParsedOption {
+interface ParsedOption {
   id: string
   label: string
   fullText: string
@@ -9,10 +9,6 @@ export interface ParsedOptions {
   question: string
   options: ParsedOption[]
   suffix: string
-}
-
-export interface MessageOptionContext extends ParsedOptions {
-  messageId: string
 }
 
 type OptionKind = 'alpha' | 'numeric'

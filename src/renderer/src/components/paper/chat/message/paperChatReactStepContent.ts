@@ -1,4 +1,4 @@
-export type PaperChatStepContentTone = 'error' | 'neutral'
+type PaperChatStepContentTone = 'error' | 'neutral'
 
 export interface PaperChatStepContentToolItem {
   name: string

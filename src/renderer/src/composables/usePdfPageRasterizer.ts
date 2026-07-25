@@ -45,7 +45,7 @@ function createValueRef<T>(value: T): ValueRef<T> {
 /**
  * PDF 加载错误
  */
-export class PdfLoadError extends Error {
+class PdfLoadError extends Error {
   constructor(
     message: string,
     public readonly cause?: unknown
@@ -58,7 +58,7 @@ export class PdfLoadError extends Error {
 /**
  * PDF 渲染错误
  */
-export class PdfRenderError extends Error {
+class PdfRenderError extends Error {
   constructor(
     message: string,
     public readonly cause?: unknown

@@ -54,20 +54,3 @@ export function computeOverviewMetrics(stats: ToolStatsSummary[]): OverviewMetri
     p95DurationMs: maxP95
   }
 }
-
-export function sortStats(
-  stats: ToolStatsSummary[],
-  key: keyof ToolStatsSummary,
-  order: 'asc' | 'desc'
-): ToolStatsSummary[] {
-  const sorted = [...stats]
-  const multiplier = order === 'asc' ? 1 : -1
-
-  sorted.sort((a, b) => {
-    const aVal = a[key] as number
-    const bVal = b[key] as number
-    return (aVal < bVal ? -1 : aVal > bVal ? 1 : 0) * multiplier
-  })
-
-  return sorted
-}

@@ -14,7 +14,7 @@ export interface CapabilitySuggestionData {
   }>
 }
 
-export type { PlanStepIteration, PaperChatPlanState } from './paperChatPlanState'
+export type { PaperChatPlanState } from './paperChatPlanState'
 
 /**
  * 流式聊天状态 Store 类型

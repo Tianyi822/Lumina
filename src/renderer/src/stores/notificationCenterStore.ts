@@ -10,7 +10,7 @@ import { notificationLoggerBridge } from '@renderer/utils/notificationLoggerBrid
 
 let idCounter = 0
 
-export interface ConfirmState {
+interface ConfirmState {
   visible: boolean
   message: string
   title: string

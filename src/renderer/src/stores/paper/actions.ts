@@ -32,7 +32,7 @@ interface UploadPdfFileInfo {
 // ---------------------------------------------------------------------------
 
 /** 重置阅读器视图状态（跨多个子 Store） */
-export function resetReaderViewState(): void {
+function resetReaderViewState(): void {
   usePaperViewStore.getState().clearPaperToc()
   usePaperViewStore.getState().hideOriginalPdf()
   usePaperTranslationStore.getState().hideTranslation()
@@ -40,7 +40,7 @@ export function resetReaderViewState(): void {
 }
 
 /** 清除论文全部状态（跨多个子 Store） */
-export function clearPaperState(paperId: string): void {
+function clearPaperState(paperId: string): void {
   usePaperListStore.getState().clearRenderPipelineState(paperId)
   usePaperFigureStore.getState().clearPaperFigureState(paperId)
   usePaperTranslationStore.getState().clearTranslationState(paperId)
@@ -228,7 +228,7 @@ async function startPaperUploadPipeline(
 }
 
 /** 批量上传并渲染 PDF */
-export async function uploadAndRenderPdfs(): Promise<{
+async function uploadAndRenderPdfs(): Promise<{
   success: boolean
   paperIds?: string[]
   error?: string
@@ -469,7 +469,7 @@ export async function toggleTranslationVisible(): Promise<{
 }
 
 /** 加载 Markdown 及依赖 — 原 loadMarkdown 后续的翻译/批注加载 */
-export async function loadMarkdownWithDeps(paperId: string): Promise<void> {
+async function loadMarkdownWithDeps(paperId: string): Promise<void> {
   const listStore = usePaperListStore.getState()
   const paper = listStore.papers.find((item) => item.id === paperId)
 
@@ -596,7 +596,7 @@ export async function ensurePaperChatSession(
 }
 
 /** 聊天会话 — 原 setPaperChatSession */
-export async function setPaperChatSession(
+async function setPaperChatSession(
   paperId: string,
   sessionId: string
 ): Promise<{ success: boolean; data?: PaperDocument; error?: string }> {

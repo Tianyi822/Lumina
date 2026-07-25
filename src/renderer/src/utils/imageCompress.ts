@@ -6,7 +6,7 @@
 // ==================== 常量 ====================
 
 /** 支持的图片扩展名 */
-export const IMAGE_SUPPORTED_EXTENSIONS = [
+const IMAGE_SUPPORTED_EXTENSIONS = [
   '.jpg',
   '.jpeg',
   '.png',
@@ -17,7 +17,7 @@ export const IMAGE_SUPPORTED_EXTENSIONS = [
 ]
 
 /** 支持的 MIME 类型 */
-export const IMAGE_SUPPORTED_MIME_TYPES = [
+const IMAGE_SUPPORTED_MIME_TYPES = [
   'image/jpeg',
   'image/png',
   'image/webp',
@@ -34,11 +34,8 @@ const IMAGE_EXTENSION_BY_MIME_TYPE: Record<string, string> = {
   'image/tiff': '.tiff'
 }
 
-/** 图片文件选择器 accept 字符串 */
-export const IMAGE_ACCEPT_STRING = IMAGE_SUPPORTED_EXTENSIONS.join(',')
-
 /** 单张图片最大大小：5MB */
-export const IMAGE_MAX_SIZE = 5 * 1024 * 1024
+const IMAGE_MAX_SIZE = 5 * 1024 * 1024
 
 /** 单次上传最多图片数量 */
 export const IMAGE_MAX_COUNT = 10
@@ -307,7 +304,7 @@ export async function compressImage(file: File): Promise<CompressedImage> {
  * 生成缩略图
  * 缩小图片到指定最大边长，用于 UI 快速预览
  */
-export async function generateThumbnail(
+async function generateThumbnail(
   base64Data: string,
   maxSize: number = THUMBNAIL_MAX_SIZE
 ): Promise<string> {

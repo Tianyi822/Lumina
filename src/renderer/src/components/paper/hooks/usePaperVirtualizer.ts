@@ -4,10 +4,8 @@ import type { RenderedSegment } from './usePaperMarkdownEngine'
 import { getPaperVirtualOverscan } from './paperPlatformTuning'
 import { estimateSegmentHeight, getSegmentsLayoutKey } from './paperSegmentHeightEstimate'
 
-export { estimateSegmentHeight, getSegmentsLayoutKey } from './paperSegmentHeightEstimate'
-
 /** 虚拟项之间的间距（对应 --sm-space-3，虚拟列表中 CSS 相邻 margin 不生效） */
-export const SEGMENT_BLOCK_GAP = 12
+const SEGMENT_BLOCK_GAP = 12
 
 /** 离屏估算安全系数：宁可略大也不可偏小，避免 offset 累计偏小导致空白 */
 const ESTIMATE_SAFETY_FACTOR = 1.1

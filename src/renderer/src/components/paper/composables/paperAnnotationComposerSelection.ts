@@ -22,9 +22,9 @@ import {
   resolveRangeOffsetsWithFormulaFallback,
   resolveSelectionSurface
 } from './paperDragSelectionSync'
-export { clearSelectedFormulas, markSelectedFormulas } from './paperDragSelectionSync'
+export { clearSelectedFormulas } from './paperDragSelectionSync'
 
-export interface PaperAnnotationSelectionResult {
+interface PaperAnnotationSelectionResult {
   draft: SelectionDraft
   rect: CanonicalTextClientRect
   normalizedRange: Range | null

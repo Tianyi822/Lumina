@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import type { PaperQuote } from '@shared/types/chat'
 
-export type PendingQuote = PaperQuote
+type PendingQuote = PaperQuote
 
 interface PaperChatQuoteState {
   pendingQuotes: Map<string, PendingQuote[]>
