@@ -7,6 +7,7 @@
   "license": "GPL-3.0-only",
   "main": "./out/main/index.js",
   "scripts": {
+    "knip": "knip --config knip.json5",
     "format": "prettier --write .",
     "lint": "eslint --cache .",
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
@@ -92,6 +93,7 @@
     "electron-vite": "^5.0.0",
     "eslint": "^10.0.0",
     "eslint-plugin-react-hooks": "^5",
+    "knip": "^6.29.0",
     "linkedom": "^0.18.12",
     "prettier": "^3.7.4",
     "typescript": "^6.0.2",

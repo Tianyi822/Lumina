@@ -1,0 +1,18 @@
+{
+  // knip 配置：https://knip.dev
+  // 声明可达性分析入口，识别 Electron 三进程 + 构建脚本
+  "$schema": "https://unpkg.com/knip@latest/schema.json",
+  "entry": [
+    "src/main/index.ts",
+    "src/preload/index.ts",
+    "src/renderer/src/main.tsx",
+    "electron.vite.config.ts",
+    "scripts/test/tsAliasLoader.mjs",
+    "scripts/build/**/*.{cjs,mjs}"
+  ],
+  "project": ["src/**/*.{ts,tsx}", "scripts/**/*.{ts,mjs,cjs}"],
+  // Windows 特有调用，非死代码
+  "ignoreBinaries": ["chcp.com", "reg"],
+  // 动态引用、knip 静态分析看不到的依赖（清理过程中按需添加）
+  "ignoreDependencies": []
+}
