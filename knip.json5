@@ -14,5 +14,9 @@
   // Windows 特有调用，非死代码
   "ignoreBinaries": ["chcp.com", "reg"],
   // 动态引用、knip 静态分析看不到的依赖（清理过程中按需添加）
-  "ignoreDependencies": []
+  "ignoreDependencies": [],
+  // preload/types 是 contextBridge 的类型契约（含 declare global Window.api），
+  // 被 renderer 全代码库经 window.api.* 隐式消费，knip 不追踪 global augmentation 故误报。
+  // 经 Task 3 验证：删除会导致 renderer typecheck 崩塌，确认为假阳性，整目录忽略。
+  "ignore": ["src/preload/types/**", "src/preload/index.d.ts"]
 }
