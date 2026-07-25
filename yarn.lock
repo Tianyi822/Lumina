@@ -701,11 +701,6 @@
     zod "^3.25 || ^4.0"
     zod-to-json-schema "^3.25.1"
 
-"@napi-rs/canvas-android-arm64@0.1.80":
-  version "0.1.80"
-  resolved "https://registry.npmmirror.com/@napi-rs/canvas-android-arm64/-/canvas-android-arm64-0.1.80.tgz#2779ca5c8aaeb46c85eb72d29f1eb34efd46fb45"
-  integrity sha512-sk7xhN/MoXeuExlggf91pNziBxLPVUqF2CAVnB57KLG/pz7+U5TKG8eXdc3pm0d7Od0WreB6ZKLj37sX9muGOQ==
-
 "@napi-rs/canvas-android-arm64@0.1.92":
   version "0.1.92"
   resolved "https://registry.npmmirror.com/@napi-rs/canvas-android-arm64/-/canvas-android-arm64-0.1.92.tgz#2ee1d3ef993afd1a31827bb3554b21821702abf6"
@@ -715,11 +710,6 @@
   version "0.1.95"
   resolved "https://registry.npmmirror.com/@napi-rs/canvas-android-arm64/-/canvas-android-arm64-0.1.95.tgz#fbac7785156f1a672cee37b0dd31092e036b32c9"
   integrity sha512-SqTh0wsYbetckMXEvHqmR7HKRJujVf1sYv1xdlhkifg6TlCSysz1opa49LlS3+xWuazcQcfRfmhA07HxxxGsAA==
-
-"@napi-rs/canvas-darwin-arm64@0.1.80":
-  version "0.1.80"
-  resolved "https://registry.npmmirror.com/@napi-rs/canvas-darwin-arm64/-/canvas-darwin-arm64-0.1.80.tgz"
-  integrity sha512-O64APRTXRUiAz0P8gErkfEr3lipLJgM6pjATwavZ22ebhjYl/SUbpgM0xcWPQBNMP1n29afAC/Us5PX1vg+JNQ==
 
 "@napi-rs/canvas-darwin-arm64@0.1.92":
   version "0.1.92"
@@ -731,11 +721,6 @@
   resolved "https://registry.npmmirror.com/@napi-rs/canvas-darwin-arm64/-/canvas-darwin-arm64-0.1.95.tgz#8868782187ea9e448d929527a368d0f16f819761"
   integrity sha512-F7jT0Syu+B9DGBUBcMk3qCRIxAWiDXmvEjamwbYfbZl7asI1pmXZUnCOoIu49Wt0RNooToYfRDxU9omD6t5Xuw==
 
-"@napi-rs/canvas-darwin-x64@0.1.80":
-  version "0.1.80"
-  resolved "https://registry.npmmirror.com/@napi-rs/canvas-darwin-x64/-/canvas-darwin-x64-0.1.80.tgz#bd6bc048dbd4b02b9620d9d07117ed93e6970978"
-  integrity sha512-FqqSU7qFce0Cp3pwnTjVkKjjOtxMqRe6lmINxpIZYaZNnVI0H5FtsaraZJ36SiTHNjZlUB69/HhxNDT1Aaa9vA==
-
 "@napi-rs/canvas-darwin-x64@0.1.92":
   version "0.1.92"
   resolved "https://registry.npmmirror.com/@napi-rs/canvas-darwin-x64/-/canvas-darwin-x64-0.1.92.tgz#ad39bb00c2d0d67a1d8151d538652aac09b380a8"
@@ -745,11 +730,6 @@
   version "0.1.95"
   resolved "https://registry.npmmirror.com/@napi-rs/canvas-darwin-x64/-/canvas-darwin-x64-0.1.95.tgz#7145b447e098972155cb86aa2b052e63d8e964a2"
   integrity sha512-54eb2Ho15RDjYGXO/harjRznBrAvu+j5nQ85Z4Qd6Qg3slR8/Ja+Yvvy9G4yo7rdX6NR9GPkZeSTf2UcKXwaXw==
-
-"@napi-rs/canvas-linux-arm-gnueabihf@0.1.80":
-  version "0.1.80"
-  resolved "https://registry.npmmirror.com/@napi-rs/canvas-linux-arm-gnueabihf/-/canvas-linux-arm-gnueabihf-0.1.80.tgz#ce6bfbeb19d9234c42df5c384e5989aa7d734789"
-  integrity sha512-eyWz0ddBDQc7/JbAtY4OtZ5SpK8tR4JsCYEZjCE3dI8pqoWUC8oMwYSBGCYfsx2w47cQgQCgMVRVTFiiO38hHQ==
 
 "@napi-rs/canvas-linux-arm-gnueabihf@0.1.92":
   version "0.1.92"
@@ -761,11 +741,6 @@
   resolved "https://registry.npmmirror.com/@napi-rs/canvas-linux-arm-gnueabihf/-/canvas-linux-arm-gnueabihf-0.1.95.tgz#e8c6b9573e96aad112ae01e7db6b5630b995d684"
   integrity sha512-hYaLCSLx5bmbnclzQc3ado3PgZ66blJWzjXp0wJmdwpr/kH+Mwhj6vuytJIomgksyJoCdIqIa4N6aiqBGJtJ5Q==
 
-"@napi-rs/canvas-linux-arm64-gnu@0.1.80":
-  version "0.1.80"
-  resolved "https://registry.npmmirror.com/@napi-rs/canvas-linux-arm64-gnu/-/canvas-linux-arm64-gnu-0.1.80.tgz#3b7a7832fef763826fa5fb740d5757204e52607d"
-  integrity sha512-qwA63t8A86bnxhuA/GwOkK3jvb+XTQaTiVML0vAWoHyoZYTjNs7BzoOONDgTnNtr8/yHrq64XXzUoLqDzU+Uuw==
-
 "@napi-rs/canvas-linux-arm64-gnu@0.1.92":
   version "0.1.92"
   resolved "https://registry.npmmirror.com/@napi-rs/canvas-linux-arm64-gnu/-/canvas-linux-arm64-gnu-0.1.92.tgz#bb45fb8bb1bb6e2ecb37ff880396816b7a288815"
@@ -775,11 +750,6 @@
   version "0.1.95"
   resolved "https://registry.npmmirror.com/@napi-rs/canvas-linux-arm64-gnu/-/canvas-linux-arm64-gnu-0.1.95.tgz#80c5131d160686053b9f8fc2d3e8691f2e405b51"
   integrity sha512-J7VipONahKsmScPZsipHVQBqpbZx4favaD8/enWzzlGcjiwycOoymL7f4tNeqdjK0su19bDOUt6mjp9gsPWYlw==
-
-"@napi-rs/canvas-linux-arm64-musl@0.1.80":
-  version "0.1.80"
-  resolved "https://registry.npmmirror.com/@napi-rs/canvas-linux-arm64-musl/-/canvas-linux-arm64-musl-0.1.80.tgz#d8ccd91f31d70760628623cd575134ada17690a3"
-  integrity sha512-1XbCOz/ymhj24lFaIXtWnwv/6eFHXDrjP0jYkc6iHQ9q8oXKzUX1Lc6bu+wuGiLhGh2GS/2JlfORC5ZcXimRcg==
 
 "@napi-rs/canvas-linux-arm64-musl@0.1.92":
   version "0.1.92"
@@ -791,11 +761,6 @@
   resolved "https://registry.npmmirror.com/@napi-rs/canvas-linux-arm64-musl/-/canvas-linux-arm64-musl-0.1.95.tgz#7fdcd016b53e2ac06ae831da00cc559657fa3f45"
   integrity sha512-PXy0UT1J/8MPG8UAkWp6Fd51ZtIZINFzIjGH909JjQrtCuJf3X6nanHYdz1A+Wq9o4aoPAw1YEUpFS1lelsVlg==
 
-"@napi-rs/canvas-linux-riscv64-gnu@0.1.80":
-  version "0.1.80"
-  resolved "https://registry.npmmirror.com/@napi-rs/canvas-linux-riscv64-gnu/-/canvas-linux-riscv64-gnu-0.1.80.tgz#927a3b859a0e3c691beaf52a19bc4736c4ffc9b8"
-  integrity sha512-XTzR125w5ZMs0lJcxRlS1K3P5RaZ9RmUsPtd1uGt+EfDyYMu4c6SEROYsxyatbbu/2+lPe7MPHOO/0a0x7L/gw==
-
 "@napi-rs/canvas-linux-riscv64-gnu@0.1.92":
   version "0.1.92"
   resolved "https://registry.npmmirror.com/@napi-rs/canvas-linux-riscv64-gnu/-/canvas-linux-riscv64-gnu-0.1.92.tgz#226ad993cc509b57026a4c9829e9ddfeb7a06a24"
@@ -806,11 +771,6 @@
   resolved "https://registry.npmmirror.com/@napi-rs/canvas-linux-riscv64-gnu/-/canvas-linux-riscv64-gnu-0.1.95.tgz#a3249936fbb4f0bc1d293303a71a66eb66e3d40a"
   integrity sha512-2IzCkW2RHRdcgF9W5/plHvYFpc6uikyjMb5SxjqmNxfyDFz9/HB89yhi8YQo0SNqrGRI7yBVDec7Pt+uMyRWsg==
 
-"@napi-rs/canvas-linux-x64-gnu@0.1.80":
-  version "0.1.80"
-  resolved "https://registry.npmmirror.com/@napi-rs/canvas-linux-x64-gnu/-/canvas-linux-x64-gnu-0.1.80.tgz#25c0416bcedd6fadc15295e9afa8d9697232050c"
-  integrity sha512-BeXAmhKg1kX3UCrJsYbdQd3hIMDH/K6HnP/pG2LuITaXhXBiNdh//TVVVVCBbJzVQaV5gK/4ZOCMrQW9mvuTqA==
-
 "@napi-rs/canvas-linux-x64-gnu@0.1.92":
   version "0.1.92"
   resolved "https://registry.npmmirror.com/@napi-rs/canvas-linux-x64-gnu/-/canvas-linux-x64-gnu-0.1.92.tgz#9a76a945d0590ee24e7872f95e453de5a81fbb90"
@@ -820,11 +780,6 @@
   version "0.1.95"
   resolved "https://registry.npmmirror.com/@napi-rs/canvas-linux-x64-gnu/-/canvas-linux-x64-gnu-0.1.95.tgz#adfcbc19943513cb51c40ba2bad8d9ec48fda729"
   integrity sha512-OV/ol/OtcUr4qDhQg8G7SdViZX8XyQeKpPsVv/j3+7U178FGoU4M+yIocdVo1ih/A8GQ63+LjF4jDoEjaVU8Pw==
-
-"@napi-rs/canvas-linux-x64-musl@0.1.80":
-  version "0.1.80"
-  resolved "https://registry.npmmirror.com/@napi-rs/canvas-linux-x64-musl/-/canvas-linux-x64-musl-0.1.80.tgz#de85d644e09120a60996bbe165cc2efee804551b"
-  integrity sha512-x0XvZWdHbkgdgucJsRxprX/4o4sEed7qo9rCQA9ugiS9qE2QvP0RIiEugtZhfLH3cyI+jIRFJHV4Fuz+1BHHMg==
 
 "@napi-rs/canvas-linux-x64-musl@0.1.92":
   version "0.1.92"
@@ -846,11 +801,6 @@
   resolved "https://registry.npmmirror.com/@napi-rs/canvas-win32-arm64-msvc/-/canvas-win32-arm64-msvc-0.1.95.tgz#8aa331b94687734325787f4193ea896228e14818"
   integrity sha512-aj0YbRpe8qVJ4OzMsK7NfNQePgcf9zkGFzNZ9mSuaxXzhpLHmlF2GivNdCdNOg8WzA/NxV6IU4c5XkXadUMLeA==
 
-"@napi-rs/canvas-win32-x64-msvc@0.1.80":
-  version "0.1.80"
-  resolved "https://registry.npmmirror.com/@napi-rs/canvas-win32-x64-msvc/-/canvas-win32-x64-msvc-0.1.80.tgz#6bb95885d9377912d71f1372fc1916fb54d6ef0a"
-  integrity sha512-Z8jPsM6df5V8B1HrCHB05+bDiCxjE9QA//3YrkKIdVDEwn5RKaqOxCJDRJkl48cJbylcrJbW4HxZbTte8juuPg==
-
 "@napi-rs/canvas-win32-x64-msvc@0.1.92":
   version "0.1.92"
   resolved "https://registry.npmmirror.com/@napi-rs/canvas-win32-x64-msvc/-/canvas-win32-x64-msvc-0.1.92.tgz#0c11a92838e1c4dae376da5fa8c0e201c9bff3ec"
@@ -860,39 +810,6 @@
   version "0.1.95"
   resolved "https://registry.npmmirror.com/@napi-rs/canvas-win32-x64-msvc/-/canvas-win32-x64-msvc-0.1.95.tgz#178d5212c86c4ca10f17f2bfe48fc057e939db85"
   integrity sha512-GA8leTTCfdjuHi8reICTIxU0081PhXvl3lzIniLUjeLACx9GubUiyzkwFb+oyeKLS5IAGZFLKnzAf4wm2epRlA==
-
-"@napi-rs/canvas@0.1.80":
-  version "0.1.80"
-  resolved "https://registry.npmmirror.com/@napi-rs/canvas/-/canvas-0.1.80.tgz"
-  integrity sha512-DxuT1ClnIPts1kQx8FBmkk4BQDTfI5kIzywAaMjQSXfNnra5UFU9PwurXrl+Je3bJ6BGsp/zmshVVFbCmyI+ww==
-  optionalDependencies:
-    "@napi-rs/canvas-android-arm64" "0.1.80"
-    "@napi-rs/canvas-darwin-arm64" "0.1.80"
-    "@napi-rs/canvas-darwin-x64" "0.1.80"
-    "@napi-rs/canvas-linux-arm-gnueabihf" "0.1.80"
-    "@napi-rs/canvas-linux-arm64-gnu" "0.1.80"
-    "@napi-rs/canvas-linux-arm64-musl" "0.1.80"
-    "@napi-rs/canvas-linux-riscv64-gnu" "0.1.80"
-    "@napi-rs/canvas-linux-x64-gnu" "0.1.80"
-    "@napi-rs/canvas-linux-x64-musl" "0.1.80"
-    "@napi-rs/canvas-win32-x64-msvc" "0.1.80"
-
-"@napi-rs/canvas@^0.1.80", "@napi-rs/canvas@^0.1.88":
-  version "0.1.92"
-  resolved "https://registry.npmmirror.com/@napi-rs/canvas/-/canvas-0.1.92.tgz"
-  integrity sha512-q7ZaUCJkEU5BeOdE7fBx1XWRd2T5Ady65nxq4brMf5L4cE1VV/ACq5w9Z5b/IVJs8CwSSIwc30nlthH0gFo4Ig==
-  optionalDependencies:
-    "@napi-rs/canvas-android-arm64" "0.1.92"
-    "@napi-rs/canvas-darwin-arm64" "0.1.92"
-    "@napi-rs/canvas-darwin-x64" "0.1.92"
-    "@napi-rs/canvas-linux-arm-gnueabihf" "0.1.92"
-    "@napi-rs/canvas-linux-arm64-gnu" "0.1.92"
-    "@napi-rs/canvas-linux-arm64-musl" "0.1.92"
-    "@napi-rs/canvas-linux-riscv64-gnu" "0.1.92"
-    "@napi-rs/canvas-linux-x64-gnu" "0.1.92"
-    "@napi-rs/canvas-linux-x64-musl" "0.1.92"
-    "@napi-rs/canvas-win32-arm64-msvc" "0.1.92"
-    "@napi-rs/canvas-win32-x64-msvc" "0.1.92"
 
 "@napi-rs/canvas@^0.1.84":
   version "0.1.95"
@@ -910,6 +827,23 @@
     "@napi-rs/canvas-linux-x64-musl" "0.1.95"
     "@napi-rs/canvas-win32-arm64-msvc" "0.1.95"
     "@napi-rs/canvas-win32-x64-msvc" "0.1.95"
+
+"@napi-rs/canvas@^0.1.88":
+  version "0.1.92"
+  resolved "https://registry.npmmirror.com/@napi-rs/canvas/-/canvas-0.1.92.tgz"
+  integrity sha512-q7ZaUCJkEU5BeOdE7fBx1XWRd2T5Ady65nxq4brMf5L4cE1VV/ACq5w9Z5b/IVJs8CwSSIwc30nlthH0gFo4Ig==
+  optionalDependencies:
+    "@napi-rs/canvas-android-arm64" "0.1.92"
+    "@napi-rs/canvas-darwin-arm64" "0.1.92"
+    "@napi-rs/canvas-darwin-x64" "0.1.92"
+    "@napi-rs/canvas-linux-arm-gnueabihf" "0.1.92"
+    "@napi-rs/canvas-linux-arm64-gnu" "0.1.92"
+    "@napi-rs/canvas-linux-arm64-musl" "0.1.92"
+    "@napi-rs/canvas-linux-riscv64-gnu" "0.1.92"
+    "@napi-rs/canvas-linux-x64-gnu" "0.1.92"
+    "@napi-rs/canvas-linux-x64-musl" "0.1.92"
+    "@napi-rs/canvas-win32-arm64-msvc" "0.1.92"
+    "@napi-rs/canvas-win32-x64-msvc" "0.1.92"
 
 "@napi-rs/wasm-runtime@^1.1.1":
   version "1.1.2"
@@ -1410,13 +1344,6 @@
     "@types/linkify-it" "^5"
     "@types/mdurl" "^2"
 
-"@types/marked@^6.0.0":
-  version "6.0.0"
-  resolved "https://registry.npmmirror.com/@types/marked/-/marked-6.0.0.tgz#4dbc7df4add578ef87eb6ca2c6927c97b0531abf"
-  integrity sha512-jmjpa4BwUsmhxcfsgUit/7A9KbrC48Q0q8KvnY107ogcjGgTFDlIL3RpihNpx2Mu1hM4mdFQjoVc4O6JoGKHsA==
-  dependencies:
-    marked "*"
-
 "@types/mdurl@^2":
   version "2.0.0"
   resolved "https://registry.npmmirror.com/@types/mdurl/-/mdurl-2.0.0.tgz"
@@ -1440,20 +1367,6 @@
   integrity sha512-oH72nZRfDv9lADUBSo104Aq7gPHpQZc4BTx38r9xf9pg5LfP6EzSyH2n7qFmmxRQXh7YlUXODcYsg6PuTDSxGg==
   dependencies:
     undici-types "~7.16.0"
-
-"@types/node@^25.2.3":
-  version "25.3.5"
-  resolved "https://registry.npmmirror.com/@types/node/-/node-25.3.5.tgz#beccb5915561f7a9970ace547ad44d6cdbf39b46"
-  integrity sha512-oX8xrhvpiyRCQkG1MFchB09f+cXftgIXb3a7UUa4Y3wpmZPw5tyZGTLWhlESOLq1Rq6oDlc8npVU2/9xiCuXMA==
-  dependencies:
-    undici-types "~7.18.0"
-
-"@types/pdf-parse@^1.1.5":
-  version "1.1.5"
-  resolved "https://registry.npmmirror.com/@types/pdf-parse/-/pdf-parse-1.1.5.tgz"
-  integrity sha512-kBfrSXsloMnUJOKi25s3+hRmkycHfLK6A09eRGqF/N8BkQoPUmaCr+q8Cli5FnfohEz/rsv82zAiPz/LXtOGhA==
-  dependencies:
-    "@types/node" "*"
 
 "@types/plist@^3.0.1":
   version "3.0.5"
@@ -2374,18 +2287,6 @@ dmg-license@^1.0.11:
     smart-buffer "^4.0.2"
     verror "^1.10.0"
 
-docx@^9.6.0:
-  version "9.6.0"
-  resolved "https://registry.npmmirror.com/docx/-/docx-9.6.0.tgz#57eae0e577b73a0f8511121664e2aba058b13e7a"
-  integrity sha512-y6EaJJMDvt4P7wgGQB9KsZf4wsRkQMJfkc9LlNufRshggI5BT35hGNkXBCAeEoI3MLMwApKguxzjdqqVcBCqNA==
-  dependencies:
-    "@types/node" "^25.2.3"
-    hash.js "^1.1.7"
-    jszip "^3.10.1"
-    nanoid "^5.1.3"
-    xml "^1.0.1"
-    xml-js "^1.6.8"
-
 dom-serializer@^2.0.0:
   version "2.0.0"
   resolved "https://registry.npmmirror.com/dom-serializer/-/dom-serializer-2.0.0.tgz#e41b802e1eedf9f6cae183ce5e622d789d7d8e53"
@@ -2448,14 +2349,6 @@ eastasianwidth@^0.2.0:
   version "0.2.0"
   resolved "https://registry.npmmirror.com/eastasianwidth/-/eastasianwidth-0.2.0.tgz"
   integrity sha512-I88TYZWc9XiYHRQ4/3c5rjjfgkjhLyW2luGIheGERbNQ6OY7yTybanSpDXZa8y7VUP9YmDcYa+eyq4ca7iLqWA==
-
-echarts@^6.0.0:
-  version "6.0.0"
-  resolved "https://registry.npmmirror.com/echarts/-/echarts-6.0.0.tgz#2935aa7751c282d1abbbf7d719d397199a15b9e7"
-  integrity sha512-Tte/grDQRiETQP4xz3iZWSvoHrkCQtwqd6hs+mifXcjrCuo2iKWbajFObuLJVBlDIJlOzgQPd1hsaKt/3+OMkQ==
-  dependencies:
-    tslib "2.3.0"
-    zrender "6.0.0"
 
 ee-first@1.1.1:
   version "1.1.1"
@@ -3009,15 +2902,6 @@ forwarded@0.2.0:
   resolved "https://registry.npmmirror.com/forwarded/-/forwarded-0.2.0.tgz"
   integrity sha512-buRG0fpBtRHSTCOASe6hD258tEubFoRLb4ZNA6NxMVHNw2gOcwHo9wyablzMzOA5z9xA9L1KNjk/Nt6MT9aYow==
 
-framer-motion@^12:
-  version "12.39.0"
-  resolved "https://registry.npmmirror.com/framer-motion/-/framer-motion-12.39.0.tgz#905f120cae5c769d7a8a83c9e25e079ba2617e35"
-  integrity sha512-+vnLfzrv0MzjLzNl+nvNvR7jdg3q4cxxjz/YvzfifHl0TREtL00cs1RoMTxs+1PzLiEqZGV6gYsBY0oEAYZ24w==
-  dependencies:
-    motion-dom "^12.39.0"
-    motion-utils "^12.39.0"
-    tslib "^2.4.0"
-
 fresh@^2.0.0:
   version "2.0.0"
   resolved "https://registry.npmmirror.com/fresh/-/fresh-2.0.0.tgz"
@@ -3241,14 +3125,6 @@ has-tostringtag@^1.0.2:
   integrity sha512-NqADB8VjPFLM2V0VvHUewwwsw0ZWBaIdgo+ieHtK3hasLz4qeCRjYcqfB6AQrBggRKppKF8L52/VqdVsO47Dlw==
   dependencies:
     has-symbols "^1.0.3"
-
-hash.js@^1.1.7:
-  version "1.1.7"
-  resolved "https://registry.npmmirror.com/hash.js/-/hash.js-1.1.7.tgz#0babca538e8d4ee4a0f8988d68866537a003cf42"
-  integrity sha512-taOaskGt4z4SOANNseOviYDvjEJinIkRgmp7LbKP2YTTmVxWBl87s/uzK9r+44BclBSp2X7K1hqeNfz9JbBeXA==
-  dependencies:
-    inherits "^2.0.3"
-    minimalistic-assert "^1.0.1"
 
 hasown@^2.0.2:
   version "2.0.2"
@@ -3579,17 +3455,7 @@ jsonfile@^6.0.1:
   optionalDependencies:
     graceful-fs "^4.1.6"
 
-"jszip2@npm:jszip@3.10.1":
-  version "3.10.1"
-  resolved "https://registry.npmmirror.com/jszip/-/jszip-3.10.1.tgz#34aee70eb18ea1faec2f589208a157d1feb091c2"
-  integrity sha512-xXDvecyTpGLrqFrvkrUSoxxfJI5AH7U8zxxtVclpsUtMCq4JQ290LY8AW5c7Ggnr/Y/oK+bQMbqK2qmtk3pN4g==
-  dependencies:
-    lie "~3.3.0"
-    pako "~1.0.2"
-    readable-stream "~2.3.6"
-    setimmediate "^1.0.5"
-
-jszip@^3.10.1, jszip@^3.7.1:
+jszip@^3.7.1:
   version "3.10.1"
   resolved "https://registry.npmmirror.com/jszip/-/jszip-3.10.1.tgz#34aee70eb18ea1faec2f589208a157d1feb091c2"
   integrity sha512-xXDvecyTpGLrqFrvkrUSoxxfJI5AH7U8zxxtVclpsUtMCq4JQ290LY8AW5c7Ggnr/Y/oK+bQMbqK2qmtk3pN4g==
@@ -3869,11 +3735,6 @@ markdown-it@^14.1.0:
     punycode.js "^2.3.1"
     uc.micro "^2.1.0"
 
-marked@*, marked@^17.0.5:
-  version "17.0.5"
-  resolved "https://registry.npmmirror.com/marked/-/marked-17.0.5.tgz#8fc6878a439463a007b05d346d2ad50a87ec3f0e"
-  integrity sha512-6hLvc0/JEbRjRgzI6wnT2P1XuM1/RrrDEX0kPt0N7jGm1133g6X7DlxFasUIx+72aKAr904GTxhSLDrd5DIlZg==
-
 matcher@^3.0.0:
   version "3.0.0"
   resolved "https://registry.npmmirror.com/matcher/-/matcher-3.0.0.tgz"
@@ -3944,11 +3805,6 @@ mimic-response@^3.1.0:
   version "3.1.0"
   resolved "https://registry.npmmirror.com/mimic-response/-/mimic-response-3.1.0.tgz"
   integrity sha512-z0yWI+4FDrrweS8Zmt4Ej5HdJmky15+L2e6Wgn3+iK5fWzb6T3fhNFq2+MeTRb064c6Wr4N/wv0DzQTjNzHNGQ==
-
-minimalistic-assert@^1.0.1:
-  version "1.0.1"
-  resolved "https://registry.npmmirror.com/minimalistic-assert/-/minimalistic-assert-1.0.1.tgz#2e194de044626d4a10e7f7fbc00ce73e83e4d5c7"
-  integrity sha512-UtJcAD4yEaGtjPezWuO9wC4nwUnVH/8/Im3yEHQP4b67cXlD/Qr9hdITCU1xDbSEXg2XKNaP8jsReV7vQd00/A==
 
 minimatch@^10.0.3, minimatch@^10.1.1:
   version "10.2.0"
@@ -4041,18 +3897,6 @@ minizlib@^3.0.1, minizlib@^3.1.0:
   dependencies:
     minipass "^7.1.2"
 
-motion-dom@^12.39.0:
-  version "12.39.0"
-  resolved "https://registry.npmmirror.com/motion-dom/-/motion-dom-12.39.0.tgz#2a663bc8f572890d529e393114f4cf11824b0d0b"
-  integrity sha512-Xn7aAcGDhco/JZTXOub64UmaYn73C6J1Po7Fk+8EvkJsNGTqfhon6UJY53vJKXW5v5Zl8HrYsVxv6oPXeGoGLQ==
-  dependencies:
-    motion-utils "^12.39.0"
-
-motion-utils@^12.39.0:
-  version "12.39.0"
-  resolved "https://registry.npmmirror.com/motion-utils/-/motion-utils-12.39.0.tgz#e1c66f0e912999804bc5e69b4630c3bc794ef29f"
-  integrity sha512-8nadJAJjTtqRkmRF36FoJTrywK9nnFmnPwnSMyxaOCU7GDjN9RTMJIxx9De8ErM+vpPhMccr/6fo5WciyQLnMQ==
-
 ms@^2.1.3:
   version "2.1.3"
   resolved "https://registry.npmmirror.com/ms/-/ms-2.1.3.tgz"
@@ -4062,11 +3906,6 @@ nanoid@^3.3.11:
   version "3.3.11"
   resolved "https://registry.npmmirror.com/nanoid/-/nanoid-3.3.11.tgz"
   integrity sha512-N8SpfPUnUp1bK+PMYW8qSWdl9U+wwNWI4QKxOYDy9JAro3WMX7p2OeVRF9v+347pnakNevPmiHhNmZ2HbFA76w==
-
-nanoid@^5.1.3:
-  version "5.1.6"
-  resolved "https://registry.npmmirror.com/nanoid/-/nanoid-5.1.6.tgz#30363f664797e7d40429f6c16946d6bd7a3f26c9"
-  integrity sha512-c7+7RQ+dMB5dPwwCp4ee1/iV/q2P6aK1mTZcfr1BTuVlyW9hJYiMPybJCcnBlQtuSmTIWNeazm/zqNoZSSElBg==
 
 natural-compare@^1.4.0:
   version "1.4.0"
@@ -4358,21 +4197,6 @@ path-to-regexp@^8.0.0:
   version "8.3.0"
   resolved "https://registry.npmmirror.com/path-to-regexp/-/path-to-regexp-8.3.0.tgz"
   integrity sha512-7jdwVIRtsP8MYpdXSwOS0YdD0Du+qOoF/AEPIt88PcCFrZCzx41oxku1jD88hZBwbNUIEfpqvuhjFaMAqMTWnA==
-
-pdf-parse@^2.4.5:
-  version "2.4.5"
-  resolved "https://registry.npmmirror.com/pdf-parse/-/pdf-parse-2.4.5.tgz"
-  integrity sha512-mHU89HGh7v+4u2ubfnevJ03lmPgQ5WU4CxAVmTSh/sxVTEDYd1er/dKS/A6vg77NX47KTEoihq8jZBLr8Cxuwg==
-  dependencies:
-    "@napi-rs/canvas" "0.1.80"
-    pdfjs-dist "5.4.296"
-
-pdfjs-dist@5.4.296:
-  version "5.4.296"
-  resolved "https://registry.npmmirror.com/pdfjs-dist/-/pdfjs-dist-5.4.296.tgz"
-  integrity sha512-DlOzet0HO7OEnmUmB6wWGJrrdvbyJKftI1bhMitK7O2N8W2gc757yyYBbINy9IDafXAV9wmKr9t7xsTaNKRG5Q==
-  optionalDependencies:
-    "@napi-rs/canvas" "^0.1.80"
 
 pdfjs-dist@5.4.530:
   version "5.4.530"
@@ -5188,11 +5012,6 @@ ts-api-utils@^2.4.0:
   resolved "https://registry.npmmirror.com/ts-api-utils/-/ts-api-utils-2.4.0.tgz"
   integrity sha512-3TaVTaAv2gTiMB35i3FiGJaRfwb3Pyn/j3m/bfAvGe8FB7CF6u+LMYqYlDh7reQf7UNvoTvdfAqHGmPGOSsPmA==
 
-tslib@2.3.0:
-  version "2.3.0"
-  resolved "https://registry.npmmirror.com/tslib/-/tslib-2.3.0.tgz#803b8cdab3e12ba581a4ca41c8839bbb0dacb09e"
-  integrity sha512-N82ooyxVNm6h1riLCoyS9e3fuJ3AMG2zIZs2Gd1ATcSFjSA23Q0fzjjZeh0jbJvWVDZ0cJT8yaNNaaXHzueNjg==
-
 tslib@^2.4.0, tslib@^2.6.2, tslib@^2.8.0:
   version "2.8.1"
   resolved "https://registry.npmmirror.com/tslib/-/tslib-2.8.1.tgz"
@@ -5268,11 +5087,6 @@ undici-types@~7.16.0:
   version "7.16.0"
   resolved "https://registry.npmmirror.com/undici-types/-/undici-types-7.16.0.tgz"
   integrity sha512-Zz+aZWSj8LE6zoxD+xrjh4VfkIG8Ya6LvYkZqtUQGJPZjYl53ypCaUwWqo7eI0x66KBGeRo+mlBEkMSeSZ38Nw==
-
-undici-types@~7.18.0:
-  version "7.18.2"
-  resolved "https://registry.npmmirror.com/undici-types/-/undici-types-7.18.2.tgz#29357a89e7b7ca4aef3bf0fd3fd0cd73884229e9"
-  integrity sha512-AsuCzffGHJybSaRrmr5eHr81mwJU3kjw6M+uprWvCXiNeN9SOGwQ3Jn8jb8m3Z6izVgknn1R0FTCEAP2QrLY/w==
 
 unique-filename@^4.0.0:
   version "4.0.0"
@@ -5449,18 +5263,6 @@ wrappy@1:
   resolved "https://registry.npmmirror.com/wrappy/-/wrappy-1.0.2.tgz"
   integrity sha512-l4Sp/DRseor9wL6EvV2+TuQn63dMkPjZ/sp9XkghTEbV9KlPS1xUsZ3u7/IQO4wxtcFB4bgpQPRcR3QCvezPcQ==
 
-xml-js@^1.6.8:
-  version "1.6.11"
-  resolved "https://registry.npmmirror.com/xml-js/-/xml-js-1.6.11.tgz#927d2f6947f7f1c19a316dd8eea3614e8b18f8e9"
-  integrity sha512-7rVi2KMfwfWFl+GpPg6m80IVMWXLRjO+PxTq7V2CDhoGak0wzYzFgUY2m4XJ47OGdXd8eLE8EmwfAmdjw7lC1g==
-  dependencies:
-    sax "^1.2.4"
-
-xml@^1.0.1:
-  version "1.0.1"
-  resolved "https://registry.npmmirror.com/xml/-/xml-1.0.1.tgz#78ba72020029c5bc87b8a81a3cfcd74b4a2fc1e5"
-  integrity sha512-huCv9IH9Tcf95zuYCsQraZtWnJvBtLVE0QHMOs8bWyZAFZNDcYjsPq1nEx8jKA9y+Beo9v+7OBPRisQTjinQMw==
-
 xmlbuilder@>=11.0.1, xmlbuilder@^15.1.1:
   version "15.1.1"
   resolved "https://registry.npmmirror.com/xmlbuilder/-/xmlbuilder-15.1.1.tgz"
@@ -5559,13 +5361,6 @@ zod@^4.4.3:
   version "4.4.3"
   resolved "https://registry.npmmirror.com/zod/-/zod-4.4.3.tgz#b680f172885d18bbebf21a834ea25e55a1bbf356"
   integrity sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==
-
-zrender@6.0.0:
-  version "6.0.0"
-  resolved "https://registry.npmmirror.com/zrender/-/zrender-6.0.0.tgz#947077bc69cdea744134984927f132f3727f8079"
-  integrity sha512-41dFXEEXuJpNecuUQq6JlbybmnHaqqpGlbH1yxnA5V9MMP4SbohSVZsJIwz+zdjQXSSlR1Vc34EgH1zxyTDvhg==
-  dependencies:
-    tslib "2.3.0"
 
 zustand@^5:
   version "5.0.13"
