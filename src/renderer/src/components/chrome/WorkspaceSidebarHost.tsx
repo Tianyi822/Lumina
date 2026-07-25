@@ -3,7 +3,6 @@ import { CssSwitchTransition } from '@renderer/components/motion/CssTransition'
 import { useUIStateStore } from '@renderer/stores'
 import PaperSidebarSection from '@renderer/components/chrome/PaperSidebarSection'
 import KnowledgeSidebarSection from '@renderer/components/chrome/KnowledgeSidebarSection'
-import LabSidebarSection from '@renderer/components/chrome/LabSidebarSection'
 import PrimarySidebar from '@renderer/components/chrome/PrimarySidebar'
 import styles from './WorkspaceSidebarHost.module.css'
 
@@ -148,7 +147,6 @@ export default function WorkspaceSidebarHost({ onOpenSettings }: WorkspaceSideba
                   >
                     {transitionKey === 'paper' && <PaperSidebarSection />}
                     {transitionKey === 'knowledge' && <KnowledgeSidebarSection />}
-                    {transitionKey === 'lab' && <LabSidebarSection />}
                   </div>
                 )}
               </CssSwitchTransition>

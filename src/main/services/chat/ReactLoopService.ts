@@ -26,7 +26,6 @@ import { registerBuiltinCapabilities } from './tools/capabilities/registerBuilti
 import { capabilityManager } from './tools/CapabilityManager'
 import { presetRegistry } from './tools/presets/PresetRegistry'
 import { CHAT_PAPER_PRESET, CHAT_DEFAULT_PRESET } from './tools/presets/builtinPresets'
-import { sshTerminalService } from '../lab/ssh/SshTerminalService'
 import type { TokenUsage } from '../../types/chat'
 import {
   addTokenUsage,
@@ -53,30 +52,19 @@ export function extractOriginalQuery(
 
 /**
  * 构建 capability composer 上下文（纯函数，便于单测）
- * 从 ChatRequest 提取实验室学科/绑定等字段，缺失时默认 null
+ * 从 ChatRequest 提取工具能力相关字段
  */
 export function buildComposerContext(
-  request: Pick<
-    ChatRequest,
-    | 'paperId'
-    | 'enableLabTools'
-    | 'enablePaperWebSearch'
-    | 'activeLabDiscipline'
-    | 'activeLabId'
-    | 'selectedTools'
-  >,
+  request: Pick<ChatRequest, 'paperId' | 'enablePaperWebSearch' | 'selectedTools'>,
   selectedKnowledgeBases?: KnowledgeBaseReference[],
   mcpService?: unknown
 ): Record<string, unknown> {
   return {
     paperId: request.paperId,
-    enableLabTools: request.enableLabTools,
     enablePaperWebSearch: request.enablePaperWebSearch,
     selectedKnowledgeBases,
     selectedTools: request.selectedTools,
-    mcpService,
-    labDiscipline: request.activeLabDiscipline ?? null,
-    labId: request.activeLabId ?? null
+    mcpService
   }
 }
 
@@ -178,7 +166,6 @@ export class ReactLoopService {
       messageCount: messages.length,
       toolCount: request.selectedTools?.length,
       selectedToolNames: request.selectedTools?.map((t) => `${t.serverName}/${t.toolName}`),
-      enableLabTools: request.enableLabTools,
       maxReactIterations
     })
 
@@ -383,15 +370,6 @@ export class ReactLoopService {
         this.stopController.clearStoppedSession(sessionId)
       }
       this.stopController.deletePendingUserInteraction(sessionId)
-      // 清理本次请求绑定的模型 PTY 会话（spec §7.1，防止资源泄漏）
-      const boundLabId = request.activeLabId ?? null
-      if (boundLabId) {
-        try {
-          sshTerminalService.closeLabTerminals(boundLabId, 'ReAct 循环结束')
-        } catch {
-          // 清理失败不影响主流程
-        }
-      }
     }
   }
 
@@ -416,10 +394,7 @@ export class ReactLoopService {
       capState = capabilityManager.initCapabilitiesForSessionType(sid, sessionType)
     }
 
-    // 根据请求参数动态启用对应的能力（实验室、论文搜索、MCP、知识库）
-    if (request.enableLabTools && !capState.activeCapabilities.includes('lab')) {
-      capabilityManager.addCapability(sid, 'lab')
-    }
+    // 根据请求参数动态启用对应的能力（论文搜索、MCP、知识库）
     if (
       request.enablePaperWebSearch &&
       request.paperId &&

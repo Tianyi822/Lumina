@@ -79,8 +79,8 @@ describe('ToolResultEnricher', () => {
       assert.equal(enricher.inferCategory('knowledge__search'), 'knowledge')
     })
 
-    it('lab__execute → lab', () => {
-      assert.equal(enricher.inferCategory('lab__execute'), 'lab')
+    it('paper__read_page → paper', () => {
+      assert.equal(enricher.inferCategory('paper__read_page'), 'paper')
     })
 
     it('paper_web__search → paper_web', () => {

@@ -1,9 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useUIStateStore } from '@renderer/stores/uiStateStore'
 import { usePaperChatStreamStore } from '@renderer/stores'
-import { useConfigStore } from '@renderer/stores/configStore'
-import { useLabListStore } from '@renderer/stores/lab/labListStore'
-import { LAB_DISCIPLINE_PRESETS, isLabDisciplineEnabled } from '@shared/utils/labFeatures'
 import { useNotification } from '@renderer/composables/useNotification'
 import { usePaperQuoteContext } from '@renderer/contexts/PaperQuoteContext'
 import SvgIcon from '@renderer/components/icons/SvgIcon'
@@ -62,10 +59,7 @@ export default function PaperChatPanel({ paper }: PaperChatPanelProps) {
     selectedModel: sessionState.selectedModel,
     selectedMCPTools: sessionState.selectedMCPTools,
     selectedKnowledgeBases: sessionState.selectedKnowledgeBases,
-    enableLabTools: sessionState.enableLabTools,
     enablePaperWebSearch: sessionState.enablePaperWebSearch,
-    activeLabDiscipline: sessionState.activeLabDiscipline,
-    activeLabId: sessionState.activeLabId,
     saveCurrentSession: sessionState.saveCurrentSession,
     setError: sessionState.setError,
     onRequestError: () => {
@@ -74,33 +68,6 @@ export default function PaperChatPanel({ paper }: PaperChatPanelProps) {
       })
     }
   })
-
-  // 实验室学科与已连接实验室数据源（供 LabSessionPanel）
-  const labFeatures = useConfigStore((s) => s.labFeatures)
-  const enabledDisciplines = useMemo(
-    () =>
-      LAB_DISCIPLINE_PRESETS.filter((d) => isLabDisciplineEnabled(labFeatures, d.id)).map(
-        (d) => d.id
-      ),
-    [labFeatures]
-  )
-  const allLabs = useLabListStore((s) => s.labList)
-  const connectedLabs = useMemo(() => allLabs.filter((lab) => lab.status === 'running'), [allLabs])
-
-  // 论文聊天入口可能未经过实验室页面，挂载时确保实验室列表已加载（供 LabSessionPanel）
-  useEffect(() => {
-    void useLabListStore.getState().loadLabList()
-  }, [])
-
-  // 跳转到实验室页面（LabSessionPanel 空状态提示触发）
-  const handleNavigateToLab = useCallback(() => {
-    void useUIStateStore.getState().setCurrentView('lab')
-  }, [])
-
-  // 刷新实验室列表（手风琴打开时触发，保证数据新鲜）
-  const handleRefreshLabs = useCallback(() => {
-    void useLabListStore.getState().loadLabList()
-  }, [])
 
   // 只有存在有效会话时才查询计划状态，否则保持 null
   const currentPlanState = sessionState.sessionId
@@ -309,12 +276,7 @@ export default function PaperChatPanel({ paper }: PaperChatPanelProps) {
           selectedModel={sessionState.selectedModel}
           selectedMCPTools={sessionState.selectedMCPTools}
           selectedKnowledgeBases={sessionState.selectedKnowledgeBases}
-          enableLabTools={sessionState.enableLabTools}
           enablePaperWebSearch={sessionState.enablePaperWebSearch}
-          activeLabDiscipline={sessionState.activeLabDiscipline}
-          activeLabId={sessionState.activeLabId}
-          enabledDisciplines={enabledDisciplines}
-          connectedLabs={connectedLabs}
           isSending={streamState.isSending}
           disabled={sessionState.loading || !sessionState.session}
           isDragging={isDragging}
@@ -327,13 +289,7 @@ export default function PaperChatPanel({ paper }: PaperChatPanelProps) {
           onUpdateSelectedModel={sessionState.updateSelectedModel}
           onUpdateSelectedTools={sessionState.updateSelectedTools}
           onUpdateSelectedKnowledgeBases={sessionState.updateSelectedKnowledgeBases}
-          onUpdateEnableLabTools={sessionState.updateEnableLabTools}
           onUpdateEnablePaperWebSearch={sessionState.updateEnablePaperWebSearch}
-          onLabSelectionChange={(next) =>
-            sessionState.updateLabSelection(next.discipline, next.labId)
-          }
-          onNavigateToLab={handleNavigateToLab}
-          onRefreshLabs={handleRefreshLabs}
           onEnablePaperWebSearch={handleEnablePaperWebSearch}
           onDismissQuickReply={(messageId) => {
             if (!messageId) return

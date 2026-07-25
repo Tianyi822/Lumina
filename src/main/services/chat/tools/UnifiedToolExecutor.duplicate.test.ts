@@ -53,13 +53,11 @@ function createRegistryWithTools(
 ): ExecutorOptions['registry'] {
   const tools = new Map<string, RegisteredTool>()
   for (const fullName of toolNames) {
-    const category: ToolCategory = fullName.startsWith('lab__')
-      ? 'lab'
+    const category: ToolCategory = fullName.startsWith('paper__')
+      ? 'paper'
       : fullName.startsWith('knowledge__')
         ? 'knowledge'
-        : fullName.startsWith('paper__')
-          ? 'paper'
-          : 'mcp'
+        : 'mcp'
     tools.set(fullName, {
       fullName,
       category,
@@ -135,11 +133,11 @@ describe('UnifiedToolExecutor 连续重复调用检测', () => {
   })
 
   it('首次至第 3 次连续相同参数调用应正常执行', async () => {
-    const { executor, adapterCalls } = createExecutorWithTools(['lab__delete_file'])
+    const { executor, adapterCalls } = createExecutorWithTools(['paper__search_context'])
 
     for (let i = 0; i < 3; i++) {
       const summary = await executor.executeToolCalls(
-        [makeToolCall(`c${i}`, 'lab__delete_file', { path: '/tmp/a' })],
+        [makeToolCall(`c${i}`, 'paper__search_context', { path: '/tmp/a' })],
         fakeWebContents,
         sessionId,
         []
@@ -151,12 +149,12 @@ describe('UnifiedToolExecutor 连续重复调用检测', () => {
   })
 
   it('第 4 次连续相同参数调用应被拦截并返回 [duplicate] 错误', async () => {
-    const { executor, adapterCalls } = createExecutorWithTools(['lab__delete_file'])
+    const { executor, adapterCalls } = createExecutorWithTools(['paper__search_context'])
 
     // 第 1-3 次正常
     for (let i = 0; i < 3; i++) {
       await executor.executeToolCalls(
-        [makeToolCall(`c${i}`, 'lab__delete_file', { path: '/tmp/b' })],
+        [makeToolCall(`c${i}`, 'paper__search_context', { path: '/tmp/b' })],
         fakeWebContents,
         sessionId,
         []
@@ -164,7 +162,7 @@ describe('UnifiedToolExecutor 连续重复调用检测', () => {
     }
     // 第 4 次拦截
     const summary = await executor.executeToolCalls(
-      [makeToolCall('c3', 'lab__delete_file', { path: '/tmp/b' })],
+      [makeToolCall('c3', 'paper__search_context', { path: '/tmp/b' })],
       fakeWebContents,
       sessionId,
       []
@@ -179,12 +177,12 @@ describe('UnifiedToolExecutor 连续重复调用检测', () => {
   })
 
   it('被拦截的调用应先发送 tool_call 再发送 tool_result（保持 1:1 配对）', async () => {
-    const { executor, streamEvents } = createExecutorWithTools(['lab__delete_file'])
+    const { executor, streamEvents } = createExecutorWithTools(['paper__search_context'])
 
     // 第 1-3 次正常
     for (let i = 0; i < 3; i++) {
       await executor.executeToolCalls(
-        [makeToolCall(`p${i}`, 'lab__delete_file', { path: '/tmp/p' })],
+        [makeToolCall(`p${i}`, 'paper__search_context', { path: '/tmp/p' })],
         fakeWebContents,
         sessionId,
         []
@@ -195,7 +193,7 @@ describe('UnifiedToolExecutor 连续重复调用检测', () => {
 
     // 第 4 次拦截
     await executor.executeToolCalls(
-      [makeToolCall('p3', 'lab__delete_file', { path: '/tmp/p' })],
+      [makeToolCall('p3', 'paper__search_context', { path: '/tmp/p' })],
       fakeWebContents,
       sessionId,
       []
@@ -213,7 +211,7 @@ describe('UnifiedToolExecutor 连续重复调用检测', () => {
     )
     assert.equal(
       streamEvents[0].toolCall?.name,
-      'delete_file',
+      'search_context',
       'tool_call 事件应携带注册表中的短名'
     )
     assert.deepEqual(
@@ -230,12 +228,12 @@ describe('UnifiedToolExecutor 连续重复调用检测', () => {
   })
 
   it('不同参数不算重复（同工具）', async () => {
-    const { executor, adapterCalls } = createExecutorWithTools(['lab__delete_file'])
+    const { executor, adapterCalls } = createExecutorWithTools(['paper__search_context'])
 
     const paths = ['/tmp/x', '/tmp/y', '/tmp/z', '/tmp/w']
     for (let i = 0; i < paths.length; i++) {
       const summary = await executor.executeToolCalls(
-        [makeToolCall(`c${i}`, 'lab__delete_file', { path: paths[i] })],
+        [makeToolCall(`c${i}`, 'paper__search_context', { path: paths[i] })],
         fakeWebContents,
         sessionId,
         []
@@ -247,13 +245,13 @@ describe('UnifiedToolExecutor 连续重复调用检测', () => {
 
   it('不同工具相同参数不算重复', async () => {
     const { executor, adapterCalls } = createExecutorWithTools([
-      'lab__delete_file',
-      'lab__read_file'
+      'paper__search_context',
+      'paper__read_metadata'
     ])
 
     // 交替调用两个工具，参数相同
     for (let i = 0; i < 6; i++) {
-      const name = i % 2 === 0 ? 'lab__delete_file' : 'lab__read_file'
+      const name = i % 2 === 0 ? 'paper__search_context' : 'paper__read_metadata'
       const summary = await executor.executeToolCalls(
         [makeToolCall(`c${i}`, name, { path: '/tmp/same' })],
         fakeWebContents,
@@ -267,14 +265,14 @@ describe('UnifiedToolExecutor 连续重复调用检测', () => {
 
   it('被其他工具穿插后连续计数应重置（A→A→A→B→A，最后一次 A 不拦截）', async () => {
     const { executor, adapterCalls } = createExecutorWithTools([
-      'lab__delete_file',
-      'lab__read_file'
+      'paper__search_context',
+      'paper__read_metadata'
     ])
 
     // A x3
     for (let i = 0; i < 3; i++) {
       await executor.executeToolCalls(
-        [makeToolCall(`a${i}`, 'lab__delete_file', { path: '/tmp/r' })],
+        [makeToolCall(`a${i}`, 'paper__search_context', { path: '/tmp/r' })],
         fakeWebContents,
         sessionId,
         []
@@ -282,14 +280,14 @@ describe('UnifiedToolExecutor 连续重复调用检测', () => {
     }
     // B 打断
     await executor.executeToolCalls(
-      [makeToolCall('b0', 'lab__read_file', { path: '/tmp/r' })],
+      [makeToolCall('b0', 'paper__read_metadata', { path: '/tmp/r' })],
       fakeWebContents,
       sessionId,
       []
     )
     // A 再次：应作为新的连续序列第 1 次，正常执行
     const summary = await executor.executeToolCalls(
-      [makeToolCall('a4', 'lab__delete_file', { path: '/tmp/r' })],
+      [makeToolCall('a4', 'paper__search_context', { path: '/tmp/r' })],
       fakeWebContents,
       sessionId,
       []
@@ -299,40 +297,40 @@ describe('UnifiedToolExecutor 连续重复调用检测', () => {
     assert.equal(adapterCalls.length, 5, '5 次都应真正执行')
   })
 
-  it('白名单工具（lab__stats / lab__list）连续重复调用不应被拦截', async () => {
-    const { executor, adapterCalls } = createExecutorWithTools(['lab__stats', 'lab__list'])
+  it('白名单工具（knowledge__search / paper__read_page）连续重复调用不应被拦截', async () => {
+    const { executor, adapterCalls } = createExecutorWithTools(['knowledge__search', 'paper__read_page'])
 
-    // lab__stats 连续 6 次相同参数
+    // knowledge__search 连续 6 次相同参数
     for (let i = 0; i < 6; i++) {
       const summary = await executor.executeToolCalls(
-        [makeToolCall(`s${i}`, 'lab__stats', {})],
+        [makeToolCall(`s${i}`, 'knowledge__search', {})],
         fakeWebContents,
         sessionId,
         []
       )
-      assert.equal(summary.results[0].success, true, `lab__stats 第 ${i + 1} 次应成功`)
+      assert.equal(summary.results[0].success, true, `knowledge__search 第 ${i + 1} 次应成功`)
     }
-    // lab__list 连续 6 次
+    // paper__read_page 连续 6 次
     for (let i = 0; i < 6; i++) {
       const summary = await executor.executeToolCalls(
-        [makeToolCall(`l${i}`, 'lab__list', { dir: '/tmp' })],
+        [makeToolCall(`l${i}`, 'paper__read_page', { dir: '/tmp' })],
         fakeWebContents,
         sessionId,
         []
       )
-      assert.equal(summary.results[0].success, true, `lab__list 第 ${i + 1} 次应成功`)
+      assert.equal(summary.results[0].success, true, `paper__read_page 第 ${i + 1} 次应成功`)
     }
     assert.equal(adapterCalls.length, 12, '白名单工具全部执行')
   })
 
   it('路径格式差异（尾斜杠、大小写、首尾空格）应被视为相同调用', async () => {
-    const { executor, adapterCalls } = createExecutorWithTools(['lab__delete_file'])
+    const { executor, adapterCalls } = createExecutorWithTools(['paper__search_context'])
 
     // 前三次形式不同但语义等价
     const variants = ['/tmp/a', '/tmp/a/', '  /TMP/A  ']
     for (let i = 0; i < 3; i++) {
       const summary = await executor.executeToolCalls(
-        [makeToolCall(`v${i}`, 'lab__delete_file', { path: variants[i] })],
+        [makeToolCall(`v${i}`, 'paper__search_context', { path: variants[i] })],
         fakeWebContents,
         sessionId,
         []
@@ -341,7 +339,7 @@ describe('UnifiedToolExecutor 连续重复调用检测', () => {
     }
     // 第 4 个等价变体应被拦截
     const summary = await executor.executeToolCalls(
-      [makeToolCall('v3', 'lab__delete_file', { path: '/tmp/a/' })],
+      [makeToolCall('v3', 'paper__search_context', { path: '/tmp/a/' })],
       fakeWebContents,
       sessionId,
       []
@@ -352,7 +350,7 @@ describe('UnifiedToolExecutor 连续重复调用检测', () => {
   })
 
   it('对象参数 key 顺序不同应被视为相同调用', async () => {
-    const { executor, adapterCalls } = createExecutorWithTools(['lab__write_file'])
+    const { executor, adapterCalls } = createExecutorWithTools(['knowledge__list'])
 
     const orderedA = { path: '/tmp/f', content: 'x', mode: 644 }
     const orderedB = { mode: 644, content: 'x', path: '/tmp/f' }
@@ -361,7 +359,7 @@ describe('UnifiedToolExecutor 连续重复调用检测', () => {
     for (let i = 0; i < 3; i++) {
       const args = [orderedA, orderedB, orderedC][i]
       const summary = await executor.executeToolCalls(
-        [makeToolCall(`o${i}`, 'lab__write_file', args as Record<string, unknown>)],
+        [makeToolCall(`o${i}`, 'knowledge__list', args as Record<string, unknown>)],
         fakeWebContents,
         sessionId,
         []
@@ -370,7 +368,7 @@ describe('UnifiedToolExecutor 连续重复调用检测', () => {
     }
     // 第 4 次任意顺序都应拦截
     const summary = await executor.executeToolCalls(
-      [makeToolCall('o3', 'lab__write_file', orderedB)],
+      [makeToolCall('o3', 'knowledge__list', orderedB)],
       fakeWebContents,
       sessionId,
       []
@@ -381,13 +379,13 @@ describe('UnifiedToolExecutor 连续重复调用检测', () => {
   })
 
   it('不同 sessionId 互不影响', async () => {
-    const { executor, adapterCalls } = createExecutorWithTools(['lab__delete_file'])
+    const { executor, adapterCalls } = createExecutorWithTools(['paper__search_context'])
 
     const otherSession = 's-other'
     // 主 session 调 3 次
     for (let i = 0; i < 3; i++) {
       await executor.executeToolCalls(
-        [makeToolCall(`m${i}`, 'lab__delete_file', { path: '/tmp/q' })],
+        [makeToolCall(`m${i}`, 'paper__search_context', { path: '/tmp/q' })],
         fakeWebContents,
         sessionId,
         []
@@ -396,7 +394,7 @@ describe('UnifiedToolExecutor 连续重复调用检测', () => {
     // 另一 session 同参数 4 次，不应被主 session 影响
     for (let i = 0; i < 4; i++) {
       const summary = await executor.executeToolCalls(
-        [makeToolCall(`o${i}`, 'lab__delete_file', { path: '/tmp/q' })],
+        [makeToolCall(`o${i}`, 'paper__search_context', { path: '/tmp/q' })],
         fakeWebContents,
         otherSession,
         []

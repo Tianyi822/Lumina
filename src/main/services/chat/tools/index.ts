@@ -8,7 +8,6 @@ export {
 // 统一工具注册表 + 适配器（阶段四）
 export { UnifiedToolRegistry } from './UnifiedToolRegistry'
 export type { ToolAdapter, ToolCategory, RegisteredTool } from './UnifiedToolRegistry'
-export { LabToolAdapter } from './adapters/LabToolAdapter'
 export { KnowledgeToolAdapter } from './adapters/KnowledgeToolAdapter'
 export { MCPToolAdapter } from './adapters/MCPToolAdapter'
 export { PaperContextToolAdapter } from './adapters/PaperContextToolAdapter'

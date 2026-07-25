@@ -11,7 +11,7 @@ import type { UnifiedToolRegistry } from './UnifiedToolRegistry'
 import { toolStatsCollector } from './ToolStatsCollector'
 
 /** 强制串行执行的工具集合（如等待用户交互的工具不能并行调用） */
-const FORCED_SEQUENTIAL_TOOLS = new Set(['lab__ask_user'])
+const FORCED_SEQUENTIAL_TOOLS = new Set<string>([])
 
 /**
  * 连续重复调用拦截阈值：同一 sessionId 内连续相同参数（规范化后）
@@ -22,12 +22,7 @@ const MAX_REPEATED = 3
 /**
  * 重复检测白名单：轮询/分页/检索类工具的重复调用是合理的业务行为，不应拦截。
  */
-const DUPLICATE_WHITELIST = new Set([
-  'lab__stats',
-  'lab__list',
-  'paper__read_page',
-  'knowledge__search'
-])
+const DUPLICATE_WHITELIST = new Set(['paper__read_page', 'knowledge__search'])
 
 /**
  * 规范化参数值：递归处理对象/数组，使等价参数产生相同字符串。

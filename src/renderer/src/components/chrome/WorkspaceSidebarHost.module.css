@@ -118,18 +118,6 @@
   width: 100%;
 }
 
-.sm-workspace-sidebar-host__search--lab {
-  display: flex;
-  width: 100%;
-  gap: 8px;
-  align-items: center;
-}
-
-.sm-workspace-sidebar-host__search--lab :global(.sm-input) {
-  flex: 1;
-  min-width: 0;
-}
-
 .sm-workspace-sidebar-host__body {
   flex: 1;
   min-height: 0;

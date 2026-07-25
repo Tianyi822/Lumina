@@ -111,7 +111,7 @@ const configStubUrl = `data:text/javascript,${encodeURIComponent(configStubModul
 // 做了值导入,在 --experimental-strip-types 下会抛
 // "does not provide an export named 'MCPConfigFile'"。
 // ChatService 在模块顶层 `import { mcpService } from '../mcp'`,任何直接导入
-// ChatService 的测试都会触发该链路。与 electron/ssh2/logger/config 一致,
+// ChatService 的测试都会触发该链路。与 electron/logger/config 一致,
 // mcp 属于无法在 node:test 下运行的主进程依赖,统一桩化。chat 树对 mcp 的
 // 使用全部经构造器注入(ReactLoopService/PlanExecuteService 接收 mcpService
 // 作为 options),运行时并不依赖桩的具体行为。
@@ -140,145 +140,6 @@ const mcpStubModule = `
 `
 
 const mcpStubUrl = `data:text/javascript,${encodeURIComponent(mcpStubModule)}`
-
-const ssh2StubModule = `
-  import { EventEmitter } from 'node:events'
-  import { Writable } from 'node:stream'
-
-  class MockClientChannel extends EventEmitter {
-    constructor() {
-      super()
-      this.stderr = new EventEmitter()
-      this._writtenData = []
-      this._lastWindow = null
-      this.destroyed = false
-    }
-
-    write(data) {
-      this._writtenData.push(data)
-      return true
-    }
-
-    setWindow(rows, cols, height, width) {
-      this._lastWindow = { rows, cols, height, width }
-    }
-
-    close() {
-      this.emit('close')
-    }
-
-    destroy() {
-      this.destroyed = true
-      this.emit('close')
-      return this
-    }
-  }
-
-  class MockSsh2Client extends EventEmitter {
-    connect(config) {
-      if (this._mockConnectReady) {
-        setImmediate(() => this.emit('ready'))
-      } else if (this._mockConnectError) {
-        setImmediate(() => this.emit('error', new Error(this._mockConnectError)))
-      }
-    }
-
-    exec(command, callback) {
-      this._lastExecCommand = command
-      const stream = new EventEmitter()
-      stream.stderr = new EventEmitter()
-
-      if (this._mockExecError) {
-        setImmediate(() => callback(new Error(this._mockExecError)))
-        return
-      }
-
-      setImmediate(() => callback(null, stream))
-
-      if (this._mockStdoutData) {
-        setImmediate(() => stream.emit('data', Buffer.from(this._mockStdoutData)))
-      } else if (this._mockStdoutData !== false) {
-        setImmediate(() => stream.emit('data', Buffer.from('mock stdout output\\n')))
-      }
-
-      if (this._mockStderrData) {
-        setImmediate(() => stream.stderr.emit('data', Buffer.from(this._mockStderrData)))
-      }
-
-      setImmediate(() => {
-        stream.emit('close', this._mockExitCode ?? 0)
-      })
-    }
-
-    shell(windowOrOptions, optionsOrCallback, maybeCallback) {
-      const callback =
-        typeof windowOrOptions === 'function'
-          ? windowOrOptions
-          : typeof optionsOrCallback === 'function'
-            ? optionsOrCallback
-            : maybeCallback
-      const windowOptions =
-        typeof windowOrOptions === 'object' && typeof optionsOrCallback === 'function'
-          ? windowOrOptions
-          : undefined
-
-      this._lastShellWindow = windowOptions
-
-      if (this._mockShellError) {
-        setImmediate(() => callback(new Error(this._mockShellError)))
-        return
-      }
-
-      const stream = new MockClientChannel()
-      this._lastShellStream = stream
-      setImmediate(() => callback(null, stream))
-
-      if (this._mockShellData) {
-        setImmediate(() => stream.emit('data', Buffer.from(this._mockShellData)))
-      }
-    }
-
-    sftp(callback) {
-      if (this._mockSftpError) {
-        setImmediate(() => callback(new Error(this._mockSftpError)))
-        return
-      }
-
-      const self = this
-      const sftp = {
-        createWriteStream: (filePath, options) => {
-          const ws = new Writable({
-            write(chunk, enc, cb) { cb() }
-          })
-          if (self._mockWriteError) {
-            setImmediate(() => ws.emit('error', new Error(self._mockWriteError)))
-          } else {
-            setImmediate(() => ws.emit('close'))
-          }
-          return ws
-        },
-        mkdir: (dirPath, options, cb) => {
-          // ssh2 真实签名: mkdir(path, attributes?, callback)
-          // 调用方可能传 2 个或 3 个参数，兼容处理
-          const callbackFn = typeof options === 'function' ? options : cb
-          if (self._mockMkdirError) {
-            setImmediate(() => callbackFn({ code: self._mockMkdirError }))
-          } else {
-            setImmediate(() => callbackFn(null))
-          }
-        },
-        end: () => {}
-      }
-      setImmediate(() => callback(null, sftp))
-    }
-
-    end() {}
-  }
-
-  export { MockSsh2Client as Client }
-`
-
-const ssh2StubUrl = `data:text/javascript,${encodeURIComponent(ssh2StubModule)}`
 
 function resolveExistingPath(candidateBase) {
   const candidates = [
@@ -314,13 +175,6 @@ export async function resolve(specifier, context, nextResolve) {
     return {
       shortCircuit: true,
       url: electronStubUrl
-    }
-  }
-
-  if (specifier === 'ssh2') {
-    return {
-      shortCircuit: true,
-      url: ssh2StubUrl
     }
   }
 

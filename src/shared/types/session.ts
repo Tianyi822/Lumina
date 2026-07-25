@@ -11,7 +11,6 @@ import {
 } from './chat'
 import type { KnowledgeBase } from './knowledge'
 import type { MCPTool } from './mcp'
-import type { LabDisciplineId } from './config'
 
 /**
  * 会话的类型
@@ -110,25 +109,19 @@ export interface SessionMeta {
 
 /**
  * 会话级选择状态
- * 用于持久化当前会话选择的 MCP 工具、知识库和实验室开关
+ * 用于持久化当前会话选择的 MCP 工具和知识库
  */
 export interface SessionSelectionState {
   /** 当前会话选中的 MCP 工具 */
   selectedMCPTools: MCPTool[]
   /** 当前会话选中的知识库 */
   selectedKnowledgeBases: KnowledgeBase[]
-  /** 当前会话是否启用实验室工具 */
-  enableLabTools: boolean
   /** 当前会话选中的模型 */
   selectedModel: string
   /** 当前会话是否启用规划模式（仅论文会话） */
   enablePlanMode?: boolean
   /** 当前会话是否启用论文联网搜索（仅论文会话） */
   enablePaperWebSearch?: boolean
-  /** 当前会话激活的实验室学科；null 表示未选 */
-  activeLabDiscipline?: LabDisciplineId | null
-  /** 当前会话绑定的已连接实验室 ID；null 表示未绑定 */
-  activeLabId?: string | null
 }
 
 /**

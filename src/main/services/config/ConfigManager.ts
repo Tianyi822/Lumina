@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import type { AppConfig, ConfigLoadResult } from '@main/types/config'
 import { getConfigDirPath, getConfigFilePath } from './configPaths'
@@ -13,8 +13,6 @@ import {
 import {
   DEFAULT_THEME_ID,
   DEFAULT_THEME_MODE,
-  createDefaultLabFeatures,
-  normalizeLabFeatures,
   normalizeThemeId,
   normalizeThemeMode
 } from '@shared/utils'
@@ -57,6 +55,30 @@ function sanitizePaperReaderConfig(config: PaperReaderConfig | undefined): Paper
 }
 
 /**
+ * 清理 lab 子系统遗留的本地数据（破坏性更新的一次性迁移）
+ * 删除 ssh-connections.json、ssh-keys/、lab/ 目录。
+ * 幂等：文件不存在则跳过；失败不阻断启动。
+ * 仅在 labRemovalMigrated 标记未设置时由 migrateConfig 调用。
+ */
+function cleanupLegacyLabData(): void {
+  const configDir = getConfigDirPath()
+  const targets = [
+    join(configDir, 'ssh-connections.json'),
+    join(configDir, 'ssh-keys'),
+    join(configDir, 'lab')
+  ]
+  for (const target of targets) {
+    try {
+      rmSync(target, { recursive: true, force: true })
+      logger.info('已清理 lab 遗留数据', 'main', { path: target })
+    } catch (err) {
+      // 清理失败不阻断启动
+      logger.warn('清理 lab 遗留数据失败', 'main', { path: target, error: String(err) })
+    }
+  }
+}
+
+/**
  * 创建空的基础配置结构
  * 包含所有必要的字段，但值为空或默认值
  * 主题颜色由 CSS 主题文件管理，不再在配置中保存
@@ -76,8 +98,7 @@ function createEmptyConfig(): AppConfig {
     mcpServers: {},
     embeddingModels: {},
     knowledgeMCP: DEFAULT_KNOWLEDGE_MCP_CONFIG,
-    paperReader: sanitizePaperReaderConfig(undefined),
-    labFeatures: createDefaultLabFeatures()
+    paperReader: sanitizePaperReaderConfig(undefined)
   }
 }
 
@@ -137,8 +158,14 @@ export function migrateConfig(config: AppConfig): AppConfig {
   delete (migrated as Record<string, unknown>).aliyunMiaobi
   delete (migrated as Record<string, unknown>).videoGeneration
 
-  // 迁移 labFeatures 配置（兼容旧版 labEnabled 总开关）
-  migrated.labFeatures = normalizeLabFeatures(migrated.labFeatures ?? createDefaultLabFeatures())
+  // 剥离废弃的 labFeatures 字段（lab 子系统已移除）
+  delete (migrated as Record<string, unknown>).labFeatures
+
+  // 一次性清理 lab 遗留数据（破坏性更新），仅首次迁移执行
+  if (!migrated.labRemovalMigrated) {
+    cleanupLegacyLabData()
+    migrated.labRemovalMigrated = true
+  }
 
   return migrated
 }

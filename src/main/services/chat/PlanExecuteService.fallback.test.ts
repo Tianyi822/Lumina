@@ -159,7 +159,6 @@ function createRequest(): ChatRequest {
     modelKey: 'test-model',
     sessionId: 'session-plan-fallback',
     turnId: 'turn-plan-fallback',
-    enableLabTools: true,
     sessionType: 'paper'
   }
 }

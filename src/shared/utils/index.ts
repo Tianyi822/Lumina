@@ -26,9 +26,6 @@ export { deepClone } from './data-processors'
 // 主题相关工具
 export * from './theme'
 
-// 实验室功能开关
-export * from './labFeatures'
-
 // 论文翻译相关工具
 export * from './paperTranslation'
 

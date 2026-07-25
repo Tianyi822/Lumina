@@ -10,13 +10,11 @@ import { embeddingApi } from './apis/embedding'
 import { embeddingModelsApi } from './apis/embeddingModels'
 import { knowledgeApi, onFileProgress, onReindexProgress } from './apis/knowledge'
 import { fileApi } from './apis/file'
-import { labApi } from './apis/lab'
 import { knowledgeMCPApi } from './apis/knowledgeMCP'
 import { documentApi } from './apis/document'
 import { paperApi } from './apis/paper'
 import { toolStatsApi } from './apis/toolStats'
 import { paperWebSearchApi } from './apis/paperWebSearch'
-import { sshApi } from './apis/ssh'
 import { updateApi } from './apis/update'
 import { capabilityApi } from './apis/capability'
 
@@ -35,7 +33,6 @@ const api = {
   embeddingModels: embeddingModelsApi,
   knowledge: knowledgeApi,
   file: fileApi,
-  lab: labApi,
   document: documentApi,
   onFileProgress,
   onReindexProgress,
@@ -47,8 +44,6 @@ const api = {
   toolStats: toolStatsApi,
   // 论文网页搜索 API
   paperWebSearch: paperWebSearchApi,
-  // SSH 远程服务器 API
-  ssh: sshApi,
   // 自动更新 API
   update: updateApi,
   // 能力系统 API

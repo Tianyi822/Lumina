@@ -80,7 +80,6 @@ export class ChatService {
     const hasPaperContextTool = request.sessionType === 'paper' && !!request.paperId
     const hasTools =
       (selectedTools && selectedTools.length > 0) ||
-      request.enableLabTools ||
       request.enablePaperWebSearch ||
       hasPaperContextTool
 

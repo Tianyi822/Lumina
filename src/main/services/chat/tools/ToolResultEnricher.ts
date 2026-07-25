@@ -21,7 +21,10 @@ export class ToolResultEnricher {
     const baseResult: ToolExecutionResult = {
       toolCallId,
       toolName,
-      content: typeof mcpResult.content === 'string' ? mcpResult.content : JSON.stringify(mcpResult.content ?? ''),
+      content:
+        typeof mcpResult.content === 'string'
+          ? mcpResult.content
+          : JSON.stringify(mcpResult.content ?? ''),
       success: mcpResult.success,
       error: mcpResult.error
     }
@@ -33,9 +36,8 @@ export class ToolResultEnricher {
    * 根据内容长度和章节数量评估覆盖度，提取关键发现
    */
   defaultEnrich(toolName: string, result: MCPToolCallResult): ToolResultMetadata {
-    const content = typeof result.content === 'string'
-      ? result.content
-      : JSON.stringify(result.content ?? '')
+    const content =
+      typeof result.content === 'string' ? result.content : JSON.stringify(result.content ?? '')
 
     const sectionCount = (content.match(/^##\s/gm) || []).length
     const contentLength = content.length
@@ -78,11 +80,11 @@ export class ToolResultEnricher {
 
   /**
    * 从工具名中推断类别
-   * 按 name__prefix 格式解析前缀（如 lab__exec_command → lab）
+   * 按 name__prefix 格式解析前缀（如 paper__read_page → paper）
    */
   inferCategory(toolName: string): ToolCategory {
     const prefix = toolName.split('__')[0]
-    const knownCategories: ToolCategory[] = ['paper', 'knowledge', 'lab', 'paper_web', 'mcp']
+    const knownCategories: ToolCategory[] = ['paper', 'knowledge', 'paper_web', 'mcp']
     if (knownCategories.includes(prefix as ToolCategory)) {
       return prefix as ToolCategory
     }

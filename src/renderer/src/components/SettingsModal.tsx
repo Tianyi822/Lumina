@@ -8,7 +8,6 @@ import KnowledgeMCPSettings from './settings/KnowledgeMCPSettings'
 import PaperReaderSettings from './settings/PaperReaderSettings'
 import ToolStatsSettings from './settings/ToolStatsSettings'
 import UpdateSettings from './settings/UpdateSettings'
-import LabToggleSettings from './settings/LabToggleSettings'
 import styles from './SettingsModal.module.css'
 
 type SettingsTabKey =
@@ -20,7 +19,6 @@ type SettingsTabKey =
   | 'toolStats'
   | 'theme'
   | 'update'
-  | 'labToggles'
 
 type SettingsCategoryId = 'paper' | 'knowledge' | 'advanced' | 'theme' | 'update'
 
@@ -38,7 +36,7 @@ interface SettingsCategory {
 const settingsCategories: SettingsCategory[] = [
   { id: 'paper', label: '论文阅读配置', items: ['model', 'paperReader'] },
   { id: 'knowledge', label: '知识库配置', items: ['embedding', 'knowledge'] },
-  { id: 'advanced', label: '高级功能', items: ['labToggles', 'mcp', 'toolStats'] },
+  { id: 'advanced', label: '高级功能', items: ['mcp', 'toolStats'] },
   { id: 'theme', label: '主题设置', items: ['theme'] },
   { id: 'update', label: '升级版本', items: ['update'] }
 ]
@@ -153,8 +151,6 @@ function SettingsModal({ onClose, onMcpUpdated }: SettingsModalProps) {
                           return <PaperReaderSettings key="paperReader" />
                         case 'update':
                           return <UpdateSettings key="update" />
-                        case 'labToggles':
-                          return <LabToggleSettings key="labToggles" />
                         default:
                           return null
                       }

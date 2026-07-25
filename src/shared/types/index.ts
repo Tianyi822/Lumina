@@ -41,12 +41,5 @@ export * from './paper'
 // 论文联网搜索相关的类型
 export * from './paper-web-search'
 
-// 实验室相关的类型
-export * from './lab/core'
-export * from './lab/container'
-export * from './lab/file'
-export * from './lab/permissions'
-export * from './lab/ssh'
-
 // 自动更新相关的类型
 export * from './update'

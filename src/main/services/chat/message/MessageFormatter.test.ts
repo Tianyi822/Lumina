@@ -125,12 +125,12 @@ test('formatMessagesWithKnowledge 只保留有 tool 响应的 tool_calls 且不�
         {
           id: 'call-found',
           type: 'function',
-          function: { name: 'lab__exec_command', arguments: '{"cmd":"pwd"}' }
+          function: { name: 'paper__read_page', arguments: '{"page":1}' }
         },
         {
           id: 'call-missing',
           type: 'function',
-          function: { name: 'lab__exec_command', arguments: '{"cmd":"ls"}' }
+          function: { name: 'paper__read_page', arguments: '{"page":2}' }
         }
       ]
     },

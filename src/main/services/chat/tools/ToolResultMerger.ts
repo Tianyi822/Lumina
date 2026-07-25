@@ -2,7 +2,7 @@ import type { EnrichedToolResult, ResultMergeStrategy } from './PipelineTypes'
 import type { ToolCategory } from './UnifiedToolRegistry'
 
 /** 各类别在排序时的优先级顺序 */
-const CATEGORY_ORDER: ToolCategory[] = ['paper', 'knowledge', 'paper_web', 'lab', 'mcp']
+const CATEGORY_ORDER: ToolCategory[] = ['paper', 'knowledge', 'paper_web', 'mcp']
 
 /** 合并操作的返回结果 */
 export interface MergeOutput {

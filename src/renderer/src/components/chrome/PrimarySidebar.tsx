@@ -1,12 +1,7 @@
 import { useCallback, useMemo } from 'react'
 import SvgIcon from '@renderer/components/icons/SvgIcon'
 import { uploadAndRenderPdf } from '@renderer/stores/paper'
-import { useConfigStore, useKnowledgeStore } from '@renderer/stores'
-import {
-  isAnyLabDisciplineEnabled,
-  isLabDisciplineEnabled,
-  LAB_DISCIPLINE_PRESETS
-} from '@shared/utils/labFeatures'
+import { useKnowledgeStore } from '@renderer/stores'
 import { hasPendingUpdateBadge, useUpdateStore } from '@renderer/stores/updateStore'
 import { useUIStateStore } from '@renderer/stores/uiStateStore'
 import type { UIStateStore, ViewMode } from '@renderer/stores/uiStateStore'
@@ -26,8 +21,7 @@ interface NavItem {
 
 const ADD_LABEL_BY_VIEW: Record<ViewMode, string> = {
   paper: '添加论文',
-  knowledge: '新增知识库',
-  lab: '新增实验室'
+  knowledge: '新增知识库'
 }
 
 /** 一级侧边栏导航项（论文阅读 + 知识库） */
@@ -44,8 +38,7 @@ interface PrimarySidebarProps {
 
 function selectIsSecondarySidebarCollapsed(state: UIStateStore): boolean {
   if (state.currentView === 'paper') return state.paperSidebarCollapsed
-  if (state.currentView === 'knowledge') return state.knowledgeSidebarCollapsed
-  return state.labSidebarCollapsed
+  return state.knowledgeSidebarCollapsed
 }
 
 /**
@@ -56,45 +49,28 @@ export default function PrimarySidebar({ onOpenSettings }: PrimarySidebarProps) 
   const currentView = useUIStateStore((s) => s.currentView)
   const setCurrentView = useUIStateStore((s) => s.setCurrentView)
   const toggleCurrentSidebar = useUIStateStore((s) => s.toggleCurrentSidebar)
-  const paperSidebarCollapsed = useUIStateStore((s) => s.paperSidebarCollapsed)
-  const rawSidebarCollapsed = useUIStateStore(selectIsSecondarySidebarCollapsed)
+  const isSecondarySidebarCollapsed = useUIStateStore(selectIsSecondarySidebarCollapsed)
   const currentTheme = useUIStateStore((s) => s.currentTheme)
   const themeMode = useUIStateStore((s) => s.themeMode)
   const setTheme = useUIStateStore((s) => s.setTheme)
   const setThemeMode = useUIStateStore((s) => s.setThemeMode)
   const openCreateForm = useKnowledgeStore((s) => s.openCreateForm)
-  const openLabCreator = useUIStateStore((s) => s.openLabCreator)
   const updateStatus = useUpdateStore((s) => s.status)
   const showUpdateBadge = hasPendingUpdateBadge(updateStatus)
-  const labFeatures = useConfigStore((s) => s.labFeatures)
-  const labEnabled = isAnyLabDisciplineEnabled(labFeatures)
-
-  // lab 禁用时使用 paper 侧边栏折叠状态（防御性处理）
-  const isSecondarySidebarCollapsed = labEnabled ? rawSidebarCollapsed : paperSidebarCollapsed
 
   const isDarkTheme = currentTheme === 'lumina-dark'
 
   const addTooltip = ADD_LABEL_BY_VIEW[currentView]
 
-  // 根据启用的实验室学科动态生成导航项
+  // 一级侧边栏导航项（论文阅读 + 知识库）
   const navItems = useMemo(() => {
-    const labNavItems = LAB_DISCIPLINE_PRESETS.filter((preset) =>
-      isLabDisciplineEnabled(labFeatures, preset.id)
-    ).map((preset) => ({
-      id: `lab-${preset.id}`,
-      icon: preset.icon,
-      label: `${preset.label}实验室`,
-      view: 'lab' as ViewMode,
-      showTooltip: true
-    }))
-
-    return [...TOP_NAV_ITEMS, ...labNavItems].map((item) => ({
+    return TOP_NAV_ITEMS.map((item) => ({
       ...item,
       tooltip: item.showTooltip ? item.label : undefined
     }))
-  }, [labFeatures])
+  }, [])
 
-  // 根据当前视图执行不同的添加操作（上传论文/创建知识库/创建实验室）
+  // 根据当前视图执行不同的添加操作（上传论文/创建知识库）
   const handleAddClick = useCallback((): void => {
     if (currentView === 'paper') {
       void uploadAndRenderPdf()
@@ -104,8 +80,7 @@ export default function PrimarySidebar({ onOpenSettings }: PrimarySidebarProps) 
       openCreateForm()
       return
     }
-    openLabCreator()
-  }, [currentView, openCreateForm, openLabCreator])
+  }, [currentView, openCreateForm])
 
   const handleExpandToggle = useCallback(
     (event: React.MouseEvent<HTMLButtonElement>): void => {
@@ -258,10 +233,7 @@ export default function PrimarySidebar({ onOpenSettings }: PrimarySidebarProps) 
               <span className={styles['sm-primary-sidebar__icon-anchor']}>
                 <SvgIcon name={BOTTOM_NAV_ITEM.icon} size={ICON_SIZE} />
                 {showUpdateBadge ? (
-                  <span
-                    className={styles['sm-primary-sidebar__update-badge']}
-                    aria-hidden="true"
-                  />
+                  <span className={styles['sm-primary-sidebar__update-badge']} aria-hidden="true" />
                 ) : null}
               </span>
             </button>

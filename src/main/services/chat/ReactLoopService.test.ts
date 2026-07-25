@@ -624,36 +624,9 @@ test('default 会话通过 capabilityManager 初始化能力状态', async () =>
   assert.deepEqual(capState!.activeCapabilities, [], 'default 会话应无默认激活能力')
 })
 
-test('enableLabTools 动态添加 lab 能力', async () => {
-  capabilityManager.clearSession('react-loop-lab-enable')
-
-  const harness = createHarness({
-    streams: [createContentStream('lab 回答')]
-  })
-
-  const request: ChatRequest = {
-    ...harness.request,
-    sessionId: 'react-loop-lab-enable',
-    sessionType: 'default',
-    enableLabTools: true,
-    selectedTools: undefined
-  }
-
-  await harness.service.sendMessageWithReact(request, createWebContents(harness.events))
-
-  const capState = capabilityManager.getCapabilities('react-loop-lab-enable')
-  assert.ok(capState, 'capabilityManager 应有该会话的能力状态')
-  assert.equal(capState!.presetId, 'chat.default', '预设仍为 chat.default')
-  assert.deepEqual(
-    capState!.activeCapabilities,
-    ['lab'],
-    'enableLabTools=true 时 default 会话应仅激活 lab'
-  )
-})
-
 test('并发 ReAct 请求使用独立工具和提示词运行时快照', async () => {
   capabilityManager.clearSession('react-loop-concurrent-mcp')
-  capabilityManager.clearSession('react-loop-concurrent-lab')
+  capabilityManager.clearSession('react-loop-concurrent-paper')
 
   const toolsByQuery = new Map<string, string[]>()
   const harness = createHarness({
@@ -679,34 +652,33 @@ test('并发 ReAct 请求使用独立工具和提示词运行时快照', async (
     sessionId: 'react-loop-concurrent-mcp',
     turnId: 'turn-react-loop-concurrent-mcp'
   }
-  const labRequest: ChatRequest = {
+  const paperRequest: ChatRequest = {
     ...harness.request,
-    messages: [{ role: 'user', content: '并发 Lab 请求' }],
-    sessionId: 'react-loop-concurrent-lab',
-    turnId: 'turn-react-loop-concurrent-lab',
-    selectedTools: undefined,
-    enableLabTools: true,
-    activeLabDiscipline: 'computer',
-    activeLabId: 'lab-concurrent'
+    messages: [{ role: 'user', content: '并发 Paper 请求' }],
+    sessionId: 'react-loop-concurrent-paper',
+    turnId: 'turn-react-loop-concurrent-paper',
+    sessionType: 'paper',
+    paperId: 'paper-concurrent',
+    selectedTools: undefined
   }
 
-  const [mcpResult, labResult] = await Promise.all([
+  const [mcpResult, paperResult] = await Promise.all([
     harness.service.sendMessageWithReact(mcpRequest, createWebContents(harness.events)),
-    harness.service.sendMessageWithReact(labRequest, createWebContents(harness.events))
+    harness.service.sendMessageWithReact(paperRequest, createWebContents(harness.events))
   ])
 
   assert.equal(mcpResult.success, true, mcpResult.error)
-  assert.equal(labResult.success, true, labResult.error)
+  assert.equal(paperResult.success, true, paperResult.error)
 
   const mcpTools = toolsByQuery.get('并发 MCP 请求') ?? []
-  const labTools = toolsByQuery.get('并发 Lab 请求') ?? []
+  const paperTools = toolsByQuery.get('并发 Paper 请求') ?? []
   assert.ok(mcpTools.includes('mock__lookup'))
   assert.equal(
-    mcpTools.some((name) => name.startsWith('lab__')),
+    mcpTools.some((name) => name.startsWith('paper__')),
     false
   )
-  assert.ok(labTools.some((name) => name.startsWith('lab__')))
-  assert.equal(labTools.includes('mock__lookup'), false)
+  assert.ok(paperTools.some((name) => name.startsWith('paper__')))
+  assert.equal(paperTools.includes('mock__lookup'), false)
 })
 
 // ===== capability__suggest 虚拟工具注册 =====
@@ -734,7 +706,7 @@ test('存在可建议能力时工具列表中包含 capability__suggest', async 
   assert.equal(hasSuggestTool, true, '应包含 capability__suggest 虚拟工具')
 })
 
-test('全部能力已激活时不应包含 capability__suggest 工具', async () => {
+test('无可建议能力时不应包含 capability__suggest 工具', async () => {
   capabilityManager.clearSession('react-loop-no-suggest')
 
   const harness = createHarness({
@@ -746,7 +718,6 @@ test('全部能力已激活时不应包含 capability__suggest 工具', async ()
     sessionId: 'react-loop-no-suggest',
     sessionType: 'paper',
     paperId: 'paper-001',
-    enableLabTools: true,
     selectedTools: undefined
   }
 
@@ -778,8 +749,8 @@ function createSuggestToolCallStream(): AsyncIterable<StreamChunk> {
                 function: {
                   name: 'capability__suggest',
                   arguments: JSON.stringify({
-                    capabilityId: 'lab',
-                    reason: '需要代码执行来分析结果'
+                    capabilityId: 'knowledge',
+                    reason: '需要检索知识库来补充背景'
                   })
                 }
               }
@@ -806,12 +777,17 @@ test('模型调用 capability__suggest 时发送 capability_suggestion 流事件
     selectedTools: undefined
   }
 
-  await harness.service.sendMessageWithReact(request, createWebContents(harness.events))
+  await harness.service.sendMessageWithReact(
+    request,
+    createWebContents(harness.events),
+    undefined,
+    [{ id: 'kb-suggest', name: '测试知识库', description: '', documentCount: 1 }]
+  )
 
   const suggestEvent = harness.events.find((e) => e.type === 'capability_suggestion')
   assert.ok(suggestEvent, '应发送 capability_suggestion 流事件')
-  assert.equal(suggestEvent!.capabilitySuggestion?.capabilities?.[0]?.id, 'lab')
-  assert.match(suggestEvent!.capabilitySuggestion?.capabilities?.[0]?.reason ?? '', /需要代码执行/)
+  assert.equal(suggestEvent!.capabilitySuggestion?.capabilities?.[0]?.id, 'knowledge')
+  assert.match(suggestEvent!.capabilitySuggestion?.capabilities?.[0]?.reason ?? '', /检索知识库/)
 })
 
 test('选择知识库后注册 knowledge 工具，但论文结果不足时不自动搜索', async () => {

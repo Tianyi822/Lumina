@@ -3,12 +3,10 @@ import type {
   AttachedDocument,
   AttachedImage,
   KnowledgeBase,
-  LabListItem,
   MCPTool,
   UserInteractionRequest
 } from '@renderer/types'
 import type { PaperQuote } from '@shared/types/chat'
-import type { LabDisciplineId } from '@shared/types/config'
 import type { CapabilitySuggestionData } from '@renderer/stores/paperChatStreamStore'
 import SvgIcon from '@renderer/components/icons/SvgIcon'
 import {
@@ -57,12 +55,7 @@ interface PaperChatInputProps {
   selectedModel: string
   selectedMCPTools: MCPTool[]
   selectedKnowledgeBases: KnowledgeBase[]
-  enableLabTools: boolean
   enablePaperWebSearch: boolean
-  activeLabDiscipline?: LabDisciplineId | null
-  activeLabId?: string | null
-  enabledDisciplines?: LabDisciplineId[]
-  connectedLabs?: LabListItem[]
   isSending: boolean
   disabled?: boolean
   isDragging?: boolean
@@ -75,14 +68,7 @@ interface PaperChatInputProps {
   onUpdateSelectedModel: (value: string) => void
   onUpdateSelectedTools: (value: MCPTool[]) => void
   onUpdateSelectedKnowledgeBases: (value: KnowledgeBase[]) => void
-  onUpdateEnableLabTools: (value: boolean) => void
   onUpdateEnablePaperWebSearch: (value: boolean) => void
-  onLabSelectionChange?: (next: {
-    discipline: LabDisciplineId | null
-    labId: string | null
-  }) => void
-  onNavigateToLab?: () => void
-  onRefreshLabs?: () => void
   onEnablePaperWebSearch?: () => Promise<boolean>
   onDismissQuickReply?: (messageId: string) => void
   onHideUserInteraction?: () => void
@@ -109,12 +95,7 @@ export default function PaperChatInput({
   selectedModel,
   selectedMCPTools,
   selectedKnowledgeBases,
-  enableLabTools,
   enablePaperWebSearch,
-  activeLabDiscipline = null,
-  activeLabId = null,
-  enabledDisciplines = [],
-  connectedLabs = [],
   isSending,
   disabled,
   isDragging = false,
@@ -127,11 +108,7 @@ export default function PaperChatInput({
   onUpdateSelectedModel,
   onUpdateSelectedTools,
   onUpdateSelectedKnowledgeBases,
-  onUpdateEnableLabTools,
   onUpdateEnablePaperWebSearch,
-  onLabSelectionChange,
-  onNavigateToLab,
-  onRefreshLabs,
   onEnablePaperWebSearch,
   onDismissQuickReply,
   onHideUserInteraction,
@@ -168,7 +145,7 @@ export default function PaperChatInput({
   const canSend = Boolean(inputMessage.trim() || hasAttachments) && !disabled && !isSending
   // 快速回复面板：AI 给出多个候选回答供用户一键选择
   const showQuickReplyDock = Boolean(quickReply && quickReply.options.length > 0 && !isSending)
-  // 能力建议面板：推荐开启某项功能（如联网搜索、实验室）
+  // 能力建议面板：推荐开启某项功能（如联网搜索）
   const showCapabilitySuggestionDock = Boolean(
     showCapabilitySuggestion && capabilitySuggestion && !isSending
   )
@@ -513,20 +490,11 @@ export default function PaperChatInput({
           canSend={canSend}
           selectedTools={selectedMCPTools}
           selectedKnowledgeBases={selectedKnowledgeBases}
-          enableLabTools={enableLabTools}
           enablePaperWebSearch={enablePaperWebSearch}
           totalAttachmentCount={totalAttachmentCount}
-          activeLabDiscipline={activeLabDiscipline}
-          activeLabId={activeLabId}
-          enabledDisciplines={enabledDisciplines}
-          connectedLabs={connectedLabs}
           onUpdateSelectedTools={onUpdateSelectedTools}
           onUpdateSelectedKnowledgeBases={onUpdateSelectedKnowledgeBases}
-          onUpdateEnableLabTools={onUpdateEnableLabTools}
           onTogglePaperWebSearch={() => void togglePaperWebSearch()}
-          onLabSelectionChange={onLabSelectionChange}
-          onNavigateToLab={onNavigateToLab}
-          onRefreshLabs={onRefreshLabs}
           onUpload={() => fileInputRef.current?.click()}
           onSend={() => void handleSend()}
           onStop={() => void onStop()}
