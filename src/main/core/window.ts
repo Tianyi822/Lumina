@@ -160,14 +160,3 @@ export function createMainWindow(): BrowserWindow {
 export function getMainWindow(): BrowserWindow | null {
   return mainWindow
 }
-
-/**
- * 更新窗口背景色
- * 注意：新的主题系统由 CSS 管理，此函数仅用于设置窗口初始背景色
- * @param backgroundColor - 背景颜色（十六进制格式）
- */
-export function updateWindowBackgroundColor(backgroundColor: string): void {
-  if (mainWindow) {
-    mainWindow.setBackgroundColor(backgroundColor)
-  }
-}

@@ -17,7 +17,7 @@ interface ToolArgs {
  * 注意：此服务通过 KnowledgeCoreService 实现核心业务逻辑，
  * 与 KnowledgeMCPServerService（MCP 服务）共享相同的底层实现
  */
-export class KnowledgeToolService {
+class KnowledgeToolService {
   /**
    * 获取知识库工具定义
    * @param selectedKnowledgeBaseIds 选中的知识库 ID 列表，如果指定则只搜索这些知识库

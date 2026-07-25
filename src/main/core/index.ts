@@ -3,4 +3,4 @@
  */
 
 export { initializeApp } from './app'
-export { createMainWindow, getMainWindow, updateWindowBackgroundColor } from './window'
+export { getMainWindow } from './window'

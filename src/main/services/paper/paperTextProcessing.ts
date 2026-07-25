@@ -91,7 +91,7 @@ function startsWithFrontMatterMarker(text: string): boolean {
  * 判断两段文本是否应该合并为同一段落（而不是分两段）
  * 规则：上一段不以强终端标点结尾，或下一段以小写/括号开头（表示续写）
  */
-export function shouldMergeTextFlow(
+function shouldMergeTextFlow(
   previousText: string | undefined,
   nextText: string | undefined,
   nextSource: string
@@ -249,7 +249,7 @@ function looksLikeMathBody(segment: string): boolean {
   return false
 }
 
-export function isMathLikeSegment(segment: string): boolean {
+function isMathLikeSegment(segment: string): boolean {
   return (
     isStandaloneMathDelimiter(segment) ||
     hasDisplayMathDelimiters(segment) ||
@@ -342,7 +342,7 @@ function getMarkdownHeadingLine(segment: string): string | null {
  * 判断文本段是否为可合并的普通段落
  * 排除标题、列表、代码块、表格、公式等特殊格式
  */
-export function isMergeableTextSegment(segment: string): boolean {
+function isMergeableTextSegment(segment: string): boolean {
   const trimmed = unwrapFencedSimpleTextContainerHtml(segment).trim()
   if (!trimmed) {
     return false
@@ -370,12 +370,12 @@ export function isMergeableTextSegment(segment: string): boolean {
   return getPlainText(trimmed).length > 0
 }
 
-export function isOrdinaryParagraphSegment(segment: string): boolean {
+function isOrdinaryParagraphSegment(segment: string): boolean {
   const trimmed = segment.trim()
   return isMergeableTextSegment(trimmed) && !/^\s*</.test(trimmed)
 }
 
-export function normalizeSoftWrappedLines(segment: string): string {
+function normalizeSoftWrappedLines(segment: string): string {
   if (!isOrdinaryParagraphSegment(segment) || !segment.includes('\n')) {
     return segment
   }
@@ -411,7 +411,7 @@ export function normalizeSoftWrappedLines(segment: string): string {
   return normalizedParagraphs.join('\n\n')
 }
 
-export function reflowOrdinaryParagraphs(markdown: string): string {
+function reflowOrdinaryParagraphs(markdown: string): string {
   const segments = markdown
     .split(/\n{2,}/)
     .flatMap((segment) => normalizeSoftWrappedLines(segment).split(/\n{2,}/))

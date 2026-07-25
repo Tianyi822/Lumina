@@ -36,8 +36,8 @@ import {
   localizePaperTranslationCacheAssets
 } from './paperAssetLocalizer'
 
-export const MAX_PAPER_PAGES = 200
-export const MAX_PAPER_FILE_SIZE = 200 * 1024 * 1024
+const MAX_PAPER_PAGES = 200
+const MAX_PAPER_FILE_SIZE = 200 * 1024 * 1024
 
 function createEmptyAnnotationStore(paperId: string): PaperAnnotationStore {
   return createEmptyPaperAnnotationStore(paperId)

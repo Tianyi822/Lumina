@@ -13,7 +13,7 @@ const FILES_METADATA_FILE_NAME = 'files-metadata.json'
 /**
  * 获取知识库数据目录
  */
-export function getKnowledgeDataDirPath(): string {
+function getKnowledgeDataDirPath(): string {
   return join(getKnowledgeDirPath(), KNOWLEDGE_DATA_DIR_NAME)
 }
 

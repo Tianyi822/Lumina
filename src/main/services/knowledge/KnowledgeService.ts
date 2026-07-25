@@ -8,12 +8,12 @@ import type { KnowledgeBase, KnowledgeReindexOptions } from '@shared/types/knowl
 import { getKnowledgeBaseFilePath as getKnowledgeBaseStorageFilePath } from './knowledgePaths'
 
 // 获取知识库数据文件路径
-export function getKnowledgeBaseFilePath(): string {
+function getKnowledgeBaseFilePath(): string {
   return getKnowledgeBaseStorageFilePath()
 }
 
 // 创建空的知识库数据结构
-export function createEmptyKnowledgeBases(): KnowledgeBase[] {
+function createEmptyKnowledgeBases(): KnowledgeBase[] {
   return []
 }
 

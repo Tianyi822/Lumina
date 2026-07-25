@@ -4,19 +4,6 @@ import { logger } from '@main/services/logger'
 import type { KnowledgeMCPConfig } from '@shared/types/knowledgeMCP'
 
 /**
- * 初始化知识库 MCP 服务
- */
-export function initializeKnowledgeMCP(config?: KnowledgeMCPConfig): void {
-  const service = getKnowledgeMCPServerService()
-
-  if (config) {
-    service.updateConfig(config)
-  }
-
-  logger.info('知识库 MCP 服务初始化完成')
-}
-
-/**
  * 通知渲染进程状态变更
  */
 function notifyStatusChange(): void {

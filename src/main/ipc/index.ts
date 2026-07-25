@@ -8,10 +8,7 @@ import { registerEmbeddingHandlers } from './handlers/embeddingHandlers'
 import { registerKnowledgeHandlers } from './handlers/knowledgeHandlers'
 import { registerEmbeddingModelHandlers } from './handlers/embeddingModelHandlers'
 import { registerFileHandlers } from './handlers/fileHandlers'
-import {
-  registerKnowledgeMCPHandlers,
-  initializeKnowledgeMCP
-} from './handlers/knowledgeMCPHandlers'
+import { registerKnowledgeMCPHandlers } from './handlers/knowledgeMCPHandlers'
 import { registerDocumentHandlers } from './handlers/documentHandlers'
 import { registerPaperHandlers } from './handlers/paperHandlers'
 import { registerToolStatsHandlers } from './handlers/toolStatsHandlers'
@@ -26,7 +23,6 @@ export { initializeEmbedding } from './handlers/embeddingHandlers'
 export { initializeKnowledge } from './handlers/knowledgeHandlers'
 export { initializeEmbeddingModels } from './handlers/embeddingModelHandlers'
 export { initializeFileService } from './handlers/fileHandlers'
-export { initializeKnowledgeMCP }
 
 /**
  * 注册所有 IPC 处理程序

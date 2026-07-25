@@ -6,7 +6,7 @@ import type { KnowledgeBase } from '@shared/types/knowledge'
 /**
  * 知识库搜索结果项
  */
-export interface KnowledgeSearchItem {
+interface KnowledgeSearchItem {
   knowledgeBaseId: string
   knowledgeBaseName: string
   fileName: string
@@ -18,7 +18,7 @@ export interface KnowledgeSearchItem {
 /**
  * 知识库搜索结果
  */
-export interface KnowledgeSearchResult {
+interface KnowledgeSearchResult {
   query: string
   items: KnowledgeSearchItem[]
   totalCount: number
@@ -27,7 +27,7 @@ export interface KnowledgeSearchResult {
 /**
  * 知识库列表项
  */
-export interface KnowledgeBaseItem {
+interface KnowledgeBaseItem {
   id: string
   name: string
   description: string
@@ -39,7 +39,7 @@ export interface KnowledgeBaseItem {
 /**
  * 文档列表项
  */
-export interface DocumentItem {
+interface DocumentItem {
   documentName: string
   size: string
   sizeBytes: number
@@ -50,7 +50,7 @@ export interface DocumentItem {
 /**
  * 搜索知识库参数
  */
-export interface SearchKnowledgeParams {
+interface SearchKnowledgeParams {
   query: string
   knowledgeBaseId?: string
   limit?: number
@@ -61,7 +61,7 @@ export interface SearchKnowledgeParams {
 /**
  * 获取文档列表参数
  */
-export interface GetDocumentsParams {
+interface GetDocumentsParams {
   knowledgeBaseId: string
   /** 可选：限制在指定的知识库 ID 列表范围内 */
   allowedKnowledgeBaseIds?: string[]
@@ -70,7 +70,7 @@ export interface GetDocumentsParams {
 /**
  * 获取知识库列表参数
  */
-export interface GetKnowledgeBasesParams {
+interface GetKnowledgeBasesParams {
   /** 可选：只返回指定的知识库 ID 列表 */
   knowledgeBaseIds?: string[]
 }
@@ -80,7 +80,7 @@ export interface GetKnowledgeBasesParams {
  * 提供知识库操作的核心业务逻辑
  * 被 KnowledgeToolService（聊天工具）和 KnowledgeMCPServerService（MCP 服务）共同使用
  */
-export class KnowledgeCoreService {
+class KnowledgeCoreService {
   /**
    * 搜索知识库
    * @param params 搜索参数

@@ -31,7 +31,7 @@ function getTranslationLlmConfig(): LLMConfig | null {
  * 论文翻译服务
  * 继承 PaperTranslationCore，注入 OpenAI 兼容的 LLM 客户端作为翻译引擎
  */
-export class PaperTranslationService extends PaperTranslationCore {
+class PaperTranslationService extends PaperTranslationCore {
   constructor() {
     super({
       concurrency: 3,

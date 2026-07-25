@@ -5,5 +5,4 @@ import { MCPService } from './MCPService'
 export const mcpConfigManager = new MCPConfigManager()
 export const mcpService = new MCPService()
 
-export { MCPConfigManager } from './MCPConfigManager'
 export { MCPService } from './MCPService'

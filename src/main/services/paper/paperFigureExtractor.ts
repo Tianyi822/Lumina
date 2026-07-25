@@ -15,10 +15,7 @@ import {
 } from './paperBlockClassifiers.ts'
 
 export { buildReaderDocument, buildReaderMarkdown } from './paperMarkdownBuilder.ts'
-export type {
-  ExtractedPaperFigureData,
-  PaperFigureRemovalGroup
-} from './paperFigureExtractorTypes.ts'
+export type { ExtractedPaperFigureData } from './paperFigureExtractorTypes.ts'
 
 /**
  * 从 OCR 结果中提取图表数据
