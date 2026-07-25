@@ -1,6 +1,7 @@
 import { ipcMain } from 'electron'
 import { logger } from '@main/services/logger'
 import { writerService } from '@main/services/writer'
+import { acknowledgeWriterFlushFromEvent } from '@main/services/writer/WriterFlushCoordinator'
 import type {
   WriterAsset,
   WriterDocument,
@@ -214,7 +215,8 @@ export function registerWriterHandlers(): void {
   )
 
   ipcMain.handle('writer:flush-ack', (event): WriterResult<void> => {
-    writerService.acknowledgeRendererFlush(event.sender.id)
-    return { success: true }
+    return acknowledgeWriterFlushFromEvent(event, (webContentsId) =>
+      writerService.acknowledgeRendererFlush(webContentsId)
+    )
   })
 }

@@ -22,6 +22,7 @@ import { updateService } from '@main/services/update'
 import { paperTranslationService } from '@main/services/paper'
 import { startEventLoopMonitoring } from '@main/services/monitoring/eventLoopMonitor'
 import { writerService } from '@main/services/writer'
+import { handleWriterWindowClose } from '@main/services/writer/WriterFlushCoordinator'
 
 const appDisplayName = 'Lumina'
 const SHUTDOWN_TASK_TIMEOUT_MS = 5_000
@@ -123,11 +124,11 @@ function requestShutdown(exitCode: number, reason: string): void {
 function createApplicationWindow(): BrowserWindow {
   const window = createMainWindow()
   window.on('close', (event) => {
-    if (shutdownPromise || updateService.isQuittingForUpdate) {
-      return
-    }
-    event.preventDefault()
-    requestShutdown(0, 'window-close')
+    handleWriterWindowClose(event, {
+      isShutdownRequested: () => shutdownPromise !== null,
+      isQuittingForUpdate: () => updateService.isQuittingForUpdate,
+      requestShutdown: () => requestShutdown(0, 'window-close')
+    })
   })
   return window
 }

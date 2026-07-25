@@ -1,23 +1,15 @@
 import { BrowserWindow } from 'electron'
 import { logger } from '@main/services/logger'
 import { WriterAssetService } from './WriterAssetService'
-import { WriterFlushCoordinator } from './WriterFlushCoordinator'
+import { sendWriterFlushRequestToWindow, WriterFlushCoordinator } from './WriterFlushCoordinator'
 import { WriterService } from './WriterService'
 import { WriterStorageService } from './WriterStorageService'
 
 const WRITER_RENDERER_FLUSH_TIMEOUT_MS = 1_500
 
 const writerFlushCoordinator = new WriterFlushCoordinator({
-  send: (webContentsId, channel) => {
-    const target = BrowserWindow.getAllWindows().find(
-      (window) => !window.isDestroyed() && window.webContents.id === webContentsId
-    )
-    if (!target || target.webContents.isDestroyed()) {
-      return false
-    }
-    target.webContents.send(channel)
-    return true
-  },
+  send: (webContentsId, channel) =>
+    sendWriterFlushRequestToWindow(BrowserWindow.getAllWindows(), webContentsId, channel),
   timeoutMs: WRITER_RENDERER_FLUSH_TIMEOUT_MS,
   warn: (webContentsId, reason) => {
     logger.warn('Renderer 写作文档退出刷新未确认，继续退出', 'main', {

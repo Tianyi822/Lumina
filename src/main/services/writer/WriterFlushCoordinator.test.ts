@@ -1,9 +1,55 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { WriterFlushCoordinator } from './WriterFlushCoordinator'
+import {
+  acknowledgeWriterFlushFromEvent,
+  handleWriterWindowClose,
+  sendWriterFlushRequestToWindow,
+  WriterFlushCoordinator
+} from './WriterFlushCoordinator'
 import { WriterService } from './WriterService'
 import type { WriterStoragePort } from './WriterService'
 import type { SaveWriterDocumentRequest, WriterDocument } from '@shared/types/writer'
+
+const writerDocument: WriterDocument = {
+  schemaVersion: 1,
+  id: 'writer-12345678',
+  revision: 0,
+  title: '初稿',
+  content: { type: 'doc', content: [] },
+  favorite: false,
+  createdAt: '2026-07-25T00:00:00.000Z',
+  updatedAt: '2026-07-25T00:00:00.000Z'
+}
+
+function createStoragePort(overrides: Partial<WriterStoragePort> = {}): WriterStoragePort {
+  return {
+    initialize: async () => ({
+      success: true,
+      data: { schemaVersion: 1, folders: [], documents: [], recentDocumentIds: [] }
+    }),
+    createDocument: async () => ({ success: true, data: writerDocument }),
+    listDocuments: async () => ({
+      success: true,
+      data: { schemaVersion: 1, folders: [], documents: [], recentDocumentIds: [] }
+    }),
+    getDocument: async () => ({ success: true, data: writerDocument }),
+    saveDocument: async () => ({ success: true, data: writerDocument }),
+    deleteDocument: async () => ({ success: true }),
+    createFolder: async () => ({ success: false, code: 'io_error', error: '测试未使用' }),
+    renameFolder: async () => ({ success: false, code: 'io_error', error: '测试未使用' }),
+    deleteFolder: async () => ({ success: true }),
+    moveDocument: async () => ({ success: true, data: writerDocument }),
+    setFavorite: async () => ({ success: true, data: writerDocument }),
+    ...overrides
+  }
+}
+
+function createFlushCoordinator(): WriterFlushCoordinator {
+  return new WriterFlushCoordinator({
+    send: () => true,
+    timeoutMs: 1_500
+  })
+}
 
 test('Renderer flush 收到确认后结束等待', async () => {
   const sent: string[] = []
@@ -170,4 +216,186 @@ test('保存请求串行执行且 flushPendingSaves 等待当前队列', async (
   assert.equal(secondResult.code, 'revision_conflict')
   assert.deepEqual(saveCalls, [0, 0])
   assert.equal(flushed, true)
+})
+
+test('导入图片先确认文档存在且不存在时不创建资源', async () => {
+  let imported = false
+  const service = new WriterService({
+    storageService: createStoragePort({
+      getDocument: async () => ({
+        success: false,
+        code: 'not_found',
+        error: '写作文档不存在'
+      })
+    }),
+    assetService: {
+      importBytes: async () => {
+        imported = true
+        return {
+          success: true,
+          data: {
+            assetId: 'asset',
+            fileName: 'image.png',
+            relativePath: 'assets/image.png',
+            mimeType: 'image/png',
+            size: 8,
+            sha256: 'hash',
+            url: 'lumina://writing/writer-12345678/assets/image.png'
+          }
+        }
+      }
+    },
+    flushCoordinator: createFlushCoordinator(),
+    getWebContentsIds: () => []
+  })
+
+  const result = await service.importAsset(writerDocument.id, {
+    fileName: 'image.png',
+    declaredMimeType: 'image/png',
+    bytes: new Uint8Array([137, 80, 78, 71])
+  })
+
+  assert.equal(result.code, 'not_found')
+  assert.equal(imported, false)
+})
+
+test('永久删除与图片导入串行且删除后不会重建资源目录', async () => {
+  let documentExists = true
+  let imported = false
+  let releaseDelete: (() => void) | undefined
+  const deleteGate = new Promise<void>((resolve) => {
+    releaseDelete = resolve
+  })
+  const service = new WriterService({
+    storageService: createStoragePort({
+      deleteDocument: async () => {
+        await deleteGate
+        documentExists = false
+        return { success: true }
+      },
+      getDocument: async () =>
+        documentExists
+          ? { success: true, data: writerDocument }
+          : { success: false, code: 'not_found', error: '写作文档不存在' }
+    }),
+    assetService: {
+      importBytes: async () => {
+        imported = true
+        return {
+          success: true,
+          data: {
+            assetId: 'asset',
+            fileName: 'image.png',
+            relativePath: 'assets/image.png',
+            mimeType: 'image/png',
+            size: 8,
+            sha256: 'hash',
+            url: 'lumina://writing/writer-12345678/assets/image.png'
+          }
+        }
+      }
+    },
+    flushCoordinator: createFlushCoordinator(),
+    getWebContentsIds: () => []
+  })
+
+  const deleting = service.deleteDocument(writerDocument.id)
+  const importing = service.importAsset(writerDocument.id, {
+    fileName: 'image.png',
+    declaredMimeType: 'image/png',
+    bytes: new Uint8Array([137, 80, 78, 71])
+  })
+  await Promise.resolve()
+  assert.equal(imported, false)
+
+  releaseDelete?.()
+  await deleting
+  const importResult = await importing
+
+  assert.equal(importResult.code, 'not_found')
+  assert.equal(imported, false)
+})
+
+test('flush ACK 只使用 event.sender.id 且重复或伪造确认不会结束其他窗口等待', async () => {
+  const coordinator = new WriterFlushCoordinator({
+    send: () => true,
+    timeoutMs: 1_500
+  })
+  let completed = false
+  const pending = coordinator.requestFlush([42, 43]).then(() => {
+    completed = true
+  })
+  const acknowledge = (webContentsId: number): void => coordinator.acknowledge(webContentsId)
+
+  assert.deepEqual(acknowledgeWriterFlushFromEvent({ sender: { id: 99 } }, acknowledge), {
+    success: true
+  })
+  acknowledgeWriterFlushFromEvent({ sender: { id: 42 } }, acknowledge)
+  acknowledgeWriterFlushFromEvent({ sender: { id: 42 } }, acknowledge)
+  await Promise.resolve()
+  assert.equal(completed, false)
+
+  acknowledgeWriterFlushFromEvent({ sender: { id: 43 } }, acknowledge)
+  await pending
+  assert.equal(completed, true)
+})
+
+test('发送 flush 请求时拒绝已销毁窗口或已销毁 webContents', () => {
+  const sent: string[] = []
+  const windows = [
+    {
+      isDestroyed: () => true,
+      webContents: {
+        id: 41,
+        isDestroyed: () => false,
+        send: (channel: string) => sent.push(channel)
+      }
+    },
+    {
+      isDestroyed: () => false,
+      webContents: {
+        id: 42,
+        isDestroyed: () => true,
+        send: (channel: string) => sent.push(channel)
+      }
+    },
+    {
+      isDestroyed: () => false,
+      webContents: {
+        id: 43,
+        isDestroyed: () => false,
+        send: (channel: string) => sent.push(channel)
+      }
+    }
+  ]
+
+  assert.equal(sendWriterFlushRequestToWindow(windows, 41, 'writer:flush-request'), false)
+  assert.equal(sendWriterFlushRequestToWindow(windows, 42, 'writer:flush-request'), false)
+  assert.equal(sendWriterFlushRequestToWindow(windows, 43, 'writer:flush-request'), true)
+  assert.deepEqual(sent, ['writer:flush-request'])
+})
+
+test('窗口首次 close 阻止销毁并请求退出，再次 close 不递归请求', () => {
+  let shutdownRequested = false
+  let requestCount = 0
+  let preventCount = 0
+  const options = {
+    isShutdownRequested: () => shutdownRequested,
+    isQuittingForUpdate: () => false,
+    requestShutdown: () => {
+      requestCount += 1
+      shutdownRequested = true
+    }
+  }
+  const event = {
+    preventDefault: () => {
+      preventCount += 1
+    }
+  }
+
+  handleWriterWindowClose(event, options)
+  handleWriterWindowClose(event, options)
+
+  assert.equal(preventCount, 1)
+  assert.equal(requestCount, 1)
 })

@@ -42,7 +42,7 @@ export class WriterService {
   private readonly assetService: WriterAssetPort
   private readonly flushCoordinator: WriterFlushCoordinator
   private readonly getWebContentsIds: () => number[]
-  private saveTail: Promise<void> = Promise.resolve()
+  private mutationTail: Promise<void> = Promise.resolve()
 
   constructor(options: WriterServiceOptions) {
     this.storageService = options.storageService
@@ -68,17 +68,17 @@ export class WriterService {
   }
 
   saveDocument(request: SaveWriterDocumentRequest): Promise<WriterResult<WriterDocument>> {
-    return this.enqueueSave('保存写作文档失败', () => this.storageService.saveDocument(request))
+    return this.enqueueMutation('保存写作文档失败', () => this.storageService.saveDocument(request))
   }
 
   deleteDocument(documentId: string): Promise<WriterResult<void>> {
-    return this.runOperation('永久删除写作文档失败', () =>
+    return this.enqueueMutation('永久删除写作文档失败', () =>
       this.storageService.deleteDocument(documentId)
     )
   }
 
   renameDocument(documentId: string, title: string): Promise<WriterResult<WriterDocument>> {
-    return this.enqueueSave('重命名写作文档失败', async () => {
+    return this.enqueueMutation('重命名写作文档失败', async () => {
       const current = await this.storageService.getDocument(documentId)
       if (!current.success || !current.data) {
         return current
@@ -122,9 +122,17 @@ export class WriterService {
     documentId: string,
     input: WriterAssetImportInput
   ): Promise<WriterResult<WriterAsset>> {
-    return this.runOperation('导入写作图片失败', () =>
-      this.assetService.importBytes(documentId, input)
-    )
+    return this.enqueueMutation('导入写作图片失败', async () => {
+      const documentResult = await this.storageService.getDocument(documentId)
+      if (!documentResult.success || !documentResult.data) {
+        return {
+          success: false,
+          code: documentResult.code ?? 'not_found',
+          error: documentResult.error ?? '写作文档不存在'
+        }
+      }
+      return this.assetService.importBytes(documentId, input)
+    })
   }
 
   async requestRendererFlush(): Promise<void> {
@@ -142,15 +150,15 @@ export class WriterService {
   }
 
   async flushPendingSaves(): Promise<void> {
-    await this.saveTail
+    await this.mutationTail
   }
 
-  private enqueueSave<T>(
+  private enqueueMutation<T>(
     errorMessage: string,
     operation: () => Promise<WriterResult<T>>
   ): Promise<WriterResult<T>> {
-    const next = this.saveTail.then(() => this.runOperation(errorMessage, operation))
-    this.saveTail = next.then(
+    const next = this.mutationTail.then(() => this.runOperation(errorMessage, operation))
+    this.mutationTail = next.then(
       () => undefined,
       () => undefined
     )
