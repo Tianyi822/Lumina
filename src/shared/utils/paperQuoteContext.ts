@@ -2,7 +2,7 @@ import type { PaperQuoteSurroundingContext } from '../types/chat'
 import type { PaperAnnotationTextAnchor } from '../types/paper'
 import { findPaperTextAnchorOffset } from './paperAnnotationAnchors'
 
-export const PAPER_QUOTE_CONTEXT_SIDE_UNIT_LIMIT = 2
+const PAPER_QUOTE_CONTEXT_SIDE_UNIT_LIMIT = 2
 export const PAPER_QUOTE_CONTEXT_SIDE_CHAR_LIMIT = 360
 
 interface PaperQuoteContextUnit {

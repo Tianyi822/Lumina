@@ -20,7 +20,7 @@ export type SessionType = 'default' | 'tool' | 'knowledge' | 'paper'
 /**
  * ReAct 步骤（持久化用）
  */
-export interface ReActStepData {
+interface ReActStepData {
   type: 'tool_call' | 'tool_result'
   toolCall?: ToolCallInfo
   toolResult?: ToolResultInfo
@@ -31,7 +31,7 @@ export interface ReActStepData {
  * ReAct 迭代数据（持久化用）
  * 每次 ReAct 循环迭代的思考过程和工具调用步骤
  */
-export interface ReActIterationData {
+interface ReActIterationData {
   /** 迭代序号（从 0 开始） */
   iteration: number
   /** 该迭代的思考内容 */
@@ -92,7 +92,7 @@ export interface SessionMessage {
 /**
  * 会话的元数据信息
  */
-export interface SessionMeta {
+interface SessionMeta {
   /** 会话的唯一标识 */
   sessionId: string
   /** 会话标题 */
@@ -111,7 +111,7 @@ export interface SessionMeta {
  * 会话级选择状态
  * 用于持久化当前会话选择的 MCP 工具和知识库
  */
-export interface SessionSelectionState {
+interface SessionSelectionState {
   /** 当前会话选中的 MCP 工具 */
   selectedMCPTools: MCPTool[]
   /** 当前会话选中的知识库 */

@@ -46,7 +46,7 @@ export interface AttachedImage {
  * 论文引用信息
  * 用户从论文阅读页选中的内容片段
  */
-export type PaperQuoteSourceType = 'original' | 'translation'
+type PaperQuoteSourceType = 'original' | 'translation'
 
 export interface PaperQuoteSurroundingContext {
   /** 选区前方的上下文文本 */
@@ -65,7 +65,7 @@ export interface PaperQuoteSurroundingContext {
   contextEndOffset: number
 }
 
-export interface PaperQuoteSourceLocation {
+interface PaperQuoteSourceLocation {
   /** 段落稳定 ID */
   segmentStableId: string
   /** 段落索引 */

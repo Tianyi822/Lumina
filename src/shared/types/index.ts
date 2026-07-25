@@ -20,18 +20,6 @@ export * from './logger'
 // 知识库相关的类型
 export * from './knowledge'
 
-// 知识库 MCP 相关类型
-export {
-  DEFAULT_KNOWLEDGE_MCP_CONFIG,
-  type KnowledgeBaseListItem,
-  type KnowledgeDocumentListItem,
-  type KnowledgeMCPConfig,
-  type KnowledgeMCPServerStatus,
-  type KnowledgeSearchResult as KnowledgeMCPSearchResult,
-  type KnowledgeSearchToolArgs,
-  type MCPClientConfig
-} from './knowledgeMCP'
-
 // 工具统计相关的类型
 export * from './tool-stats'
 

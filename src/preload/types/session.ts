@@ -6,14 +6,10 @@ import type {
 } from '@shared/types/session'
 
 export type {
-  ReActIterationData,
-  ReActStepData,
   SessionData,
   SessionListItem,
   SessionMessage,
-  SessionMeta,
   SessionResult,
-  SessionSelectionState,
   SessionType
 } from '@shared/types/session'
 

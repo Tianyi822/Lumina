@@ -2,12 +2,10 @@
 
 // patterns.ts — 论文翻译文本的片段类型检测函数
 export {
-  isPaperPersonClusterText,
   isPaperContactLikeSegment,
   isPaperAffiliationLikeSegment,
   isPaperAuthorLikeSegment,
-  isPaperReferenceLikeSegment,
-  normalizePaperTranslationText
+  isPaperReferenceLikeSegment
 } from './patterns.ts'
 
 // helpers.ts — 翻译辅助工具函数
@@ -18,7 +16,7 @@ export {
 } from './helpers.ts'
 
 // toc.ts — 目录大纲构建
-export { slugifyPaperHeadingText, buildPaperTocOutline } from './toc.ts'
+export { buildPaperTocOutline } from './toc.ts'
 
 // segments.ts — 翻译文本分段解析
 export { parsePaperTranslationSegments } from './segments.ts'
