@@ -62,7 +62,7 @@ function buildRunningToolContent(
 
 /** 格式化工具名称，如果来自 MCP 服务器则带上服务器名前缀 */
 function formatToolName(item: PaperChatStepContentToolItem): string {
-  if (item.serverName && item.serverName !== 'lab') {
+  if (item.serverName) {
     return `${item.serverName}/${item.name}`
   }
 

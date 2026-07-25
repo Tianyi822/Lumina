@@ -141,12 +141,12 @@ test('计划步骤可恢复失败后会自动重试并最终完成', async () =>
   assert.equal(doneEvent?.finalStatus, 'completed')
 })
 
-test('计划步骤会把实验室标识和预览地址传递给后续步骤', async () => {
+test('计划步骤会把工具结果的标识符传递给后续步骤', async () => {
   const harness = createHarness(
     [
       {
         success: true,
-        finalContent: 'React 实验室已创建',
+        finalContent: '项目工作区已就绪',
         toolResults: [
           {
             toolCallId: 'call-create',
@@ -157,11 +157,10 @@ test('计划步骤会把实验室标识和预览地址传递给后续步骤', as
                 type: 'text',
                 text: JSON.stringify(
                   {
-                    lab_id: 'lab-123',
-                    container_id: 'container-123',
-                    preview_url: 'http://127.0.0.1:35173',
-                    project_root: '/workspace',
-                    reused: false
+                    project_id: 'proj-123',
+                    workspace_path: '/workspace/project',
+                    entry_point: 'src/index.ts',
+                    initialized: true
                   },
                   null,
                   2
@@ -174,8 +173,8 @@ test('计划步骤会把实验室标识和预览地址传递给后续步骤', as
       { success: true }
     ],
     [
-      { title: '创建实验室', description: '创建 React 前端实验室' },
-      { title: '写入博客文件', description: '复用已有实验室写入博客项目文件' }
+      { title: '初始化项目', description: '创建项目工作区' },
+      { title: '编写入口文件', description: '基于已有工作区编写入口文件' }
     ]
   )
 
@@ -190,11 +189,9 @@ test('计划步骤会把实验室标识和预览地址传递给后续步骤', as
   assert.equal(harness.reactRequests.length, 2)
 
   const secondStepPrompt = harness.reactRequests[1].messages.at(-1)?.content || ''
-  assert.match(secondStepPrompt, /lab-123/)
-  assert.match(secondStepPrompt, /container-123/)
-  assert.match(secondStepPrompt, /http:\/\/127\.0\.0\.1:35173/)
-  assert.match(secondStepPrompt, /\/workspace/)
-  assert.match(secondStepPrompt, /不要重复创建同名实验室或容器/)
+  assert.match(secondStepPrompt, /proj-123/)
+  assert.match(secondStepPrompt, /\/workspace\/project/)
+  assert.match(secondStepPrompt, /src\/index\.ts/)
 })
 
 test('计划步骤会保留非零退出码命令的 stderr 作为后续观察', async () => {
