@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { WriterStorageService } from './WriterStorageService'
@@ -93,6 +93,19 @@ test('初始化只恢复无正式文件的有效临时文档', async (t) => {
   assert.equal((await restarted.getDocument(orphanId)).data?.title, '异常恢复')
   assert.equal(existsSync(`${finalDocumentPath}.tmp`), false)
   assert.equal(existsSync(`${orphanPath}.tmp`), false)
+})
+
+test('初始化清理非法目录内的临时文档文件', async (t) => {
+  const { rootPath, service } = createService(t, 'lumina-writer-invalid-temp-')
+  await service.initialize()
+  const temporaryPath = join(rootPath, 'documents', 'invalid-directory', 'document.json.tmp')
+  mkdirSync(join(rootPath, 'documents', 'invalid-directory'), { recursive: true })
+  writeFileSync(temporaryPath, '{无效临时文件')
+
+  const restarted = new WriterStorageService({ rootPath })
+  await restarted.initialize()
+
+  assert.equal(existsSync(temporaryPath), false)
 })
 
 test('初始化恢复有效索引临时文件', async (t) => {

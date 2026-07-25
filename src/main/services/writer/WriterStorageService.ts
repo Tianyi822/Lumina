@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto'
 import { existsSync } from 'fs'
 import { mkdir, open, readFile, readdir, rename, rm } from 'fs/promises'
-import { relative, resolve, sep } from 'path'
+import { join, relative, resolve, sep } from 'path'
 import { logger } from '@main/services/logger'
 import { saveWriterDocumentRequestSchema, writerDocumentSchema } from '@shared/schemas/writerSchema'
 import type {
@@ -562,10 +562,10 @@ export class WriterStorageService {
   private async cleanTemporaryDocuments(): Promise<void> {
     const entries = await readdir(this.documentsPath, { withFileTypes: true })
     for (const entry of entries) {
-      if (!entry.isDirectory() || !isValidWriterDocumentId(entry.name)) {
+      if (!entry.isDirectory()) {
         continue
       }
-      await rm(`${getWriterDocumentPath(entry.name, this.rootPath)}.tmp`, {
+      await rm(join(this.documentsPath, entry.name, 'document.json.tmp'), {
         force: true
       })
     }
