@@ -9,5 +9,6 @@ export { useConfigStore } from './configStore'
 
 export { useKnowledgeStore } from './knowledgeStore'
 export { useFileStore } from './fileStore'
+export { useWriterLibraryStore } from './writer'
 
 // Paper Reader Store（已拆分为子 Store，从 paper/ 直接导入）

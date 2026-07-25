@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { useNotificationCenterStore } from '@renderer/stores/notificationCenterStore'
+import type { ViewMode } from '@renderer/components/chrome/workspaceNavigation'
 import type { ThemeConfig, ThemeMode } from '@shared/types/config'
 import {
   DEFAULT_THEME_ID,
@@ -13,7 +14,7 @@ import {
   type ThemeId
 } from '@shared/utils'
 
-export type ViewMode = 'paper' | 'knowledge'
+export type { ViewMode } from '@renderer/components/chrome/workspaceNavigation'
 
 export interface ThemeMeta {
   id: string
@@ -59,8 +60,12 @@ export interface UIStateStore {
   knowledgeSidebarCollapsed: boolean
   paperSidebarCollapsed: boolean
   paperSidebarWidth: number
+  writerSidebarCollapsed: boolean
+  writerSidebarWidth: number
   paperChatPanelOpen: boolean
   paperChatPanelWidth: number
+  writerChatPanelOpen: boolean
+  writerChatPanelWidth: number
   lastPaperId: string | null
   currentView: ViewMode
 
@@ -78,15 +83,21 @@ export interface UIStateStore {
 
   isKnowledgeView: () => boolean
   isPaperView: () => boolean
+  isWriterView: () => boolean
   isCurrentSidebarCollapsed: () => boolean
   currentThemeMeta: () => ThemeMeta | undefined
 
   setKnowledgeSidebarCollapsed: (collapsed: boolean) => void
   setPaperSidebarCollapsed: (collapsed: boolean) => void
   setPaperSidebarWidth: (width: number) => void
+  setWriterSidebarCollapsed: (collapsed: boolean) => void
+  setWriterSidebarWidth: (width: number) => void
   setPaperChatPanelOpen: (open: boolean) => void
   togglePaperChatPanel: () => void
   setPaperChatPanelWidth: (width: number) => void
+  setWriterChatPanelOpen: (open: boolean) => void
+  toggleWriterChatPanel: () => void
+  setWriterChatPanelWidth: (width: number) => void
   setLastPaperId: (paperId: string | null) => void
   toggleCurrentSidebar: () => void
   setCurrentSidebarCollapsed: (collapsed: boolean) => void
@@ -98,6 +109,7 @@ export interface UIStateStore {
 
   switchToKnowledgeView: () => Promise<void>
   switchToPaperView: () => Promise<void>
+  switchToWriterView: () => Promise<void>
   setCurrentView: (view: ViewMode) => Promise<void>
 
   notifyConfigUpdate: () => void
@@ -231,8 +243,12 @@ export const useUIStateStore = create<UIStateStore>()(
         knowledgeSidebarCollapsed: false,
         paperSidebarCollapsed: false,
         paperSidebarWidth: 320,
+        writerSidebarCollapsed: false,
+        writerSidebarWidth: 320,
         paperChatPanelOpen: false,
         paperChatPanelWidth: 420,
+        writerChatPanelOpen: false,
+        writerChatPanelWidth: 420,
         lastPaperId: null,
         currentView: 'paper',
 
@@ -250,9 +266,11 @@ export const useUIStateStore = create<UIStateStore>()(
 
         isKnowledgeView: () => get().currentView === 'knowledge',
         isPaperView: () => get().currentView === 'paper',
+        isWriterView: () => get().currentView === 'writer',
         isCurrentSidebarCollapsed: () => {
           const state = get()
           if (state.currentView === 'paper') return state.paperSidebarCollapsed
+          if (state.currentView === 'writer') return state.writerSidebarCollapsed
           return state.knowledgeSidebarCollapsed
         },
         currentThemeMeta: () => AVAILABLE_THEMES.find((t) => t.id === get().currentTheme),
@@ -261,15 +279,26 @@ export const useUIStateStore = create<UIStateStore>()(
         setPaperSidebarCollapsed: (collapsed) => set({ paperSidebarCollapsed: collapsed }),
         setPaperSidebarWidth: (width) =>
           set({ paperSidebarWidth: Math.min(480, Math.max(260, Math.round(width))) }),
+        setWriterSidebarCollapsed: (collapsed) => set({ writerSidebarCollapsed: collapsed }),
+        setWriterSidebarWidth: (width) =>
+          set({ writerSidebarWidth: Math.min(480, Math.max(260, Math.round(width))) }),
         setPaperChatPanelOpen: (open) => set({ paperChatPanelOpen: open }),
         togglePaperChatPanel: () => set((s) => ({ paperChatPanelOpen: !s.paperChatPanelOpen })),
         setPaperChatPanelWidth: (width) =>
           set({ paperChatPanelWidth: Math.min(680, Math.max(340, Math.round(width))) }),
+        setWriterChatPanelOpen: (open) => set({ writerChatPanelOpen: open }),
+        toggleWriterChatPanel: () => set((s) => ({ writerChatPanelOpen: !s.writerChatPanelOpen })),
+        setWriterChatPanelWidth: (width) =>
+          set({ writerChatPanelWidth: Math.min(680, Math.max(340, Math.round(width))) }),
         setLastPaperId: (paperId) => set({ lastPaperId: paperId }),
         toggleCurrentSidebar: () => {
           const state = get()
           if (state.currentView === 'paper') {
             set({ paperSidebarCollapsed: !state.paperSidebarCollapsed })
+            return
+          }
+          if (state.currentView === 'writer') {
+            set({ writerSidebarCollapsed: !state.writerSidebarCollapsed })
             return
           }
           set({ knowledgeSidebarCollapsed: !state.knowledgeSidebarCollapsed })
@@ -278,6 +307,10 @@ export const useUIStateStore = create<UIStateStore>()(
           const state = get()
           if (state.currentView === 'paper') {
             set({ paperSidebarCollapsed: collapsed })
+            return
+          }
+          if (state.currentView === 'writer') {
+            set({ writerSidebarCollapsed: collapsed })
             return
           }
           set({ knowledgeSidebarCollapsed: collapsed })
@@ -296,11 +329,16 @@ export const useUIStateStore = create<UIStateStore>()(
           set({ currentView: 'paper' })
           window.api.logger.info('[UIStateStore] 切换到论文视图')
         },
+        switchToWriterView: async () => {
+          set({ currentView: 'writer' })
+          window.api.logger.info('[UIStateStore] 切换到写作视图')
+        },
         setCurrentView: async (view) => {
           const state = get()
           if (state.currentView === view) return
           if (view === 'knowledge') await state.switchToKnowledgeView()
           else if (view === 'paper') await state.switchToPaperView()
+          else await state.switchToWriterView()
         },
 
         notifyConfigUpdate: () => set((s) => ({ configUpdateKey: s.configUpdateKey + 1 })),
@@ -372,7 +410,10 @@ export const useUIStateStore = create<UIStateStore>()(
         knowledgeSidebarCollapsed: state.knowledgeSidebarCollapsed,
         paperSidebarCollapsed: state.paperSidebarCollapsed,
         paperSidebarWidth: state.paperSidebarWidth,
+        writerSidebarCollapsed: state.writerSidebarCollapsed,
+        writerSidebarWidth: state.writerSidebarWidth,
         paperChatPanelWidth: state.paperChatPanelWidth,
+        writerChatPanelWidth: state.writerChatPanelWidth,
         lastPaperId: state.lastPaperId,
         currentView: state.currentView
       })

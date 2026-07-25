@@ -381,6 +381,15 @@ const actionIcons: Record<string, IconData> = {
     ]
   },
 
+  // 写作图标（笔尖）
+  write: {
+    viewBox: '0 0 24 24',
+    stroke: 'currentColor',
+    strokeWidth: 2,
+    elements:
+      '<path d="m12 20 8-8-8-8-8 8 8 8Z" fill="none" /><path d="m8 16-4 4" /><path d="m14 6 4 4" />'
+  },
+
   // 知识库图标（多本书）
   knowledge: {
     viewBox: '0 0 1024 1024',
