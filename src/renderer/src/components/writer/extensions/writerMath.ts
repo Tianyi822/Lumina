@@ -73,6 +73,30 @@ export function normalizeWriterCodeBlockAttributes<Attributes extends { language
   }
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+/** 在 Tiptap 创建初始文档前，递归归一持久化 JSON 中的代码语言。 */
+export function normalizeWriterCodeBlockContent(content: unknown): unknown {
+  if (Array.isArray(content)) return content.map(normalizeWriterCodeBlockContent)
+  if (!isRecord(content)) return content
+
+  const normalizedContent = Array.isArray(content.content)
+    ? content.content.map(normalizeWriterCodeBlockContent)
+    : content.content
+  if (content.type !== 'codeBlock') {
+    return normalizedContent === content.content ? content : { ...content, content: normalizedContent }
+  }
+
+  const attributes = isRecord(content.attrs) ? content.attrs : {}
+  return {
+    ...content,
+    attrs: normalizeWriterCodeBlockAttributes({ ...attributes, language: attributes.language }),
+    ...(normalizedContent === undefined ? {} : { content: normalizedContent })
+  }
+}
+
 export function normalizeWriterCodeBlockJson(
   document: Omit<WriterCodeBlockJson, 'attrs'> & {
     attrs: { language: unknown; nodeId: string }

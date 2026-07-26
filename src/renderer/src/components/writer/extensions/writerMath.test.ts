@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { Editor } from '@tiptap/core'
 import {
   createWriterMathDraft,
   createBlockMathJson,
@@ -115,4 +116,25 @@ test('导入持久化代码块时未知语言归一为 null 并保留稳定 ID',
       content: [{ type: 'text', text: 'SELECT 1' }]
     }
   )
+})
+
+test('Editor 初始加载持久化代码块时立即归一未知语言', () => {
+  const editor = new Editor({
+    element: null,
+    content: {
+      type: 'doc',
+      content: [
+        {
+          type: 'codeBlock',
+          attrs: { language: 'sql', nodeId: 'code-1' },
+          content: [{ type: 'text', text: 'SELECT 1' }]
+        }
+      ]
+    },
+    extensions: createWriterExtensions()
+  })
+
+  assert.equal(editor.getJSON().content?.[0]?.attrs?.language, null)
+  assert.equal(editor.getJSON().content?.[0]?.attrs?.nodeId, 'code-1')
+  editor.destroy()
 })

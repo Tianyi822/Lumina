@@ -34,7 +34,11 @@ import WriterCodeBlockView from '../nodes/WriterCodeBlockView.tsx'
 import WriterMathView from '../nodes/WriterMathView.tsx'
 import { WriterClipboard } from './writerClipboard'
 import { WriterMarkdownRules } from './writerMarkdownRules'
-import { normalizeWriterCodeBlockAttributes, normalizeWriterCodeLanguage } from './writerMath'
+import {
+  normalizeWriterCodeBlockAttributes,
+  normalizeWriterCodeBlockContent,
+  normalizeWriterCodeLanguage
+} from './writerMath'
 
 function normalizeCodeBlockLanguages(state: EditorState): Transaction | null {
   const transaction = state.tr
@@ -66,6 +70,10 @@ const lowlight = createLowlight({
 })
 
 const WriterCodeBlock = CodeBlockLowlight.extend({
+  onBeforeCreate({ editor }) {
+    editor.options.content = normalizeWriterCodeBlockContent(editor.options.content) as typeof editor.options.content
+  },
+
   addCommands() {
     return {
       setCodeBlock:
