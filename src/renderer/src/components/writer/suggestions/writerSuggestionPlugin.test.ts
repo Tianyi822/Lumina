@@ -111,5 +111,7 @@ test('insert_blocks 预览按块拆分而非 join 拼接', () => {
   assert.equal(blocks.length, 2)
   assert.equal(blocks[0]?.textContent, '第一段')
   assert.equal(blocks[1]?.getAttribute('data-block-type'), 'heading')
+  assert.ok(element.querySelector('.sm-writer-diff-toolbar'))
+  assert.ok(element.querySelector('[aria-label="全部接受建议"]'))
   useWriterSuggestionStore.getState().reset()
 })

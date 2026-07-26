@@ -38,14 +38,15 @@ function createProposal(): WriterAiProposal {
 
 test('AI 建议按钮具备明确 aria-label', async () => {
   const source = await readFile(
-    new URL('./suggestions/WriterSuggestionActions.tsx', import.meta.url),
+    new URL('./suggestions/writerSuggestionPreview.ts', import.meta.url),
     'utf8'
   )
-  assert.match(source, /aria-label="AI 编辑建议"/)
-  assert.match(source, /aria-label="全部接受建议"/)
-  assert.match(source, /aria-label="全部拒绝建议"/)
-  assert.match(source, /aria-label="接受该项建议"/)
-  assert.match(source, /aria-label="拒绝该项建议"/)
+  assert.match(source, /setAttribute\('role', 'toolbar'\)/)
+  assert.match(source, /'AI 编辑建议'/)
+  assert.match(source, /'全部接受建议'/)
+  assert.match(source, /'全部拒绝建议'/)
+  assert.match(source, /'接受该项建议'/)
+  assert.match(source, /'拒绝该项建议'/)
 
   useWriterSuggestionStore.getState().reset()
   const editor = new Editor({

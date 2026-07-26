@@ -24,7 +24,6 @@ import {
   createWriterSuggestionExtension,
   refreshWriterSuggestionDecorations
 } from './suggestions/writerSuggestionPlugin'
-import WriterSuggestionActions from './suggestions/WriterSuggestionActions'
 import WriterBubbleMenu from './toolbar/WriterBubbleMenu'
 import type { WriterBubbleAiAction } from './toolbar/writerBubbleAiActions'
 import WriterSlashMenu from './toolbar/WriterSlashMenu'
@@ -70,6 +69,8 @@ export default function WriterEditor({
 }: WriterEditorProps) {
   const notify = useNotification()
   const saveStatus = useWriterSessionStore((state) => state.saveStatus)
+  const suggestionStatus = useWriterSuggestionStore((state) => state.status)
+  const invalidReason = useWriterSuggestionStore((state) => state.invalidReason)
   const libraryRevision = useWriterLibraryStore(
     (state) => state.documents.find((item) => item.id === document.id)?.revision
   )
@@ -77,6 +78,7 @@ export default function WriterEditor({
   const titleRef = useRef(document.title)
   const editorRef = useRef<Editor | null>(null)
   const imageInputRef = useRef<HTMLInputElement | null>(null)
+  const lastInvalidToastKeyRef = useRef<string | null>(null)
 
   const revisionCoordinator = useMemo(
     () =>
@@ -258,6 +260,24 @@ export default function WriterEditor({
     }
   }, [editor])
 
+  // 建议失效时用 toast 提示，不再渲染标题下大卡片
+  useEffect(() => {
+    if (suggestionStatus !== 'invalid' || !invalidReason) {
+      if (suggestionStatus !== 'invalid') {
+        lastInvalidToastKeyRef.current = null
+      }
+      return
+    }
+    const key = invalidReason
+    if (lastInvalidToastKeyRef.current === key) return
+    lastInvalidToastKeyRef.current = key
+    const message =
+      invalidReason === 'target_changed'
+        ? '目标内容已变化，建议已失效'
+        : '建议无效，请重新生成'
+    notify.warning('建议已失效', message)
+  }, [invalidReason, notify, suggestionStatus])
+
   const pendingScrollNodeId = useWriterSessionStore((state) => state.pendingScrollNodeId)
 
   useEffect(() => {
@@ -358,7 +378,6 @@ export default function WriterEditor({
           </span>
         </div>
         <EditorContent editor={editor} className={styles.editorContent} />
-        {editor ? <WriterSuggestionActions editor={editor} /> : null}
         <input
           ref={imageInputRef}
           type="file"

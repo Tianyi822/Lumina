@@ -1,4 +1,5 @@
 import { Extension } from '@tiptap/core'
+import type { Editor } from '@tiptap/core'
 import { Plugin, PluginKey } from '@tiptap/pm/state'
 import type { EditorState, Transaction } from '@tiptap/pm/state'
 import { Decoration, DecorationSet } from '@tiptap/pm/view'
@@ -6,17 +7,67 @@ import type { WriterAiProposal, WriterEditOperation } from '@shared/types/writer
 import { useWriterSuggestionStore } from '@renderer/stores/writer/writerSuggestionStore'
 import type { WriterSuggestionPendingAction } from './writerSuggestionLabels'
 import { getWriterSuggestionPendingLabel } from './writerSuggestionLabels'
+import {
+  acceptAllWriterSuggestions,
+  acceptWriterSuggestionOperation,
+  rejectAllWriterSuggestions,
+  rejectWriterSuggestionOperation
+} from './writerSuggestionActionsCore'
 import { findBlockByNodeId } from './writerSuggestionCore'
 import {
+  appendOperationToolbar,
   createBlocksPreviewElement,
   createInlineAddElement,
-  createLoadingPreviewElement
+  createLoadingPreviewElement,
+  type OperationToolbarOptions
 } from './writerSuggestionPreview'
 
 export const writerSuggestionPluginKey = new PluginKey('writerSuggestion')
 
 export interface WriterSuggestionPluginState {
   decorations: DecorationSet
+}
+
+interface OperationToolbarContext {
+  operationIndex: number
+  showBatchActions: boolean
+  pendingCount: number
+  editor: Editor | null
+}
+
+function buildToolbarOptions(ctx: OperationToolbarContext): OperationToolbarOptions {
+  const { operationIndex, showBatchActions, pendingCount, editor } = ctx
+  return {
+    operationIndex,
+    showBatchActions,
+    pendingCount,
+    onAcceptOne: (index) => {
+      if (editor) acceptWriterSuggestionOperation(editor, index)
+    },
+    onRejectOne: (index) => {
+      if (editor) rejectWriterSuggestionOperation(editor, index)
+    },
+    onAcceptAll: () => {
+      if (editor) acceptAllWriterSuggestions(editor)
+    },
+    onRejectAll: () => {
+      if (editor) rejectAllWriterSuggestions(editor)
+    }
+  }
+}
+
+function withToolbar(preview: HTMLElement, ctx: OperationToolbarContext): HTMLElement {
+  // 块级预览根可直接挂工具条；内联 span 外包一层，避免工具条打断文本流语义
+  if (
+    preview.classList.contains('sm-writer-diff-add-blocks') ||
+    preview.classList.contains('sm-writer-diff-op')
+  ) {
+    return appendOperationToolbar(preview, buildToolbarOptions(ctx))
+  }
+  const wrapper = document.createElement('span')
+  wrapper.className = 'sm-writer-diff-op'
+  wrapper.appendChild(preview)
+  return appendOperationToolbar(wrapper, buildToolbarOptions(ctx))
 }
 
 function buildPendingDecorations(
@@ -37,18 +88,27 @@ function buildPendingDecorations(
 function buildActiveDecorations(
   state: EditorState,
   proposal: WriterAiProposal | null,
-  pending: number[]
+  pending: number[],
+  editor: Editor | null
 ): DecorationSet {
   if (!proposal || pending.length === 0) {
     return DecorationSet.empty
   }
 
   const decorations: ReturnType<typeof Decoration.inline>[] = []
+  const pendingCount = pending.length
 
-  for (const index of pending) {
+  for (let i = 0; i < pending.length; i++) {
+    const index = pending[i]!
     const op = proposal.operations[index]
     if (!op) continue
-    const built = decorationsForOperation(state, op)
+    const toolbarCtx: OperationToolbarContext = {
+      operationIndex: index,
+      showBatchActions: i === 0,
+      pendingCount,
+      editor
+    }
+    const built = decorationsForOperation(state, op, toolbarCtx)
     decorations.push(...built)
   }
 
@@ -57,7 +117,8 @@ function buildActiveDecorations(
 
 function decorationsForOperation(
   state: EditorState,
-  op: WriterEditOperation
+  op: WriterEditOperation,
+  toolbarCtx: OperationToolbarContext
 ): Array<ReturnType<typeof Decoration.inline>> {
   const result: Array<ReturnType<typeof Decoration.inline>> = []
 
@@ -67,7 +128,7 @@ function decorationsForOperation(
       if (!block) return result
       const pos = block.textStart + op.offset
       result.push(
-        Decoration.widget(pos, () => createInlineAddElement(op.text), {
+        Decoration.widget(pos, () => withToolbar(createInlineAddElement(op.text), toolbarCtx), {
           side: 1,
           key: `insert-${op.blockId}-${op.offset}`
         })
@@ -85,7 +146,7 @@ function decorationsForOperation(
         })
       )
       result.push(
-        Decoration.widget(to, () => createInlineAddElement(op.text), {
+        Decoration.widget(to, () => withToolbar(createInlineAddElement(op.text), toolbarCtx), {
           side: 1,
           key: `replace-${op.blockId}-${op.from}`
         })
@@ -95,10 +156,26 @@ function decorationsForOperation(
     case 'delete_text': {
       const block = findBlockByNodeId(state, op.blockId)
       if (!block) return result
+      const from = block.textStart + op.from
+      const to = block.textStart + op.to
       result.push(
-        Decoration.inline(block.textStart + op.from, block.textStart + op.to, {
+        Decoration.inline(from, to, {
           class: 'sm-writer-diff-delete'
         })
+      )
+      result.push(
+        Decoration.widget(
+          to,
+          () => {
+            const root = document.createElement('span')
+            root.className = 'sm-writer-diff-op'
+            return withToolbar(root, toolbarCtx)
+          },
+          {
+            side: 1,
+            key: `delete-${op.blockId}-${op.from}`
+          }
+        )
       )
       break
     }
@@ -110,10 +187,14 @@ function decorationsForOperation(
         pos = block.pos + block.node.nodeSize
       }
       result.push(
-        Decoration.widget(pos, () => createBlocksPreviewElement(op.blocks), {
-          side: 1,
-          key: `insert-blocks-${op.afterBlockId ?? 'start'}`
-        })
+        Decoration.widget(
+          pos,
+          () => withToolbar(createBlocksPreviewElement(op.blocks), toolbarCtx),
+          {
+            side: 1,
+            key: `insert-blocks-${op.afterBlockId ?? 'start'}`
+          }
+        )
       )
       break
     }
@@ -133,7 +214,7 @@ function decorationsForOperation(
         result.push(
           Decoration.widget(
             last.pos + last.node.nodeSize,
-            () => createBlocksPreviewElement(op.blocks),
+            () => withToolbar(createBlocksPreviewElement(op.blocks), toolbarCtx),
             {
               side: 1,
               key: `replace-blocks-${lastId}`
@@ -150,7 +231,7 @@ function decorationsForOperation(
   return result
 }
 
-function buildPluginDecorations(state: EditorState): DecorationSet {
+function buildPluginDecorations(state: EditorState, editor: Editor | null): DecorationSet {
   const store = useWriterSuggestionStore.getState()
   if (store.status === 'pending') {
     return buildPendingDecorations(state, store.pendingAction)
@@ -162,12 +243,20 @@ function buildPluginDecorations(state: EditorState): DecorationSet {
   ) {
     return DecorationSet.empty
   }
-  return buildActiveDecorations(state, store.activeProposal, store.pendingOperationIndexes)
+  return buildActiveDecorations(
+    state,
+    store.activeProposal,
+    store.pendingOperationIndexes,
+    editor
+  )
 }
 
 /** @internal 仅供测试断言 decoration 构建 */
-export function buildPluginDecorationsForTest(state: EditorState): DecorationSet {
-  return buildPluginDecorations(state)
+export function buildPluginDecorationsForTest(
+  state: EditorState,
+  editor: Editor | null = null
+): DecorationSet {
+  return buildPluginDecorations(state, editor)
 }
 
 /**
@@ -178,11 +267,14 @@ export function createWriterSuggestionExtension() {
     name: 'writerSuggestion',
 
     addProseMirrorPlugins() {
+      const extension = this
       return [
         new Plugin<WriterSuggestionPluginState>({
           key: writerSuggestionPluginKey,
           state: {
-            init: (_, state) => ({ decorations: buildPluginDecorations(state) }),
+            init: (_, state) => ({
+              decorations: buildPluginDecorations(state, extension.editor)
+            }),
             apply: (tr, pluginState, _oldState, newState) => {
               if (tr.getMeta('writerSuggestionAccept')) {
                 return { decorations: DecorationSet.empty }
@@ -200,7 +292,14 @@ export function createWriterSuggestionExtension() {
               }
 
               if (tr.getMeta('writerSuggestionRefresh') || tr.docChanged) {
-                return { decorations: buildActiveDecorations(newState, proposal, pending) }
+                return {
+                  decorations: buildActiveDecorations(
+                    newState,
+                    proposal,
+                    pending,
+                    extension.editor
+                  )
+                }
               }
 
               return {
@@ -220,7 +319,10 @@ export function createWriterSuggestionExtension() {
 }
 
 /** 通知编辑器按当前 suggestion store 刷新 decorations */
-export function refreshWriterSuggestionDecorations(dispatch: (tr: Transaction) => void, state: EditorState): void {
+export function refreshWriterSuggestionDecorations(
+  dispatch: (tr: Transaction) => void,
+  state: EditorState
+): void {
   const tr = state.tr.setMeta('writerSuggestionRefresh', true)
   dispatch(tr)
 }
