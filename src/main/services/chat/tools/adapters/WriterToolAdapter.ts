@@ -15,6 +15,9 @@ import { hashWriterText } from '@shared/utils/writerText'
 
 const MAX_INSERT_CHARS = 100_000
 
+/** insert_blocks 未指定 afterBlockId 时占用的文档头插入槽哨兵 */
+const INSERT_BLOCKS_DOC_START = '__writer_doc_start__'
+
 const ALLOWED_BLOCK_TYPES = new Set<WriterAiContextBlock['type']>([
   'paragraph',
   'heading',
@@ -23,6 +26,15 @@ const ALLOWED_BLOCK_TYPES = new Set<WriterAiContextBlock['type']>([
   'codeBlock',
   'blockMath'
 ])
+
+/**
+ * 全局非重叠规则（适配器侧，依赖请求上下文）：
+ * - 文本操作按块内半开区间互斥；insert_text 记为零宽点 [offset,offset]，
+ *   同 offset 的多次 insert 冲突，且与覆盖该点的 replace/delete（from <= offset < to）冲突。
+ * - replace_blocks 占用全部 targetBlockIds；insert_blocks 占用 afterBlockId
+ *   （缺省为文档头哨兵）作为插入槽。整块占用与该键上任意文本区间/其他整块占用冲突。
+ */
+type TextRange = { from: number; to: number }
 
 const PROPOSE_EDITS_TOOL: MCPToolReference = {
   serverName: 'writer',
@@ -159,7 +171,8 @@ export class WriterToolAdapter implements ToolAdapter {
   private buildOperations(inputs: WriterEditOperationInput[]): WriterEditOperation[] {
     const blockMap = new Map(this.context.blocks.map((b) => [b.nodeId, b]))
     let insertChars = 0
-    const textRanges = new Map<string, Array<{ from: number; to: number }>>()
+    const textRanges = new Map<string, TextRange[]>()
+    const claimedBlocks = new Set<string>()
     const ops: WriterEditOperation[] = []
 
     for (const input of inputs) {
@@ -169,7 +182,7 @@ export class WriterToolAdapter implements ToolAdapter {
           this.assertOffset(input.blockId, input.offset, blockMap)
           insertChars += input.text.length
           this.assertInsertBudget(insertChars)
-          this.recordPoint(textRanges, input.blockId, input.offset)
+          this.recordPoint(textRanges, claimedBlocks, input.blockId, input.offset)
           ops.push({
             kind: 'insert_text',
             blockId: input.blockId,
@@ -183,7 +196,7 @@ export class WriterToolAdapter implements ToolAdapter {
           this.assertRange(input.blockId, input.from, input.to, blockMap)
           insertChars += input.text.length
           this.assertInsertBudget(insertChars)
-          this.recordRange(textRanges, input.blockId, input.from, input.to)
+          this.recordRange(textRanges, claimedBlocks, input.blockId, input.from, input.to)
           const slice = blockMap.get(input.blockId)!.text.slice(input.from, input.to)
           ops.push({
             kind: 'replace_text',
@@ -198,7 +211,7 @@ export class WriterToolAdapter implements ToolAdapter {
         case 'delete_text': {
           this.assertInScope(input.blockId, blockMap)
           this.assertRange(input.blockId, input.from, input.to, blockMap)
-          this.recordRange(textRanges, input.blockId, input.from, input.to)
+          this.recordRange(textRanges, claimedBlocks, input.blockId, input.from, input.to)
           const slice = blockMap.get(input.blockId)!.text.slice(input.from, input.to)
           ops.push({
             kind: 'delete_text',
@@ -216,6 +229,12 @@ export class WriterToolAdapter implements ToolAdapter {
           }
           insertChars += input.blocks.reduce((sum, b) => sum + b.text.length, 0)
           this.assertInsertBudget(insertChars)
+          // 插入槽：afterBlockId 缺省时占用文档头哨兵，与同槽/文本占用冲突
+          this.claimWholeBlock(
+            claimedBlocks,
+            textRanges,
+            input.afterBlockId ?? INSERT_BLOCKS_DOC_START
+          )
           ops.push({
             kind: 'insert_blocks',
             afterBlockId: input.afterBlockId,
@@ -234,6 +253,9 @@ export class WriterToolAdapter implements ToolAdapter {
           this.assertBlocksAllowed(input.blocks)
           insertChars += input.blocks.reduce((sum, b) => sum + b.text.length, 0)
           this.assertInsertBudget(insertChars)
+          for (const id of targetBlockIds) {
+            this.claimWholeBlock(claimedBlocks, textRanges, id)
+          }
           const expectedBlockHashes: Record<string, string> = {}
           for (const id of targetBlockIds) {
             expectedBlockHashes[id] = hashWriterText(blockMap.get(id)!.text)
@@ -299,34 +321,63 @@ export class WriterToolAdapter implements ToolAdapter {
     }
   }
 
+  private rangesOverlap(a: TextRange, b: TextRange): boolean {
+    const aPoint = a.from === a.to
+    const bPoint = b.from === b.to
+    if (aPoint && bPoint) {
+      return a.from === b.from
+    }
+    if (aPoint) {
+      return a.from >= b.from && a.from < b.to
+    }
+    if (bPoint) {
+      return b.from >= a.from && b.from < a.to
+    }
+    return !(a.to <= b.from || a.from >= b.to)
+  }
+
   private recordPoint(
-    ranges: Map<string, Array<{ from: number; to: number }>>,
+    ranges: Map<string, TextRange[]>,
+    claimedBlocks: Set<string>,
     blockId: string,
     offset: number
   ): void {
-    // 插入点与已有区间重叠判定：落入已占用区间则冲突
-    const list = ranges.get(blockId) ?? []
-    for (const r of list) {
-      if (offset >= r.from && offset < r.to) {
-        throw new Error(`块 ${blockId} 上的编辑操作发生重叠`)
-      }
-    }
-    ranges.set(blockId, list)
+    this.recordRange(ranges, claimedBlocks, blockId, offset, offset)
   }
 
   private recordRange(
-    ranges: Map<string, Array<{ from: number; to: number }>>,
+    ranges: Map<string, TextRange[]>,
+    claimedBlocks: Set<string>,
     blockId: string,
     from: number,
     to: number
   ): void {
+    if (claimedBlocks.has(blockId)) {
+      throw new Error(`块 ${blockId} 上的编辑操作发生重叠`)
+    }
+    const next: TextRange = { from, to }
     const list = ranges.get(blockId) ?? []
     for (const r of list) {
-      if (!(to <= r.from || from >= r.to)) {
+      if (this.rangesOverlap(next, r)) {
         throw new Error(`块 ${blockId} 上的编辑操作发生重叠`)
       }
     }
-    list.push({ from, to })
+    list.push(next)
     ranges.set(blockId, list)
+  }
+
+  private claimWholeBlock(
+    claimedBlocks: Set<string>,
+    ranges: Map<string, TextRange[]>,
+    blockId: string
+  ): void {
+    if (claimedBlocks.has(blockId)) {
+      throw new Error(`块 ${blockId} 上的编辑操作发生重叠`)
+    }
+    const list = ranges.get(blockId)
+    if (list && list.length > 0) {
+      throw new Error(`块 ${blockId} 上的编辑操作发生重叠`)
+    }
+    claimedBlocks.add(blockId)
   }
 }

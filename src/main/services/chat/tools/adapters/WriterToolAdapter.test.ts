@@ -125,3 +125,135 @@ test('getTools 暴露 writer propose_edits', async () => {
   assert.equal(tools[0].serverName, 'writer')
   assert.equal(tools[0].toolName, 'propose_edits')
 })
+
+test('同 offset 的多次 insert_text 判定为重叠', async () => {
+  const adapter = new WriterToolAdapter(
+    createWriterContext({
+      blocks: [{ nodeId: 'p-1', type: 'paragraph', text: 'abcdefgh' }]
+    })
+  )
+  const result = await adapter.execute('writer__propose_edits', {
+    operations: [
+      { kind: 'insert_text', blockId: 'p-1', offset: 3, text: 'X' },
+      { kind: 'insert_text', blockId: 'p-1', offset: 3, text: 'Y' }
+    ]
+  })
+  assert.equal(result.success, false)
+  assert.match(String(result.error), /重叠/)
+})
+
+test('insert_text 与覆盖该点的 replace_text 判定为重叠', async () => {
+  const adapter = new WriterToolAdapter(
+    createWriterContext({
+      blocks: [{ nodeId: 'p-1', type: 'paragraph', text: 'abcdefgh' }]
+    })
+  )
+  const result = await adapter.execute('writer__propose_edits', {
+    operations: [
+      { kind: 'insert_text', blockId: 'p-1', offset: 2, text: 'X' },
+      { kind: 'replace_text', blockId: 'p-1', from: 0, to: 4, text: 'Z' }
+    ]
+  })
+  assert.equal(result.success, false)
+  assert.match(String(result.error), /重叠/)
+})
+
+test('相邻非重叠文本操作可以通过', async () => {
+  const adapter = new WriterToolAdapter(
+    createWriterContext({
+      blocks: [{ nodeId: 'p-1', type: 'paragraph', text: 'abcdefgh' }]
+    })
+  )
+  const result = await adapter.execute('writer__propose_edits', {
+    operations: [
+      { kind: 'delete_text', blockId: 'p-1', from: 0, to: 2 },
+      { kind: 'insert_text', blockId: 'p-1', offset: 2, text: 'X' },
+      { kind: 'replace_text', blockId: 'p-1', from: 4, to: 6, text: 'YZ' }
+    ]
+  })
+  assert.equal(result.success, true)
+})
+
+test('replace_blocks 与同块文本操作判定为重叠', async () => {
+  const adapter = new WriterToolAdapter(
+    createWriterContext({
+      blocks: [
+        { nodeId: 'p-1', type: 'paragraph', text: '第一段' },
+        { nodeId: 'p-2', type: 'paragraph', text: '第二段' }
+      ]
+    })
+  )
+  const result = await adapter.execute('writer__propose_edits', {
+    operations: [
+      {
+        kind: 'replace_text',
+        blockId: 'p-1',
+        from: 0,
+        to: 1,
+        text: '改'
+      },
+      {
+        kind: 'replace_blocks',
+        targetBlockIds: ['p-1'],
+        blocks: [{ nodeId: 'p-new', type: 'paragraph', text: '整块替换' }]
+      }
+    ]
+  })
+  assert.equal(result.success, false)
+  assert.match(String(result.error), /重叠/)
+})
+
+test('insert_blocks 与锚点块上的文本操作判定为重叠', async () => {
+  const adapter = new WriterToolAdapter(
+    createWriterContext({
+      blocks: [
+        { nodeId: 'p-1', type: 'paragraph', text: '第一段' },
+        { nodeId: 'p-2', type: 'paragraph', text: '第二段' }
+      ]
+    })
+  )
+  const result = await adapter.execute('writer__propose_edits', {
+    operations: [
+      {
+        kind: 'insert_blocks',
+        afterBlockId: 'p-1',
+        blocks: [{ nodeId: 'p-new', type: 'paragraph', text: '插入块' }]
+      },
+      {
+        kind: 'insert_text',
+        blockId: 'p-1',
+        offset: 0,
+        text: '前缀'
+      }
+    ]
+  })
+  assert.equal(result.success, false)
+  assert.match(String(result.error), /重叠/)
+})
+
+test('同 afterBlockId 的多次 insert_blocks 判定为重叠', async () => {
+  const adapter = new WriterToolAdapter(
+    createWriterContext({
+      blocks: [
+        { nodeId: 'p-1', type: 'paragraph', text: '第一段' },
+        { nodeId: 'p-2', type: 'paragraph', text: '第二段' }
+      ]
+    })
+  )
+  const result = await adapter.execute('writer__propose_edits', {
+    operations: [
+      {
+        kind: 'insert_blocks',
+        afterBlockId: 'p-1',
+        blocks: [{ nodeId: 'a', type: 'paragraph', text: 'A' }]
+      },
+      {
+        kind: 'insert_blocks',
+        afterBlockId: 'p-1',
+        blocks: [{ nodeId: 'b', type: 'paragraph', text: 'B' }]
+      }
+    ]
+  })
+  assert.equal(result.success, false)
+  assert.match(String(result.error), /重叠/)
+})

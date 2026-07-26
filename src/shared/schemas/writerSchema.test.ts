@@ -1,6 +1,10 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { saveWriterDocumentRequestSchema, writerDocumentSchema } from './writerSchema'
+import {
+  saveWriterDocumentRequestSchema,
+  writerDocumentSchema,
+  writerProposeEditsArgsSchema
+} from './writerSchema'
 
 const content = {
   type: 'doc',
@@ -31,4 +35,32 @@ test('保存请求拒绝负修订和非 doc 根节点', () => {
     }).success,
     false
   )
+})
+
+test('propose_edits 拒绝插入文本总计超过 100000 字符', () => {
+  const parsed = writerProposeEditsArgsSchema.safeParse({
+    operations: [
+      {
+        kind: 'insert_text',
+        blockId: 'p-1',
+        offset: 0,
+        text: 'a'.repeat(100_001)
+      }
+    ]
+  })
+  assert.equal(parsed.success, false)
+})
+
+test('propose_edits 接受插入文本总计恰好 100000 字符', () => {
+  const parsed = writerProposeEditsArgsSchema.safeParse({
+    operations: [
+      {
+        kind: 'insert_text',
+        blockId: 'p-1',
+        offset: 0,
+        text: 'a'.repeat(100_000)
+      }
+    ]
+  })
+  assert.equal(parsed.success, true)
 })

@@ -135,11 +135,34 @@ export const writerEditOperationInputSchema: z.ZodType<WriterEditOperationInput>
   ]
 )
 
+const MAX_PROPOSE_INSERT_CHARS = 100_000
+
+function countProposeInsertChars(operations: WriterEditOperationInput[]): number {
+  let total = 0
+  for (const op of operations) {
+    if (op.kind === 'insert_text' || op.kind === 'replace_text') {
+      total += op.text.length
+    } else if (op.kind === 'insert_blocks' || op.kind === 'replace_blocks') {
+      total += op.blocks.reduce((sum, block) => sum + block.text.length, 0)
+    }
+  }
+  return total
+}
+
 export const writerProposeEditsArgsSchema = z
   .object({
     operations: z.array(writerEditOperationInputSchema).min(1).max(100)
   })
   .strict()
+  .superRefine((data, ctx) => {
+    // 插入文本总计上限（含 replace/insert_blocks 的新文本）；范围/重叠依赖请求上下文，留在适配器
+    if (countProposeInsertChars(data.operations) > MAX_PROPOSE_INSERT_CHARS) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `插入文本总计超过 ${MAX_PROPOSE_INSERT_CHARS} 字符上限`
+      })
+    }
+  })
 
 const writerInsertTextOpSchema = z.object({
   kind: z.literal('insert_text'),
