@@ -64,22 +64,116 @@
 .editorContent :global(.tiptap h1),
 .editorContent :global(.tiptap h2),
 .editorContent :global(.tiptap h3),
+.editorContent :global(.tiptap h4),
+.editorContent :global(.tiptap h5),
+.editorContent :global(.tiptap h6),
 .editorContent :global(.tiptap ul),
 .editorContent :global(.tiptap ol),
 .editorContent :global(.tiptap blockquote),
-.editorContent :global(.tiptap pre) {
+.editorContent :global(.tiptap pre),
+.editorContent :global(.tiptap table),
+.editorContent :global(.tiptap [data-type='block-math']) {
   margin: 0 0 var(--sm-space-4);
 }
 
 .editorContent :global(.tiptap h1),
 .editorContent :global(.tiptap h2),
-.editorContent :global(.tiptap h3) {
+.editorContent :global(.tiptap h3),
+.editorContent :global(.tiptap h4),
+.editorContent :global(.tiptap h5),
+.editorContent :global(.tiptap h6) {
   line-height: var(--sm-writer-heading-line-height);
 }
 
 .editorContent :global(.tiptap ul),
 .editorContent :global(.tiptap ol) {
   padding-left: var(--sm-space-6);
+}
+
+.editorContent :global(.tiptap ul[data-type='taskList']) {
+  padding-left: 0;
+  list-style: none;
+}
+
+.editorContent :global(.tiptap li[data-type='taskItem']) {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sm-space-3);
+}
+
+.editorContent :global(.tiptap li[data-type='taskItem'] > label) {
+  padding-top: var(--sm-space-2);
+}
+
+.editorContent :global(.tiptap li[data-type='taskItem'] > div) {
+  flex: 1;
+  min-width: 0;
+}
+
+.editorContent :global(.tiptap blockquote) {
+  padding-left: var(--sm-space-4);
+  border-left: var(--sm-focus-ring-size) solid var(--sm-color-border-strong);
+  color: var(--sm-color-text-secondary);
+}
+
+.editorContent :global(.tiptap pre) {
+  padding: var(--sm-space-4);
+  overflow-x: auto;
+  border: 1px solid var(--sm-color-border-subtle);
+  border-radius: var(--sm-radius-md);
+  background: var(--sm-color-surface-1);
+  font-family: var(--sm-font-mono);
+}
+
+.editorContent :global(.tiptap code) {
+  font-family: var(--sm-font-mono);
+}
+
+.editorContent :global(.tiptap :not(pre) > code) {
+  padding: var(--sm-space-2);
+  border-radius: var(--sm-radius-sm);
+  background: var(--sm-color-surface-2);
+}
+
+.editorContent :global(.tiptap mark) {
+  background: var(--sm-color-accent-18);
+  color: inherit;
+}
+
+.editorContent :global(.tiptap hr) {
+  margin: var(--sm-space-6) 0;
+  border: 0;
+  border-top: 1px solid var(--sm-color-border-default);
+}
+
+.editorContent :global(.tiptap table) {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+}
+
+.editorContent :global(.tiptap th),
+.editorContent :global(.tiptap td) {
+  min-width: calc(var(--sm-space-6) * 3);
+  padding: var(--sm-space-3);
+  border: 1px solid var(--sm-color-border-default);
+  vertical-align: top;
+}
+
+.editorContent :global(.tiptap th) {
+  background: var(--sm-color-surface-1);
+  font-weight: 600;
+}
+
+.editorContent :global(.tiptap [data-type='inline-math']),
+.editorContent :global(.tiptap [data-type='block-math']) {
+  font-family: var(--sm-font-mono);
+}
+
+.editorContent :global(.tiptap [data-type='block-math']) {
+  padding: var(--sm-space-4);
+  overflow-x: auto;
+  text-align: center;
 }
 
 .editorContent :global(.tiptap a) {

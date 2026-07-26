@@ -1,16 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { Extensions } from '@tiptap/core'
-import CharacterCount from '@tiptap/extension-character-count'
-import Highlight from '@tiptap/extension-highlight'
-import Link from '@tiptap/extension-link'
-import Placeholder from '@tiptap/extension-placeholder'
-import Underline from '@tiptap/extension-underline'
-import UniqueID from '@tiptap/extension-unique-id'
 import { EditorContent, useEditor } from '@tiptap/react'
-import StarterKit from '@tiptap/starter-kit'
 import type { WriterDocument, WriterJsonDocument } from '@shared/types/writer'
 import { useNotification } from '@renderer/composables/useNotification'
 import { useWriterLibraryStore, useWriterSessionStore } from '@renderer/stores/writer'
+import { createWriterExtensions } from './extensions/createWriterExtensions'
+import WriterBubbleMenu from './toolbar/WriterBubbleMenu'
+import WriterSlashMenu from './toolbar/WriterSlashMenu'
 import {
   WriterAutosaveController,
   WriterAutosaveFlushRegistry,
@@ -30,18 +25,6 @@ export interface WriterEditorProps {
 }
 
 const AUTOSAVE_DELAY_MS = 600
-
-function createBaseWriterExtensions(): Extensions {
-  return [
-    StarterKit.configure({ link: false, underline: false }),
-    Underline,
-    Highlight,
-    Link.configure({ openOnClick: false }),
-    Placeholder.configure({ placeholder: '开始写作…' }),
-    CharacterCount,
-    UniqueID.configure({ types: ['paragraph', 'heading'] })
-  ]
-}
 
 function getSaveStatusLabel(
   status: ReturnType<typeof useWriterSessionStore.getState>['saveStatus']
@@ -146,7 +129,8 @@ export default function WriterEditor({ document, autosaveRegistry }: WriterEdito
   const editor = useEditor(
     {
       immediatelyRender: false,
-      extensions: createBaseWriterExtensions(),
+      extensions: createWriterExtensions(),
+      enableInputRules: ['writerMarkdownRules'],
       content: document.content,
       editorProps: {
         attributes: {
@@ -224,6 +208,12 @@ export default function WriterEditor({ document, autosaveRegistry }: WriterEdito
           </span>
         </div>
         <EditorContent editor={editor} className={styles.editorContent} />
+        {editor ? (
+          <>
+            <WriterBubbleMenu editor={editor} />
+            <WriterSlashMenu editor={editor} />
+          </>
+        ) : null}
       </div>
     </div>
   )
