@@ -1,4 +1,6 @@
 import type { AnyExtension as Extension } from '@tiptap/core'
+import { Plugin } from '@tiptap/pm/state'
+import type { EditorState, Transaction } from '@tiptap/pm/state'
 import CharacterCount from '@tiptap/extension-character-count'
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight'
 import Highlight from '@tiptap/extension-highlight'
@@ -32,7 +34,20 @@ import WriterCodeBlockView from '../nodes/WriterCodeBlockView.tsx'
 import WriterMathView from '../nodes/WriterMathView.tsx'
 import { WriterClipboard } from './writerClipboard'
 import { WriterMarkdownRules } from './writerMarkdownRules'
-import { normalizeWriterCodeLanguage } from './writerMath'
+import { normalizeWriterCodeBlockAttributes, normalizeWriterCodeLanguage } from './writerMath'
+
+function normalizeCodeBlockLanguages(state: EditorState): Transaction | null {
+  const transaction = state.tr
+  state.doc.descendants((node, position) => {
+    if (node.type.name !== 'codeBlock') return
+    const attributes = normalizeWriterCodeBlockAttributes(
+      node.attrs as unknown as { language: unknown }
+    )
+    if (node.attrs.language === attributes.language) return
+    transaction.setNodeMarkup(position, undefined, { ...node.attrs, language: attributes.language })
+  })
+  return transaction.docChanged ? transaction : null
+}
 
 const lowlight = createLowlight({
   javascript,
@@ -70,6 +85,28 @@ const WriterCodeBlock = CodeBlockLowlight.extend({
 
   addNodeView() {
     return ReactNodeViewRenderer(WriterCodeBlockView)
+  },
+
+  onCreate() {
+    const transaction = normalizeCodeBlockLanguages(this.editor.state)
+    if (!transaction) return
+    transaction.setMeta('addToHistory', false)
+    this.editor.view.dispatch(transaction)
+  },
+
+  addProseMirrorPlugins() {
+    return [
+      ...(this.parent?.() ?? []),
+      new Plugin({
+        appendTransaction: (transactions, _oldState, newState) => {
+          if (!transactions.some((transaction) => transaction.docChanged)) return
+          const transaction = normalizeCodeBlockLanguages(newState)
+          if (!transaction) return
+          transaction.setMeta('addToHistory', false)
+          return transaction
+        }
+      })
+    ]
   }
 })
 

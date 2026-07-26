@@ -1,8 +1,12 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
+  createWriterMathDraft,
   createBlockMathJson,
+  normalizeWriterCodeBlockJson,
   normalizeWriterCodeLanguage,
+  openWriterMathDraft,
+  reconcileWriterMathDraft,
   renderWriterMath
 } from './writerMath'
 import { createWriterExtensions } from './createWriterExtensions'
@@ -79,4 +83,36 @@ test('Lowlight 只注册允许语言且不会为 SQL 执行高亮', () => {
   ])
   assert.doesNotThrow(() => lowlight.highlight('typescript', 'const answer: number = 42'))
   assert.throws(() => lowlight.highlight('sql', 'SELECT 1'))
+})
+
+test('编辑公式时双击预览或选中文本不会重置草稿', () => {
+  const opened = createWriterMathDraft('x')
+  const edited = { ...opened, draft: 'x^2' }
+
+  assert.deepEqual(openWriterMathDraft(edited, 'x'), edited)
+})
+
+test('公式节点被外部事务更新时关闭草稿，避免确认覆盖新源码', () => {
+  const opened = { ...createWriterMathDraft('x'), draft: 'x^2' }
+
+  assert.deepEqual(reconcileWriterMathDraft(opened, 'y'), {
+    editing: false,
+    draft: 'y',
+    sourceLatex: 'y'
+  })
+})
+
+test('导入持久化代码块时未知语言归一为 null 并保留稳定 ID', () => {
+  assert.deepEqual(
+    normalizeWriterCodeBlockJson({
+      type: 'codeBlock',
+      attrs: { language: 'sql', nodeId: 'code-1' },
+      content: [{ type: 'text', text: 'SELECT 1' }]
+    }),
+    {
+      type: 'codeBlock',
+      attrs: { language: null, nodeId: 'code-1' },
+      content: [{ type: 'text', text: 'SELECT 1' }]
+    }
+  )
 })

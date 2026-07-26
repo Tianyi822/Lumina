@@ -1,9 +1,13 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { MouseEvent } from 'react'
 import { NodeViewWrapper } from '@tiptap/react'
 import type { NodeViewProps } from '@tiptap/react'
 import 'katex/dist/katex.min.css'
-import { renderWriterMath } from '../extensions/writerMath'
+import {
+  openWriterMathDraft,
+  reconcileWriterMathDraft,
+  renderWriterMath
+} from '../extensions/writerMath'
 import styles from './WriterMathView.module.css'
 
 function getLatex(node: NodeViewProps['node']): string {
@@ -14,8 +18,18 @@ function getLatex(node: NodeViewProps['node']): string {
 export default function WriterMathView({ node, updateAttributes }: NodeViewProps) {
   const latex = getLatex(node)
   const displayMode = node.type.name === 'blockMath'
-  const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState(latex)
+  const [draftState, setDraftState] = useState(() => ({
+    editing: false,
+    draft: latex,
+    sourceLatex: latex
+  }))
+  const currentDraft = reconcileWriterMathDraft(draftState, latex)
+  const { editing, draft } = currentDraft
+
+  useEffect(() => {
+    if (currentDraft !== draftState) setDraftState(currentDraft)
+  }, [currentDraft, draftState])
+
   const renderResult = useMemo(
     () => renderWriterMath(editing ? draft : latex, displayMode),
     [displayMode, draft, editing, latex]
@@ -29,18 +43,16 @@ export default function WriterMathView({ node, updateAttributes }: NodeViewProps
   const openEditor = (event: MouseEvent<HTMLElement>): void => {
     event.preventDefault()
     event.stopPropagation()
-    setDraft(latex)
-    setEditing(true)
+    setDraftState((current) => openWriterMathDraft(current, latex))
   }
 
   const cancelEditor = (): void => {
-    setDraft(latex)
-    setEditing(false)
+    setDraftState({ editing: false, draft: latex, sourceLatex: latex })
   }
 
   const confirmEditor = (): void => {
     updateAttributes({ latex: draft })
-    setEditing(false)
+    setDraftState((current) => ({ ...current, editing: false }))
   }
 
   return (
@@ -73,8 +85,11 @@ export default function WriterMathView({ node, updateAttributes }: NodeViewProps
               className={styles.sourceInput}
               aria-label="LaTeX 源码"
               value={draft}
-              onChange={(event) => setDraft(event.target.value)}
+              onChange={(event) =>
+                setDraftState((current) => ({ ...current, draft: event.target.value }))
+              }
               onClick={(event) => event.stopPropagation()}
+              onDoubleClick={(event) => event.stopPropagation()}
             />
           </label>
           <div className={styles.preview} aria-label="公式实时预览">

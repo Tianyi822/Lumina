@@ -23,6 +23,21 @@ export interface WriterMathJson {
   }
 }
 
+export interface WriterMathDraft {
+  editing: boolean
+  draft: string
+  sourceLatex: string
+}
+
+export interface WriterCodeBlockJson {
+  type: 'codeBlock'
+  attrs: {
+    language: WriterCodeLanguage | null
+    nodeId: string
+  }
+  content?: Array<Record<string, unknown>>
+}
+
 export const WRITER_CODE_LANGUAGES = [
   'javascript',
   'typescript',
@@ -47,6 +62,52 @@ const WRITER_CODE_LANGUAGE_SET = new Set<string>(WRITER_CODE_LANGUAGES)
 export function normalizeWriterCodeLanguage(language: unknown): WriterCodeLanguage | null {
   if (typeof language !== 'string' || !WRITER_CODE_LANGUAGE_SET.has(language)) return null
   return language as WriterCodeLanguage
+}
+
+export function normalizeWriterCodeBlockAttributes<Attributes extends { language: unknown }>(
+  attributes: Attributes
+): Omit<Attributes, 'language'> & { language: WriterCodeLanguage | null } {
+  return {
+    ...attributes,
+    language: normalizeWriterCodeLanguage(attributes.language)
+  }
+}
+
+export function normalizeWriterCodeBlockJson(
+  document: Omit<WriterCodeBlockJson, 'attrs'> & {
+    attrs: { language: unknown; nodeId: string }
+  }
+): WriterCodeBlockJson {
+  return {
+    ...document,
+    attrs: normalizeWriterCodeBlockAttributes(document.attrs)
+  }
+}
+
+/** 打开编辑器后记录源码版本，外部事务变化时不允许旧草稿覆盖它。 */
+export function createWriterMathDraft(latex: string): WriterMathDraft {
+  return {
+    editing: true,
+    draft: latex,
+    sourceLatex: latex
+  }
+}
+
+export function openWriterMathDraft(current: WriterMathDraft, latex: string): WriterMathDraft {
+  return current.editing ? current : createWriterMathDraft(latex)
+}
+
+export function reconcileWriterMathDraft(
+  current: WriterMathDraft,
+  latex: string
+): WriterMathDraft {
+  return current.sourceLatex === latex
+    ? current
+    : {
+        editing: false,
+        draft: latex,
+        sourceLatex: latex
+      }
 }
 
 /** 使用固定安全配置渲染公式，失败时保留原始 LaTeX 供节点视图展示。 */
