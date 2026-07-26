@@ -285,7 +285,11 @@ export function useWriterChatStream(options: UseWriterChatStreamOptions): UseWri
           if (writerContext) {
             useWriterSuggestionStore
               .getState()
-              .beginRequest(writerContext.documentId, writerContext.baseRevision)
+              .beginRequest(
+                writerContext.documentId,
+                writerContext.baseRevision,
+                options?.pendingAction ?? null
+              )
             // beginRequest 清空 activeProposal，须同步刷新装饰，避免高亮滞留
             refreshWriterSuggestionDecorations(
               (tr) => writerEditor.view.dispatch(tr),

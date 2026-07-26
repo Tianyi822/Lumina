@@ -111,7 +111,8 @@ export default function WritingPage() {
 
       await streamState.sendMessage(getWriterBubbleAiPrompt(action), [], [], {
         ...buildWriterBubbleSendOptions(),
-        session
+        session,
+        pendingAction: action
       })
     },
     [notify, sessionState, streamState]

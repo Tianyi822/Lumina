@@ -89,6 +89,13 @@ test('标题输入与保存状态具备 label 与 aria-live', async () => {
   assert.match(source, /aria-live="polite"/)
 })
 
+test('建议等待状态通过 sr-only aria-live 播报', async () => {
+  const source = await readFile(new URL('./WriterEditor.tsx', import.meta.url), 'utf8')
+  assert.match(source, /styles\.srOnly/)
+  assert.match(source, /getWriterSuggestionPendingLabel/)
+  assert.match(source, /suggestionStatus === 'pending'/)
+})
+
 test('Bubble Menu 暴露改写与续写动作 aria-label', async () => {
   const source = await readFile(
     new URL('./toolbar/WriterBubbleMenu.tsx', import.meta.url),

@@ -20,6 +20,7 @@ import {
   registerWriterEditor,
   validateProposalAgainstState
 } from './suggestions/writerSuggestionCore'
+import { getWriterSuggestionPendingLabel } from './suggestions/writerSuggestionLabels'
 import {
   createWriterSuggestionExtension,
   refreshWriterSuggestionDecorations
@@ -70,6 +71,7 @@ export default function WriterEditor({
   const notify = useNotification()
   const saveStatus = useWriterSessionStore((state) => state.saveStatus)
   const suggestionStatus = useWriterSuggestionStore((state) => state.status)
+  const pendingAction = useWriterSuggestionStore((state) => state.pendingAction)
   const invalidReason = useWriterSuggestionStore((state) => state.invalidReason)
   const libraryRevision = useWriterLibraryStore(
     (state) => state.documents.find((item) => item.id === document.id)?.revision
@@ -377,6 +379,11 @@ export default function WriterEditor({
             {getSaveStatusLabel(saveStatus)}
           </span>
         </div>
+        <span className={styles.srOnly} role="status" aria-live="polite" aria-atomic="true">
+          {suggestionStatus === 'pending'
+            ? getWriterSuggestionPendingLabel(pendingAction)
+            : ''}
+        </span>
         <EditorContent editor={editor} className={styles.editorContent} />
         <input
           ref={imageInputRef}

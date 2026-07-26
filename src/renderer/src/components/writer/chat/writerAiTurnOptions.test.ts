@@ -19,3 +19,16 @@ test('气泡选项强制 selection 且关闭外部工具', () => {
     { scope: 'selection', includeExternalTools: false }
   )
 })
+
+test('可携带 pendingAction', () => {
+  const options = {
+    scope: 'selection' as const,
+    includeExternalTools: false,
+    pendingAction: 'rewrite' as const
+  }
+  assert.deepEqual(resolveWriterAiTurnOptions(options), {
+    scope: 'selection',
+    includeExternalTools: false
+  })
+  assert.equal(options.pendingAction, 'rewrite')
+})
