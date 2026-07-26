@@ -80,7 +80,6 @@ const WriterSidebarSection = memo(function WriterSidebarSection() {
   const isLoading = useWriterLibraryStore((state) => state.isLoading)
   const error = useWriterLibraryStore((state) => state.error)
   const load = useWriterLibraryStore((state) => state.load)
-  const createAndOpen = useWriterLibraryStore((state) => state.createAndOpen)
   const deletePermanently = useWriterLibraryStore((state) => state.deletePermanently)
   const deleteFolder = useWriterLibraryStore((state) => state.deleteFolder)
   const setSearchQuery = useWriterLibraryStore((state) => state.setSearchQuery)
@@ -249,6 +248,7 @@ const WriterSidebarSection = memo(function WriterSidebarSection() {
                 type="search"
                 className={styles.searchInput}
                 placeholder="搜索文档"
+                aria-label="搜索文档"
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
               />
@@ -331,15 +331,6 @@ const WriterSidebarSection = memo(function WriterSidebarSection() {
             {!isLoading && filteredDocuments.length === 0 ? (
               <div className={styles.empty}>
                 <span>{searchQuery ? '未找到匹配的文档' : '暂无文档'}</span>
-                {!searchQuery && (
-                  <button
-                    type="button"
-                    className="sm-button sm-button--secondary"
-                    onClick={() => void createAndOpen()}
-                  >
-                    新建第一个文档
-                  </button>
-                )}
               </div>
             ) : null}
 

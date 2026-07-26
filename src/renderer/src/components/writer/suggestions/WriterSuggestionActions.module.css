@@ -9,6 +9,13 @@
   background: var(--sm-color-surface-1);
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .bar {
+    transition: none;
+    animation: none;
+  }
+}
+
 .summary {
   font-size: var(--sm-text-sm);
   color: var(--sm-color-text-secondary);

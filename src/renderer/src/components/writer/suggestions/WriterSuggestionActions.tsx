@@ -90,9 +90,16 @@ export default function WriterSuggestionActions({ editor }: WriterSuggestionActi
     return (
       <div className={styles.bar} role="status">
         <span className={styles.reason}>
-          {invalidReason === 'target_changed' ? '目标内容已变化，建议已失效' : '建议无效，请重新生成'}
+          {invalidReason === 'target_changed'
+            ? '目标内容已变化，建议已失效'
+            : '建议无效，请重新生成'}
         </span>
-        <button type="button" className={styles.button} onClick={handleRejectAll}>
+        <button
+          type="button"
+          className={styles.button}
+          aria-label="关闭失效建议"
+          onClick={handleRejectAll}
+        >
           关闭
         </button>
       </div>
@@ -105,14 +112,22 @@ export default function WriterSuggestionActions({ editor }: WriterSuggestionActi
 
   return (
     <div className={styles.bar} role="region" aria-label="AI 编辑建议">
-      <div className={styles.summary}>
-        {pending.length} 项待确认建议
-      </div>
+      <div className={styles.summary}>{pending.length} 项待确认建议</div>
       <div className={styles.actions}>
-        <button type="button" className={styles.buttonPrimary} onClick={handleAcceptAll}>
+        <button
+          type="button"
+          className={styles.buttonPrimary}
+          aria-label="全部接受建议"
+          onClick={handleAcceptAll}
+        >
           全部接受
         </button>
-        <button type="button" className={styles.button} onClick={handleRejectAll}>
+        <button
+          type="button"
+          className={styles.button}
+          aria-label="全部拒绝建议"
+          onClick={handleRejectAll}
+        >
           全部拒绝
         </button>
       </div>
@@ -128,11 +143,17 @@ export default function WriterSuggestionActions({ editor }: WriterSuggestionActi
                 <button
                   type="button"
                   className={styles.buttonPrimary}
+                  aria-label="接受该项建议"
                   onClick={() => handleAcceptOne(index)}
                 >
                   接受
                 </button>
-                <button type="button" className={styles.button} onClick={() => handleRejectOne(index)}>
+                <button
+                  type="button"
+                  className={styles.button}
+                  aria-label="拒绝该项建议"
+                  onClick={() => handleRejectOne(index)}
+                >
                   拒绝
                 </button>
               </div>
@@ -145,7 +166,9 @@ export default function WriterSuggestionActions({ editor }: WriterSuggestionActi
 }
 
 function describeOperation(
-  op: NonNullable<ReturnType<typeof useWriterSuggestionStore.getState>['activeProposal']>['operations'][number],
+  op: NonNullable<
+    ReturnType<typeof useWriterSuggestionStore.getState>['activeProposal']
+  >['operations'][number],
   editor: Editor
 ): string {
   switch (op.kind) {
