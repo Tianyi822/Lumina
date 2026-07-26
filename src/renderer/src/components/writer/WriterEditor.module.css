@@ -146,8 +146,13 @@
   border-top: 1px solid var(--sm-color-border-default);
 }
 
+.editorContent :global(.tableWrapper) {
+  overflow-x: auto;
+}
+
 .editorContent :global(.tiptap table) {
   width: 100%;
+  min-width: calc(var(--sm-space-6) * 8);
   table-layout: fixed;
   border-collapse: collapse;
 }
@@ -190,4 +195,39 @@
 
 .editorContent :global(.tiptap ::selection) {
   background: var(--sm-color-surface-selected);
+}
+
+.editorContent :global(.tiptap .writer-footnote-ref) {
+  padding: 0 2px;
+  color: var(--sm-color-accent);
+  font-size: var(--sm-writer-status-font-size);
+  cursor: pointer;
+}
+
+.editorContent :global(.tiptap .writer-footnote-ref::after) {
+  content: '[' attr(data-number) ']';
+}
+
+.editorContent :global(.tiptap .writer-footnote-def) {
+  padding: var(--sm-space-3);
+  border: 1px solid var(--sm-color-border-subtle);
+  border-radius: var(--sm-radius-md);
+  background: var(--sm-color-surface-1);
+  color: var(--sm-color-text-secondary);
+  font-size: var(--sm-writer-status-font-size);
+  cursor: pointer;
+}
+
+.editorContent :global(.tiptap .writer-footnote-def::before) {
+  margin-right: var(--sm-space-2);
+  content: attr(data-number) '.';
+}
+
+.editorContent :global(.tiptap .writer-footnote-def[data-unreferenced='true']::after) {
+  margin-left: var(--sm-space-2);
+  padding: 0 var(--sm-space-2);
+  border-radius: var(--sm-radius-sm);
+  background: var(--sm-color-surface-2);
+  color: var(--sm-color-text-tertiary);
+  content: '未引用';
 }

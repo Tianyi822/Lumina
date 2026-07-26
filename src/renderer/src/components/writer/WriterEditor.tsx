@@ -10,6 +10,8 @@ import {
   queueWriterImageImport,
   runWriterDocumentCloseGc
 } from './extensions/writerImage'
+import WriterTableControls from './nodes/WriterTableControls'
+import { deriveWriterOutline } from './outline/writerOutline'
 import WriterBubbleMenu from './toolbar/WriterBubbleMenu'
 import WriterSlashMenu from './toolbar/WriterSlashMenu'
 import {
@@ -179,11 +181,18 @@ export default function WriterEditor({ document, autosaveRegistry }: WriterEdito
           return true
         }
       },
+      onCreate: ({ editor: currentEditor }) => {
+        useWriterSessionStore
+          .getState()
+          .setOutline(deriveWriterOutline(currentEditor.getJSON() as WriterJsonDocument))
+      },
       onUpdate: ({ editor: currentEditor }) => {
         const editVersion = useWriterSessionStore.getState().markDirty()
+        const content = currentEditor.getJSON() as WriterJsonDocument
+        useWriterSessionStore.getState().setOutline(deriveWriterOutline(content))
         autosaveController.schedule({
           title: titleRef.current,
-          content: currentEditor.getJSON() as WriterJsonDocument,
+          content,
           editVersion
         })
       }
@@ -197,6 +206,20 @@ export default function WriterEditor({ document, autosaveRegistry }: WriterEdito
       if (editorRef.current === editor) editorRef.current = null
     }
   }, [editor])
+
+  const pendingScrollNodeId = useWriterSessionStore((state) => state.pendingScrollNodeId)
+
+  useEffect(() => {
+    if (!pendingScrollNodeId) return
+    if (useWriterSessionStore.getState().currentDocumentId !== document.id) return
+    const currentEditor = editorRef.current
+    if (!currentEditor) return
+    // UniqueID 扩展通过 setAttribute 写入属性，HTML 文档会将属性名归一为小写，
+    // 因此实际渲染出的 DOM 属性是 data-nodeid 而非驼峰形式。
+    const target = currentEditor.view.dom.querySelector(`[data-nodeid="${pendingScrollNodeId}"]`)
+    target?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    useWriterSessionStore.getState().clearPendingScroll()
+  }, [document.id, pendingScrollNodeId])
 
   useEffect(() => {
     if (libraryRevision === undefined) return
@@ -278,6 +301,7 @@ export default function WriterEditor({ document, autosaveRegistry }: WriterEdito
         {editor ? (
           <>
             <WriterBubbleMenu editor={editor} />
+            <WriterTableControls editor={editor} />
             <WriterSlashMenu editor={editor} onSelectImage={() => imageInputRef.current?.click()} />
           </>
         ) : null}

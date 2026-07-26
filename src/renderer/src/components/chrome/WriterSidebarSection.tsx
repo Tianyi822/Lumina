@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import SvgIcon from '@renderer/components/icons/SvgIcon'
 import { useNotification } from '@renderer/composables/useNotification'
+import WriterOutlinePanel from '@renderer/components/writer/outline/WriterOutlinePanel'
 import {
   getWriterDocumentVirtualizationConfig,
   getWriterSidebarDocumentRenderPlan,
@@ -236,8 +237,8 @@ const WriterSidebarSection = memo(function WriterSidebarSection() {
       </div>
 
       {sidebarMode === 'outline' ? (
-        <div className={styles.outline} role="tabpanel">
-          <span>当前文档的大纲将在这里显示</span>
+        <div className={styles.library} role="tabpanel">
+          <WriterOutlinePanel />
         </div>
       ) : (
         <div className={styles.library} role="tabpanel">

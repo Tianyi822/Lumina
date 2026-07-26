@@ -111,6 +111,14 @@ const SLASH_MENU_ITEMS: SlashMenuItem[] = [
     run: (editor) => {
       editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()
     }
+  },
+  {
+    id: 'footnote',
+    label: '脚注',
+    keywords: 'footnote note 脚注 注释',
+    run: (editor) => {
+      editor.chain().focus().insertFootnote().run()
+    }
   }
 ]
 

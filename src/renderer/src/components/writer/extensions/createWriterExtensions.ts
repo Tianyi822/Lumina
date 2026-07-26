@@ -7,7 +7,6 @@ import Highlight from '@tiptap/extension-highlight'
 import Link from '@tiptap/extension-link'
 import { BlockMath, InlineMath } from '@tiptap/extension-mathematics'
 import Placeholder from '@tiptap/extension-placeholder'
-import { TableKit } from '@tiptap/extension-table'
 import TaskItem from '@tiptap/extension-task-item'
 import TaskList from '@tiptap/extension-task-list'
 import TextAlign from '@tiptap/extension-text-align'
@@ -32,6 +31,11 @@ import { createLowlight } from 'lowlight'
 import WriterCodeBlockView from '../nodes/WriterCodeBlockView.tsx'
 import WriterMathView from '../nodes/WriterMathView.tsx'
 import { WriterClipboard } from './writerClipboard'
+import {
+  WriterFootnoteDefinition,
+  WriterFootnoteInteractions,
+  WriterFootnoteReference
+} from './writerFootnotes'
 import { createWriterImageExtension } from './writerImage'
 import { WriterMarkdownRules } from './writerMarkdownRules'
 import {
@@ -39,6 +43,7 @@ import {
   normalizeWriterCodeBlockContent,
   normalizeWriterCodeLanguage
 } from './writerMath'
+import { WriterTable, WriterTableCell, WriterTableHeader, WriterTableRow } from './writerTable'
 
 function normalizeCodeBlockLanguages(state: EditorState): Transaction | null {
   const transaction = state.tr
@@ -145,7 +150,8 @@ const STABLE_WRITER_NODE_TYPES = [
   'tableCell',
   'tableHeader',
   'inlineMath',
-  'blockMath'
+  'blockMath',
+  'footnoteDefinition'
 ]
 
 export function createWriterExtensions(documentId = 'writer-unbound'): Extension[] {
@@ -169,12 +175,16 @@ export function createWriterExtensions(documentId = 'writer-unbound'): Extension
     TaskItem.configure({ nested: true }),
     WriterInlineMath,
     WriterBlockMath,
-    TableKit.configure({
-      table: {
-        resizable: true,
-        allowTableNodeSelection: true
-      }
+    WriterTable.configure({
+      resizable: true,
+      allowTableNodeSelection: true
     }),
+    WriterTableRow,
+    WriterTableCell,
+    WriterTableHeader,
+    WriterFootnoteReference,
+    WriterFootnoteDefinition,
+    WriterFootnoteInteractions,
     createWriterImageExtension({ documentId }),
     TextAlign.configure({
       types: ['heading', 'paragraph', 'tableCell'],
