@@ -7,17 +7,24 @@ import PaperChatInput from '@renderer/components/paper/chat/PaperChatInput'
 import PaperChatMessageList, {
   type PaperChatMessageListHandle
 } from '@renderer/components/paper/chat/PaperChatMessageList'
-import { useWriterChatSession } from './useWriterChatSession'
-import { useWriterChatStream } from './useWriterChatStream'
+import type { useWriterChatSession } from './useWriterChatSession'
+import type { useWriterChatStream } from './useWriterChatStream'
 import styles from './WriterChatPanel.module.css'
 
 interface WriterChatPanelProps {
   documentId: string
   documentTitle?: string
+  sessionState: ReturnType<typeof useWriterChatSession>
+  streamState: ReturnType<typeof useWriterChatStream>
 }
 
-/** 写作 AI 面板：独立写作会话，复用通用外壳与输入控件（不附带论文来源） */
-export default function WriterChatPanel({ documentId, documentTitle }: WriterChatPanelProps) {
+/** 写作 AI 面板：受控展示层，会话/流式状态由 WritingPage 持有（侧栏关闭仍可发送） */
+export default function WriterChatPanel({
+  documentId: _documentId,
+  documentTitle,
+  sessionState,
+  streamState
+}: WriterChatPanelProps) {
   const notify = useNotification()
   const setWriterChatPanelOpen = useUIStateStore((s) => s.setWriterChatPanelOpen)
   const [isDragging, setIsDragging] = useState(false)
@@ -26,28 +33,6 @@ export default function WriterChatPanel({ documentId, documentTitle }: WriterCha
   const panelRef = useRef<HTMLDivElement>(null)
   const messageListRef = useRef<PaperChatMessageListHandle>(null)
   const [showScrollButton, setShowScrollButton] = useState(false)
-
-  const sessionState = useWriterChatSession(documentId)
-  const streamState = useWriterChatStream({
-    session: sessionState.session,
-    messagesRef: sessionState.messagesRef,
-    setMessages: sessionState.setMessages,
-    selectedModel: sessionState.selectedModel,
-    selectedMCPTools: sessionState.selectedMCPTools,
-    selectedKnowledgeBases: sessionState.selectedKnowledgeBases,
-    saveCurrentSession: sessionState.saveCurrentSession,
-    setError: sessionState.setError,
-    onRequestError: () => {
-      notify.error('写作对话请求失败', '模型请求失败，请稍后重试或换一个模型。', {
-        source: 'chat'
-      })
-    }
-  })
-
-  useEffect(() => {
-    void sessionState.loadSessionWithContext()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [documentId])
 
   useEffect(() => {
     const composer = composerRef.current

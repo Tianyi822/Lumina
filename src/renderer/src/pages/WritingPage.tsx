@@ -3,16 +3,20 @@ import type { WriterDocument } from '@shared/types/writer'
 import WriterEditor from '@renderer/components/writer/WriterEditor'
 import type { WriterSnapshot } from '@renderer/components/writer/WriterEditor'
 import WriterChatPanel from '@renderer/components/writer/chat/WriterChatPanel'
+import { useWriterChatSession } from '@renderer/components/writer/chat/useWriterChatSession'
+import { useWriterChatStream } from '@renderer/components/writer/chat/useWriterChatStream'
 import {
   WriterAutosaveFlushRegistry,
   flushWriterAutosaveAndAcknowledge
 } from '@renderer/components/writer/writerAutosave'
+import { useNotification } from '@renderer/composables/useNotification'
 import { useWriterLibraryStore } from '@renderer/stores/writer'
 import { useUIStateStore } from '@renderer/stores/uiStateStore'
 import styles from './WritingPage.module.css'
 
 /** 写作工作区负责文档加载、AI 面板布局和主进程退出握手。 */
 export default function WritingPage() {
+  const notify = useNotification()
   const currentDocumentId = useWriterLibraryStore((state) => state.currentDocumentId)
   const createAndOpen = useWriterLibraryStore((state) => state.createAndOpen)
   const currentDocumentTitle = useWriterLibraryStore((state) => {
@@ -33,6 +37,30 @@ export default function WritingPage() {
   if (!autosaveRegistryRef.current) {
     autosaveRegistryRef.current = new WriterAutosaveFlushRegistry<WriterSnapshot>()
   }
+
+  // 会话/流式 hook 挂在页面层：侧栏关闭时仍存活，供气泡发送使用
+  const sessionState = useWriterChatSession(writerDocument?.id)
+  const streamState = useWriterChatStream({
+    session: sessionState.session,
+    messagesRef: sessionState.messagesRef,
+    setMessages: sessionState.setMessages,
+    selectedModel: sessionState.selectedModel,
+    selectedMCPTools: sessionState.selectedMCPTools,
+    selectedKnowledgeBases: sessionState.selectedKnowledgeBases,
+    saveCurrentSession: sessionState.saveCurrentSession,
+    setError: sessionState.setError,
+    onRequestError: () => {
+      notify.error('写作对话请求失败', '模型请求失败，请稍后重试或换一个模型。', {
+        source: 'chat'
+      })
+    }
+  })
+
+  useEffect(() => {
+    if (!writerDocument?.id) return
+    void sessionState.loadSessionWithContext()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅随文档切换加载
+  }, [writerDocument?.id])
 
   const chatSlotRef = useRef<HTMLDivElement>(null)
   const isResizingChatRef = useRef(false)
@@ -227,6 +255,8 @@ export default function WritingPage() {
             <WriterChatPanel
               documentId={writerDocument.id}
               documentTitle={currentDocumentTitle ?? writerDocument.title}
+              sessionState={sessionState}
+              streamState={streamState}
             />
           </aside>
         ) : null}
