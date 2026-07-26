@@ -260,7 +260,13 @@ export default function WriterEditor({ document, autosaveRegistry }: WriterEdito
     // UniqueID 扩展通过 setAttribute 写入属性，HTML 文档会将属性名归一为小写，
     // 因此实际渲染出的 DOM 属性是 data-nodeid 而非驼峰形式。
     const target = currentEditor.view.dom.querySelector(`[data-nodeid="${pendingScrollNodeId}"]`)
-    target?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    const prefersReducedMotion =
+      typeof window !== 'undefined' &&
+      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    target?.scrollIntoView({
+      behavior: prefersReducedMotion ? 'auto' : 'smooth',
+      block: 'center'
+    })
     useWriterSessionStore.getState().clearPendingScroll()
   }, [document.id, pendingScrollNodeId])
 
@@ -280,10 +286,7 @@ export default function WriterEditor({ document, autosaveRegistry }: WriterEdito
     useWriterSuggestionStore.getState().cancelForDocumentSwitch()
     const switchEditor = editorRef.current
     if (switchEditor) {
-      refreshWriterSuggestionDecorations(
-        (tr) => switchEditor.view.dispatch(tr),
-        switchEditor.state
-      )
+      refreshWriterSuggestionDecorations((tr) => switchEditor.view.dispatch(tr), switchEditor.state)
     }
 
     const flush = (): void => {
@@ -321,6 +324,7 @@ export default function WriterEditor({ document, autosaveRegistry }: WriterEdito
   const handleTitleChange = (nextTitle: string): void => {
     setTitle(nextTitle)
     titleRef.current = nextTitle
+    useWriterLibraryStore.getState().setDocumentTitle(document.id, nextTitle)
     const editVersion = useWriterSessionStore.getState().markDirty(nextTitle)
     autosaveController.schedule({
       title: nextTitle,
@@ -341,7 +345,7 @@ export default function WriterEditor({ document, autosaveRegistry }: WriterEdito
             value={title}
             onChange={(event) => handleTitleChange(event.target.value)}
           />
-          <span className={styles.saveStatus} role="status">
+          <span className={styles.saveStatus} role="status" aria-live="polite" aria-atomic="true">
             {getSaveStatusLabel(saveStatus)}
           </span>
         </div>

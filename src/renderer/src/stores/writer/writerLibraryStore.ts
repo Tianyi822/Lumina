@@ -109,6 +109,8 @@ export interface WriterLibraryStore {
   rename: (documentId: string, title: string) => Promise<boolean>
   move: (documentId: string, folderId?: string) => Promise<boolean>
   toggleFavorite: (documentId: string) => Promise<boolean>
+  /** 编辑器标题输入时即时同步侧栏摘要，不触发 IPC */
+  setDocumentTitle: (documentId: string, title: string) => void
   setSearchQuery: (query: string) => void
   setSidebarMode: (mode: WriterSidebarMode) => void
   setActiveCollection: (collection: WriterCollection) => void
@@ -126,6 +128,40 @@ function toSummary(document: WriterDocument): WriterDocumentSummary {
     createdAt: document.createdAt,
     updatedAt: document.updatedAt
   }
+}
+
+/**
+ * 纯函数：按集合与标题搜索过滤文档摘要，不修改输入数组。
+ * 搜索只跑在摘要标题上，供侧栏与性能测试复用。
+ */
+export function filterWriterDocuments(
+  documents: WriterDocumentSummary[],
+  options: {
+    collection: WriterCollection
+    searchQuery: string
+    recentDocumentIds: string[]
+  }
+): WriterDocumentSummary[] {
+  let next = documents
+  if (options.collection === 'favorites') {
+    next = next.filter((document) => document.favorite)
+  } else if (options.collection === 'recent') {
+    const recentOrder = new Map(
+      options.recentDocumentIds.map((documentId, index) => [documentId, index])
+    )
+    next = next
+      .filter((document) => recentOrder.has(document.id))
+      .sort((left, right) => recentOrder.get(left.id)! - recentOrder.get(right.id)!)
+  } else if (options.collection !== 'all') {
+    next = next.filter((document) => document.folderId === options.collection)
+  }
+
+  const query = options.searchQuery.trim().toLocaleLowerCase()
+  if (query) {
+    next = next.filter((document) => document.title.toLocaleLowerCase().includes(query))
+  }
+
+  return options.collection === 'recent' ? next : sortDocuments(next)
 }
 
 function sortDocuments(documents: WriterDocumentSummary[]): WriterDocumentSummary[] {
@@ -300,33 +336,29 @@ export const useWriterLibraryStore = create<WriterLibraryStore>((set, get) => {
       }
     },
 
+    setDocumentTitle: (documentId, title) => {
+      set((state) => {
+        const index = state.documents.findIndex((document) => document.id === documentId)
+        if (index < 0) return state
+        const current = state.documents[index]
+        if (!current || current.title === title) return state
+        const documents = state.documents.slice()
+        documents[index] = { ...current, title }
+        return { documents }
+      })
+    },
+
     setSearchQuery: (searchQuery) => set({ searchQuery }),
     setSidebarMode: (sidebarMode) => set({ sidebarMode }),
     setActiveCollection: (activeCollection) => set({ activeCollection }),
     setCurrentDocumentId: (currentDocumentId) => set({ currentDocumentId }),
     visibleDocuments: () => {
       const state = get()
-      let documents = state.documents
-      if (state.activeCollection === 'favorites') {
-        documents = documents.filter((document) => document.favorite)
-      } else if (state.activeCollection === 'recent') {
-        const recentOrder = new Map(
-          state.recentDocumentIds.map((documentId, index) => [documentId, index])
-        )
-        documents = documents
-          .filter((document) => recentOrder.has(document.id))
-          .sort((left, right) => recentOrder.get(left.id)! - recentOrder.get(right.id)!)
-      } else if (state.activeCollection !== 'all') {
-        documents = documents.filter((document) => document.folderId === state.activeCollection)
-      }
-
-      const query = state.searchQuery.trim().toLocaleLowerCase()
-      if (query) {
-        documents = documents.filter((document) =>
-          document.title.toLocaleLowerCase().includes(query)
-        )
-      }
-      return state.activeCollection === 'recent' ? documents : sortDocuments(documents)
+      return filterWriterDocuments(state.documents, {
+        collection: state.activeCollection,
+        searchQuery: state.searchQuery,
+        recentDocumentIds: state.recentDocumentIds
+      })
     }
   }
 })

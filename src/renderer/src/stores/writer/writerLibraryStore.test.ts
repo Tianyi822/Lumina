@@ -75,6 +75,19 @@ test('createAndOpen 创建空白文档并设为当前文档', async () => {
   assert.equal(useWriterLibraryStore.getState().documents[0].id, created.id)
 })
 
+test('setDocumentTitle 即时更新侧栏摘要标题且不改动其他字段', () => {
+  resetStore()
+  const document = createDocumentFixture({ id: 'writer-title-live', title: '旧标题' })
+  useWriterLibraryStore.setState({ documents: [document] })
+
+  useWriterLibraryStore.getState().setDocumentTitle('writer-title-live', '新标题')
+
+  const next = useWriterLibraryStore.getState().documents[0]
+  assert.equal(next?.title, '新标题')
+  assert.equal(next?.revision, document.revision)
+  assert.equal(next?.updatedAt, document.updatedAt)
+})
+
 test('搜索同时匹配标题且清空搜索后恢复当前集合', () => {
   resetStore()
   useWriterLibraryStore.setState({

@@ -1,4 +1,5 @@
 export {
+  filterWriterDocuments,
   getWriterDocumentVirtualizationConfig,
   getWriterSidebarDocumentRenderPlan,
   groupWriterFolderDocuments,
