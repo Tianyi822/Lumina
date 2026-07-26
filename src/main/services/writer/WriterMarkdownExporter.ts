@@ -347,6 +347,8 @@ function longestBacktickRun(text: string): number {
 export function sanitizeExportBaseName(title: string): string {
   const trimmed = title.trim()
   const sanitized = trimmed
+    // 清理路径不安全字符与控制字符（C0）
+    // eslint-disable-next-line no-control-regex -- 文件名消毒需剔除 \u0000-\u001f
     .replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_')
     .replace(/\.+$/g, '')
   return sanitized.length > 0 ? sanitized : 'untitled'
