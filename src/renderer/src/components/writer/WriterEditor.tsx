@@ -26,6 +26,7 @@ import {
 } from './suggestions/writerSuggestionPlugin'
 import WriterSuggestionActions from './suggestions/WriterSuggestionActions'
 import WriterBubbleMenu from './toolbar/WriterBubbleMenu'
+import type { WriterBubbleAiAction } from './toolbar/writerBubbleAiActions'
 import WriterSlashMenu from './toolbar/WriterSlashMenu'
 import {
   WriterAutosaveController,
@@ -43,6 +44,8 @@ export interface WriterSnapshot {
 export interface WriterEditorProps {
   document: WriterDocument
   autosaveRegistry: WriterAutosaveFlushRegistry<WriterSnapshot>
+  isAiSending?: boolean
+  onAiAction?: (action: WriterBubbleAiAction) => void
 }
 
 const AUTOSAVE_DELAY_MS = 600
@@ -59,7 +62,12 @@ function getSaveStatusLabel(
 }
 
 /** 写作正文由 Tiptap EditorState 持有，Zustand 只记录保存会话摘要。 */
-export default function WriterEditor({ document, autosaveRegistry }: WriterEditorProps) {
+export default function WriterEditor({
+  document,
+  autosaveRegistry,
+  isAiSending,
+  onAiAction
+}: WriterEditorProps) {
   const notify = useNotification()
   const saveStatus = useWriterSessionStore((state) => state.saveStatus)
   const libraryRevision = useWriterLibraryStore(
@@ -365,7 +373,11 @@ export default function WriterEditor({ document, autosaveRegistry }: WriterEdito
         />
         {editor ? (
           <>
-            <WriterBubbleMenu editor={editor} />
+            <WriterBubbleMenu
+              editor={editor}
+              isAiSending={isAiSending}
+              onAiAction={onAiAction}
+            />
             <WriterTableControls editor={editor} />
             <WriterSlashMenu editor={editor} onSelectImage={() => imageInputRef.current?.click()} />
           </>

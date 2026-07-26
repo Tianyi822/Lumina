@@ -3,6 +3,7 @@ import test from 'node:test'
 import {
   WRITER_BUBBLE_CONTINUE_PROMPT,
   WRITER_BUBBLE_REWRITE_PROMPT,
+  buildWriterBubbleSendOptions,
   canStartWriterBubbleAiAction,
   getWriterBubbleAiPrompt
 } from './writerBubbleAiActions'
@@ -26,5 +27,12 @@ test('发送中或无模型时拒绝气泡 AI 动作', () => {
   })
   assert.deepEqual(canStartWriterBubbleAiAction({ isSending: false, selectedModel: 'm1' }), {
     ok: true
+  })
+})
+
+test('气泡发送选项固定为 selection 且不含外部工具', () => {
+  assert.deepEqual(buildWriterBubbleSendOptions(), {
+    scope: 'selection',
+    includeExternalTools: false
   })
 })

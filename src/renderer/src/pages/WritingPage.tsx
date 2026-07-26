@@ -6,6 +6,12 @@ import WriterChatPanel from '@renderer/components/writer/chat/WriterChatPanel'
 import { useWriterChatSession } from '@renderer/components/writer/chat/useWriterChatSession'
 import { useWriterChatStream } from '@renderer/components/writer/chat/useWriterChatStream'
 import {
+  buildWriterBubbleSendOptions,
+  canStartWriterBubbleAiAction,
+  getWriterBubbleAiPrompt,
+  type WriterBubbleAiAction
+} from '@renderer/components/writer/toolbar/writerBubbleAiActions'
+import {
   WriterAutosaveFlushRegistry,
   flushWriterAutosaveAndAcknowledge
 } from '@renderer/components/writer/writerAutosave'
@@ -61,6 +67,40 @@ export default function WritingPage() {
     void sessionState.loadSessionWithContext()
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅随文档切换加载
   }, [writerDocument?.id])
+
+  const handleBubbleAiAction = useCallback(
+    async (action: WriterBubbleAiAction): Promise<void> => {
+      const gate = canStartWriterBubbleAiAction({
+        isSending: streamState.isSending,
+        selectedModel: sessionState.selectedModel
+      })
+      if (!gate.ok) {
+        if (gate.reason === 'busy') {
+          notify.warning('写作对话', '请先停止当前回复', { source: 'chat' })
+        } else {
+          notify.warning('写作对话', '请先打开 AI 面板选择模型', { source: 'chat' })
+        }
+        return
+      }
+      // 确保会话已加载（面板从未打开过时）
+      if (!sessionState.session) {
+        const ok = await sessionState.loadSessionWithContext()
+        if (!ok) {
+          notify.error('写作对话', sessionState.error || '加载写作聊天会话失败', {
+            source: 'chat'
+          })
+          return
+        }
+      }
+      await streamState.sendMessage(
+        getWriterBubbleAiPrompt(action),
+        [],
+        [],
+        buildWriterBubbleSendOptions()
+      )
+    },
+    [notify, sessionState, streamState]
+  )
 
   const chatSlotRef = useRef<HTMLDivElement>(null)
   const isResizingChatRef = useRef(false)
@@ -203,6 +243,8 @@ export default function WritingPage() {
             key={writerDocument.id}
             document={writerDocument}
             autosaveRegistry={autosaveRegistryRef.current}
+            isAiSending={streamState.isSending}
+            onAiAction={(a) => void handleBubbleAiAction(a)}
           />
         ) : (
           <div className={styles.state}>

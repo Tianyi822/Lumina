@@ -1,3 +1,5 @@
+import type { SendWriterAiTurnOptions } from '@renderer/components/writer/chat/writerAiTurnOptions'
+
 export type WriterBubbleAiAction = 'rewrite' | 'continue'
 
 export const WRITER_BUBBLE_REWRITE_PROMPT =
@@ -8,6 +10,10 @@ export const WRITER_BUBBLE_CONTINUE_PROMPT =
 
 export function getWriterBubbleAiPrompt(action: WriterBubbleAiAction): string {
   return action === 'rewrite' ? WRITER_BUBBLE_REWRITE_PROMPT : WRITER_BUBBLE_CONTINUE_PROMPT
+}
+
+export function buildWriterBubbleSendOptions(): SendWriterAiTurnOptions {
+  return { scope: 'selection', includeExternalTools: false }
 }
 
 export type WriterBubbleAiGateResult =
