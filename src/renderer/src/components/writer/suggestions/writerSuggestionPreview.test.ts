@@ -36,7 +36,6 @@ test('多块预览按块拆分而非单行拼接', () => {
   assert.equal(children[1]?.getAttribute('data-block-type'), 'heading')
   assert.equal(children[1]?.getAttribute('data-heading-level'), '2')
   assert.equal(children[2]?.textContent, '第二段')
-  assert.equal(el.textContent?.includes('第一段\n标题\n第二段') && children.length === 1, false)
 })
 
 test('操作条含接受拒绝与可选批量动作', () => {

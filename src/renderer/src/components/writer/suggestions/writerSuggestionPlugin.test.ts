@@ -3,6 +3,7 @@ import test from 'node:test'
 import { parseHTML } from 'linkedom'
 import { getSchema } from '@tiptap/core'
 import { EditorState, TextSelection } from '@tiptap/pm/state'
+import type { Decoration } from '@tiptap/pm/view'
 import type { WriterAiProposal } from '@shared/types/writer'
 import { hashWriterText } from '@shared/utils/writerText'
 import { createWriterExtensions } from '../extensions/createWriterExtensions'
@@ -32,6 +33,23 @@ const suggestionDoc = {
   ]
 } as const
 
+type DecorationWithWidgetType = Decoration & {
+  type?: {
+    toDOM?: (view?: unknown) => Node
+    spec?: { key?: string }
+  }
+}
+
+function getWidgetDom(decoration: Decoration): HTMLElement | null {
+  const type = (decoration as DecorationWithWidgetType).type
+  const node = type?.toDOM?.()
+  return node instanceof HTMLElement ? node : null
+}
+
+function getWidgetKey(decoration: Decoration): string | undefined {
+  return (decoration as DecorationWithWidgetType).type?.spec?.key
+}
+
 function createSuggestionState(selection?: { from: number; to: number }): EditorState {
   const schema = getSchema([
     ...createWriterExtensions('writer-doc-pending'),
@@ -57,7 +75,7 @@ test('pending 状态在选区渲染 loading decoration', () => {
   assert.notEqual(decorations.find().length, 0)
   const widget = decorations.find()[0]
   assert.ok(widget)
-  const element = widget.type?.toDOM?.() ?? null
+  const element = getWidgetDom(widget)
   assert.ok(element)
   assert.equal(element.className, 'sm-writer-diff-pending')
   assert.match(element.textContent ?? '', /AI 正在续写/)
@@ -103,9 +121,9 @@ test('insert_blocks 预览按块拆分而非 join 拼接', () => {
   const decorations = buildPluginDecorationsForTest(state)
   const found = decorations.find()
   assert.ok(found.length > 0)
-  const widget = found.find((item) => item.type?.spec?.key?.startsWith('insert-blocks-'))
+  const widget = found.find((item) => getWidgetKey(item)?.startsWith('insert-blocks-'))
   assert.ok(widget)
-  const element = widget.type?.toDOM?.() ?? null
+  const element = getWidgetDom(widget)
   assert.ok(element)
   const blocks = element.querySelectorAll('.sm-writer-diff-add-block')
   assert.equal(blocks.length, 2)
