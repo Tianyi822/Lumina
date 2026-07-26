@@ -58,6 +58,20 @@
   background: var(--sm-color-accent-22);
 }
 
+.bubbleAiDivider {
+  flex: 0 0 auto;
+  width: 1px;
+  height: 20px;
+  margin: 0 4px;
+  background: var(--sm-color-border-subtle);
+}
+
+.toolbarButton:disabled,
+.toolbarButton[aria-busy='true'] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .linkForm {
   display: flex;
   align-items: center;

@@ -87,3 +87,13 @@ test('标题输入与保存状态具备 label 与 aria-live', async () => {
   assert.match(source, /role="status"/)
   assert.match(source, /aria-live="polite"/)
 })
+
+test('Bubble Menu 暴露改写与续写动作 aria-label', async () => {
+  const source = await readFile(
+    new URL('./toolbar/WriterBubbleMenu.tsx', import.meta.url),
+    'utf8'
+  )
+  assert.match(source, /aria-label="AI 改写选区"/)
+  assert.match(source, /aria-label="AI 续写选区"/)
+  assert.match(source, /role="separator"/)
+})

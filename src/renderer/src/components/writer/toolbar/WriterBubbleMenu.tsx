@@ -3,9 +3,12 @@ import type { FormEvent, MouseEvent } from 'react'
 import type { Editor } from '@tiptap/core'
 import { BubbleMenu } from '@tiptap/react/menus'
 import styles from './WriterToolbar.module.css'
+import type { WriterBubbleAiAction } from './writerBubbleAiActions'
 
 interface WriterBubbleMenuProps {
   editor: Editor
+  isAiSending?: boolean
+  onAiAction?: (action: WriterBubbleAiAction) => void
 }
 
 interface MarkAction {
@@ -27,7 +30,11 @@ function normalizeLink(value: string): string | null {
   }
 }
 
-export default function WriterBubbleMenu({ editor }: WriterBubbleMenuProps) {
+export default function WriterBubbleMenu({
+  editor,
+  isAiSending,
+  onAiAction
+}: WriterBubbleMenuProps) {
   const [editingLink, setEditingLink] = useState(false)
   const [linkValue, setLinkValue] = useState('')
   const [linkInvalid, setLinkInvalid] = useState(false)
@@ -117,7 +124,7 @@ export default function WriterBubbleMenu({ editor }: WriterBubbleMenuProps) {
       options={{ placement: 'top', offset: 8 }}
       className={styles.bubbleMenu}
       role="toolbar"
-      aria-label="文字格式"
+      aria-label="文字格式与 AI 动作"
     >
       {actions.map((action) => (
         <button
@@ -144,6 +151,33 @@ export default function WriterBubbleMenu({ editor }: WriterBubbleMenuProps) {
       >
         链接
       </button>
+      {onAiAction ? (
+        <>
+          <span className={styles.bubbleAiDivider} role="separator" aria-hidden="true" />
+          <button
+            type="button"
+            className={styles.toolbarButton}
+            aria-label="AI 改写选区"
+            aria-busy={isAiSending || undefined}
+            disabled={Boolean(isAiSending)}
+            onMouseDown={preventFocusLoss}
+            onClick={() => onAiAction('rewrite')}
+          >
+            改写
+          </button>
+          <button
+            type="button"
+            className={styles.toolbarButton}
+            aria-label="AI 续写选区"
+            aria-busy={isAiSending || undefined}
+            disabled={Boolean(isAiSending)}
+            onMouseDown={preventFocusLoss}
+            onClick={() => onAiAction('continue')}
+          >
+            续写
+          </button>
+        </>
+      ) : null}
       {editingLink ? (
         <form className={styles.linkForm} onSubmit={applyLink}>
           <label className={styles.srOnly} htmlFor="writer-link-input">
