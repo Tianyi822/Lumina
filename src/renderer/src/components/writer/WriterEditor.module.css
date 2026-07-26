@@ -269,11 +269,98 @@
   white-space: pre-wrap;
 }
 
+.editorContent :global(.sm-writer-diff-add-blocks) {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sm-space-2);
+  margin: var(--sm-space-2) 0;
+}
+
+.editorContent :global(.sm-writer-diff-add-blocks .sm-writer-diff-add-block) {
+  margin: 0;
+}
+
+.editorContent :global(.sm-writer-diff-add-block[data-block-type='heading']) {
+  font-weight: 600;
+}
+
+.editorContent :global(.sm-writer-diff-add-block[data-block-type='heading'][data-heading-level='1']) {
+  font-size: var(--sm-text-2xl);
+}
+
+.editorContent :global(.sm-writer-diff-add-block[data-block-type='heading'][data-heading-level='2']) {
+  font-size: var(--sm-text-xl);
+}
+
+.editorContent :global(.sm-writer-diff-add-block[data-block-type='heading'][data-heading-level='3']) {
+  font-size: var(--sm-text-lg);
+}
+
+.editorContent :global(.sm-writer-diff-add-block[data-block-type='blockquote']) {
+  padding-left: var(--sm-space-4);
+  border-left: 3px solid var(--sm-color-border-subtle);
+}
+
+.editorContent :global(.sm-writer-diff-add-block[data-block-type='codeBlock']) {
+  font-family: var(--sm-font-mono);
+  font-size: var(--sm-text-sm);
+}
+
+.editorContent :global(.sm-writer-diff-pending) {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sm-space-2);
+  margin: var(--sm-space-2) 0;
+  padding: var(--sm-space-3);
+  border-radius: var(--sm-radius-sm);
+  background: var(--sm-color-surface-2);
+}
+
+.editorContent :global(.sm-writer-diff-pending-label) {
+  color: var(--sm-color-text-secondary);
+  font-size: var(--sm-text-sm);
+}
+
+.editorContent :global(.sm-writer-diff-pending-skeleton) {
+  height: var(--sm-space-3);
+  border-radius: var(--sm-radius-sm);
+  background: var(--sm-color-surface-3);
+  animation: sm-writer-diff-pending-pulse 1.4s ease-in-out infinite;
+}
+
+.editorContent :global(.sm-writer-diff-pending-skeleton:nth-child(2)) {
+  width: 92%;
+}
+
+.editorContent :global(.sm-writer-diff-pending-skeleton:nth-child(3)) {
+  width: 78%;
+}
+
+.editorContent :global(.sm-writer-diff-pending-skeleton:nth-child(4)) {
+  width: 64%;
+}
+
+@keyframes sm-writer-diff-pending-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+
+  50% {
+    opacity: 0.9;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .editorContent :global(.sm-writer-diff-add),
   .editorContent :global(.sm-writer-diff-delete),
   .editorContent :global(.sm-writer-diff-add-block),
   .editorContent :global(.sm-writer-diff-delete-block) {
     transition: none;
+  }
+
+  .editorContent :global(.sm-writer-diff-pending-skeleton) {
+    animation: none;
+    opacity: 0.65;
   }
 }

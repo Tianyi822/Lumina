@@ -3,8 +3,15 @@ import { Plugin, PluginKey } from '@tiptap/pm/state'
 import type { EditorState, Transaction } from '@tiptap/pm/state'
 import { Decoration, DecorationSet } from '@tiptap/pm/view'
 import type { WriterAiProposal, WriterEditOperation } from '@shared/types/writer'
-import { findBlockByNodeId } from './writerSuggestionCore'
 import { useWriterSuggestionStore } from '@renderer/stores/writer/writerSuggestionStore'
+import type { WriterSuggestionPendingAction } from './writerSuggestionLabels'
+import { getWriterSuggestionPendingLabel } from './writerSuggestionLabels'
+import { findBlockByNodeId } from './writerSuggestionCore'
+import {
+  createBlocksPreviewElement,
+  createInlineAddElement,
+  createLoadingPreviewElement
+} from './writerSuggestionPreview'
 
 export const writerSuggestionPluginKey = new PluginKey('writerSuggestion')
 
@@ -12,7 +19,26 @@ export interface WriterSuggestionPluginState {
   decorations: DecorationSet
 }
 
-function buildDecorations(state: EditorState, proposal: WriterAiProposal | null, pending: number[]): DecorationSet {
+function buildPendingDecorations(
+  state: EditorState,
+  pendingAction: WriterSuggestionPendingAction | null
+): DecorationSet {
+  const { selection } = state
+  const pos = selection.empty ? selection.head : selection.to
+  return DecorationSet.create(state.doc, [
+    Decoration.widget(
+      pos,
+      () => createLoadingPreviewElement(getWriterSuggestionPendingLabel(pendingAction)),
+      { side: 1, key: 'writer-suggestion-pending' }
+    )
+  ])
+}
+
+function buildActiveDecorations(
+  state: EditorState,
+  proposal: WriterAiProposal | null,
+  pending: number[]
+): DecorationSet {
   if (!proposal || pending.length === 0) {
     return DecorationSet.empty
   }
@@ -41,7 +67,7 @@ function decorationsForOperation(
       if (!block) return result
       const pos = block.textStart + op.offset
       result.push(
-        Decoration.widget(pos, () => createAddWidget(op.text), {
+        Decoration.widget(pos, () => createInlineAddElement(op.text), {
           side: 1,
           key: `insert-${op.blockId}-${op.offset}`
         })
@@ -59,7 +85,7 @@ function decorationsForOperation(
         })
       )
       result.push(
-        Decoration.widget(to, () => createAddWidget(op.text), {
+        Decoration.widget(to, () => createInlineAddElement(op.text), {
           side: 1,
           key: `replace-${op.blockId}-${op.from}`
         })
@@ -83,9 +109,8 @@ function decorationsForOperation(
         if (!block) return result
         pos = block.pos + block.node.nodeSize
       }
-      const preview = op.blocks.map((block) => block.text).join('\n')
       result.push(
-        Decoration.widget(pos, () => createBlockAddWidget(preview), {
+        Decoration.widget(pos, () => createBlocksPreviewElement(op.blocks), {
           side: 1,
           key: `insert-blocks-${op.afterBlockId ?? 'start'}`
         })
@@ -105,12 +130,15 @@ function decorationsForOperation(
       const lastId = op.targetBlockIds[op.targetBlockIds.length - 1]
       const last = lastId ? findBlockByNodeId(state, lastId) : null
       if (last) {
-        const preview = op.blocks.map((block) => block.text).join('\n')
         result.push(
-          Decoration.widget(last.pos + last.node.nodeSize, () => createBlockAddWidget(preview), {
-            side: 1,
-            key: `replace-blocks-${lastId}`
-          })
+          Decoration.widget(
+            last.pos + last.node.nodeSize,
+            () => createBlocksPreviewElement(op.blocks),
+            {
+              side: 1,
+              key: `replace-blocks-${lastId}`
+            }
+          )
         )
       }
       break
@@ -122,29 +150,24 @@ function decorationsForOperation(
   return result
 }
 
-function createAddWidget(text: string): HTMLElement {
-  const span = document.createElement('span')
-  span.className = 'sm-writer-diff-add'
-  span.textContent = text
-  return span
-}
-
-function createBlockAddWidget(text: string): HTMLElement {
-  const div = document.createElement('div')
-  div.className = 'sm-writer-diff-add-block'
-  div.textContent = text
-  return div
-}
-
-function readSuggestionSnapshot(): {
-  proposal: WriterAiProposal | null
-  pending: number[]
-} {
+function buildPluginDecorations(state: EditorState): DecorationSet {
   const store = useWriterSuggestionStore.getState()
-  return {
-    proposal: store.activeProposal,
-    pending: store.pendingOperationIndexes
+  if (store.status === 'pending') {
+    return buildPendingDecorations(state, store.pendingAction)
   }
+  if (
+    store.status !== 'active' ||
+    !store.activeProposal ||
+    store.pendingOperationIndexes.length === 0
+  ) {
+    return DecorationSet.empty
+  }
+  return buildActiveDecorations(state, store.activeProposal, store.pendingOperationIndexes)
+}
+
+/** @internal 仅供测试断言 decoration 构建 */
+export function buildPluginDecorationsForTest(state: EditorState): DecorationSet {
+  return buildPluginDecorations(state)
 }
 
 /**
@@ -159,16 +182,17 @@ export function createWriterSuggestionExtension() {
         new Plugin<WriterSuggestionPluginState>({
           key: writerSuggestionPluginKey,
           state: {
-            init: (_, state) => {
-              const { proposal, pending } = readSuggestionSnapshot()
-              return { decorations: buildDecorations(state, proposal, pending) }
-            },
+            init: (_, state) => ({ decorations: buildPluginDecorations(state) }),
             apply: (tr, pluginState, _oldState, newState) => {
               if (tr.getMeta('writerSuggestionAccept')) {
                 return { decorations: DecorationSet.empty }
               }
 
               const store = useWriterSuggestionStore.getState()
+              if (store.status === 'pending') {
+                return { decorations: buildPendingDecorations(newState, store.pendingAction) }
+              }
+
               const proposal = store.activeProposal
               const pending = store.pendingOperationIndexes
               if (store.status !== 'active' || !proposal || pending.length === 0) {
@@ -176,7 +200,7 @@ export function createWriterSuggestionExtension() {
               }
 
               if (tr.getMeta('writerSuggestionRefresh') || tr.docChanged) {
-                return { decorations: buildDecorations(newState, proposal, pending) }
+                return { decorations: buildActiveDecorations(newState, proposal, pending) }
               }
 
               return {
