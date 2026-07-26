@@ -219,4 +219,17 @@ export function registerWriterHandlers(): void {
       writerService.acknowledgeRendererFlush(webContentsId)
     )
   })
+
+  ipcMain.handle(
+    'writer:collectGarbage',
+    (_event, documentId: unknown): Promise<WriterResult<number>> => {
+      const validationError = validateDeleteWriterPayload(documentId)
+      if (validationError) {
+        return Promise.resolve(invalidInput(validationError))
+      }
+      return invokeWriter('清理写作图片资源', () =>
+        writerService.collectDocumentGarbage(documentId as string)
+      )
+    }
+  )
 }

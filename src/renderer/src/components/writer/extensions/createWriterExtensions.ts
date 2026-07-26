@@ -4,7 +4,6 @@ import type { EditorState, Transaction } from '@tiptap/pm/state'
 import CharacterCount from '@tiptap/extension-character-count'
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight'
 import Highlight from '@tiptap/extension-highlight'
-import Image from '@tiptap/extension-image'
 import Link from '@tiptap/extension-link'
 import { BlockMath, InlineMath } from '@tiptap/extension-mathematics'
 import Placeholder from '@tiptap/extension-placeholder'
@@ -33,6 +32,7 @@ import { createLowlight } from 'lowlight'
 import WriterCodeBlockView from '../nodes/WriterCodeBlockView.tsx'
 import WriterMathView from '../nodes/WriterMathView.tsx'
 import { WriterClipboard } from './writerClipboard'
+import { createWriterImageExtension } from './writerImage'
 import { WriterMarkdownRules } from './writerMarkdownRules'
 import {
   normalizeWriterCodeBlockAttributes,
@@ -71,7 +71,9 @@ const lowlight = createLowlight({
 
 const WriterCodeBlock = CodeBlockLowlight.extend({
   onBeforeCreate({ editor }) {
-    editor.options.content = normalizeWriterCodeBlockContent(editor.options.content) as typeof editor.options.content
+    editor.options.content = normalizeWriterCodeBlockContent(
+      editor.options.content
+    ) as typeof editor.options.content
   },
 
   addCommands() {
@@ -146,7 +148,7 @@ const STABLE_WRITER_NODE_TYPES = [
   'blockMath'
 ]
 
-export function createWriterExtensions(): Extension[] {
+export function createWriterExtensions(documentId = 'writer-unbound'): Extension[] {
   return [
     StarterKit.configure({
       codeBlock: false,
@@ -173,7 +175,7 @@ export function createWriterExtensions(): Extension[] {
         allowTableNodeSelection: true
       }
     }),
-    Image.configure({ allowBase64: true }),
+    createWriterImageExtension({ documentId }),
     TextAlign.configure({
       types: ['heading', 'paragraph', 'tableCell'],
       alignments: ['left', 'center', 'right', 'justify']

@@ -1,9 +1,15 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { EditorContent, useEditor } from '@tiptap/react'
+import type { Editor } from '@tiptap/core'
 import type { WriterDocument, WriterJsonDocument } from '@shared/types/writer'
 import { useNotification } from '@renderer/composables/useNotification'
 import { useWriterLibraryStore, useWriterSessionStore } from '@renderer/stores/writer'
 import { createWriterExtensions } from './extensions/createWriterExtensions'
+import {
+  isWriterImageFile,
+  queueWriterImageImport,
+  runWriterDocumentCloseGc
+} from './extensions/writerImage'
 import WriterBubbleMenu from './toolbar/WriterBubbleMenu'
 import WriterSlashMenu from './toolbar/WriterSlashMenu'
 import {
@@ -46,6 +52,8 @@ export default function WriterEditor({ document, autosaveRegistry }: WriterEdito
   )
   const [title, setTitle] = useState(document.title)
   const titleRef = useRef(document.title)
+  const editorRef = useRef<Editor | null>(null)
+  const imageInputRef = useRef<HTMLInputElement | null>(null)
 
   const revisionCoordinator = useMemo(
     () =>
@@ -126,16 +134,49 @@ export default function WriterEditor({ document, autosaveRegistry }: WriterEdito
     [document.id, notify, revisionCoordinator]
   )
 
+  const importImageFile = useCallback(
+    (file: File): void => {
+      const currentEditor = editorRef.current
+      if (!currentEditor) return
+      void queueWriterImageImport({
+        editor: currentEditor,
+        documentId: document.id,
+        file,
+        onError: (message) => notify.error('图片导入失败', message)
+      })
+    },
+    [document.id, notify]
+  )
+
   const editor = useEditor(
     {
       immediatelyRender: false,
-      extensions: createWriterExtensions(),
+      extensions: createWriterExtensions(document.id),
       enableInputRules: ['writerMarkdownRules'],
       content: document.content,
       editorProps: {
         attributes: {
           class: styles.prose,
           'aria-label': '文档正文'
+        },
+        handlePaste: (_view, event) => {
+          const file = Array.from(event.clipboardData?.files ?? []).find(isWriterImageFile)
+          if (!file) return false
+          event.preventDefault()
+          importImageFile(file)
+          return true
+        },
+        handleDrop: (view, event, _slice, moved) => {
+          if (moved) return false
+          const file = Array.from(event.dataTransfer?.files ?? []).find(isWriterImageFile)
+          if (!file) return false
+          event.preventDefault()
+          const dropPosition = view.posAtCoords({ left: event.clientX, top: event.clientY })
+          if (dropPosition) {
+            editorRef.current?.commands.setTextSelection(dropPosition.pos)
+          }
+          importImageFile(file)
+          return true
         }
       },
       onUpdate: ({ editor: currentEditor }) => {
@@ -149,6 +190,13 @@ export default function WriterEditor({ document, autosaveRegistry }: WriterEdito
     },
     [autosaveController, document.id]
   )
+
+  useEffect(() => {
+    editorRef.current = editor
+    return () => {
+      if (editorRef.current === editor) editorRef.current = null
+    }
+  }, [editor])
 
   useEffect(() => {
     if (libraryRevision === undefined) return
@@ -173,7 +221,14 @@ export default function WriterEditor({ document, autosaveRegistry }: WriterEdito
     return () => {
       window.removeEventListener('blur', flush)
       window.removeEventListener('beforeunload', flush)
-      void autosaveRegistry.dispose(autosaveController)
+      // 文档关闭时触发该文档的图片资源 GC；必须先等待最后一次自动保存落盘，
+      // 否则正在写入的资源可能被 GC 误回收后又被保存写回磁盘。GC 失败保持静默，
+      // 与退出路径一致——下次启动时的全量 GC 会兜底。整个清理不阻塞卸载。
+      const documentIdForGc = document.id
+      void runWriterDocumentCloseGc(documentIdForGc, {
+        flush: () => autosaveRegistry.dispose(autosaveController),
+        collectGarbage: (id) => window.api.writer.collectGarbage(id)
+      })
       if (useWriterSessionStore.getState().currentDocumentId === document.id) {
         useWriterSessionStore.getState().closeDocument()
       }
@@ -208,10 +263,22 @@ export default function WriterEditor({ document, autosaveRegistry }: WriterEdito
           </span>
         </div>
         <EditorContent editor={editor} className={styles.editorContent} />
+        <input
+          ref={imageInputRef}
+          type="file"
+          accept="image/png,image/jpeg,image/webp,image/gif"
+          aria-label="选择写作图片"
+          hidden
+          onChange={(event) => {
+            const file = event.target.files?.[0]
+            event.target.value = ''
+            if (file) importImageFile(file)
+          }}
+        />
         {editor ? (
           <>
             <WriterBubbleMenu editor={editor} />
-            <WriterSlashMenu editor={editor} />
+            <WriterSlashMenu editor={editor} onSelectImage={() => imageInputRef.current?.click()} />
           </>
         ) : null}
       </div>

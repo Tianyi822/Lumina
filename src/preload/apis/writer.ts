@@ -43,6 +43,8 @@ export const writerApi: WriterApi = {
       declaredMimeType,
       bytes
     }),
+  collectGarbage: (documentId: string): Promise<WriterResult<number>> =>
+    ipcRenderer.invoke('writer:collectGarbage', documentId),
   onFlushRequested: (callback: () => Promise<void> | void): (() => void) => {
     const listener = (): void => {
       void Promise.resolve(callback()).catch(() => undefined)

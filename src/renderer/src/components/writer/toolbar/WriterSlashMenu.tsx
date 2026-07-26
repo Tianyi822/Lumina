@@ -13,6 +13,7 @@ import styles from './WriterToolbar.module.css'
 
 interface WriterSlashMenuProps {
   editor: Editor
+  onSelectImage: () => void
 }
 
 interface SlashMenuState {
@@ -137,15 +138,24 @@ function readSlashMenuState(editor: Editor): SlashMenuState | null {
   }
 }
 
-export default function WriterSlashMenu({ editor }: WriterSlashMenuProps) {
+export default function WriterSlashMenu({ editor, onSelectImage }: WriterSlashMenuProps) {
   const [menuState, setMenuState] = useState<SlashMenuState | null>(null)
   const [selectedIndex, setSelectedIndex] = useState(0)
   const menuStateRef = useRef<SlashMenuState | null>(null)
   const selectedIndexRef = useRef(0)
   const gateRef = useRef<WriterSlashMenuGate>({ suppressed: false })
 
+  const availableItems: SlashMenuItem[] = [
+    ...SLASH_MENU_ITEMS,
+    {
+      id: 'image',
+      label: '图片',
+      keywords: 'image figure 图片',
+      run: onSelectImage
+    }
+  ]
   const items = menuState
-    ? SLASH_MENU_ITEMS.filter((item) =>
+    ? availableItems.filter((item) =>
         `${item.label} ${item.keywords}`.toLowerCase().includes(menuState.query)
       )
     : []

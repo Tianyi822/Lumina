@@ -41,6 +41,7 @@ function mockWriterApi(overrides: Partial<WriterApi>): void {
     renameFolder: async () => ({ success: false, error: '未配置' }),
     deleteFolder: async () => ({ success: true }),
     importAsset: async () => ({ success: false, error: '未配置' }),
+    collectGarbage: async () => ({ success: false, error: '未配置' }),
     onFlushRequested: () => () => undefined,
     acknowledgeFlush: async () => undefined,
     ...overrides

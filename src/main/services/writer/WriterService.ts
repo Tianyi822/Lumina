@@ -6,6 +6,7 @@ import type {
   WriterDocument,
   WriterFolder,
   WriterIndex,
+  WriterJsonNode,
   WriterResult
 } from '@shared/types/writer'
 import type { WriterAssetService } from './WriterAssetService'
@@ -27,7 +28,8 @@ export type WriterStoragePort = Pick<
   | 'setFavorite'
 >
 
-export type WriterAssetPort = Pick<WriterAssetService, 'importBytes'>
+export type WriterAssetPort = Pick<WriterAssetService, 'importBytes'> &
+  Partial<Pick<WriterAssetService, 'collectGarbage'>>
 
 interface WriterServiceOptions {
   storageService: WriterStoragePort
@@ -51,8 +53,14 @@ export class WriterService {
     this.getWebContentsIds = options.getWebContentsIds
   }
 
-  initialize(): Promise<WriterResult<WriterIndex>> {
-    return this.runOperation('初始化写作服务失败', () => this.storageService.initialize())
+  async initialize(): Promise<WriterResult<WriterIndex>> {
+    const result = await this.runOperation('初始化写作服务失败', () =>
+      this.storageService.initialize()
+    )
+    if (result.success && result.data) {
+      await this.collectDocumentsGarbage(result.data.documents.map((document) => document.id))
+    }
+    return result
   }
 
   listDocuments(): Promise<WriterResult<WriterIndex>> {
@@ -151,6 +159,32 @@ export class WriterService {
 
   async flushPendingSaves(): Promise<void> {
     await this.mutationTail
+    const indexResult = await this.runOperation('读取待清理写作文档失败', () =>
+      this.storageService.listDocuments()
+    )
+    if (indexResult.success && indexResult.data) {
+      await this.collectDocumentsGarbage(indexResult.data.documents.map((document) => document.id))
+    }
+  }
+
+  async collectDocumentGarbage(documentId: string): Promise<WriterResult<number>> {
+    if (!this.assetService.collectGarbage) {
+      return { success: true, data: 0 }
+    }
+    const documentResult = await this.runOperation('读取待清理写作文档失败', () =>
+      this.storageService.getDocument(documentId)
+    )
+    if (!documentResult.success || !documentResult.data) {
+      return {
+        success: false,
+        code: documentResult.code,
+        error: documentResult.error
+      }
+    }
+    const referencedPaths = this.collectReferencedAssets(documentId, documentResult.data.content)
+    return this.runOperation('清理写作图片资源失败', () =>
+      this.assetService.collectGarbage!(documentId, referencedPaths)
+    )
   }
 
   private enqueueMutation<T>(
@@ -177,5 +211,43 @@ export class WriterService {
       })
       return { success: false, code: 'io_error', error: errorMessage }
     }
+  }
+
+  private async collectDocumentsGarbage(documentIds: string[]): Promise<void> {
+    for (const documentId of documentIds) {
+      const result = await this.collectDocumentGarbage(documentId)
+      if (!result.success) {
+        logger.warn('写作图片资源清理失败，保留现有资源', 'main', {
+          documentId,
+          error: result.error,
+          code: result.code
+        })
+      }
+    }
+  }
+
+  private collectReferencedAssets(
+    documentId: string,
+    content: WriterDocument['content']
+  ): string[] {
+    const referencedPaths = new Set<string>()
+    const visit = (node: WriterJsonNode): void => {
+      if (node.type === 'image' && node.attrs) {
+        const assetPath = node.attrs.assetPath
+        const src = node.attrs.src
+        if (
+          typeof assetPath === 'string' &&
+          /^assets\/[a-z0-9][a-z0-9.-]*\.(?:png|jpg|webp|gif)$/.test(assetPath) &&
+          src === `lumina://writing/${documentId}/${assetPath}`
+        ) {
+          referencedPaths.add(assetPath)
+        }
+      }
+      for (const child of node.content ?? []) {
+        visit(child)
+      }
+    }
+    visit(content)
+    return [...referencedPaths].sort()
   }
 }

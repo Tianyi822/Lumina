@@ -34,6 +34,7 @@ export interface WriterApi {
     declaredMimeType: string,
     bytes: Uint8Array
   ) => Promise<WriterResult<WriterAsset>>
+  collectGarbage: (documentId: string) => Promise<WriterResult<number>>
   onFlushRequested: (callback: () => Promise<void> | void) => () => void
   acknowledgeFlush: () => Promise<void>
 }
