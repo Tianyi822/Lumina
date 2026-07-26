@@ -22,6 +22,12 @@ import {
   getRegisteredWriterEditor
 } from '@renderer/components/writer/suggestions/writerSuggestionCore'
 import { refreshWriterSuggestionDecorations } from '@renderer/components/writer/suggestions/writerSuggestionPlugin'
+import {
+  resolveWriterAiTurnOptions,
+  type SendWriterAiTurnOptions
+} from './writerAiTurnOptions'
+
+export type { SendWriterAiTurnOptions }
 
 interface UseWriterChatStreamOptions {
   session: SessionData | null
@@ -40,7 +46,8 @@ interface UseWriterChatStreamReturn {
   sendMessage: (
     content: string,
     attachedDocuments?: AttachedDocument[],
-    attachedImages?: AttachedImage[]
+    attachedImages?: AttachedImage[],
+    options?: SendWriterAiTurnOptions
   ) => Promise<void>
   stopRequest: () => Promise<void>
 }
@@ -188,7 +195,8 @@ export function useWriterChatStream(options: UseWriterChatStreamOptions): UseWri
     async (
       content: string,
       attachedDocuments: AttachedDocument[] = [],
-      attachedImages: AttachedImage[] = []
+      attachedImages: AttachedImage[] = [],
+      options?: SendWriterAiTurnOptions
     ): Promise<void> => {
       const targetSession = latestRef.current.session
       if (!targetSession) {
@@ -261,13 +269,14 @@ export function useWriterChatStream(options: UseWriterChatStreamOptions): UseWri
           JSON.stringify(buildChatMessages(nextMessages.slice(0, -1)))
         )
 
+        const turn = resolveWriterAiTurnOptions(options)
         const writerEditor = getRegisteredWriterEditor()
         const writerSession = useWriterSessionStore.getState()
         let writerContext: ReturnType<typeof createWriterAiRequestContext> = null
         if (writerEditor && writerSession.currentDocumentId) {
           const rawContext = createWriterAiRequestContext(
             writerEditor,
-            'document',
+            turn.scope,
             writerSession.revision
           )
           writerContext = rawContext
@@ -292,11 +301,11 @@ export function useWriterChatStream(options: UseWriterChatStreamOptions): UseWri
             sessionId: currentSessionId,
             turnId: assistantMessage.id,
             selectedTools:
-              selected.selectedMCPTools.length > 0
+              turn.includeExternalTools && selected.selectedMCPTools.length > 0
                 ? toToolReferences(selected.selectedMCPTools)
                 : undefined,
             selectedKnowledgeBases:
-              selected.selectedKnowledgeBases.length > 0
+              turn.includeExternalTools && selected.selectedKnowledgeBases.length > 0
                 ? toKnowledgeReferences(selected.selectedKnowledgeBases)
                 : undefined,
             sessionType: 'writer',
