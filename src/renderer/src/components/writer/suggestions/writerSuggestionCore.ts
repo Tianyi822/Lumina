@@ -111,6 +111,111 @@ export function createWriterAiRequestContext(
   }
 }
 
+export interface BoundedWriterAiContextResult {
+  context: WriterAiRequestContext
+  truncated: boolean
+  originalBlockCount: number
+}
+
+export interface BuildBoundedWriterAiContextOptions {
+  /** 字符预算；缺省使用主进程同源常量量级 24000 */
+  charBudget?: number
+}
+
+/**
+ * 在请求构造阶段按 heading 分组截断超长上下文，避免直接超预算失败。
+ * 截断后重建锚点与 expectedTextHash；未超限时原样返回。
+ */
+export function buildBoundedWriterAiContext(
+  context: WriterAiRequestContext,
+  options: BuildBoundedWriterAiContextOptions = {}
+): BoundedWriterAiContextResult {
+  const charBudget = options.charBudget ?? 24_000
+  const originalBlockCount = context.blocks.length
+  if (estimateContextChars(context) <= charBudget) {
+    return { context, truncated: false, originalBlockCount }
+  }
+
+  const sections = groupBlocksByHeading(context.blocks)
+  const kept: WriterAiContextBlock[] = []
+  for (const section of sections) {
+    const candidate = [...kept, ...section]
+    const nextContext = rebuildContextWithBlocks(context, candidate)
+    if (estimateContextChars(nextContext) > charBudget && kept.length > 0) {
+      break
+    }
+    kept.push(...section)
+    if (estimateContextChars(rebuildContextWithBlocks(context, kept)) > charBudget) {
+      // 单节过大时按块回退
+      kept.length = kept.length - section.length
+      for (const block of section) {
+        const withBlock = [...kept, block]
+        if (
+          estimateContextChars(rebuildContextWithBlocks(context, withBlock)) > charBudget &&
+          kept.length > 0
+        ) {
+          break
+        }
+        kept.push(block)
+      }
+      break
+    }
+  }
+
+  const truncatedBlocks = kept.length > 0 ? kept : context.blocks.slice(0, 1)
+  return {
+    context: rebuildContextWithBlocks(context, truncatedBlocks),
+    truncated: truncatedBlocks.length < originalBlockCount,
+    originalBlockCount
+  }
+}
+
+function estimateContextChars(context: WriterAiRequestContext): number {
+  // 与 WriterContextFormatter 同量级：标题元数据 + 块文本
+  const meta = context.title.length + context.documentId.length + 400
+  const body = context.blocks.reduce(
+    (sum, block) => sum + block.text.length + block.nodeId.length + 16,
+    0
+  )
+  return meta + body
+}
+
+function groupBlocksByHeading(blocks: WriterAiContextBlock[]): WriterAiContextBlock[][] {
+  const sections: WriterAiContextBlock[][] = []
+  let current: WriterAiContextBlock[] = []
+  for (const block of blocks) {
+    if (block.type === 'heading' && current.length > 0) {
+      sections.push(current)
+      current = [block]
+    } else {
+      current.push(block)
+    }
+  }
+  if (current.length > 0) sections.push(current)
+  return sections
+}
+
+function rebuildContextWithBlocks(
+  context: WriterAiRequestContext,
+  blocks: WriterAiContextBlock[]
+): WriterAiRequestContext {
+  const first = blocks[0]!
+  const last = blocks[blocks.length - 1]!
+  const joined = blocks.map((block) => block.text).join('\n')
+  return {
+    ...context,
+    blocks,
+    anchor: {
+      ...context.anchor,
+      startBlockId: first.nodeId,
+      endBlockId: last.nodeId,
+      startOffset: 0,
+      endOffset: last.text.length,
+      expectedTextHash: hashWriterText(joined)
+    }
+  }
+}
+
 /** 对当前 EditorState 双重校验整组建议；任一失败则整组拒绝 */
 export function validateProposalAgainstState(
   proposal: WriterAiProposal,
@@ -183,6 +288,17 @@ export function findBlockByNodeId(state: EditorState, nodeId: string): LocatedBl
   return found
 }
 
+function omitBlockPos(
+  block: WriterAiContextBlock & { pos: number }
+): WriterAiContextBlock {
+  return {
+    nodeId: block.nodeId,
+    type: block.type,
+    text: block.text,
+    level: block.level
+  }
+}
+
 function collectContextBlocks(state: EditorState, scope: WriterAiScope): WriterAiContextBlock[] {
   const all: Array<WriterAiContextBlock & { pos: number }> = []
   state.doc.descendants((node, pos) => {
@@ -203,7 +319,7 @@ function collectContextBlocks(state: EditorState, scope: WriterAiScope): WriterA
   })
 
   if (scope === 'document') {
-    return all.map(({ pos: _pos, ...block }) => block)
+    return all.map((block) => omitBlockPos(block))
   }
 
   const { from, to } = state.selection
@@ -215,7 +331,7 @@ function collectContextBlocks(state: EditorState, scope: WriterAiScope): WriterA
         const blockEnd = block.pos + (findBlockByNodeId(state, block.nodeId)?.node.nodeSize ?? 0)
         return block.pos < end && blockEnd > start
       })
-      .map(({ pos: _pos, ...block }) => block)
+      .map((block) => omitBlockPos(block))
   }
 
   // section：从光标所在标题到下一同级/更高级标题
@@ -229,7 +345,7 @@ function collectContextBlocks(state: EditorState, scope: WriterAiScope): WriterA
     }
   }
   if (currentHeadingLevel === null) {
-    return all.map(({ pos: _pos, ...block }) => block)
+    return all.map((block) => omitBlockPos(block))
   }
 
   const section: WriterAiContextBlock[] = []
@@ -583,7 +699,8 @@ function applyOneOperation(
       return tr.delete(from, to)
     case 'insert_blocks': {
       const nodes = op.blocks.map((block) => schema.nodeFromJSON(contextBlockToJson(block)))
-      const insertPos = abs.afterPos !== undefined ? tr.mapping.map(abs.afterPos === 0 ? 1 : abs.afterPos) : from
+      const insertPos =
+        abs.afterPos !== undefined ? tr.mapping.map(abs.afterPos === 0 ? 1 : abs.afterPos) : from
       let next = tr
       let cursor = insertPos
       for (const node of nodes) {

@@ -9,7 +9,6 @@ import PaperChatMessageList, {
 } from '@renderer/components/paper/chat/PaperChatMessageList'
 import { useWriterChatSession } from './useWriterChatSession'
 import { useWriterChatStream } from './useWriterChatStream'
-import WriterSourceSelector from './WriterSourceSelector'
 import styles from './WriterChatPanel.module.css'
 
 interface WriterChatPanelProps {
@@ -17,7 +16,7 @@ interface WriterChatPanelProps {
   documentTitle?: string
 }
 
-/** 写作 AI 面板：独立会话与来源选择，复用通用外壳与输入控件 */
+/** 写作 AI 面板：独立写作会话，复用通用外壳与输入控件（不附带论文来源） */
 export default function WriterChatPanel({ documentId, documentTitle }: WriterChatPanelProps) {
   const notify = useNotification()
   const setWriterChatPanelOpen = useUIStateStore((s) => s.setWriterChatPanelOpen)
@@ -31,7 +30,6 @@ export default function WriterChatPanel({ documentId, documentTitle }: WriterCha
   const sessionState = useWriterChatSession(documentId)
   const streamState = useWriterChatStream({
     session: sessionState.session,
-    selectedPaperId: sessionState.selectedPaperId,
     messagesRef: sessionState.messagesRef,
     setMessages: sessionState.setMessages,
     selectedModel: sessionState.selectedModel,
@@ -140,11 +138,6 @@ export default function WriterChatPanel({ documentId, documentTitle }: WriterCha
                 <SvgIcon name="arrow-down" size={16} />
               </button>
             )}
-            <WriterSourceSelector
-              selectedPaperId={sessionState.selectedPaperId}
-              disabled={sessionState.loading || streamState.isSending}
-              onSelectPaperId={sessionState.updateSelectedPaperId}
-            />
             <PaperChatInput
               sessionId={sessionState.sessionId || 'temp'}
               inputMessage={sessionState.inputMessage}

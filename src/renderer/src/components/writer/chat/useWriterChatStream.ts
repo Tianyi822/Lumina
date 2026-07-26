@@ -17,6 +17,7 @@ import { useWriterChatStore, useWriterSessionStore, useWriterSuggestionStore } f
 import { buildChatMessages } from '@renderer/utils/messageHelpers'
 import { deepClone } from '@shared/utils'
 import {
+  buildBoundedWriterAiContext,
   createWriterAiRequestContext,
   getRegisteredWriterEditor
 } from '@renderer/components/writer/suggestions/writerSuggestionCore'
@@ -24,7 +25,6 @@ import { refreshWriterSuggestionDecorations } from '@renderer/components/writer/
 
 interface UseWriterChatStreamOptions {
   session: SessionData | null
-  selectedPaperId?: string
   messagesRef: MutableRefObject<Message[]>
   setMessages: (messages: Message[]) => void
   selectedModel: string
@@ -69,7 +69,7 @@ function toPlainRequest<T>(request: T): T {
 
 /**
  * 写作对话流式请求 Hook。
- * 仅在用户主动选择论文时附带 paperId；会话类型为 writer。
+ * 写作会话不附带 paperId；正文上下文由 writerContext 提供。
  */
 export function useWriterChatStream(options: UseWriterChatStreamOptions): UseWriterChatStreamReturn {
   const { session, messagesRef, setMessages, saveCurrentSession, setError } = options
@@ -265,11 +265,14 @@ export function useWriterChatStream(options: UseWriterChatStreamOptions): UseWri
         const writerSession = useWriterSessionStore.getState()
         let writerContext: ReturnType<typeof createWriterAiRequestContext> = null
         if (writerEditor && writerSession.currentDocumentId) {
-          writerContext = createWriterAiRequestContext(
+          const rawContext = createWriterAiRequestContext(
             writerEditor,
             'document',
             writerSession.revision
           )
+          writerContext = rawContext
+            ? buildBoundedWriterAiContext(rawContext).context
+            : null
           if (writerContext) {
             useWriterSuggestionStore
               .getState()
@@ -287,8 +290,6 @@ export function useWriterChatStream(options: UseWriterChatStreamOptions): UseWri
             messages: chatMessages,
             modelKey: selected.selectedModel,
             sessionId: currentSessionId,
-            // 仅用户主动选择论文时附带 paperId
-            paperId: selected.selectedPaperId,
             turnId: assistantMessage.id,
             selectedTools:
               selected.selectedMCPTools.length > 0
