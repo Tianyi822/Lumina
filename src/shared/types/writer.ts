@@ -83,3 +83,101 @@ export interface SaveWriterDocumentRequest {
 }
 
 export type WriterExportFormat = 'markdown' | 'docx' | 'pdf'
+
+export type WriterAiScope = 'cursor' | 'selection' | 'section' | 'document'
+
+export interface WriterAiAnchor {
+  documentId: string
+  baseRevision: number
+  scope: WriterAiScope
+  startBlockId: string
+  endBlockId: string
+  startOffset: number
+  endOffset: number
+  expectedTextHash: string
+}
+
+export interface WriterAiContextBlock {
+  nodeId: string
+  type: 'paragraph' | 'heading' | 'listItem' | 'blockquote' | 'codeBlock' | 'blockMath'
+  text: string
+  level?: number
+}
+
+export interface WriterAiRequestContext {
+  documentId: string
+  baseRevision: number
+  title: string
+  anchor: WriterAiAnchor
+  blocks: WriterAiContextBlock[]
+}
+
+export type WriterEditOperationInput =
+  | {
+      kind: 'insert_text'
+      blockId: string
+      offset: number
+      text: string
+    }
+  | {
+      kind: 'replace_text'
+      blockId: string
+      from: number
+      to: number
+      text: string
+    }
+  | {
+      kind: 'delete_text'
+      blockId: string
+      from: number
+      to: number
+    }
+  | {
+      kind: 'insert_blocks' | 'replace_blocks'
+      afterBlockId?: string
+      targetBlockIds?: string[]
+      blocks: WriterAiContextBlock[]
+    }
+
+export type WriterEditOperation =
+  | {
+      kind: 'insert_text'
+      blockId: string
+      offset: number
+      text: string
+    }
+  | {
+      kind: 'replace_text'
+      blockId: string
+      from: number
+      to: number
+      text: string
+      expectedTextHash: string
+    }
+  | {
+      kind: 'delete_text'
+      blockId: string
+      from: number
+      to: number
+      expectedTextHash: string
+    }
+  | {
+      kind: 'insert_blocks'
+      afterBlockId?: string
+      blocks: WriterAiContextBlock[]
+    }
+  | {
+      kind: 'replace_blocks'
+      targetBlockIds: string[]
+      blocks: WriterAiContextBlock[]
+      expectedBlockHashes: Record<string, string>
+    }
+
+export interface WriterAiProposal {
+  proposalId: string
+  documentId: string
+  baseRevision: number
+  anchor: WriterAiAnchor
+  operations: WriterEditOperation[]
+  createdAt: string
+}

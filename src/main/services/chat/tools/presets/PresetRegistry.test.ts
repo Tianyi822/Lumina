@@ -1,7 +1,12 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { PresetRegistry } from './PresetRegistry'
-import { CHAT_PAPER_PRESET, CHAT_DEFAULT_PRESET, SESSION_TYPE_TO_PRESET } from './builtinPresets'
+import {
+  CHAT_PAPER_PRESET,
+  CHAT_DEFAULT_PRESET,
+  CHAT_WRITER_PRESET,
+  SESSION_TYPE_TO_PRESET
+} from './builtinPresets'
 
 describe('PresetRegistry', () => {
   it('注册和获取预设', () => {
@@ -38,10 +43,19 @@ describe('builtinPresets', () => {
     assert.equal(CHAT_DEFAULT_PRESET.defaultComposition.stages.length, 0)
   })
 
+  it('chat.writer 默认激活 writer，knowledge/paper 按需', () => {
+    assert.deepEqual(CHAT_WRITER_PRESET.defaultCapabilities, ['writer'])
+    assert.equal(CHAT_WRITER_PRESET.defaultComposition.mergeStrategy, 'none')
+    assert.equal(CHAT_WRITER_PRESET.defaultComposition.stages[0].capabilityId, 'writer')
+    assert.equal(CHAT_WRITER_PRESET.defaultComposition.stages[1].capabilityId, 'paper')
+    assert.equal(CHAT_WRITER_PRESET.defaultComposition.stages[2].capabilityId, 'knowledge')
+  })
+
   it('SESSION_TYPE_TO_PRESET 映射完整', () => {
     assert.equal(SESSION_TYPE_TO_PRESET['paper'], 'chat.paper')
     assert.equal(SESSION_TYPE_TO_PRESET['default'], 'chat.default')
     assert.equal(SESSION_TYPE_TO_PRESET['knowledge'], 'chat.default')
     assert.equal(SESSION_TYPE_TO_PRESET['tool'], 'chat.default')
+    assert.equal(SESSION_TYPE_TO_PRESET['writer'], 'chat.writer')
   })
 })

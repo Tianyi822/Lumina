@@ -84,7 +84,7 @@ export class ToolResultEnricher {
    */
   inferCategory(toolName: string): ToolCategory {
     const prefix = toolName.split('__')[0]
-    const knownCategories: ToolCategory[] = ['paper', 'knowledge', 'paper_web', 'mcp']
+    const knownCategories: ToolCategory[] = ['paper', 'knowledge', 'paper_web', 'writer', 'mcp']
     if (knownCategories.includes(prefix as ToolCategory)) {
       return prefix as ToolCategory
     }

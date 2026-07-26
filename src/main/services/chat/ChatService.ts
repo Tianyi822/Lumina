@@ -22,6 +22,13 @@ import {
   extractTokenUsage,
   recordPromptCacheDiagnostics
 } from './PromptCacheOptimizer'
+import { writerAiRequestContextSchema } from '@shared/schemas/writerSchema'
+
+/** 判断请求是否携带有效的写作 AI 上下文 */
+export function hasValidWriterContext(request: Pick<ChatRequest, 'writerContext'>): boolean {
+  if (!request.writerContext) return false
+  return writerAiRequestContextSchema.safeParse(request.writerContext).success
+}
 
 /**
  * 聊天服务
@@ -79,10 +86,12 @@ export class ChatService {
 
     const hasKnowledgeBases = selectedKnowledgeBases && selectedKnowledgeBases.length > 0
     const hasPaperContextTool = request.sessionType === 'paper' && !!request.paperId
+    const hasWriterContext = hasValidWriterContext(request)
     const hasTools =
       (selectedTools && selectedTools.length > 0) ||
       request.enablePaperWebSearch ||
-      hasPaperContextTool
+      hasPaperContextTool ||
+      hasWriterContext
 
     // 路由决策：Plan-Execute -> ReAct -> 直接调用（优先级依次降低）
     // 显式开启规划模式 → Plan-Execute;否则按最后一条用户消息复杂度自动路由(仅 paper 会话)

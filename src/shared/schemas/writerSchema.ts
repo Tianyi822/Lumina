@@ -1,7 +1,13 @@
 import { z } from 'zod'
 import type {
   SaveWriterDocumentRequest,
+  WriterAiAnchor,
+  WriterAiContextBlock,
+  WriterAiProposal,
+  WriterAiRequestContext,
   WriterDocument,
+  WriterEditOperation,
+  WriterEditOperationInput,
   WriterJsonDocument,
   WriterJsonMark,
   WriterJsonNode
@@ -51,4 +57,140 @@ export const saveWriterDocumentRequestSchema: z.ZodType<SaveWriterDocumentReques
   expectedRevision: z.number().int().nonnegative(),
   title: writerTitleSchema,
   content: writerJsonDocumentSchema
+})
+
+const writerAiScopeSchema = z.enum(['cursor', 'selection', 'section', 'document'])
+
+const writerAiContextBlockTypeSchema = z.enum([
+  'paragraph',
+  'heading',
+  'listItem',
+  'blockquote',
+  'codeBlock',
+  'blockMath'
+])
+
+export const writerAiContextBlockSchema: z.ZodType<WriterAiContextBlock> = z.object({
+  nodeId: z.string().min(1),
+  type: writerAiContextBlockTypeSchema,
+  text: z.string(),
+  level: z.number().int().min(1).max(6).optional()
+})
+
+export const writerAiAnchorSchema: z.ZodType<WriterAiAnchor> = z.object({
+  documentId: writerIdSchema,
+  baseRevision: z.number().int().nonnegative(),
+  scope: writerAiScopeSchema,
+  startBlockId: z.string().min(1),
+  endBlockId: z.string().min(1),
+  startOffset: z.number().int().nonnegative(),
+  endOffset: z.number().int().nonnegative(),
+  expectedTextHash: z.string().min(1)
+})
+
+export const writerAiRequestContextSchema: z.ZodType<WriterAiRequestContext> = z.object({
+  documentId: writerIdSchema,
+  baseRevision: z.number().int().nonnegative(),
+  title: writerTitleSchema,
+  anchor: writerAiAnchorSchema,
+  blocks: z.array(writerAiContextBlockSchema).min(1)
+})
+
+const writerInsertTextInputSchema = z.object({
+  kind: z.literal('insert_text'),
+  blockId: z.string().min(1),
+  offset: z.number().int().nonnegative(),
+  text: z.string()
+})
+
+const writerReplaceTextInputSchema = z.object({
+  kind: z.literal('replace_text'),
+  blockId: z.string().min(1),
+  from: z.number().int().nonnegative(),
+  to: z.number().int().nonnegative(),
+  text: z.string()
+})
+
+const writerDeleteTextInputSchema = z.object({
+  kind: z.literal('delete_text'),
+  blockId: z.string().min(1),
+  from: z.number().int().nonnegative(),
+  to: z.number().int().nonnegative()
+})
+
+const writerBlockOpsInputSchema = z.object({
+  kind: z.enum(['insert_blocks', 'replace_blocks']),
+  afterBlockId: z.string().min(1).optional(),
+  targetBlockIds: z.array(z.string().min(1)).optional(),
+  blocks: z.array(writerAiContextBlockSchema).min(1)
+})
+
+export const writerEditOperationInputSchema: z.ZodType<WriterEditOperationInput> = z.discriminatedUnion(
+  'kind',
+  [
+    writerInsertTextInputSchema,
+    writerReplaceTextInputSchema,
+    writerDeleteTextInputSchema,
+    writerBlockOpsInputSchema
+  ]
+)
+
+export const writerProposeEditsArgsSchema = z
+  .object({
+    operations: z.array(writerEditOperationInputSchema).min(1).max(100)
+  })
+  .strict()
+
+const writerInsertTextOpSchema = z.object({
+  kind: z.literal('insert_text'),
+  blockId: z.string().min(1),
+  offset: z.number().int().nonnegative(),
+  text: z.string()
+})
+
+const writerReplaceTextOpSchema = z.object({
+  kind: z.literal('replace_text'),
+  blockId: z.string().min(1),
+  from: z.number().int().nonnegative(),
+  to: z.number().int().nonnegative(),
+  text: z.string(),
+  expectedTextHash: z.string().min(1)
+})
+
+const writerDeleteTextOpSchema = z.object({
+  kind: z.literal('delete_text'),
+  blockId: z.string().min(1),
+  from: z.number().int().nonnegative(),
+  to: z.number().int().nonnegative(),
+  expectedTextHash: z.string().min(1)
+})
+
+const writerInsertBlocksOpSchema = z.object({
+  kind: z.literal('insert_blocks'),
+  afterBlockId: z.string().min(1).optional(),
+  blocks: z.array(writerAiContextBlockSchema).min(1)
+})
+
+const writerReplaceBlocksOpSchema = z.object({
+  kind: z.literal('replace_blocks'),
+  targetBlockIds: z.array(z.string().min(1)).min(1),
+  blocks: z.array(writerAiContextBlockSchema).min(1),
+  expectedBlockHashes: z.record(z.string(), z.string())
+})
+
+export const writerEditOperationSchema: z.ZodType<WriterEditOperation> = z.discriminatedUnion('kind', [
+  writerInsertTextOpSchema,
+  writerReplaceTextOpSchema,
+  writerDeleteTextOpSchema,
+  writerInsertBlocksOpSchema,
+  writerReplaceBlocksOpSchema
+])
+
+export const writerAiProposalSchema: z.ZodType<WriterAiProposal> = z.object({
+  proposalId: z.string().min(1),
+  documentId: writerIdSchema,
+  baseRevision: z.number().int().nonnegative(),
+  anchor: writerAiAnchorSchema,
+  operations: z.array(writerEditOperationSchema).min(1).max(100),
+  createdAt: z.string().min(1)
 })
