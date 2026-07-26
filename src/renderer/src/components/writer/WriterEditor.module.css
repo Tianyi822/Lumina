@@ -8,18 +8,19 @@
 }
 
 .content {
-  width: min(100%, var(--sm-writer-content-max-width));
+  width: 100%;
   min-height: 100%;
-  margin: 0 auto;
-  padding: clamp(var(--sm-space-6), 6vw, calc(var(--sm-space-6) * 2));
+  box-sizing: border-box;
+  padding: clamp(var(--sm-space-6), 4vw, calc(var(--sm-space-6) * 2))
+    max(var(--sm-space-6), var(--sm-window-controls-safe-width, 0px))
+    clamp(var(--sm-space-6), 6vw, calc(var(--sm-space-6) * 2))
+    var(--sm-space-6);
 }
 
 .titleRow {
   display: flex;
   align-items: center;
   gap: var(--sm-space-4);
-  padding-top: var(--sm-titlebar-height);
-  padding-right: var(--sm-window-controls-safe-width, 0px);
   padding-bottom: var(--sm-space-6);
 }
 
@@ -125,6 +126,15 @@
   font-family: var(--sm-font-mono);
 }
 
+/* NodeView 代码块外层已有边框，内层 pre 不再套边框/底色，避免双边框 */
+.editorContent :global(.tiptap [data-writer-code-block] pre) {
+  margin: 0;
+  padding: var(--sm-space-4);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
 .editorContent :global(.tiptap code) {
   font-family: var(--sm-font-mono);
 }
@@ -194,7 +204,13 @@
 }
 
 .editorContent :global(.tiptap ::selection) {
-  background: var(--sm-color-surface-selected);
+  background: var(--sm-selection-background);
+  color: var(--sm-selection-color);
+}
+
+.editorContent :global(.tiptap *::selection) {
+  background: var(--sm-selection-background);
+  color: var(--sm-selection-color);
 }
 
 .editorContent :global(.tiptap .writer-footnote-ref) {
@@ -251,4 +267,13 @@
   padding: var(--sm-space-2);
   border-radius: var(--sm-radius-sm);
   white-space: pre-wrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .editorContent :global(.sm-writer-diff-add),
+  .editorContent :global(.sm-writer-diff-delete),
+  .editorContent :global(.sm-writer-diff-add-block),
+  .editorContent :global(.sm-writer-diff-delete-block) {
+    transition: none;
+  }
 }

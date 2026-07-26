@@ -69,7 +69,7 @@ export default function WriterImageView({
       onClick={selectImage}
       onKeyDown={handleKeyDown}
     >
-      <img className={styles.image} src={src} alt={alt} draggable={false} />
+      <img className={styles.image} src={src} alt={alt} loading="lazy" decoding="async" draggable={false} />
       {selected ? (
         <div
           className={styles.toolbar}

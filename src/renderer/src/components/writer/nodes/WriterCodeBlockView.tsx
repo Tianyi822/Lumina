@@ -34,7 +34,11 @@ export default function WriterCodeBlockView({ node, updateAttributes }: NodeView
   }
 
   return (
-    <NodeViewWrapper className={styles.codeBlock} data-language={language ?? undefined}>
+    <NodeViewWrapper
+      className={styles.codeBlock}
+      data-writer-code-block=""
+      data-language={language ?? undefined}
+    >
       <div className={styles.toolbar} contentEditable={false}>
         <label className={styles.languageLabel}>
           代码语言

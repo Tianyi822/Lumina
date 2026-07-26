@@ -1,61 +1,83 @@
 .bubbleMenu {
   display: flex;
   align-items: center;
-  gap: var(--sm-space-2);
-  max-width: min(90vw, calc(var(--sm-space-6) * 24));
-  padding: var(--sm-space-2);
+  gap: 4px;
+  max-width: min(90vw, calc(var(--sm-space-6) * 28));
+  min-width: auto;
+  padding: 6px;
   overflow-x: auto;
   border: 1px solid var(--sm-color-border-default);
-  border-radius: var(--sm-radius-lg);
-  background: var(--sm-color-surface-3);
-  box-shadow: var(--sm-shadow-md);
+  border-radius: 10px;
+  background: var(--sm-color-surface-1);
+  box-shadow: none;
+  backdrop-filter: blur(18px);
 }
 
 .toolbarButton,
 .linkSubmit,
 .slashItem {
   border: 0;
-  border-radius: var(--sm-radius-md);
+  border-radius: 6px;
   background: transparent;
-  color: var(--sm-color-text-secondary);
+  color: var(--sm-color-text-primary);
   font: inherit;
-  font-size: var(--sm-writer-status-font-size);
+  font-size: 13px;
   cursor: pointer;
+  transition: background-color 0.12s ease;
 }
 
 .toolbarButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   flex: 0 0 auto;
-  padding: var(--sm-space-2) var(--sm-space-3);
+  height: 28px;
+  padding: 0 8px;
+  white-space: nowrap;
 }
 
 .toolbarButton:hover,
 .toolbarButton:focus-visible,
-.toolbarButton[data-active],
 .slashItem:hover,
-.slashItem:focus-visible,
+.slashItem:focus-visible {
+  outline: 0;
+  background: var(--sm-color-surface-hover);
+  color: var(--sm-color-text-primary);
+}
+
+.toolbarButton[data-active],
+.toolbarButton[aria-pressed='true'],
 .slashItem[data-active] {
   outline: 0;
-  background: var(--sm-color-surface-selected);
+  background: var(--sm-color-accent-16);
   color: var(--sm-color-text-primary);
+}
+
+.toolbarButton[data-active]:hover,
+.toolbarButton[aria-pressed='true']:hover {
+  background: var(--sm-color-accent-22);
 }
 
 .linkForm {
   display: flex;
   align-items: center;
-  gap: var(--sm-space-2);
+  gap: 4px;
   min-width: calc(var(--sm-space-6) * 8);
+  padding-left: 4px;
+  border-left: 1px solid var(--sm-color-border-subtle);
 }
 
 .linkInput {
   min-width: 0;
-  padding: var(--sm-space-2) var(--sm-space-3);
+  height: 28px;
+  padding: 0 8px;
   border: 1px solid var(--sm-color-border-default);
-  border-radius: var(--sm-radius-md);
+  border-radius: 6px;
   outline: 0;
-  background: var(--sm-color-surface-1);
+  background: var(--sm-color-surface-2);
   color: var(--sm-color-text-primary);
   font: inherit;
-  font-size: var(--sm-writer-status-font-size);
+  font-size: 13px;
 }
 
 .linkInput:focus {
@@ -67,7 +89,8 @@
 }
 
 .linkSubmit {
-  padding: var(--sm-space-2) var(--sm-space-3);
+  height: 28px;
+  padding: 0 8px;
   background: var(--sm-color-accent);
   color: var(--sm-color-text-selected);
 }
@@ -81,25 +104,29 @@
   flex-direction: column;
   width: calc(var(--sm-space-6) * 9);
   max-height: min(50vh, calc(var(--sm-space-6) * 14));
-  padding: var(--sm-space-2);
+  padding: 6px;
   overflow-y: auto;
   border: 1px solid var(--sm-color-border-default);
-  border-radius: var(--sm-radius-lg);
-  background: var(--sm-color-surface-3);
-  box-shadow: var(--sm-shadow-lg);
+  border-radius: 10px;
+  background: var(--sm-color-surface-1);
+  box-shadow:
+    0 16px 40px rgba(15, 23, 42, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(18px);
   transform: translateY(var(--sm-space-2));
 }
 
 .slashItem {
   width: 100%;
-  padding: var(--sm-space-3);
+  height: 28px;
+  padding: 0 8px;
   text-align: left;
 }
 
 .emptyState {
   padding: var(--sm-space-3);
   color: var(--sm-color-text-tertiary);
-  font-size: var(--sm-writer-status-font-size);
+  font-size: 13px;
 }
 
 .srOnly {
