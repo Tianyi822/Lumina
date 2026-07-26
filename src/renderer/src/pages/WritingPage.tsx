@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { WriterDocument } from '@shared/types/writer'
 import WriterEditor from '@renderer/components/writer/WriterEditor'
 import type { WriterSnapshot } from '@renderer/components/writer/WriterEditor'
 import {
-  WriterAutosaveController,
+  WriterAutosaveFlushRegistry,
   flushWriterAutosaveAndAcknowledge
 } from '@renderer/components/writer/writerAutosave'
 import { useWriterLibraryStore } from '@renderer/stores/writer'
@@ -16,14 +16,10 @@ export default function WritingPage() {
   const [document, setDocument] = useState<WriterDocument | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const autosaveControllerRef = useRef<WriterAutosaveController<WriterSnapshot> | null>(null)
-
-  const handleAutosaveControllerChange = useCallback(
-    (controller: WriterAutosaveController<WriterSnapshot> | null): void => {
-      autosaveControllerRef.current = controller
-    },
-    []
-  )
+  const autosaveRegistryRef = useRef<WriterAutosaveFlushRegistry<WriterSnapshot> | null>(null)
+  if (!autosaveRegistryRef.current) {
+    autosaveRegistryRef.current = new WriterAutosaveFlushRegistry<WriterSnapshot>()
+  }
 
   useEffect(() => {
     let active = true
@@ -66,14 +62,9 @@ export default function WritingPage() {
   useEffect(
     () =>
       window.api.writer.onFlushRequested(async () => {
-        const controller = autosaveControllerRef.current
-        if (controller) {
-          await flushWriterAutosaveAndAcknowledge(controller, () =>
-            window.api.writer.acknowledgeFlush()
-          )
-          return
-        }
-        await window.api.writer.acknowledgeFlush()
+        await flushWriterAutosaveAndAcknowledge(autosaveRegistryRef.current!, () =>
+          window.api.writer.acknowledgeFlush()
+        )
       }),
     []
   )
@@ -86,7 +77,7 @@ export default function WritingPage() {
         <WriterEditor
           key={document.id}
           document={document}
-          onAutosaveControllerChange={handleAutosaveControllerChange}
+          autosaveRegistry={autosaveRegistryRef.current}
         />
       ) : (
         <div className={styles.state}>

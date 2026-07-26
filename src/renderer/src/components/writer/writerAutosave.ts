@@ -14,6 +14,16 @@ export interface WriterAutosaveControllerOptions<T> {
   save: (snapshot: T) => Promise<WriterAutosaveResult>
 }
 
+export interface WriterRevisionSaveResult extends WriterAutosaveResult {
+  revision?: number
+  error?: string
+}
+
+export interface WriterRevisionCoordinatorOptions<T> {
+  initialRevision: number
+  save: (snapshot: T, expectedRevision: number) => Promise<WriterRevisionSaveResult>
+}
+
 const systemClock: WriterAutosaveClock = {
   setTimeout: (callback, delayMs) => window.setTimeout(callback, delayMs),
   clearTimeout: (timerId) => window.clearTimeout(timerId as number)
@@ -110,11 +120,72 @@ export class WriterAutosaveController<T> {
   }
 }
 
+/** 统一正文保存使用的 revision，并只接受单调递增的外部元数据 revision。 */
+export class WriterRevisionCoordinator<T> {
+  private currentRevision: number
+  private readonly saveSnapshot: WriterRevisionCoordinatorOptions<T>['save']
+
+  constructor(options: WriterRevisionCoordinatorOptions<T>) {
+    this.currentRevision = options.initialRevision
+    this.saveSnapshot = options.save
+  }
+
+  get revision(): number {
+    return this.currentRevision
+  }
+
+  syncExternalRevision(revision: number): void {
+    this.currentRevision = Math.max(this.currentRevision, revision)
+  }
+
+  async save(snapshot: T): Promise<WriterRevisionSaveResult> {
+    const result = await this.saveSnapshot(snapshot, this.currentRevision)
+    if (result.success && result.revision !== undefined) {
+      this.currentRevision = Math.max(this.currentRevision, result.revision)
+    }
+    return result
+  }
+}
+
+/** 页面级持有当前与正在卸载的控制器，退出 ACK 前统一等待所有保存完成。 */
+export class WriterAutosaveFlushRegistry<T> {
+  private readonly activeControllers = new Set<WriterAutosaveController<T>>()
+  private readonly disposingPromises = new Set<Promise<void>>()
+
+  register(controller: WriterAutosaveController<T>): void {
+    this.activeControllers.add(controller)
+  }
+
+  dispose(controller: WriterAutosaveController<T>): Promise<void> {
+    this.activeControllers.delete(controller)
+    const trackedPromise = controller.dispose()
+    this.disposingPromises.add(trackedPromise)
+    void trackedPromise.then(
+      () => {
+        this.disposingPromises.delete(trackedPromise)
+      },
+      () => {
+        this.disposingPromises.delete(trackedPromise)
+      }
+    )
+    return trackedPromise
+  }
+
+  async flush(): Promise<void> {
+    do {
+      await Promise.all([
+        ...[...this.activeControllers].map((controller) => controller.flush()),
+        ...this.disposingPromises
+      ])
+    } while (this.disposingPromises.size > 0)
+  }
+}
+
 /** 退出握手必须先等 renderer 最后快照落盘，再通知主进程继续退出。 */
 export async function flushWriterAutosaveAndAcknowledge<T>(
-  controller: Pick<WriterAutosaveController<T>, 'flush'>,
+  target: Pick<WriterAutosaveController<T>, 'flush'>,
   acknowledge: () => Promise<void>
 ): Promise<void> {
-  await controller.flush()
+  await target.flush()
   await acknowledge()
 }

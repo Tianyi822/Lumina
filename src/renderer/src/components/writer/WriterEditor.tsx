@@ -10,18 +10,23 @@ import { EditorContent, useEditor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import type { WriterDocument, WriterJsonDocument } from '@shared/types/writer'
 import { useNotification } from '@renderer/composables/useNotification'
-import { useWriterSessionStore } from '@renderer/stores/writer'
-import { WriterAutosaveController } from './writerAutosave'
+import { useWriterLibraryStore, useWriterSessionStore } from '@renderer/stores/writer'
+import {
+  WriterAutosaveController,
+  WriterAutosaveFlushRegistry,
+  WriterRevisionCoordinator
+} from './writerAutosave'
 import styles from './WriterEditor.module.css'
 
 export interface WriterSnapshot {
   title: string
   content: WriterJsonDocument
+  editVersion: number
 }
 
 export interface WriterEditorProps {
   document: WriterDocument
-  onAutosaveControllerChange: (controller: WriterAutosaveController<WriterSnapshot> | null) => void
+  autosaveRegistry: WriterAutosaveFlushRegistry<WriterSnapshot>
 }
 
 const AUTOSAVE_DELAY_MS = 600
@@ -50,12 +55,36 @@ function getSaveStatusLabel(
 }
 
 /** 写作正文由 Tiptap EditorState 持有，Zustand 只记录保存会话摘要。 */
-export default function WriterEditor({ document, onAutosaveControllerChange }: WriterEditorProps) {
+export default function WriterEditor({ document, autosaveRegistry }: WriterEditorProps) {
   const notify = useNotification()
   const saveStatus = useWriterSessionStore((state) => state.saveStatus)
+  const libraryRevision = useWriterLibraryStore(
+    (state) => state.documents.find((item) => item.id === document.id)?.revision
+  )
   const [title, setTitle] = useState(document.title)
   const titleRef = useRef(document.title)
-  const revisionRef = useRef(document.revision)
+
+  const revisionCoordinator = useMemo(
+    () =>
+      new WriterRevisionCoordinator<WriterSnapshot>({
+        initialRevision: document.revision,
+        save: async (snapshot, expectedRevision) => {
+          const result = await window.api.writer.save({
+            documentId: document.id,
+            expectedRevision,
+            title: snapshot.title,
+            content: snapshot.content
+          })
+          return {
+            success: result.success,
+            code: result.code,
+            error: result.error,
+            revision: result.data?.revision
+          }
+        }
+      }),
+    [document.id, document.revision]
+  )
 
   const autosaveController = useMemo(
     () =>
@@ -73,17 +102,13 @@ export default function WriterEditor({ document, onAutosaveControllerChange }: W
           if (sessionStore.currentDocumentId === document.id) sessionStore.markSaving()
 
           try {
-            const result = await window.api.writer.save({
-              documentId: document.id,
-              expectedRevision: revisionRef.current,
-              title: snapshot.title,
-              content: snapshot.content
-            })
+            const result = await revisionCoordinator.save(snapshot)
 
-            if (result.success && result.data) {
-              revisionRef.current = result.data.revision
+            if (result.success && result.revision !== undefined) {
               if (useWriterSessionStore.getState().currentDocumentId === document.id) {
-                useWriterSessionStore.getState().applySaveResult(result.data.revision)
+                useWriterSessionStore
+                  .getState()
+                  .applySaveResult(result.revision, snapshot.editVersion)
               }
               return { success: true }
             }
@@ -115,7 +140,7 @@ export default function WriterEditor({ document, onAutosaveControllerChange }: W
           }
         }
       }),
-    [document.id, notify]
+    [document.id, notify, revisionCoordinator]
   )
 
   const editor = useEditor(
@@ -130,10 +155,11 @@ export default function WriterEditor({ document, onAutosaveControllerChange }: W
         }
       },
       onUpdate: ({ editor: currentEditor }) => {
-        useWriterSessionStore.getState().markDirty()
+        const editVersion = useWriterSessionStore.getState().markDirty()
         autosaveController.schedule({
           title: titleRef.current,
-          content: currentEditor.getJSON() as WriterJsonDocument
+          content: currentEditor.getJSON() as WriterJsonDocument,
+          editVersion
         })
       }
     },
@@ -141,8 +167,18 @@ export default function WriterEditor({ document, onAutosaveControllerChange }: W
   )
 
   useEffect(() => {
-    useWriterSessionStore.getState().openDocument(document.id, document.revision, document.title)
-    onAutosaveControllerChange(autosaveController)
+    if (libraryRevision === undefined) return
+    revisionCoordinator.syncExternalRevision(libraryRevision)
+    if (useWriterSessionStore.getState().currentDocumentId === document.id) {
+      useWriterSessionStore.getState().syncRevision(revisionCoordinator.revision)
+    }
+  }, [document.id, libraryRevision, revisionCoordinator])
+
+  useEffect(() => {
+    useWriterSessionStore
+      .getState()
+      .openDocument(document.id, revisionCoordinator.revision, document.title)
+    autosaveRegistry.register(autosaveController)
 
     const flush = (): void => {
       void autosaveController.flush()
@@ -153,27 +189,21 @@ export default function WriterEditor({ document, onAutosaveControllerChange }: W
     return () => {
       window.removeEventListener('blur', flush)
       window.removeEventListener('beforeunload', flush)
-      onAutosaveControllerChange(null)
-      void autosaveController.dispose()
+      void autosaveRegistry.dispose(autosaveController)
       if (useWriterSessionStore.getState().currentDocumentId === document.id) {
         useWriterSessionStore.getState().closeDocument()
       }
     }
-  }, [
-    autosaveController,
-    document.id,
-    document.revision,
-    document.title,
-    onAutosaveControllerChange
-  ])
+  }, [autosaveController, autosaveRegistry, document.id, document.title, revisionCoordinator])
 
   const handleTitleChange = (nextTitle: string): void => {
     setTitle(nextTitle)
     titleRef.current = nextTitle
-    useWriterSessionStore.getState().markDirty(nextTitle)
+    const editVersion = useWriterSessionStore.getState().markDirty(nextTitle)
     autosaveController.schedule({
       title: nextTitle,
-      content: (editor?.getJSON() as WriterJsonDocument | undefined) ?? document.content
+      content: (editor?.getJSON() as WriterJsonDocument | undefined) ?? document.content,
+      editVersion
     })
   }
 

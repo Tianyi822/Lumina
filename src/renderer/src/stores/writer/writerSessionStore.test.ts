@@ -91,3 +91,35 @@ test('切换文档时只切换会话摘要并重置旧文档保存状态', () =>
     }
   )
 })
+
+test('在途保存响应只推进 revision，不清除响应后产生的新编辑', () => {
+  resetStore()
+  const store = useWriterSessionStore.getState()
+
+  store.openDocument('writer-document-a', 3, '研究笔记')
+  const savingVersion = store.markDirty('第一次编辑')
+  store.markSaving()
+  const latestVersion = store.markDirty('保存期间的新编辑')
+  store.applySaveResult(4, savingVersion)
+
+  assert.equal(latestVersion > savingVersion, true)
+  assert.equal(useWriterSessionStore.getState().revision, 4)
+  assert.equal(useWriterSessionStore.getState().dirty, true)
+  assert.equal(useWriterSessionStore.getState().saveStatus, 'dirty')
+  assert.equal(useWriterSessionStore.getState().titleSummary, '保存期间的新编辑')
+})
+
+test('外部 revision 同步不覆盖 dirty、编辑版本或内存摘要', () => {
+  resetStore()
+  const store = useWriterSessionStore.getState()
+
+  store.openDocument('writer-document-a', 3, '研究笔记')
+  const editVersion = store.markDirty('内存中的新标题')
+  store.syncRevision(8)
+
+  assert.equal(useWriterSessionStore.getState().revision, 8)
+  assert.equal(useWriterSessionStore.getState().dirty, true)
+  assert.equal(useWriterSessionStore.getState().saveStatus, 'dirty')
+  assert.equal(useWriterSessionStore.getState().editVersion, editVersion)
+  assert.equal(useWriterSessionStore.getState().titleSummary, '内存中的新标题')
+})

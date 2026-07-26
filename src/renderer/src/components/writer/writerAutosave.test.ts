@@ -1,6 +1,11 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { WriterAutosaveController, flushWriterAutosaveAndAcknowledge } from './writerAutosave'
+import {
+  WriterAutosaveController,
+  WriterAutosaveFlushRegistry,
+  WriterRevisionCoordinator,
+  flushWriterAutosaveAndAcknowledge
+} from './writerAutosave'
 import type { WriterAutosaveClock } from './writerAutosave'
 
 interface ManualTimer {
@@ -192,4 +197,99 @@ test('退出 ACK 只在最后快照完成保存后发送', async () => {
   await handshakePromise
 
   assert.deepEqual(events, ['save:start', 'save:end', 'ack'])
+})
+
+test('新 controller 尚未挂载时退出仍等待旧 controller dispose 完成', async () => {
+  const oldSave = createDeferred()
+  const events: string[] = []
+  const registry = new WriterAutosaveFlushRegistry<string>()
+  const oldController = new WriterAutosaveController<string>({
+    delayMs: 600,
+    clock: createManualAutosaveClock(),
+    save: async () => {
+      events.push('old:start')
+      await oldSave.promise
+      events.push('old:end')
+      return { success: true }
+    }
+  })
+  registry.register(oldController)
+  oldController.schedule('旧文档最后快照')
+  void registry.dispose(oldController)
+
+  const handshakePromise = flushWriterAutosaveAndAcknowledge(registry, async () => {
+    events.push('ack')
+  })
+  await Promise.resolve()
+  assert.deepEqual(events, ['old:start'])
+
+  oldSave.resolve()
+  await handshakePromise
+
+  assert.deepEqual(events, ['old:start', 'old:end', 'ack'])
+})
+
+test('快速切换文档后退出同时等待旧 controller dispose 和新 controller flush', async () => {
+  const oldSave = createDeferred()
+  const newSave = createDeferred()
+  const events: string[] = []
+  const registry = new WriterAutosaveFlushRegistry<string>()
+  const oldController = new WriterAutosaveController<string>({
+    delayMs: 600,
+    clock: createManualAutosaveClock(),
+    save: async () => {
+      events.push('old:start')
+      await oldSave.promise
+      events.push('old:end')
+      return { success: true }
+    }
+  })
+  const newController = new WriterAutosaveController<string>({
+    delayMs: 600,
+    clock: createManualAutosaveClock(),
+    save: async () => {
+      events.push('new:start')
+      await newSave.promise
+      events.push('new:end')
+      return { success: true }
+    }
+  })
+
+  registry.register(oldController)
+  oldController.schedule('旧文档最后快照')
+  void registry.dispose(oldController)
+  registry.register(newController)
+  newController.schedule('新文档最后快照')
+
+  const handshakePromise = flushWriterAutosaveAndAcknowledge(registry, async () => {
+    events.push('ack')
+  })
+  await Promise.resolve()
+  assert.deepEqual(new Set(events), new Set(['old:start', 'new:start']))
+
+  newSave.resolve()
+  await Promise.resolve()
+  assert.equal(events.includes('ack'), false)
+
+  oldSave.resolve()
+  await handshakePromise
+  assert.equal(events.at(-1), 'ack')
+})
+
+test('外部元数据 revision 更新后下一次正文保存使用新 revision', async () => {
+  const expectedRevisions: number[] = []
+  const coordinator = new WriterRevisionCoordinator<string>({
+    initialRevision: 3,
+    save: async (_snapshot, expectedRevision) => {
+      expectedRevisions.push(expectedRevision)
+      return { success: true, revision: expectedRevision + 1 }
+    }
+  })
+
+  await coordinator.save('第一次正文')
+  coordinator.syncExternalRevision(8)
+  await coordinator.save('元数据更新后的正文')
+
+  assert.deepEqual(expectedRevisions, [3, 8])
+  assert.equal(coordinator.revision, 9)
 })
