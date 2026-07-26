@@ -9,15 +9,19 @@ import {
 } from '@renderer/components/writer/writerAutosave'
 import { useWriterLibraryStore } from '@renderer/stores/writer'
 import { useUIStateStore } from '@renderer/stores/uiStateStore'
-import SvgIcon from '@renderer/components/icons/SvgIcon'
 import styles from './WritingPage.module.css'
 
 /** 写作工作区负责文档加载、AI 面板布局和主进程退出握手。 */
 export default function WritingPage() {
   const currentDocumentId = useWriterLibraryStore((state) => state.currentDocumentId)
   const createAndOpen = useWriterLibraryStore((state) => state.createAndOpen)
+  const currentDocumentTitle = useWriterLibraryStore((state) => {
+    if (!state.currentDocumentId) return null
+    return (
+      state.documents.find((document) => document.id === state.currentDocumentId)?.title ?? null
+    )
+  })
   const writerChatPanelOpen = useUIStateStore((s) => s.writerChatPanelOpen)
-  const setWriterChatPanelOpen = useUIStateStore((s) => s.setWriterChatPanelOpen)
   const writerChatPanelWidth = useUIStateStore((s) => s.writerChatPanelWidth)
   const setWriterChatPanelWidth = useUIStateStore((s) => s.setWriterChatPanelWidth)
 
@@ -194,18 +198,6 @@ export default function WritingPage() {
             ) : null}
           </div>
         )}
-
-        {showDocument && writerDocument && !writerChatPanelOpen ? (
-          <button
-            type="button"
-            className={styles.aiToggle}
-            aria-label="打开写作对话"
-            title="打开写作对话"
-            onClick={() => setWriterChatPanelOpen(true)}
-          >
-            <SvgIcon name="chat" size={16} />
-          </button>
-        ) : null}
       </div>
 
       <div
@@ -234,7 +226,7 @@ export default function WritingPage() {
             />
             <WriterChatPanel
               documentId={writerDocument.id}
-              documentTitle={writerDocument.title}
+              documentTitle={currentDocumentTitle ?? writerDocument.title}
             />
           </aside>
         ) : null}

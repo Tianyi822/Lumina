@@ -68,26 +68,31 @@
   right: var(--sm-window-controls-safe-width);
 }
 
-.workspacePage:global(.sm-workspace-page--paper) {
+.workspacePage:global(.sm-workspace-page--paper),
+.workspacePage:global(.sm-workspace-page--writer) {
   --sm-paper-reader-window-top-overlap: var(--sm-workspace-page-padding, var(--sm-space-3));
 }
 
-.workspacePage:global(.sm-workspace-page--paper.sm-workspace-page--mac) {
+.workspacePage:global(.sm-workspace-page--paper.sm-workspace-page--mac),
+.workspacePage:global(.sm-workspace-page--writer.sm-workspace-page--mac) {
   --sm-paper-reader-window-top-overlap: var(--sm-titlebar-height);
 }
 
-/* 论文阅读区由内部自定义顶部模糊层接管标题栏视觉，主内容顶到窗口顶部。 */
-.workspacePage:global(.sm-workspace-page--paper) :global(.sm-workspace-main) {
+/* 论文/写作主内容顶到窗口顶部，会话面板与标题栏对齐同一高度参照。 */
+.workspacePage:global(.sm-workspace-page--paper) :global(.sm-workspace-main),
+.workspacePage:global(.sm-workspace-page--writer) :global(.sm-workspace-main) {
   height: calc(100% + var(--sm-paper-reader-window-top-overlap));
   margin-top: calc(var(--sm-paper-reader-window-top-overlap) * -1);
 }
 
-.workspacePage:global(.sm-workspace-page--paper).windows :global(.sm-workspace-main) {
+.workspacePage:global(.sm-workspace-page--paper).windows :global(.sm-workspace-main),
+.workspacePage:global(.sm-workspace-page--writer).windows :global(.sm-workspace-main) {
   height: 100%;
   margin-top: 0;
 }
 
-.workspacePage:global(.sm-workspace-page--paper).windows :global(.sm-workspace-main)::before {
+.workspacePage:global(.sm-workspace-page--paper).windows :global(.sm-workspace-main)::before,
+.workspacePage:global(.sm-workspace-page--writer).windows :global(.sm-workspace-main)::before {
   top: 0;
 }
 

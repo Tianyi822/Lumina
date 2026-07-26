@@ -34,31 +34,11 @@
   color: var(--sm-color-status-danger);
 }
 
-.aiToggle {
-  position: absolute;
-  top: calc(var(--sm-titlebar-height) + var(--sm-space-3));
-  right: var(--sm-space-4);
-  z-index: 5;
-  width: 32px;
-  height: 32px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--sm-color-border-default);
-  border-radius: var(--sm-radius-sm);
-  background: var(--sm-color-surface-1);
-  color: var(--sm-color-text-secondary);
-  cursor: pointer;
-  transition:
-    background-color var(--sm-transition-fast),
-    border-color var(--sm-transition-fast),
-    color var(--sm-transition-fast);
-}
-
-.aiToggle:hover {
-  border-color: var(--sm-color-border-strong);
-  background: var(--sm-color-surface-hover);
-  color: var(--sm-color-text-primary);
+@media (prefers-reduced-motion: reduce) {
+  .chatSlot,
+  .chatResize::after {
+    transition: none;
+  }
 }
 
 .chatSlot {
@@ -86,13 +66,17 @@
 
 .chat {
   position: relative;
+  flex: 0 0 auto;
   box-sizing: border-box;
   width: var(--writer-chat-panel-width);
   min-width: 340px;
   max-width: min(680px, 100vw);
-  height: 100%;
+  height: calc(100% - var(--sm-paper-toolbar-height) - var(--sm-space-2));
   min-height: 0;
-  border-left: 1px solid var(--sm-color-border-default);
+  margin-top: var(--sm-paper-toolbar-height);
+  margin-bottom: var(--sm-space-2);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-lg);
   background: var(--sm-color-bg-canvas);
   overflow: hidden;
 }
