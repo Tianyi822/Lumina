@@ -36,6 +36,9 @@ import imageStyles from './input/PaperChatAttachedImages.module.css'
 import quoteStyles from './input/PaperChatAttachedQuotes.module.css'
 import processingStyles from './input/PaperChatProcessingFiles.module.css'
 
+// selector 空态必须复用同一引用，否则每次渲染返回新数组会触发无限重渲染
+const EMPTY_LIST: never[] = []
+
 interface QuickReplyOption {
   id: string
   label: string
@@ -128,19 +131,19 @@ export default function PaperChatInput({
   const [attachmentError, setAttachmentError] = useState('')
 
   const pendingDocuments = usePaperChatDocumentUploadStore((s) =>
-    sessionId ? s.getSessionDocuments(sessionId) : []
+    sessionId ? s.getSessionDocuments(sessionId) : EMPTY_LIST
   )
   const processingFiles = usePaperChatDocumentUploadStore((s) =>
-    sessionId ? s.getSessionProcessingFiles(sessionId) : []
+    sessionId ? s.getSessionProcessingFiles(sessionId) : EMPTY_LIST
   )
   const pendingImages = usePaperChatImageUploadStore((s) =>
-    sessionId ? s.getSessionImages(sessionId) : []
+    sessionId ? s.getSessionImages(sessionId) : EMPTY_LIST
   )
   const processingImages = usePaperChatImageUploadStore((s) =>
-    sessionId ? s.getSessionProcessingImages(sessionId) : []
+    sessionId ? s.getSessionProcessingImages(sessionId) : EMPTY_LIST
   )
   const pendingQuotes = usePaperChatQuoteStore((s) =>
-    sessionId && allowPaperQuotes ? s.getSessionQuotes(sessionId) : []
+    sessionId && allowPaperQuotes ? s.getSessionQuotes(sessionId) : EMPTY_LIST
   )
 
   // 检查是否有待发送的附件（文档、图片或引文）

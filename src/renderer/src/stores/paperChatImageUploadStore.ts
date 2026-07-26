@@ -19,6 +19,10 @@ export interface ProcessingImage {
   error?: string
 }
 
+// 未初始化会话必须复用同一空数组，否则 useSyncExternalStore 每次取到新引用会无限重渲染
+const EMPTY_IMAGES: PendingImage[] = []
+const EMPTY_PROCESSING_IMAGES: ProcessingImage[] = []
+
 interface PaperChatImageUploadState {
   pendingImages: Map<string, PendingImage[]>
   processingImages: Map<string, ProcessingImage[]>
@@ -41,8 +45,9 @@ export const usePaperChatImageUploadStore = create<PaperChatImageUploadState>()(
   pendingImages: new Map(),
   processingImages: new Map(),
 
-  getSessionImages: (sessionId) => get().pendingImages.get(sessionId) || [],
-  getSessionProcessingImages: (sessionId) => get().processingImages.get(sessionId) || [],
+  getSessionImages: (sessionId) => get().pendingImages.get(sessionId) || EMPTY_IMAGES,
+  getSessionProcessingImages: (sessionId) =>
+    get().processingImages.get(sessionId) || EMPTY_PROCESSING_IMAGES,
   hasPendingImages: (sessionId) => {
     const imgs = get().pendingImages.get(sessionId)
     return imgs !== undefined && imgs.length > 0
