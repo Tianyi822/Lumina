@@ -21,6 +21,14 @@ const ALLOWED_BLOCK_TYPES = new Set<WriterAiContextBlock['type']>([
   'blockMath'
 ])
 
+/** insert_blocks 未指定 afterBlockId 时占用的文档头插入槽哨兵 */
+const INSERT_BLOCKS_DOC_START = '__writer_doc_start__'
+
+/** insert_blocks 在 afterBlockId 之后的插入槽键（不占用该块正文） */
+function insertionSlotKey(afterBlockId: string | undefined): string {
+  return afterBlockId ? `__writer_insert_after:${afterBlockId}` : INSERT_BLOCKS_DOC_START
+}
+
 const CONTEXT_NODE_TYPES = new Set([
   'paragraph',
   'heading',
@@ -89,7 +97,8 @@ export function createWriterAiRequestContext(
     startBlockId: first.nodeId,
     endBlockId: last.nodeId,
     startOffset: 0,
-    endOffset: first.text.length,
+    // 多块范围时 endOffset 相对 endBlock（末块），不是首块
+    endOffset: last.text.length,
     expectedTextHash: hashWriterText(joined)
   }
 
@@ -345,8 +354,8 @@ function validateOperation(
           return { valid: false, reason: 'invalid_structure' }
         }
       }
-      const claimKey = op.afterBlockId ?? '__writer_doc_start__'
-      if (!claimWholeBlock(claimedBlocks, textRanges, claimKey)) {
+      // 插入槽哨兵：与 afterBlockId 正文上的文本操作可共存；同槽二次插入仍冲突
+      if (!claimWholeBlock(claimedBlocks, textRanges, insertionSlotKey(op.afterBlockId))) {
         return { valid: false, reason: 'overlap' }
       }
       if (!canCreateBlocks(state, op.blocks)) {

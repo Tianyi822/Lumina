@@ -203,7 +203,7 @@ test('replace_blocks 与同块文本操作判定为重叠', async () => {
   assert.match(String(result.error), /重叠/)
 })
 
-test('insert_blocks 与锚点块上的文本操作判定为重叠', async () => {
+test('insert_blocks 与锚点块上的文本操作可共存', async () => {
   const adapter = new WriterToolAdapter(
     createWriterContext({
       blocks: [
@@ -215,20 +215,22 @@ test('insert_blocks 与锚点块上的文本操作判定为重叠', async () => 
   const result = await adapter.execute('writer__propose_edits', {
     operations: [
       {
+        kind: 'replace_text',
+        blockId: 'p-1',
+        from: 0,
+        to: 2,
+        text: '改写'
+      },
+      {
         kind: 'insert_blocks',
         afterBlockId: 'p-1',
         blocks: [{ nodeId: 'p-new', type: 'paragraph', text: '插入块' }]
-      },
-      {
-        kind: 'insert_text',
-        blockId: 'p-1',
-        offset: 0,
-        text: '前缀'
       }
     ]
   })
-  assert.equal(result.success, false)
-  assert.match(String(result.error), /重叠/)
+  assert.equal(result.success, true)
+  const proposal = result.content as WriterAiProposal
+  assert.equal(proposal.operations.length, 2)
 })
 
 test('同 afterBlockId 的多次 insert_blocks 判定为重叠', async () => {

@@ -124,6 +124,13 @@ export default function WriterEditor({ document, autosaveRegistry }: WriterEdito
                 useWriterSessionStore.getState().handleRevisionConflict()
               }
               useWriterSuggestionStore.getState().invalidate('session_stale')
+              const conflictEditor = editorRef.current
+              if (conflictEditor) {
+                refreshWriterSuggestionDecorations(
+                  (tr) => conflictEditor.view.dispatch(tr),
+                  conflictEditor.state
+                )
+              }
               notify.warning(
                 '文档保存冲突',
                 '当前正文已保留在编辑器中，请重新加载文档后再继续编辑。'
@@ -271,6 +278,13 @@ export default function WriterEditor({ document, autosaveRegistry }: WriterEdito
       .openDocument(document.id, revisionCoordinator.revision, document.title)
     autosaveRegistry.register(autosaveController)
     useWriterSuggestionStore.getState().cancelForDocumentSwitch()
+    const switchEditor = editorRef.current
+    if (switchEditor) {
+      refreshWriterSuggestionDecorations(
+        (tr) => switchEditor.view.dispatch(tr),
+        switchEditor.state
+      )
+    }
 
     const flush = (): void => {
       void autosaveController.flush()
@@ -290,6 +304,13 @@ export default function WriterEditor({ document, autosaveRegistry }: WriterEdito
         collectGarbage: (id) => window.api.writer.collectGarbage(id)
       })
       useWriterSuggestionStore.getState().cancelForDocumentSwitch()
+      const closingEditor = editorRef.current
+      if (closingEditor) {
+        refreshWriterSuggestionDecorations(
+          (tr) => closingEditor.view.dispatch(tr),
+          closingEditor.state
+        )
+      }
       registerWriterEditor(null)
       if (useWriterSessionStore.getState().currentDocumentId === document.id) {
         useWriterSessionStore.getState().closeDocument()

@@ -188,8 +188,86 @@ test('createWriterAiRequestContext 按 document 范围收集块', () => {
   assert.equal(context.blocks.length, 2)
   assert.equal(context.blocks[0]?.nodeId, 'target-block')
   assert.equal(context.blocks[0]?.text, '目标文本')
+  // 多块锚点：endBlockId / endOffset 必须相对末块，而非首块 text.length
+  assert.equal(context.anchor.startBlockId, 'target-block')
+  assert.equal(context.anchor.endBlockId, 'outside-block')
+  assert.equal(context.anchor.startOffset, 0)
+  assert.equal(context.anchor.endOffset, '目标外内容'.length)
+  assert.notEqual(context.anchor.endOffset, context.blocks[0]!.text.length)
   editor.destroy()
   useWriterSessionStore.getState().closeDocument()
+})
+
+test('块 A 文本替换与 after A 的 insert_blocks 不重叠', () => {
+  const state = createSuggestionState('目标文本', '目标外内容')
+  const proposal: WriterAiProposal = {
+    proposalId: 'proposal-insert-coexist',
+    documentId: 'writer-test-doc',
+    baseRevision: 1,
+    anchor: {
+      documentId: 'writer-test-doc',
+      baseRevision: 1,
+      scope: 'document',
+      startBlockId: 'target-block',
+      endBlockId: 'outside-block',
+      startOffset: 0,
+      endOffset: '目标外内容'.length,
+      expectedTextHash: hashWriterText('目标文本\n目标外内容')
+    },
+    operations: [
+      {
+        kind: 'replace_text',
+        blockId: 'target-block',
+        from: 0,
+        to: 4,
+        text: '改写文本',
+        expectedTextHash: hashWriterText('目标文本')
+      },
+      {
+        kind: 'insert_blocks',
+        afterBlockId: 'target-block',
+        blocks: [{ nodeId: 'inserted-block', type: 'paragraph', text: '新段落' }]
+      }
+    ],
+    createdAt: new Date().toISOString()
+  }
+  const validation = validateProposalAgainstState(proposal, state)
+  assert.equal(validation.valid, true)
+})
+
+test('同 afterBlockId 的两次 insert_blocks 判定为重叠', () => {
+  const state = createSuggestionState('目标文本', '目标外内容')
+  const proposal: WriterAiProposal = {
+    proposalId: 'proposal-insert-overlap',
+    documentId: 'writer-test-doc',
+    baseRevision: 1,
+    anchor: {
+      documentId: 'writer-test-doc',
+      baseRevision: 1,
+      scope: 'document',
+      startBlockId: 'target-block',
+      endBlockId: 'outside-block',
+      startOffset: 0,
+      endOffset: '目标外内容'.length,
+      expectedTextHash: hashWriterText('目标文本\n目标外内容')
+    },
+    operations: [
+      {
+        kind: 'insert_blocks',
+        afterBlockId: 'target-block',
+        blocks: [{ nodeId: 'a', type: 'paragraph', text: 'A' }]
+      },
+      {
+        kind: 'insert_blocks',
+        afterBlockId: 'target-block',
+        blocks: [{ nodeId: 'b', type: 'paragraph', text: 'B' }]
+      }
+    ],
+    createdAt: new Date().toISOString()
+  }
+  const validation = validateProposalAgainstState(proposal, state)
+  assert.equal(validation.valid, false)
+  assert.equal(validation.reason, 'overlap')
 })
 
 test('applyAcceptedOperations 单事务写入替换文本', () => {

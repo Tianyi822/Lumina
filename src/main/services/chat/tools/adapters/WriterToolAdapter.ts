@@ -18,6 +18,11 @@ const MAX_INSERT_CHARS = 100_000
 /** insert_blocks 未指定 afterBlockId 时占用的文档头插入槽哨兵 */
 const INSERT_BLOCKS_DOC_START = '__writer_doc_start__'
 
+/** insert_blocks 在 afterBlockId 之后的插入槽键（不占用该块正文） */
+function insertionSlotKey(afterBlockId: string | undefined): string {
+  return afterBlockId ? `__writer_insert_after:${afterBlockId}` : INSERT_BLOCKS_DOC_START
+}
+
 const ALLOWED_BLOCK_TYPES = new Set<WriterAiContextBlock['type']>([
   'paragraph',
   'heading',
@@ -31,8 +36,9 @@ const ALLOWED_BLOCK_TYPES = new Set<WriterAiContextBlock['type']>([
  * 全局非重叠规则（适配器侧，依赖请求上下文）：
  * - 文本操作按块内半开区间互斥；insert_text 记为零宽点 [offset,offset]，
  *   同 offset 的多次 insert 冲突，且与覆盖该点的 replace/delete（from <= offset < to）冲突。
- * - replace_blocks 占用全部 targetBlockIds；insert_blocks 占用 afterBlockId
- *   （缺省为文档头哨兵）作为插入槽。整块占用与该键上任意文本区间/其他整块占用冲突。
+ * - replace_blocks 占用全部 targetBlockIds。
+ * - insert_blocks 占用插入槽哨兵（`__writer_insert_after:<id>` 或文档头哨兵），
+ *   不占用 afterBlockId 正文；同槽二次插入冲突，但与该块上的文本操作可共存。
  */
 type TextRange = { from: number; to: number }
 
@@ -229,12 +235,8 @@ export class WriterToolAdapter implements ToolAdapter {
           }
           insertChars += input.blocks.reduce((sum, b) => sum + b.text.length, 0)
           this.assertInsertBudget(insertChars)
-          // 插入槽：afterBlockId 缺省时占用文档头哨兵，与同槽/文本占用冲突
-          this.claimWholeBlock(
-            claimedBlocks,
-            textRanges,
-            input.afterBlockId ?? INSERT_BLOCKS_DOC_START
-          )
+          // 插入槽哨兵：不占用 afterBlockId 正文，仅同槽二次插入冲突
+          this.claimWholeBlock(claimedBlocks, textRanges, insertionSlotKey(input.afterBlockId))
           ops.push({
             kind: 'insert_blocks',
             afterBlockId: input.afterBlockId,
