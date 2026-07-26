@@ -426,15 +426,25 @@ test('图片选择器拒绝 SVG 且只接受 PNG/JPEG/WebP/GIF', () => {
   // 没有正确 MIME 时按扩展名判定，SVG 仍被拒绝
   assert.equal(isWriterImageFile({ name: 'icon.SVG', type: '' }), false)
 
-  // 受支持的扩展名与 image/* MIME 仍被放行
+  // 四种受支持 MIME 与对应扩展名
   assert.equal(isWriterImageFile({ name: 'figure.png', type: 'image/png' }), true)
   assert.equal(isWriterImageFile({ name: 'photo.JPG', type: 'image/jpeg' }), true)
   assert.equal(isWriterImageFile({ name: 'motion.webp', type: 'image/webp' }), true)
   assert.equal(isWriterImageFile({ name: 'loop.gif', type: 'image/gif' }), true)
-  // MIME 为 image/* 但扩展名缺失也放行（粘贴场景常见）
+  // 受支持 MIME 但扩展名缺失仍放行（粘贴场景常见）
   assert.equal(isWriterImageFile({ name: 'screenshot', type: 'image/png' }), true)
-  // 明确是 SVG 的 MIME 即便扩展名伪装也被拒绝（image/svg+xml 不是受支持类型）
+  // MIME 为空时仅按扩展名判定
+  assert.equal(isWriterImageFile({ name: 'legacy.jpeg', type: '' }), true)
+  // 明确是 SVG 的 MIME 即便扩展名伪装也被拒绝
   assert.equal(isWriterImageFile({ name: 'trick.png', type: 'image/svg+xml' }), false)
+  // 其他 image/*（BMP、TIFF 等）一律拒绝
+  assert.equal(isWriterImageFile({ name: 'scan.bmp', type: 'image/bmp' }), false)
+  assert.equal(isWriterImageFile({ name: 'page.tiff', type: 'image/tiff' }), false)
+  assert.equal(isWriterImageFile({ name: 'icon.ico', type: 'image/x-icon' }), false)
+  // MIME 为空且无受支持扩展名时拒绝
+  assert.equal(isWriterImageFile({ name: 'screenshot', type: '' }), false)
+  // 非法 MIME 不能靠扩展名伪装通过
+  assert.equal(isWriterImageFile({ name: 'fake.png', type: 'image/bmp' }), false)
 })
 
 test('文档关闭 GC 必须在最后一次自动保存落盘后才调用', async () => {

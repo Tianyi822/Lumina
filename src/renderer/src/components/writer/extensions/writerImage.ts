@@ -13,16 +13,33 @@ import WriterImageView from '../nodes/WriterImageView.tsx'
 
 /** 写作图片只接受 PNG、JPEG、WebP、GIF，SVG 不进入导入路径（主进程同样拒绝）。 */
 const WRITER_IMAGE_FILE_PATTERN = /\.(?:png|jpe?g|webp|gif)$/i
+/** 与主进程 WriterAssetService 一致的 MIME 白名单。 */
+const WRITER_ALLOWED_IMAGE_MIME_TYPES = new Set([
+  'image/png',
+  'image/jpeg',
+  'image/webp',
+  'image/gif'
+])
 /** SVG 无论以 MIME 还是扩展名出现都必须挡在导入路径之外。 */
 const WRITER_SVG_FILE_PATTERN = /\.svg$/i
 const WRITER_SVG_MIME_TYPE = 'image/svg+xml'
 
-/** 文件选择、粘贴、拖放共用同一道类型过滤；SVG 必须在进入导入前被挡下。 */
+/**
+ * 文件选择、粘贴、拖放共用同一道类型过滤。
+ * 仅允许 PNG / JPEG / WebP / GIF；SVG、BMP、TIFF、ICO 及其他 image/* 一律拒绝。
+ * MIME 为空时仅按扩展名判定；MIME 非空则必须在白名单内（扩展名不能覆盖非法 MIME）。
+ */
 export function isWriterImageFile(file: Pick<File, 'type' | 'name'>): boolean {
   if (file.type === WRITER_SVG_MIME_TYPE || WRITER_SVG_FILE_PATTERN.test(file.name)) {
     return false
   }
-  return file.type.startsWith('image/') || WRITER_IMAGE_FILE_PATTERN.test(file.name)
+  if (file.type !== '' && WRITER_ALLOWED_IMAGE_MIME_TYPES.has(file.type)) {
+    return true
+  }
+  if (file.type === '' && WRITER_IMAGE_FILE_PATTERN.test(file.name)) {
+    return true
+  }
+  return false
 }
 
 export type WriterImageAlign = 'left' | 'center' | 'right'
