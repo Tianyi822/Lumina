@@ -6,6 +6,7 @@ import type {
   WriterAsset,
   WriterAssetImportInput,
   WriterDocument,
+  WriterExportDocument,
   WriterExportFormat,
   WriterExportOutcome,
   WriterFolder,
@@ -15,7 +16,11 @@ import type {
 } from '@shared/types/writer'
 import type { WriterAssetService } from './WriterAssetService'
 import { WriterDocumentMapper } from './WriterDocumentMapper'
+import { WriterDocxExporter } from './WriterDocxExporter'
+import { WriterFormulaRasterizer } from './WriterFormulaRasterizer'
 import { WriterMarkdownExporter, sanitizeExportBaseName } from './WriterMarkdownExporter'
+import { WriterPrintExporter } from './WriterPrintExporter'
+import { WriterPrintHtmlRenderer } from './WriterPrintHtmlRenderer'
 import type { WriterStorageService } from './WriterStorageService'
 import type { WriterFlushCoordinator } from './WriterFlushCoordinator'
 
@@ -61,6 +66,8 @@ interface WriterServiceOptions {
   getWebContentsIds: () => number[]
   documentMapper?: WriterDocumentMapper
   markdownExporter?: WriterMarkdownExporter
+  docxExporter?: WriterDocxExporter
+  printExporter?: WriterPrintExporter
   exportDialog?: WriterExportDialogPort
 }
 
@@ -72,6 +79,8 @@ export class WriterService {
   private readonly getWebContentsIds: () => number[]
   private readonly documentMapper: WriterDocumentMapper
   private readonly markdownExporter: WriterMarkdownExporter
+  private readonly docxExporter: WriterDocxExporter
+  private readonly printExporter: WriterPrintExporter
   private readonly exportDialog: WriterExportDialogPort
   private mutationTail: Promise<void> = Promise.resolve()
 
@@ -82,6 +91,8 @@ export class WriterService {
     this.getWebContentsIds = options.getWebContentsIds
     this.documentMapper = options.documentMapper ?? new WriterDocumentMapper()
     this.markdownExporter = options.markdownExporter ?? new WriterMarkdownExporter()
+    this.docxExporter = options.docxExporter ?? new WriterDocxExporter(new WriterFormulaRasterizer())
+    this.printExporter = options.printExporter ?? new WriterPrintExporter(new WriterPrintHtmlRenderer())
     this.exportDialog = options.exportDialog ?? createDefaultExportDialog()
   }
 
@@ -176,15 +187,15 @@ export class WriterService {
   }
 
   /**
-   * 导出写作文档。Task 14 仅实现 Markdown；DOCX/PDF 待对应输出器就绪。
-   * 覆盖确认：仅精确检测 `<basename>.assets/`，不使用 glob。
+   * 导出写作文档。支持 Markdown / DOCX / PDF。
+   * Markdown 覆盖确认：仅精确检测 `<basename>.assets/`，不使用 glob。
    */
   async exportDocument(
     documentId: string,
     format: WriterExportFormat
   ): Promise<WriterResult<WriterExportOutcome>> {
     return this.runOperation('导出写作文档失败', async (): Promise<WriterResult<WriterExportOutcome>> => {
-      if (format !== 'markdown') {
+      if (format !== 'markdown' && format !== 'docx' && format !== 'pdf') {
         return {
           success: false,
           code: 'invalid_input',
@@ -210,7 +221,22 @@ export class WriterService {
         }
       }
 
-      const defaultName = `${sanitizeExportBaseName(documentResult.data.title)}.md`
+      if (format === 'markdown') {
+        return this.exportMarkdown(documentId, documentResult.data.title, mapped.data)
+      }
+      if (format === 'docx') {
+        return this.exportDocx(documentId, documentResult.data.title, mapped.data)
+      }
+      return this.exportPdf(documentId, documentResult.data.title, mapped.data)
+    })
+  }
+
+  private async exportMarkdown(
+    documentId: string,
+    title: string,
+    exportDocument: WriterExportDocument
+  ): Promise<WriterResult<WriterExportOutcome>> {
+      const defaultName = `${sanitizeExportBaseName(title)}.md`
       const saveResult = await this.exportDialog.showSaveDialog({
         title: '导出 Markdown',
         defaultPath: defaultName,
@@ -238,7 +264,7 @@ export class WriterService {
         // 确认后不在此处删除；由 exporter 在 commit 阶段原子替换，失败时保留原目录
       }
 
-      const exportResult = await this.markdownExporter.export(mapped.data, outputPath)
+      const exportResult = await this.markdownExporter.export(exportDocument, outputPath)
       if (!exportResult.success) {
         return {
           success: false,
@@ -247,15 +273,84 @@ export class WriterService {
         }
       }
 
-      if (mapped.data.warnings.length > 0) {
+      if (exportDocument.warnings.length > 0) {
         logger.warn('写作文档导出含降级警告', 'main', {
           documentId,
-          warnings: mapped.data.warnings
+          warnings: exportDocument.warnings
         })
       }
 
       return { success: true, data: { canceled: false, outputPath } }
+  }
+
+  private async exportDocx(
+    documentId: string,
+    title: string,
+    exportDocument: WriterExportDocument
+  ): Promise<WriterResult<WriterExportOutcome>> {
+    const defaultName = `${sanitizeExportBaseName(title)}.docx`
+    const saveResult = await this.exportDialog.showSaveDialog({
+      title: '导出 DOCX',
+      defaultPath: defaultName,
+      filters: [{ name: 'Word Document', extensions: ['docx'] }]
     })
+    if (saveResult.canceled || !saveResult.filePath) {
+      return { success: true, data: { canceled: true } }
+    }
+
+    const outputPath = ensureDocxExtension(saveResult.filePath)
+    const exportResult = await this.docxExporter.export(exportDocument, outputPath)
+    if (!exportResult.success) {
+      return {
+        success: false,
+        code: exportResult.code ?? 'io_error',
+        error: exportResult.error ?? 'DOCX 导出失败'
+      }
+    }
+
+    if (exportDocument.warnings.length > 0) {
+      logger.warn('写作文档 DOCX 导出含降级警告', 'main', {
+        documentId,
+        warnings: exportDocument.warnings
+      })
+    }
+
+    return { success: true, data: { canceled: false, outputPath } }
+  }
+
+  private async exportPdf(
+    documentId: string,
+    title: string,
+    exportDocument: WriterExportDocument
+  ): Promise<WriterResult<WriterExportOutcome>> {
+    const defaultName = `${sanitizeExportBaseName(title)}.pdf`
+    const saveResult = await this.exportDialog.showSaveDialog({
+      title: '导出 PDF',
+      defaultPath: defaultName,
+      filters: [{ name: 'PDF', extensions: ['pdf'] }]
+    })
+    if (saveResult.canceled || !saveResult.filePath) {
+      return { success: true, data: { canceled: true } }
+    }
+
+    const outputPath = ensurePdfExtension(saveResult.filePath)
+    const exportResult = await this.printExporter.export(exportDocument, outputPath)
+    if (!exportResult.success) {
+      return {
+        success: false,
+        code: exportResult.code ?? 'io_error',
+        error: exportResult.error ?? 'PDF 导出失败'
+      }
+    }
+
+    if (exportDocument.warnings.length > 0) {
+      logger.warn('写作文档 PDF 导出含降级警告', 'main', {
+        documentId,
+        warnings: exportDocument.warnings
+      })
+    }
+
+    return { success: true, data: { canceled: false, outputPath } }
   }
 
   async requestRendererFlush(): Promise<void> {
@@ -369,6 +464,14 @@ export class WriterService {
 
 function ensureMarkdownExtension(filePath: string): string {
   return filePath.toLowerCase().endsWith('.md') ? filePath : `${filePath}.md`
+}
+
+function ensureDocxExtension(filePath: string): string {
+  return filePath.toLowerCase().endsWith('.docx') ? filePath : `${filePath}.docx`
+}
+
+function ensurePdfExtension(filePath: string): string {
+  return filePath.toLowerCase().endsWith('.pdf') ? filePath : `${filePath}.pdf`
 }
 
 /** 延迟加载 electron.dialog，避免测试桩在模块求值期缺少 named export */

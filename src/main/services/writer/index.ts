@@ -47,6 +47,10 @@ export { WriterAssetService } from './WriterAssetService'
 export { WriterFlushCoordinator } from './WriterFlushCoordinator'
 export { WriterDocumentMapper } from './WriterDocumentMapper'
 export { WriterMarkdownExporter, sanitizeExportBaseName } from './WriterMarkdownExporter'
+export { WriterDocxExporter } from './WriterDocxExporter'
+export { WriterFormulaRasterizer } from './WriterFormulaRasterizer'
+export { WriterPrintHtmlRenderer } from './WriterPrintHtmlRenderer'
+export { WriterPrintExporter } from './WriterPrintExporter'
 export {
   getWriterAssetsDir,
   getWriterDocumentDir,
