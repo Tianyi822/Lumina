@@ -2,6 +2,8 @@ import type {
   SaveWriterDocumentRequest,
   WriterAsset,
   WriterDocument,
+  WriterExportFormat,
+  WriterExportOutcome,
   WriterFolder,
   WriterIndex,
   WriterResult
@@ -11,6 +13,8 @@ export type {
   SaveWriterDocumentRequest,
   WriterAsset,
   WriterDocument,
+  WriterExportFormat,
+  WriterExportOutcome,
   WriterFolder,
   WriterIndex,
   WriterResult
@@ -35,6 +39,10 @@ export interface WriterApi {
     bytes: Uint8Array
   ) => Promise<WriterResult<WriterAsset>>
   collectGarbage: (documentId: string) => Promise<WriterResult<number>>
+  exportDocument: (
+    documentId: string,
+    format: WriterExportFormat
+  ) => Promise<WriterResult<WriterExportOutcome>>
   onFlushRequested: (callback: () => Promise<void> | void) => () => void
   acknowledgeFlush: () => Promise<void>
 }

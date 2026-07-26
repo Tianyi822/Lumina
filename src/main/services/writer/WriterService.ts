@@ -1,15 +1,21 @@
+import { existsSync, rmSync } from 'node:fs'
+import { basename, dirname, join } from 'node:path'
 import { logger } from '@main/services/logger'
 import type {
   SaveWriterDocumentRequest,
   WriterAsset,
   WriterAssetImportInput,
   WriterDocument,
+  WriterExportFormat,
+  WriterExportOutcome,
   WriterFolder,
   WriterIndex,
   WriterJsonNode,
   WriterResult
 } from '@shared/types/writer'
 import type { WriterAssetService } from './WriterAssetService'
+import { WriterDocumentMapper } from './WriterDocumentMapper'
+import { WriterMarkdownExporter, sanitizeExportBaseName } from './WriterMarkdownExporter'
 import type { WriterStorageService } from './WriterStorageService'
 import type { WriterFlushCoordinator } from './WriterFlushCoordinator'
 
@@ -31,11 +37,31 @@ export type WriterStoragePort = Pick<
 export type WriterAssetPort = Pick<WriterAssetService, 'importBytes'> &
   Partial<Pick<WriterAssetService, 'collectGarbage'>>
 
+/** 导出对话框端口：便于测试注入，默认延迟加载 electron.dialog */
+export interface WriterExportDialogPort {
+  showSaveDialog: (options: {
+    title?: string
+    defaultPath?: string
+    filters?: Array<{ name: string; extensions: string[] }>
+  }) => Promise<{ canceled: boolean; filePath?: string }>
+  showMessageBox: (options: {
+    type?: 'none' | 'info' | 'error' | 'question' | 'warning'
+    buttons: string[]
+    cancelId?: number
+    defaultId?: number
+    title?: string
+    message: string
+  }) => Promise<{ response: number }>
+}
+
 interface WriterServiceOptions {
   storageService: WriterStoragePort
   assetService: WriterAssetPort
   flushCoordinator: WriterFlushCoordinator
   getWebContentsIds: () => number[]
+  documentMapper?: WriterDocumentMapper
+  markdownExporter?: WriterMarkdownExporter
+  exportDialog?: WriterExportDialogPort
 }
 
 /** 写作子系统的服务编排入口 */
@@ -44,6 +70,9 @@ export class WriterService {
   private readonly assetService: WriterAssetPort
   private readonly flushCoordinator: WriterFlushCoordinator
   private readonly getWebContentsIds: () => number[]
+  private readonly documentMapper: WriterDocumentMapper
+  private readonly markdownExporter: WriterMarkdownExporter
+  private readonly exportDialog: WriterExportDialogPort
   private mutationTail: Promise<void> = Promise.resolve()
 
   constructor(options: WriterServiceOptions) {
@@ -51,6 +80,9 @@ export class WriterService {
     this.assetService = options.assetService
     this.flushCoordinator = options.flushCoordinator
     this.getWebContentsIds = options.getWebContentsIds
+    this.documentMapper = options.documentMapper ?? new WriterDocumentMapper()
+    this.markdownExporter = options.markdownExporter ?? new WriterMarkdownExporter()
+    this.exportDialog = options.exportDialog ?? createDefaultExportDialog()
   }
 
   async initialize(): Promise<WriterResult<WriterIndex>> {
@@ -140,6 +172,89 @@ export class WriterService {
         }
       }
       return this.assetService.importBytes(documentId, input)
+    })
+  }
+
+  /**
+   * 导出写作文档。Task 14 仅实现 Markdown；DOCX/PDF 待对应输出器就绪。
+   * 覆盖确认：仅精确检测 `<basename>.assets/`，不使用 glob。
+   */
+  async exportDocument(
+    documentId: string,
+    format: WriterExportFormat
+  ): Promise<WriterResult<WriterExportOutcome>> {
+    return this.runOperation('导出写作文档失败', async (): Promise<WriterResult<WriterExportOutcome>> => {
+      if (format !== 'markdown') {
+        return {
+          success: false,
+          code: 'invalid_input',
+          error: `暂不支持导出格式：${format}`
+        }
+      }
+
+      const documentResult = await this.storageService.getDocument(documentId)
+      if (!documentResult.success || !documentResult.data) {
+        return {
+          success: false,
+          code: documentResult.code ?? 'not_found',
+          error: documentResult.error ?? '写作文档不存在'
+        }
+      }
+
+      const mapped = this.documentMapper.map(documentResult.data)
+      if (!mapped.success || !mapped.data) {
+        return {
+          success: false,
+          code: mapped.code ?? 'invalid_input',
+          error: mapped.error ?? '映射写作文档失败'
+        }
+      }
+
+      const defaultName = `${sanitizeExportBaseName(documentResult.data.title)}.md`
+      const saveResult = await this.exportDialog.showSaveDialog({
+        title: '导出 Markdown',
+        defaultPath: defaultName,
+        filters: [{ name: 'Markdown', extensions: ['md'] }]
+      })
+      if (saveResult.canceled || !saveResult.filePath) {
+        return { success: true, data: { canceled: true } }
+      }
+
+      const outputPath = ensureMarkdownExtension(saveResult.filePath)
+      const assetsDir = join(dirname(outputPath), `${basename(outputPath, '.md')}.assets`)
+
+      if (existsSync(assetsDir)) {
+        const confirm = await this.exportDialog.showMessageBox({
+          type: 'warning',
+          buttons: ['取消', '覆盖'],
+          cancelId: 0,
+          defaultId: 0,
+          title: '覆盖导出资源',
+          message: `目标目录已存在同名资源文件夹：\n${assetsDir}\n\n是否覆盖？`
+        })
+        if (confirm.response !== 1) {
+          return { success: true, data: { canceled: true } }
+        }
+        rmSync(assetsDir, { recursive: true, force: true })
+      }
+
+      const exportResult = await this.markdownExporter.export(mapped.data, outputPath)
+      if (!exportResult.success) {
+        return {
+          success: false,
+          code: exportResult.code ?? 'io_error',
+          error: exportResult.error ?? 'Markdown 导出失败'
+        }
+      }
+
+      if (mapped.data.warnings.length > 0) {
+        logger.warn('写作文档导出含降级警告', 'main', {
+          documentId,
+          warnings: mapped.data.warnings
+        })
+      }
+
+      return { success: true, data: { canceled: false, outputPath } }
     })
   }
 
@@ -249,5 +364,23 @@ export class WriterService {
     }
     visit(content)
     return [...referencedPaths].sort()
+  }
+}
+
+function ensureMarkdownExtension(filePath: string): string {
+  return filePath.toLowerCase().endsWith('.md') ? filePath : `${filePath}.md`
+}
+
+/** 延迟加载 electron.dialog，避免测试桩在模块求值期缺少 named export */
+function createDefaultExportDialog(): WriterExportDialogPort {
+  return {
+    async showSaveDialog(options) {
+      const { dialog } = await import('electron')
+      return dialog.showSaveDialog(options)
+    },
+    async showMessageBox(options) {
+      const { dialog } = await import('electron')
+      return dialog.showMessageBox(options)
+    }
   }
 }

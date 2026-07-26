@@ -92,6 +92,13 @@ export function validateWriterFavorite(favorite: unknown): string | null {
   return typeof favorite === 'boolean' ? null : '无效的收藏状态'
 }
 
+/** 校验导出格式；Task 14 起 IPC 层先拒绝未知取值 */
+export function validateWriterExportFormat(format: unknown): string | null {
+  return format === 'markdown' || format === 'docx' || format === 'pdf'
+    ? null
+    : '无效的导出格式'
+}
+
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }

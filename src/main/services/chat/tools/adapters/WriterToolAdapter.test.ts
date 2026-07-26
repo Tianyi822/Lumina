@@ -20,23 +20,11 @@ function createWriterContext(
     documentId: 'writer-aaaaaaaa',
     baseRevision: 3,
     title: '文档标题',
-    blocks,
-    anchor: {
-      documentId: 'writer-aaaaaaaa',
-      baseRevision: 3,
-      scope,
-      startBlockId: blocks[0].nodeId,
-      endBlockId: blocks[blocks.length - 1].nodeId,
-      startOffset: 0,
-      endOffset: blocks[0].text.length,
-      expectedTextHash: hashWriterText(text)
-    },
     ...overrides,
     blocks,
     anchor: {
       documentId: 'writer-aaaaaaaa',
       baseRevision: 3,
-      scope,
       startBlockId: blocks[0].nodeId,
       endBlockId: blocks[blocks.length - 1].nodeId,
       startOffset: 0,

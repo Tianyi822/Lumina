@@ -41,10 +41,12 @@ export async function initializeWriterService(): Promise<void> {
 }
 
 export { WriterService } from './WriterService'
-export type { WriterAssetPort, WriterStoragePort } from './WriterService'
+export type { WriterAssetPort, WriterExportDialogPort, WriterStoragePort } from './WriterService'
 export { WriterStorageService } from './WriterStorageService'
 export { WriterAssetService } from './WriterAssetService'
 export { WriterFlushCoordinator } from './WriterFlushCoordinator'
+export { WriterDocumentMapper } from './WriterDocumentMapper'
+export { WriterMarkdownExporter, sanitizeExportBaseName } from './WriterMarkdownExporter'
 export {
   getWriterAssetsDir,
   getWriterDocumentDir,

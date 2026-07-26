@@ -5,6 +5,8 @@ import { acknowledgeWriterFlushFromEvent } from '@main/services/writer/WriterFlu
 import type {
   WriterAsset,
   WriterDocument,
+  WriterExportFormat,
+  WriterExportOutcome,
   WriterFolder,
   WriterIndex,
   WriterResult
@@ -13,6 +15,7 @@ import {
   validateDeleteWriterPayload,
   validateImportWriterAssetPayload,
   validateSaveWriterPayload,
+  validateWriterExportFormat,
   validateWriterFavorite,
   validateWriterFolderId,
   validateWriterFolderName,
@@ -229,6 +232,27 @@ export function registerWriterHandlers(): void {
       }
       return invokeWriter('清理写作图片资源', () =>
         writerService.collectDocumentGarbage(documentId as string)
+      )
+    }
+  )
+
+  ipcMain.handle(
+    'writer:exportDocument',
+    (
+      _event,
+      documentId: unknown,
+      format: unknown
+    ): Promise<WriterResult<WriterExportOutcome>> => {
+      const documentIdError = validateDeleteWriterPayload(documentId)
+      if (documentIdError) {
+        return Promise.resolve(invalidInput(documentIdError))
+      }
+      const formatError = validateWriterExportFormat(format)
+      if (formatError) {
+        return Promise.resolve(invalidInput(formatError))
+      }
+      return invokeWriter('导出写作文档', () =>
+        writerService.exportDocument(documentId as string, format as WriterExportFormat)
       )
     }
   )

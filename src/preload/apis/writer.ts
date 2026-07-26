@@ -3,6 +3,8 @@ import type {
   SaveWriterDocumentRequest,
   WriterAsset,
   WriterDocument,
+  WriterExportFormat,
+  WriterExportOutcome,
   WriterFolder,
   WriterIndex,
   WriterResult
@@ -45,6 +47,11 @@ export const writerApi: WriterApi = {
     }),
   collectGarbage: (documentId: string): Promise<WriterResult<number>> =>
     ipcRenderer.invoke('writer:collectGarbage', documentId),
+  exportDocument: (
+    documentId: string,
+    format: WriterExportFormat
+  ): Promise<WriterResult<WriterExportOutcome>> =>
+    ipcRenderer.invoke('writer:exportDocument', documentId, format),
   onFlushRequested: (callback: () => Promise<void> | void): (() => void) => {
     const listener = (): void => {
       void Promise.resolve(callback()).catch(() => undefined)

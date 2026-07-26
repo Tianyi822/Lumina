@@ -17,22 +17,11 @@ function makeContext(
     documentId: 'writer-aaaaaaaa',
     baseRevision: 1,
     title: '只读标题',
-    anchor: {
-      documentId: 'writer-aaaaaaaa',
-      baseRevision: 1,
-      scope,
-      startBlockId: blocks[0].nodeId,
-      endBlockId: blocks[0].nodeId,
-      startOffset: 0,
-      endOffset: blocks[0].text.length,
-      expectedTextHash: 'hash'
-    },
     blocks,
     ...overrides,
     anchor: {
       documentId: 'writer-aaaaaaaa',
       baseRevision: 1,
-      scope,
       startBlockId: (overrides.blocks ?? blocks)[0].nodeId,
       endBlockId: (overrides.blocks ?? blocks)[0].nodeId,
       startOffset: 0,
