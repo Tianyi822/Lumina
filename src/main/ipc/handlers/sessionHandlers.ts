@@ -2,7 +2,13 @@ import { ipcMain } from 'electron'
 import { sessionService } from '../../services/session'
 import { logger } from '../../services/logger'
 import { validateSessionTitle } from './sessionValidation'
-import type { SessionData, SessionListItem, SessionResult, SessionType } from '../../types/session'
+import type {
+  SessionData,
+  SessionListItem,
+  SessionResourceRef,
+  SessionResult,
+  SessionType
+} from '../../types/session'
 
 /**
  * 注册会话相关的 IPC 处理程序
@@ -13,13 +19,18 @@ export function registerSessionHandlers(): void {
    */
   ipcMain.handle(
     'session:create',
-    async (_, title?: string, type?: SessionType): Promise<SessionResult> => {
+    async (
+      _,
+      title?: string,
+      type?: SessionType,
+      resourceRef?: SessionResourceRef
+    ): Promise<SessionResult> => {
       try {
         const validationError = validateSessionTitle(title)
         if (validationError) {
           return { success: false, error: validationError }
         }
-        const data = sessionService.createSession(title, type)
+        const data = sessionService.createSession(title, type, resourceRef)
         return { success: true, data }
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error)

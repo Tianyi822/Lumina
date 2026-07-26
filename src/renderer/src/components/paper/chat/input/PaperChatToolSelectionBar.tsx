@@ -12,6 +12,8 @@ interface PaperChatToolSelectionBarProps {
   selectedTools: MCPTool[]
   selectedKnowledgeBases: KnowledgeBase[]
   enablePaperWebSearch?: boolean
+  /** 是否展示论文联网搜索开关；写作面板传 false */
+  allowPaperWebSearch?: boolean
   totalAttachmentCount?: number
   onUpdateSelectedTools: (value: MCPTool[]) => void
   onUpdateSelectedKnowledgeBases: (value: KnowledgeBase[]) => void
@@ -32,6 +34,7 @@ export default function PaperChatToolSelectionBar({
   selectedTools,
   selectedKnowledgeBases,
   enablePaperWebSearch,
+  allowPaperWebSearch = true,
   totalAttachmentCount = 0,
   onUpdateSelectedTools,
   onUpdateSelectedKnowledgeBases,
@@ -49,7 +52,9 @@ export default function PaperChatToolSelectionBar({
 
   // 计算当前已开启的工具总数，用于 badge 显示
   const activeCount =
-    selectedTools.length + selectedKnowledgeBases.length + (enablePaperWebSearch ? 1 : 0)
+    selectedTools.length +
+    selectedKnowledgeBases.length +
+    (allowPaperWebSearch && enablePaperWebSearch ? 1 : 0)
 
   // 点击菜单外部关闭菜单，按 Escape 键同样关闭
   useEffect(() => {
@@ -144,29 +149,31 @@ export default function PaperChatToolSelectionBar({
                 <span className={styles['plus-menu__row-label']}>添加附件</span>
               </button>
 
-              {/* 搜索开关 */}
-              <button
-                type="button"
-                className={styles['plus-menu__row']}
-                disabled={controlsDisabled}
-                onClick={onTogglePaperWebSearch}
-              >
-                <SvgIcon name="search" size={16} />
-                <span className={styles['plus-menu__row-label']}>搜索</span>
-                <span className={styles['plus-menu__row-right']}>
-                  <span
-                    className={[
-                      styles['plus-menu__toggle-switch'],
-                      enablePaperWebSearch ? styles['plus-menu__toggle-switch--on'] || '' : ''
-                    ]
-                      .filter(Boolean)
-                      .join(' ')}
-                    aria-hidden="true"
-                  >
-                    <span className={styles['plus-menu__toggle-thumb']} />
+              {/* 搜索开关（论文对话专用） */}
+              {allowPaperWebSearch ? (
+                <button
+                  type="button"
+                  className={styles['plus-menu__row']}
+                  disabled={controlsDisabled}
+                  onClick={onTogglePaperWebSearch}
+                >
+                  <SvgIcon name="search" size={16} />
+                  <span className={styles['plus-menu__row-label']}>搜索</span>
+                  <span className={styles['plus-menu__row-right']}>
+                    <span
+                      className={[
+                        styles['plus-menu__toggle-switch'],
+                        enablePaperWebSearch ? styles['plus-menu__toggle-switch--on'] || '' : ''
+                      ]
+                        .filter(Boolean)
+                        .join(' ')}
+                      aria-hidden="true"
+                    >
+                      <span className={styles['plus-menu__toggle-thumb']} />
+                    </span>
                   </span>
-                </span>
-              </button>
+                </button>
+              ) : null}
 
               {/* 知识库手风琴 */}
               <div

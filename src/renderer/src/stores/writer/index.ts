@@ -12,3 +12,5 @@ export type {
 } from './writerLibraryStore'
 export { useWriterSessionStore } from './writerSessionStore'
 export type { WriterSaveStatus, WriterSessionStore } from './writerSessionStore'
+export { useWriterChatStore } from './writerChatStore'
+export type { WriterChatSessionState, WriterChatStore } from './writerChatStore'

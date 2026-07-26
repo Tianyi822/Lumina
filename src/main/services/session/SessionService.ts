@@ -5,6 +5,7 @@ import {
   SessionData,
   SessionListItem,
   SessionMessage,
+  SessionResourceRef,
   SessionResult,
   SessionType
 } from '@main/types/session'
@@ -89,19 +90,25 @@ export class SessionService {
    * 通过工厂模式创建不同类型的会话对象并持久化
    * @param title 可选会话标题
    * @param sessionType 会话类型
+   * @param resourceRef 可选资源引用（写作会话绑定文档）
    */
-  createSession(title?: string, sessionType?: SessionType): SessionData {
+  createSession(
+    title?: string,
+    sessionType?: SessionType,
+    resourceRef?: SessionResourceRef
+  ): SessionData {
     this.ensureDataDir()
 
     const factory = this.registry.getFactoryOrDefault(sessionType)
-    const session = factory.create(title)
+    const session = factory.create(title, resourceRef)
 
     this.saveSession(session)
 
     logger.info('会话创建成功', 'main', {
       sessionId: session.sessionId,
       title: session.title,
-      type: session.sessionType
+      type: session.sessionType,
+      resourceRef: session.resourceRef
     })
     return session
   }
@@ -266,7 +273,8 @@ export class SessionService {
             title: session.title,
             sessionType: session.sessionType || 'default',
             createdAt: session.createdAt,
-            updatedAt: session.updatedAt
+            updatedAt: session.updatedAt,
+            resourceRef: session.resourceRef
           })
         } catch {
           // 跳过无法解析的文件
