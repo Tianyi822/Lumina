@@ -142,14 +142,16 @@ test('全部接受清空 active', () => {
 
 test('beginRequest 记录 pendingAction，ingest 后清除', () => {
   useWriterSuggestionStore.getState().reset()
-  useWriterSuggestionStore.getState().beginRequest('writer-doc-test01', 2, 'rewrite')
+  useWriterSuggestionStore.getState().beginRequest('writer-doc-test01', 2, 'rewrite', 6)
   assert.equal(useWriterSuggestionStore.getState().status, 'pending')
   assert.equal(useWriterSuggestionStore.getState().pendingAction, 'rewrite')
+  assert.equal(useWriterSuggestionStore.getState().pendingAnchorPos, 6)
   const ok = useWriterSuggestionStore
     .getState()
     .ingestProposal(makeProposal(), 'writer-doc-test01', 2, createValidEditorState())
   assert.equal(ok, true)
   assert.equal(useWriterSuggestionStore.getState().pendingAction, null)
+  assert.equal(useWriterSuggestionStore.getState().pendingAnchorPos, null)
 })
 
 test('切换文档取消请求并清空建议', () => {

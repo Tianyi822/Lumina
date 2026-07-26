@@ -70,15 +70,30 @@ function createSuggestionState(selection?: { from: number; to: number }): Editor
 test('pending 状态在选区渲染 loading decoration', () => {
   useWriterSuggestionStore.getState().reset()
   const state = createSuggestionState({ from: 2, to: 6 })
-  useWriterSuggestionStore.getState().beginRequest('writer-doc-pending', 1, 'continue')
+  useWriterSuggestionStore.getState().beginRequest('writer-doc-pending', 1, 'continue', 6)
   const decorations = buildPluginDecorationsForTest(state)
   assert.notEqual(decorations.find().length, 0)
   const widget = decorations.find()[0]
   assert.ok(widget)
+  assert.equal(widget.from, 6)
   const element = getWidgetDom(widget)
   assert.ok(element)
   assert.equal(element.className, 'sm-writer-diff-pending')
   assert.match(element.textContent ?? '', /AI 正在续写/)
+  useWriterSuggestionStore.getState().reset()
+})
+
+test('pending 骨架锚定在请求时选区，不随后续点击移动', () => {
+  useWriterSuggestionStore.getState().reset()
+  const state = createSuggestionState({ from: 2, to: 6 })
+  useWriterSuggestionStore.getState().beginRequest('writer-doc-pending', 1, 'continue', 6)
+  const stateMoved = state.apply(
+    state.tr.setSelection(TextSelection.create(state.doc, 2, 3))
+  )
+  const decorations = buildPluginDecorationsForTest(stateMoved)
+  const widget = decorations.find()[0]
+  assert.ok(widget)
+  assert.equal(widget.from, 6)
   useWriterSuggestionStore.getState().reset()
 })
 

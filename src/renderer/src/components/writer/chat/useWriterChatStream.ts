@@ -283,12 +283,15 @@ export function useWriterChatStream(options: UseWriterChatStreamOptions): UseWri
             ? buildBoundedWriterAiContext(rawContext).context
             : null
           if (writerContext) {
+            const { selection } = writerEditor.state
+            const anchorPos = selection.empty ? selection.head : selection.to
             useWriterSuggestionStore
               .getState()
               .beginRequest(
                 writerContext.documentId,
                 writerContext.baseRevision,
-                options?.pendingAction ?? null
+                options?.pendingAction ?? null,
+                anchorPos
               )
             // beginRequest 清空 activeProposal，须同步刷新装饰，避免高亮滞留
             refreshWriterSuggestionDecorations(

@@ -17,6 +17,7 @@ export interface WriterSuggestionStore {
   activeProposal: WriterAiProposal | null
   pendingRequest: WriterSuggestionPendingRequest | null
   pendingAction: WriterSuggestionPendingAction | null
+  pendingAnchorPos: number | null
   pendingOperationIndexes: number[]
   acceptedOperationIndexes: number[]
   invalidReason: string | null
@@ -25,7 +26,8 @@ export interface WriterSuggestionStore {
   beginRequest: (
     documentId: string,
     baseRevision: number,
-    pendingAction?: WriterSuggestionPendingAction | null
+    pendingAction?: WriterSuggestionPendingAction | null,
+    anchorPos?: number
   ) => void
   ingestProposal: (
     proposal: unknown,
@@ -46,6 +48,7 @@ const initialState = {
   activeProposal: null as WriterAiProposal | null,
   pendingRequest: null as WriterSuggestionPendingRequest | null,
   pendingAction: null as WriterSuggestionPendingAction | null,
+  pendingAnchorPos: null as number | null,
   pendingOperationIndexes: [] as number[],
   acceptedOperationIndexes: [] as number[],
   invalidReason: null as string | null
@@ -59,11 +62,12 @@ export const useWriterSuggestionStore = create<WriterSuggestionStore>((set, get)
 
   reset: () => set(initialState),
 
-  beginRequest: (documentId, baseRevision, pendingAction = null) =>
+  beginRequest: (documentId, baseRevision, pendingAction = null, anchorPos) =>
     set({
       status: 'pending',
       pendingRequest: { documentId, baseRevision },
       pendingAction,
+      pendingAnchorPos: anchorPos ?? null,
       activeProposal: null,
       pendingOperationIndexes: [],
       acceptedOperationIndexes: [],
@@ -132,6 +136,7 @@ export const useWriterSuggestionStore = create<WriterSuggestionStore>((set, get)
       activeProposal: data,
       pendingRequest: null,
       pendingAction: null,
+      pendingAnchorPos: null,
       pendingOperationIndexes: data.operations.map((_, index) => index),
       acceptedOperationIndexes: [],
       invalidReason: null
@@ -178,6 +183,7 @@ export const useWriterSuggestionStore = create<WriterSuggestionStore>((set, get)
       acceptedOperationIndexes: [],
       invalidReason: reason,
       pendingAction: null,
+      pendingAnchorPos: null,
       pendingRequest: get().pendingRequest
     }),
 

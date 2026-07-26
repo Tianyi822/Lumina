@@ -70,12 +70,25 @@ function withToolbar(preview: HTMLElement, ctx: OperationToolbarContext): HTMLEl
   return appendOperationToolbar(wrapper, buildToolbarOptions(ctx))
 }
 
+function clampDocPos(state: EditorState, pos: number): number {
+  return Math.min(Math.max(1, pos), state.doc.content.size)
+}
+
+function resolvePendingDecorationPos(
+  state: EditorState,
+  pendingAnchorPos: number | null
+): number {
+  const { selection } = state
+  const raw = pendingAnchorPos ?? (selection.empty ? selection.head : selection.to)
+  return clampDocPos(state, raw)
+}
+
 function buildPendingDecorations(
   state: EditorState,
-  pendingAction: WriterSuggestionPendingAction | null
+  pendingAction: WriterSuggestionPendingAction | null,
+  pendingAnchorPos: number | null
 ): DecorationSet {
-  const { selection } = state
-  const pos = selection.empty ? selection.head : selection.to
+  const pos = resolvePendingDecorationPos(state, pendingAnchorPos)
   return DecorationSet.create(state.doc, [
     Decoration.widget(
       pos,
@@ -234,7 +247,7 @@ function decorationsForOperation(
 function buildPluginDecorations(state: EditorState, editor: Editor | null): DecorationSet {
   const store = useWriterSuggestionStore.getState()
   if (store.status === 'pending') {
-    return buildPendingDecorations(state, store.pendingAction)
+    return buildPendingDecorations(state, store.pendingAction, store.pendingAnchorPos)
   }
   if (
     store.status !== 'active' ||
@@ -282,7 +295,18 @@ export function createWriterSuggestionExtension() {
 
               const store = useWriterSuggestionStore.getState()
               if (store.status === 'pending') {
-                return { decorations: buildPendingDecorations(newState, store.pendingAction) }
+                let anchorPos = store.pendingAnchorPos
+                if (anchorPos != null && tr.docChanged) {
+                  anchorPos = tr.mapping.map(anchorPos)
+                  useWriterSuggestionStore.setState({ pendingAnchorPos: anchorPos })
+                }
+                return {
+                  decorations: buildPendingDecorations(
+                    newState,
+                    store.pendingAction,
+                    anchorPos
+                  )
+                }
               }
 
               const proposal = store.activeProposal
