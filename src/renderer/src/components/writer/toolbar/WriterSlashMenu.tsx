@@ -1,6 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { CSSProperties, MouseEvent } from 'react'
 import type { Editor } from '@tiptap/core'
+import {
+  closeWriterSlashMenuGate,
+  createWriterSlashMenuKeyPlugin,
+  prependWriterSlashMenuPlugin,
+  resolveWriterSlashMenuVisibility,
+  writerSlashMenuPluginKey
+} from './writerSlashMenuKeymap'
+import type { WriterSlashMenuGate } from './writerSlashMenuKeymap'
 import styles from './WriterToolbar.module.css'
 
 interface WriterSlashMenuProps {
@@ -126,6 +134,7 @@ export default function WriterSlashMenu({ editor }: WriterSlashMenuProps) {
   const [selectedIndex, setSelectedIndex] = useState(0)
   const menuStateRef = useRef<SlashMenuState | null>(null)
   const selectedIndexRef = useRef(0)
+  const gateRef = useRef<WriterSlashMenuGate>({ suppressed: false })
 
   const items = menuState
     ? SLASH_MENU_ITEMS.filter((item) =>
@@ -136,7 +145,14 @@ export default function WriterSlashMenu({ editor }: WriterSlashMenuProps) {
   itemsRef.current = items
 
   const syncMenuState = useCallback(() => {
-    const nextState = readSlashMenuState(editor)
+    const candidate = readSlashMenuState(editor)
+    const visibility = resolveWriterSlashMenuVisibility({
+      hasCandidate: candidate !== null,
+      focused: editor.isFocused,
+      gate: gateRef.current
+    })
+    gateRef.current = visibility.gate
+    const nextState = visibility.visible ? candidate : null
     menuStateRef.current = nextState
     setMenuState(nextState)
     selectedIndexRef.current = 0
@@ -144,6 +160,7 @@ export default function WriterSlashMenu({ editor }: WriterSlashMenuProps) {
   }, [editor])
 
   const closeAndFocus = useCallback(() => {
+    gateRef.current = closeWriterSlashMenuGate()
     menuStateRef.current = null
     setMenuState(null)
     editor.commands.focus()
@@ -162,37 +179,33 @@ export default function WriterSlashMenu({ editor }: WriterSlashMenuProps) {
   )
 
   useEffect(() => {
+    const keyPlugin = createWriterSlashMenuKeyPlugin({
+      getSnapshot: () => ({
+        open: menuStateRef.current !== null,
+        itemCount: itemsRef.current.length,
+        selectedIndex: selectedIndexRef.current
+      }),
+      moveSelection: (index) => {
+        selectedIndexRef.current = index
+        setSelectedIndex(index)
+      },
+      selectItem: (index) => {
+        const item = itemsRef.current[index]
+        if (item) selectItem(item)
+      },
+      closeMenu: closeAndFocus
+    })
+    editor.registerPlugin(keyPlugin, prependWriterSlashMenuPlugin)
     editor.on('transaction', syncMenuState)
+    editor.on('focus', syncMenuState)
+    editor.on('blur', syncMenuState)
     syncMenuState()
 
-    const handleKeyDown = (event: KeyboardEvent): void => {
-      if (!menuStateRef.current) return
-      const currentItems = itemsRef.current
-
-      if (event.key === 'Escape') {
-        event.preventDefault()
-        event.stopPropagation()
-        closeAndFocus()
-      } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-        event.preventDefault()
-        event.stopPropagation()
-        if (currentItems.length === 0) return
-        const direction = event.key === 'ArrowDown' ? 1 : -1
-        const nextIndex =
-          (selectedIndexRef.current + direction + currentItems.length) % currentItems.length
-        selectedIndexRef.current = nextIndex
-        setSelectedIndex(nextIndex)
-      } else if (event.key === 'Enter' && currentItems.length > 0) {
-        event.preventDefault()
-        event.stopPropagation()
-        selectItem(currentItems[selectedIndexRef.current] ?? currentItems[0])
-      }
-    }
-
-    editor.view.dom.addEventListener('keydown', handleKeyDown)
     return () => {
       editor.off('transaction', syncMenuState)
-      editor.view.dom.removeEventListener('keydown', handleKeyDown)
+      editor.off('focus', syncMenuState)
+      editor.off('blur', syncMenuState)
+      editor.unregisterPlugin(writerSlashMenuPluginKey)
     }
   }, [closeAndFocus, editor, selectItem, syncMenuState])
 

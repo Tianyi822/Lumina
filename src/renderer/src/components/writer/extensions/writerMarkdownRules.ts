@@ -80,7 +80,11 @@ const RULE_DEFINITIONS: RuleDefinition[] = [
     match: (result) => ({ kind: 'italic', content: result[1] })
   },
   {
-    expression: /\$([^$\n]+)\$$/,
+    expression: /(?<!_)_([^_\n]+)_(?!_)$/,
+    match: (result) => ({ kind: 'italic', content: result[1] })
+  },
+  {
+    expression: /(?<!\$)\$([^$\n]+)\$(?!\$)$/,
     match: (result) => ({ kind: 'inlineMath', content: result[1] })
   }
 ]

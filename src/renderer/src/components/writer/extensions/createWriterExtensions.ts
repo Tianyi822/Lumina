@@ -26,6 +26,9 @@ const STABLE_WRITER_NODE_TYPES = [
   'codeBlock',
   'listItem',
   'taskItem',
+  'horizontalRule',
+  'image',
+  'table',
   'tableCell',
   'tableHeader',
   'blockMath'

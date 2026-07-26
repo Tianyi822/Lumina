@@ -79,6 +79,14 @@ test('识别粗体、斜体、删除线和行内公式', () => {
   })
 })
 
+test('下划线斜体不会抢占三下划线分隔线', () => {
+  assert.deepEqual(matchWriterMarkdownRule('前 _斜体_'), {
+    kind: 'italic',
+    content: '斜体'
+  })
+  assert.deepEqual(matchWriterMarkdownRule('___'), { kind: 'horizontalRule' })
+})
+
 test('独占一行的双美元符号识别为块公式', () => {
   assert.deepEqual(matchWriterMarkdownRule('$$\\int_0^1 x dx$$'), {
     kind: 'blockMath',
@@ -88,4 +96,16 @@ test('独占一行的双美元符号识别为块公式', () => {
     kind: 'blockMath',
     content: 'x'
   })
+})
+
+test('逐键输入双美元块公式时不会被行内公式抢先转换', () => {
+  const typedPrefixes = ['$', '$$', '$$x', '$$x$', '$$x$$']
+
+  assert.deepEqual(typedPrefixes.map(matchWriterMarkdownRule), [
+    null,
+    null,
+    null,
+    null,
+    { kind: 'blockMath', content: 'x' }
+  ])
 })
