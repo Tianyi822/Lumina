@@ -88,6 +88,14 @@ const SLASH_MENU_ITEMS: SlashMenuItem[] = [
     }
   },
   {
+    id: 'block-math',
+    label: '块级公式',
+    keywords: 'math latex formula 公式',
+    run: (editor) => {
+      editor.chain().focus().insertBlockMath({ latex: 'x' }).run()
+    }
+  },
+  {
     id: 'horizontal-rule',
     label: '分隔线',
     keywords: 'divider horizontal rule',

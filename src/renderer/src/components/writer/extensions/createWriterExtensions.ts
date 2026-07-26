@@ -4,7 +4,7 @@ import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight'
 import Highlight from '@tiptap/extension-highlight'
 import Image from '@tiptap/extension-image'
 import Link from '@tiptap/extension-link'
-import { Mathematics } from '@tiptap/extension-mathematics'
+import { BlockMath, InlineMath } from '@tiptap/extension-mathematics'
 import Placeholder from '@tiptap/extension-placeholder'
 import { TableKit } from '@tiptap/extension-table'
 import TaskItem from '@tiptap/extension-task-item'
@@ -13,11 +13,77 @@ import TextAlign from '@tiptap/extension-text-align'
 import Underline from '@tiptap/extension-underline'
 import UniqueID from '@tiptap/extension-unique-id'
 import StarterKit from '@tiptap/starter-kit'
-import { common, createLowlight } from 'lowlight'
+import { ReactNodeViewRenderer } from '@tiptap/react'
+import bash from 'highlight.js/lib/languages/bash'
+import c from 'highlight.js/lib/languages/c'
+import cpp from 'highlight.js/lib/languages/cpp'
+import css from 'highlight.js/lib/languages/css'
+import go from 'highlight.js/lib/languages/go'
+import java from 'highlight.js/lib/languages/java'
+import javascript from 'highlight.js/lib/languages/javascript'
+import json from 'highlight.js/lib/languages/json'
+import markdown from 'highlight.js/lib/languages/markdown'
+import python from 'highlight.js/lib/languages/python'
+import rust from 'highlight.js/lib/languages/rust'
+import typescript from 'highlight.js/lib/languages/typescript'
+import xml from 'highlight.js/lib/languages/xml'
+import { createLowlight } from 'lowlight'
+import WriterCodeBlockView from '../nodes/WriterCodeBlockView.tsx'
+import WriterMathView from '../nodes/WriterMathView.tsx'
 import { WriterClipboard } from './writerClipboard'
 import { WriterMarkdownRules } from './writerMarkdownRules'
+import { normalizeWriterCodeLanguage } from './writerMath'
 
-const lowlight = createLowlight(common)
+const lowlight = createLowlight({
+  javascript,
+  typescript,
+  python,
+  json,
+  bash,
+  css,
+  xml,
+  markdown,
+  c,
+  cpp,
+  java,
+  rust,
+  go
+})
+
+const WriterCodeBlock = CodeBlockLowlight.extend({
+  addCommands() {
+    return {
+      setCodeBlock:
+        (attributes) =>
+        ({ commands }) =>
+          commands.setNode(this.name, {
+            language: normalizeWriterCodeLanguage(attributes?.language)
+          }),
+      toggleCodeBlock:
+        (attributes) =>
+        ({ commands }) =>
+          commands.toggleNode(this.name, 'paragraph', {
+            language: normalizeWriterCodeLanguage(attributes?.language)
+          })
+    }
+  },
+
+  addNodeView() {
+    return ReactNodeViewRenderer(WriterCodeBlockView)
+  }
+})
+
+const WriterInlineMath = InlineMath.extend({
+  addNodeView() {
+    return ReactNodeViewRenderer(WriterMathView)
+  }
+})
+
+const WriterBlockMath = BlockMath.extend({
+  addNodeView() {
+    return ReactNodeViewRenderer(WriterMathView)
+  }
+})
 
 const STABLE_WRITER_NODE_TYPES = [
   'paragraph',
@@ -31,6 +97,7 @@ const STABLE_WRITER_NODE_TYPES = [
   'table',
   'tableCell',
   'tableHeader',
+  'inlineMath',
   'blockMath'
 ]
 
@@ -50,15 +117,11 @@ export function createWriterExtensions(): Extension[] {
       linkOnPaste: true,
       protocols: ['https', 'http', 'mailto']
     }),
-    CodeBlockLowlight.configure({ lowlight }),
+    WriterCodeBlock.configure({ lowlight }),
     TaskList,
     TaskItem.configure({ nested: true }),
-    Mathematics.configure({
-      katexOptions: {
-        throwOnError: false,
-        strict: false
-      }
-    }),
+    WriterInlineMath,
+    WriterBlockMath,
     TableKit.configure({
       table: {
         resizable: true,

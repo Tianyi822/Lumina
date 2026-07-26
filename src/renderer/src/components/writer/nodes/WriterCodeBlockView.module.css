@@ -1,0 +1,61 @@
+.codeBlock {
+  overflow: hidden;
+  border: 1px solid var(--sm-color-border-subtle);
+  border-radius: var(--sm-radius-md);
+  background: var(--sm-color-surface-1);
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sm-space-3);
+  padding: var(--sm-space-2) var(--sm-space-3);
+  border-bottom: 1px solid var(--sm-color-border-subtle);
+  background: var(--sm-color-surface-2);
+}
+
+.languageLabel {
+  display: flex;
+  align-items: center;
+  gap: var(--sm-space-2);
+  color: var(--sm-color-text-secondary);
+  font-size: var(--sm-text-xs);
+}
+
+.languageSelect,
+.copyButton {
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-sm);
+  background: var(--sm-color-surface-1);
+  color: var(--sm-color-text-primary);
+  font: inherit;
+  font-size: var(--sm-text-xs);
+}
+
+.languageSelect {
+  padding: var(--sm-space-2);
+}
+
+.copyButton {
+  padding: var(--sm-space-2) var(--sm-space-3);
+  cursor: pointer;
+}
+
+.copyButton:hover,
+.languageSelect:hover {
+  border-color: var(--sm-color-border-strong);
+  background: var(--sm-color-surface-hover);
+}
+
+.codeSurface {
+  margin: 0;
+  padding: var(--sm-space-4);
+  overflow-x: auto;
+  background: transparent;
+}
+
+.codeContent {
+  color: var(--sm-color-text-primary);
+  font-family: var(--sm-font-mono);
+}
