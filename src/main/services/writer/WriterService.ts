@@ -1,4 +1,4 @@
-import { existsSync, rmSync } from 'node:fs'
+import { existsSync } from 'node:fs'
 import { basename, dirname, join } from 'node:path'
 import { logger } from '@main/services/logger'
 import type {
@@ -235,7 +235,7 @@ export class WriterService {
         if (confirm.response !== 1) {
           return { success: true, data: { canceled: true } }
         }
-        rmSync(assetsDir, { recursive: true, force: true })
+        // 确认后不在此处删除；由 exporter 在 commit 阶段原子替换，失败时保留原目录
       }
 
       const exportResult = await this.markdownExporter.export(mapped.data, outputPath)

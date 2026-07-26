@@ -23,14 +23,23 @@ export interface WriterMarkdownRenderResult {
   warnings: string[]
 }
 
+export interface WriterMarkdownRenderOptions {
+  /** 图片相对路径所用的 assets 目录基名；缺省用文档标题消毒结果 */
+  assetsBaseName?: string
+}
+
 /**
  * 将统一导出 AST 渲染为 Markdown，并支持原子写出（临时文件 → rename）。
  * 只消费 WriterExportDocument，不读取 TipTap JSON。
  */
 export class WriterMarkdownExporter {
   /** 渲染 Markdown 字符串（不落盘） */
-  async render(document: WriterExportDocument): Promise<WriterMarkdownRenderResult> {
-    const assetsBaseName = sanitizeExportBaseName(document.title)
+  async render(
+    document: WriterExportDocument,
+    options?: WriterMarkdownRenderOptions
+  ): Promise<WriterMarkdownRenderResult> {
+    const assetsBaseName =
+      options?.assetsBaseName ?? sanitizeExportBaseName(document.title)
     const markdown = renderMarkdownDocument(document, assetsBaseName)
     return { markdown, warnings: [...document.warnings] }
   }
@@ -38,8 +47,8 @@ export class WriterMarkdownExporter {
   /**
    * 原子导出到目标路径：
    * 1. 写临时 `.md` 与临时 `.assets` 目录
-   * 2. 全部成功后再 rename 为最终文件 / `<basename>.assets/`
-   * 3. 失败清理临时产物，不改原文
+   * 2. 全部成功后再以 backup→rename 方式提交最终文件 / `<basename>.assets/`
+   * 3. 失败清理临时产物；已有 `.md` 与 `.assets` 保持不变（或从 backup 恢复）
    */
   async export(
     document: WriterExportDocument,
@@ -56,7 +65,7 @@ export class WriterMarkdownExporter {
       cleanupPath(tempMdPath)
       cleanupPath(tempAssetsDir)
 
-      const markdown = renderMarkdownDocument(document, baseName)
+      const { markdown } = await this.render(document, { assetsBaseName: baseName })
       writeFileSync(tempMdPath, markdown, 'utf8')
 
       if (document.assets.length > 0) {
@@ -67,20 +76,14 @@ export class WriterMarkdownExporter {
         }
       }
 
-      // 先替换 assets，再替换 md，避免 md 已就位但 assets 缺失
+      // 先提交 assets，再提交 md，避免 md 已就位但 assets 缺失
       if (document.assets.length > 0) {
-        if (existsSync(finalAssetsDir)) {
-          rmSync(finalAssetsDir, { recursive: true, force: true })
-        }
-        renameSync(tempAssetsDir, finalAssetsDir)
+        atomicReplacePath(tempAssetsDir, finalAssetsDir)
       } else if (existsSync(tempAssetsDir)) {
         cleanupPath(tempAssetsDir)
       }
 
-      if (existsSync(outputPath)) {
-        rmSync(outputPath, { force: true })
-      }
-      renameSync(tempMdPath, outputPath)
+      atomicReplacePath(tempMdPath, outputPath)
 
       return { success: true }
     } catch (error) {
@@ -347,6 +350,36 @@ export function sanitizeExportBaseName(title: string): string {
     .replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_')
     .replace(/\.+$/g, '')
   return sanitized.length > 0 ? sanitized : 'untitled'
+}
+
+/**
+ * 原子替换：若目标已存在则先 rename 为 `.bak`，再把临时路径 rename 就位，最后删 backup。
+ * 任一步失败则尽量把 backup 恢复为最终路径。
+ */
+function atomicReplacePath(tempPath: string, finalPath: string): void {
+  const backupPath = `${finalPath}.bak`
+  cleanupPath(backupPath)
+
+  let backedUp = false
+  try {
+    if (existsSync(finalPath)) {
+      renameSync(finalPath, backupPath)
+      backedUp = true
+    }
+    renameSync(tempPath, finalPath)
+    if (backedUp) {
+      cleanupPath(backupPath)
+    }
+  } catch (error) {
+    if (backedUp && !existsSync(finalPath) && existsSync(backupPath)) {
+      try {
+        renameSync(backupPath, finalPath)
+      } catch {
+        // 恢复失败时保留 backup，交由上层报告原始错误
+      }
+    }
+    throw error
+  }
 }
 
 function cleanupPath(targetPath: string): void {
