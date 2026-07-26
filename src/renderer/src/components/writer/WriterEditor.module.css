@@ -231,3 +231,24 @@
   color: var(--sm-color-text-tertiary);
   content: '未引用';
 }
+
+.editorContent :global(.sm-writer-diff-add),
+.editorContent :global(.sm-writer-diff-add-block) {
+  background: var(--sm-color-writer-diff-add-bg);
+  color: var(--sm-color-writer-diff-add-text);
+}
+
+.editorContent :global(.sm-writer-diff-delete),
+.editorContent :global(.sm-writer-diff-delete-block) {
+  background: var(--sm-color-writer-diff-delete-bg);
+  color: var(--sm-color-writer-diff-delete-text);
+  text-decoration: line-through;
+}
+
+.editorContent :global(.sm-writer-diff-add-block) {
+  display: block;
+  margin: var(--sm-space-2) 0;
+  padding: var(--sm-space-2);
+  border-radius: var(--sm-radius-sm);
+  white-space: pre-wrap;
+}

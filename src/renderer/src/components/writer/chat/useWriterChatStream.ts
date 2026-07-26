@@ -13,9 +13,14 @@ import type {
   StreamEvent
 } from '@renderer/types'
 import { usePaperChatMessageCacheStore, usePaperChatStreamStore } from '@renderer/stores'
-import { useWriterChatStore } from '@renderer/stores/writer'
+import { useWriterChatStore, useWriterSessionStore, useWriterSuggestionStore } from '@renderer/stores/writer'
 import { buildChatMessages } from '@renderer/utils/messageHelpers'
 import { deepClone } from '@shared/utils'
+import {
+  createWriterAiRequestContext,
+  getRegisteredWriterEditor
+} from '@renderer/components/writer/suggestions/writerSuggestionCore'
+import { refreshWriterSuggestionDecorations } from '@renderer/components/writer/suggestions/writerSuggestionPlugin'
 
 interface UseWriterChatStreamOptions {
   session: SessionData | null
@@ -104,6 +109,31 @@ export function useWriterChatStream(options: UseWriterChatStreamOptions): UseWri
       // 同步流式文本到写作专用 Store，保证按会话隔离可读
       if (event.type === 'content' && typeof event.content === 'string') {
         useWriterChatStore.getState().appendContent(currentSessionId, event.content)
+      }
+
+      // 摄入写作结构化编辑建议（双重 Zod + 状态校验在 store.ingestProposal）
+      if (event.type === 'tool_result' && event.toolResult?.success) {
+        const toolName = event.toolResult.name || ''
+        if (toolName === 'writer__propose_edits' || toolName.endsWith('propose_edits')) {
+          const editor = getRegisteredWriterEditor()
+          const session = useWriterSessionStore.getState()
+          if (editor && session.currentDocumentId) {
+            const ingested = useWriterSuggestionStore
+              .getState()
+              .ingestProposal(
+                event.toolResult.result,
+                session.currentDocumentId,
+                session.revision,
+                editor.state
+              )
+            if (ingested) {
+              refreshWriterSuggestionDecorations(
+                (tr) => editor.view.dispatch(tr),
+                editor.state
+              )
+            }
+          }
+        }
       }
 
       if (event.type === 'done' || event.type === 'error') {
@@ -231,6 +261,22 @@ export function useWriterChatStream(options: UseWriterChatStreamOptions): UseWri
           JSON.stringify(buildChatMessages(nextMessages.slice(0, -1)))
         )
 
+        const writerEditor = getRegisteredWriterEditor()
+        const writerSession = useWriterSessionStore.getState()
+        let writerContext: ReturnType<typeof createWriterAiRequestContext> = null
+        if (writerEditor && writerSession.currentDocumentId) {
+          writerContext = createWriterAiRequestContext(
+            writerEditor,
+            'document',
+            writerSession.revision
+          )
+          if (writerContext) {
+            useWriterSuggestionStore
+              .getState()
+              .beginRequest(writerContext.documentId, writerContext.baseRevision)
+          }
+        }
+
         const result = await window.api.chat.send(
           toPlainRequest({
             messages: chatMessages,
@@ -248,7 +294,8 @@ export function useWriterChatStream(options: UseWriterChatStreamOptions): UseWri
                 ? toKnowledgeReferences(selected.selectedKnowledgeBases)
                 : undefined,
             sessionType: 'writer',
-            enablePaperWebSearch: false
+            enablePaperWebSearch: false,
+            writerContext: writerContext ?? undefined
           })
         )
 

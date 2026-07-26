@@ -1,0 +1,599 @@
+import type { Editor } from '@tiptap/core'
+import type { Node as ProseMirrorNode } from '@tiptap/pm/model'
+import type { EditorState, Transaction } from '@tiptap/pm/state'
+import type {
+  WriterAiAnchor,
+  WriterAiContextBlock,
+  WriterAiProposal,
+  WriterAiRequestContext,
+  WriterAiScope,
+  WriterEditOperation
+} from '@shared/types/writer'
+import { hashWriterText } from '@shared/utils/writerText'
+import { useWriterSessionStore } from '@renderer/stores/writer/writerSessionStore'
+
+const ALLOWED_BLOCK_TYPES = new Set<WriterAiContextBlock['type']>([
+  'paragraph',
+  'heading',
+  'listItem',
+  'blockquote',
+  'codeBlock',
+  'blockMath'
+])
+
+const CONTEXT_NODE_TYPES = new Set([
+  'paragraph',
+  'heading',
+  'listItem',
+  'blockquote',
+  'codeBlock',
+  'blockMath'
+])
+
+export type ProposalInvalidReason =
+  | 'target_changed'
+  | 'invalid_structure'
+  | 'document_mismatch'
+  | 'session_stale'
+  | 'overlap'
+  | 'schema_rejected'
+
+export type ProposalValidationResult =
+  | { valid: true }
+  | { valid: false; reason: ProposalInvalidReason }
+
+type TextRange = { from: number; to: number }
+
+interface LocatedBlock {
+  node: ProseMirrorNode
+  pos: number
+  textStart: number
+  text: string
+  type: WriterAiContextBlock['type']
+}
+
+/** 当前写作编辑器注册表，供聊天流构造 writerContext */
+let registeredWriterEditor: Editor | null = null
+
+export function registerWriterEditor(editor: Editor | null): void {
+  registeredWriterEditor = editor
+}
+
+export function getRegisteredWriterEditor(): Editor | null {
+  return registeredWriterEditor
+}
+
+/**
+ * 从编辑器当前状态构造 AI 请求上下文。
+ * documentId / title 取自写作会话 store（与打开文档对齐）。
+ */
+export function createWriterAiRequestContext(
+  editor: Editor,
+  scope: WriterAiScope,
+  revision: number
+): WriterAiRequestContext | null {
+  const session = useWriterSessionStore.getState()
+  const documentId = session.currentDocumentId
+  if (!documentId) return null
+
+  const blocks = collectContextBlocks(editor.state, scope)
+  if (blocks.length === 0) return null
+
+  const joined = blocks.map((block) => block.text).join('\n')
+  const first = blocks[0]!
+  const last = blocks[blocks.length - 1]!
+  const anchor: WriterAiAnchor = {
+    documentId,
+    baseRevision: revision,
+    scope,
+    startBlockId: first.nodeId,
+    endBlockId: last.nodeId,
+    startOffset: 0,
+    endOffset: first.text.length,
+    expectedTextHash: hashWriterText(joined)
+  }
+
+  return {
+    documentId,
+    baseRevision: revision,
+    title: session.titleSummary || '无标题文档',
+    anchor,
+    blocks
+  }
+}
+
+/** 对当前 EditorState 双重校验整组建议；任一失败则整组拒绝 */
+export function validateProposalAgainstState(
+  proposal: WriterAiProposal,
+  state: EditorState,
+  options?: { documentId?: string | null; baseRevision?: number | null; sessionStale?: boolean }
+): ProposalValidationResult {
+  if (options?.sessionStale) {
+    return { valid: false, reason: 'session_stale' }
+  }
+  if (options?.documentId && options.documentId !== proposal.documentId) {
+    return { valid: false, reason: 'document_mismatch' }
+  }
+
+  const blockMap = collectBlockMap(state)
+  const textRanges = new Map<string, TextRange[]>()
+  const claimedBlocks = new Set<string>()
+
+  for (const op of proposal.operations) {
+    const opResult = validateOperation(op, state, blockMap, textRanges, claimedBlocks)
+    if (!opResult.valid) return opResult
+  }
+
+  return { valid: true }
+}
+
+/**
+ * 将已接受操作合并为单个 Transaction（调用方再 setMeta 并一次 dispatch）。
+ * 按文档位置从后往前应用，避免偏移错位。
+ */
+export function applyAcceptedOperations(
+  state: EditorState,
+  operations: WriterEditOperation[]
+): Transaction {
+  const prepared = operations
+    .map((op, index) => ({ op, index, abs: absoluteRangeForOperation(state, op) }))
+    .filter((item) => item.abs !== null) as Array<{
+    op: WriterEditOperation
+    index: number
+    abs: { from: number; to: number; insertPos?: number; afterPos?: number }
+  }>
+
+  prepared.sort((a, b) => b.abs.from - a.abs.from || b.index - a.index)
+
+  let tr = state.tr
+  for (const item of prepared) {
+    tr = applyOneOperation(tr, state.schema, item.op, item.abs)
+  }
+  return tr
+}
+
+export function findBlockByNodeId(state: EditorState, nodeId: string): LocatedBlock | null {
+  let found: LocatedBlock | null = null
+  state.doc.descendants((node, pos) => {
+    if (found) return false
+    const id = node.attrs?.nodeId
+    if (typeof id === 'string' && id === nodeId) {
+      const mappedType = mapNodeType(node)
+      if (!mappedType) return true
+      found = {
+        node,
+        pos,
+        textStart: pos + 1,
+        text: node.textContent,
+        type: mappedType
+      }
+      return false
+    }
+    return true
+  })
+  return found
+}
+
+function collectContextBlocks(state: EditorState, scope: WriterAiScope): WriterAiContextBlock[] {
+  const all: Array<WriterAiContextBlock & { pos: number }> = []
+  state.doc.descendants((node, pos) => {
+    const mapped = mapNodeType(node)
+    const nodeId = node.attrs?.nodeId
+    if (!mapped || typeof nodeId !== 'string' || !nodeId) return true
+    if (!CONTEXT_NODE_TYPES.has(node.type.name) && mapped !== 'listItem') {
+      // blockquote / listItem 等按自身类型收录
+    }
+    all.push({
+      nodeId,
+      type: mapped,
+      text: node.textContent,
+      level: node.type.name === 'heading' ? Number(node.attrs.level ?? 1) : undefined,
+      pos
+    })
+    return true
+  })
+
+  if (scope === 'document') {
+    return all.map(({ pos: _pos, ...block }) => block)
+  }
+
+  const { from, to } = state.selection
+  if (scope === 'cursor' || scope === 'selection') {
+    const start = scope === 'cursor' ? state.selection.head : Math.min(from, to)
+    const end = scope === 'cursor' ? state.selection.head : Math.max(from, to)
+    return all
+      .filter((block) => {
+        const blockEnd = block.pos + (findBlockByNodeId(state, block.nodeId)?.node.nodeSize ?? 0)
+        return block.pos < end && blockEnd > start
+      })
+      .map(({ pos: _pos, ...block }) => block)
+  }
+
+  // section：从光标所在标题到下一同级/更高级标题
+  const head = state.selection.head
+  let currentHeadingLevel: number | null = null
+  let sectionStartPos = 0
+  for (const block of all) {
+    if (block.type === 'heading' && block.pos <= head) {
+      currentHeadingLevel = block.level ?? 1
+      sectionStartPos = block.pos
+    }
+  }
+  if (currentHeadingLevel === null) {
+    return all.map(({ pos: _pos, ...block }) => block)
+  }
+
+  const section: WriterAiContextBlock[] = []
+  for (const block of all) {
+    if (block.pos < sectionStartPos) continue
+    if (
+      block.pos > sectionStartPos &&
+      block.type === 'heading' &&
+      (block.level ?? 1) <= currentHeadingLevel
+    ) {
+      break
+    }
+    section.push({
+      nodeId: block.nodeId,
+      type: block.type,
+      text: block.text,
+      level: block.level
+    })
+  }
+  return section
+}
+
+function collectBlockMap(state: EditorState): Map<string, LocatedBlock> {
+  const map = new Map<string, LocatedBlock>()
+  state.doc.descendants((node, pos) => {
+    const nodeId = node.attrs?.nodeId
+    const mapped = mapNodeType(node)
+    if (typeof nodeId === 'string' && nodeId && mapped) {
+      map.set(nodeId, {
+        node,
+        pos,
+        textStart: pos + 1,
+        text: node.textContent,
+        type: mapped
+      })
+    }
+    return true
+  })
+  return map
+}
+
+function mapNodeType(node: ProseMirrorNode): WriterAiContextBlock['type'] | null {
+  switch (node.type.name) {
+    case 'paragraph':
+      return 'paragraph'
+    case 'heading':
+      return 'heading'
+    case 'listItem':
+      return 'listItem'
+    case 'blockquote':
+      return 'blockquote'
+    case 'codeBlock':
+      return 'codeBlock'
+    case 'blockMath':
+      return 'blockMath'
+    default:
+      return null
+  }
+}
+
+function validateOperation(
+  op: WriterEditOperation,
+  state: EditorState,
+  blockMap: Map<string, LocatedBlock>,
+  textRanges: Map<string, TextRange[]>,
+  claimedBlocks: Set<string>
+): ProposalValidationResult {
+  switch (op.kind) {
+    case 'insert_text': {
+      const block = blockMap.get(op.blockId)
+      if (!block) return { valid: false, reason: 'invalid_structure' }
+      if (op.offset < 0 || op.offset > block.text.length) {
+        return { valid: false, reason: 'invalid_structure' }
+      }
+      if (!recordRange(textRanges, claimedBlocks, op.blockId, op.offset, op.offset)) {
+        return { valid: false, reason: 'overlap' }
+      }
+      if (!canInsertText(state, block, op.offset, op.text)) {
+        return { valid: false, reason: 'schema_rejected' }
+      }
+      return { valid: true }
+    }
+    case 'replace_text': {
+      const block = blockMap.get(op.blockId)
+      if (!block) return { valid: false, reason: 'invalid_structure' }
+      if (op.from < 0 || op.to < op.from || op.to > block.text.length) {
+        return { valid: false, reason: 'invalid_structure' }
+      }
+      const slice = block.text.slice(op.from, op.to)
+      if (hashWriterText(slice) !== op.expectedTextHash) {
+        return { valid: false, reason: 'target_changed' }
+      }
+      if (!recordRange(textRanges, claimedBlocks, op.blockId, op.from, op.to)) {
+        return { valid: false, reason: 'overlap' }
+      }
+      if (!canReplaceText(state, block, op.from, op.to, op.text)) {
+        return { valid: false, reason: 'schema_rejected' }
+      }
+      return { valid: true }
+    }
+    case 'delete_text': {
+      const block = blockMap.get(op.blockId)
+      if (!block) return { valid: false, reason: 'invalid_structure' }
+      if (op.from < 0 || op.to < op.from || op.to > block.text.length) {
+        return { valid: false, reason: 'invalid_structure' }
+      }
+      const slice = block.text.slice(op.from, op.to)
+      if (hashWriterText(slice) !== op.expectedTextHash) {
+        return { valid: false, reason: 'target_changed' }
+      }
+      if (!recordRange(textRanges, claimedBlocks, op.blockId, op.from, op.to)) {
+        return { valid: false, reason: 'overlap' }
+      }
+      return { valid: true }
+    }
+    case 'insert_blocks': {
+      if (op.afterBlockId && !blockMap.has(op.afterBlockId)) {
+        return { valid: false, reason: 'invalid_structure' }
+      }
+      for (const block of op.blocks) {
+        if (!ALLOWED_BLOCK_TYPES.has(block.type)) {
+          return { valid: false, reason: 'invalid_structure' }
+        }
+      }
+      const claimKey = op.afterBlockId ?? '__writer_doc_start__'
+      if (!claimWholeBlock(claimedBlocks, textRanges, claimKey)) {
+        return { valid: false, reason: 'overlap' }
+      }
+      if (!canCreateBlocks(state, op.blocks)) {
+        return { valid: false, reason: 'schema_rejected' }
+      }
+      return { valid: true }
+    }
+    case 'replace_blocks': {
+      for (const id of op.targetBlockIds) {
+        const block = blockMap.get(id)
+        if (!block) return { valid: false, reason: 'invalid_structure' }
+        const expected = op.expectedBlockHashes[id]
+        if (!expected || hashWriterText(block.text) !== expected) {
+          return { valid: false, reason: 'target_changed' }
+        }
+        if (!claimWholeBlock(claimedBlocks, textRanges, id)) {
+          return { valid: false, reason: 'overlap' }
+        }
+      }
+      for (const block of op.blocks) {
+        if (!ALLOWED_BLOCK_TYPES.has(block.type)) {
+          return { valid: false, reason: 'invalid_structure' }
+        }
+      }
+      if (!canCreateBlocks(state, op.blocks)) {
+        return { valid: false, reason: 'schema_rejected' }
+      }
+      return { valid: true }
+    }
+    default:
+      return { valid: false, reason: 'invalid_structure' }
+  }
+}
+
+function rangesOverlap(a: TextRange, b: TextRange): boolean {
+  const aPoint = a.from === a.to
+  const bPoint = b.from === b.to
+  if (aPoint && bPoint) return a.from === b.from
+  if (aPoint) return a.from >= b.from && a.from < b.to
+  if (bPoint) return b.from >= a.from && b.from < a.to
+  return !(a.to <= b.from || a.from >= b.to)
+}
+
+function recordRange(
+  ranges: Map<string, TextRange[]>,
+  claimedBlocks: Set<string>,
+  blockId: string,
+  from: number,
+  to: number
+): boolean {
+  if (claimedBlocks.has(blockId)) return false
+  const next: TextRange = { from, to }
+  const list = ranges.get(blockId) ?? []
+  for (const existing of list) {
+    if (rangesOverlap(next, existing)) return false
+  }
+  list.push(next)
+  ranges.set(blockId, list)
+  return true
+}
+
+function claimWholeBlock(
+  claimedBlocks: Set<string>,
+  ranges: Map<string, TextRange[]>,
+  blockId: string
+): boolean {
+  if (claimedBlocks.has(blockId)) return false
+  const list = ranges.get(blockId)
+  if (list && list.length > 0) return false
+  claimedBlocks.add(blockId)
+  return true
+}
+
+function canInsertText(
+  state: EditorState,
+  block: LocatedBlock,
+  offset: number,
+  text: string
+): boolean {
+  try {
+    const tr = state.tr.insertText(text, block.textStart + offset)
+    tr.doc.check()
+    return true
+  } catch {
+    return false
+  }
+}
+
+function canReplaceText(
+  state: EditorState,
+  block: LocatedBlock,
+  from: number,
+  to: number,
+  text: string
+): boolean {
+  try {
+    const tr = state.tr.insertText(text, block.textStart + from, block.textStart + to)
+    tr.doc.check()
+    return true
+  } catch {
+    return false
+  }
+}
+
+function canCreateBlocks(state: EditorState, blocks: WriterAiContextBlock[]): boolean {
+  try {
+    for (const block of blocks) {
+      const json = contextBlockToJson(block)
+      state.schema.nodeFromJSON(json).check()
+    }
+    return true
+  } catch {
+    return false
+  }
+}
+
+function contextBlockToJson(block: WriterAiContextBlock): Record<string, unknown> {
+  const textContent = block.text ? [{ type: 'text', text: block.text }] : undefined
+  switch (block.type) {
+    case 'heading':
+      return {
+        type: 'heading',
+        attrs: { level: block.level ?? 1, nodeId: block.nodeId },
+        content: textContent
+      }
+    case 'codeBlock':
+      return {
+        type: 'codeBlock',
+        attrs: { language: null, nodeId: block.nodeId },
+        content: textContent
+      }
+    case 'blockMath':
+      return {
+        type: 'blockMath',
+        attrs: { latex: block.text, nodeId: block.nodeId }
+      }
+    case 'blockquote':
+      return {
+        type: 'blockquote',
+        attrs: { nodeId: block.nodeId },
+        content: [
+          {
+            type: 'paragraph',
+            content: textContent
+          }
+        ]
+      }
+    case 'listItem':
+      return {
+        type: 'bulletList',
+        content: [
+          {
+            type: 'listItem',
+            attrs: { nodeId: block.nodeId },
+            content: [{ type: 'paragraph', content: textContent }]
+          }
+        ]
+      }
+    case 'paragraph':
+    default:
+      return {
+        type: 'paragraph',
+        attrs: { nodeId: block.nodeId },
+        content: textContent
+      }
+  }
+}
+
+function absoluteRangeForOperation(
+  state: EditorState,
+  op: WriterEditOperation
+): { from: number; to: number; insertPos?: number; afterPos?: number } | null {
+  switch (op.kind) {
+    case 'insert_text': {
+      const block = findBlockByNodeId(state, op.blockId)
+      if (!block) return null
+      const pos = block.textStart + op.offset
+      return { from: pos, to: pos, insertPos: pos }
+    }
+    case 'replace_text':
+    case 'delete_text': {
+      const block = findBlockByNodeId(state, op.blockId)
+      if (!block) return null
+      return { from: block.textStart + op.from, to: block.textStart + op.to }
+    }
+    case 'insert_blocks': {
+      if (!op.afterBlockId) {
+        return { from: 1, to: 1, afterPos: 0 }
+      }
+      const block = findBlockByNodeId(state, op.afterBlockId)
+      if (!block) return null
+      const after = block.pos + block.node.nodeSize
+      return { from: after, to: after, afterPos: after }
+    }
+    case 'replace_blocks': {
+      const targets = op.targetBlockIds
+        .map((id) => findBlockByNodeId(state, id))
+        .filter((item): item is LocatedBlock => item !== null)
+      if (targets.length === 0) return null
+      const from = Math.min(...targets.map((t) => t.pos))
+      const to = Math.max(...targets.map((t) => t.pos + t.node.nodeSize))
+      return { from, to }
+    }
+    default:
+      return null
+  }
+}
+
+function applyOneOperation(
+  tr: Transaction,
+  schema: EditorState['schema'],
+  op: WriterEditOperation,
+  abs: { from: number; to: number; insertPos?: number; afterPos?: number }
+): Transaction {
+  // 映射到当前 tr.doc 坐标
+  const from = tr.mapping.map(abs.from)
+  const to = tr.mapping.map(abs.to)
+
+  switch (op.kind) {
+    case 'insert_text':
+      return tr.insertText(op.text, from)
+    case 'replace_text':
+      return tr.insertText(op.text, from, to)
+    case 'delete_text':
+      return tr.delete(from, to)
+    case 'insert_blocks': {
+      const nodes = op.blocks.map((block) => schema.nodeFromJSON(contextBlockToJson(block)))
+      const insertPos = abs.afterPos !== undefined ? tr.mapping.map(abs.afterPos === 0 ? 1 : abs.afterPos) : from
+      let next = tr
+      let cursor = insertPos
+      for (const node of nodes) {
+        next = next.insert(cursor, node)
+        cursor += node.nodeSize
+      }
+      return next
+    }
+    case 'replace_blocks': {
+      const nodes = op.blocks.map((block) => schema.nodeFromJSON(contextBlockToJson(block)))
+      let next = tr.delete(from, to)
+      let cursor = from
+      for (const node of nodes) {
+        next = next.insert(cursor, node)
+        cursor += node.nodeSize
+      }
+      return next
+    }
+    default:
+      return tr
+  }
+}

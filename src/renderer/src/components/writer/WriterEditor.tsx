@@ -3,7 +3,11 @@ import { EditorContent, useEditor } from '@tiptap/react'
 import type { Editor } from '@tiptap/core'
 import type { WriterDocument, WriterJsonDocument } from '@shared/types/writer'
 import { useNotification } from '@renderer/composables/useNotification'
-import { useWriterLibraryStore, useWriterSessionStore } from '@renderer/stores/writer'
+import {
+  useWriterLibraryStore,
+  useWriterSessionStore,
+  useWriterSuggestionStore
+} from '@renderer/stores/writer'
 import { createWriterExtensions } from './extensions/createWriterExtensions'
 import {
   isWriterImageFile,
@@ -12,6 +16,15 @@ import {
 } from './extensions/writerImage'
 import WriterTableControls from './nodes/WriterTableControls'
 import { deriveWriterOutline } from './outline/writerOutline'
+import {
+  registerWriterEditor,
+  validateProposalAgainstState
+} from './suggestions/writerSuggestionCore'
+import {
+  createWriterSuggestionExtension,
+  refreshWriterSuggestionDecorations
+} from './suggestions/writerSuggestionPlugin'
+import WriterSuggestionActions from './suggestions/WriterSuggestionActions'
 import WriterBubbleMenu from './toolbar/WriterBubbleMenu'
 import WriterSlashMenu from './toolbar/WriterSlashMenu'
 import {
@@ -110,6 +123,7 @@ export default function WriterEditor({ document, autosaveRegistry }: WriterEdito
               if (useWriterSessionStore.getState().currentDocumentId === document.id) {
                 useWriterSessionStore.getState().handleRevisionConflict()
               }
+              useWriterSuggestionStore.getState().invalidate('session_stale')
               notify.warning(
                 '文档保存冲突',
                 '当前正文已保留在编辑器中，请重新加载文档后再继续编辑。'
@@ -153,7 +167,7 @@ export default function WriterEditor({ document, autosaveRegistry }: WriterEdito
   const editor = useEditor(
     {
       immediatelyRender: false,
-      extensions: createWriterExtensions(document.id),
+      extensions: [...createWriterExtensions(document.id), createWriterSuggestionExtension()],
       enableInputRules: ['writerMarkdownRules'],
       content: document.content,
       editorProps: {
@@ -182,11 +196,12 @@ export default function WriterEditor({ document, autosaveRegistry }: WriterEdito
         }
       },
       onCreate: ({ editor: currentEditor }) => {
+        registerWriterEditor(currentEditor)
         useWriterSessionStore
           .getState()
           .setOutline(deriveWriterOutline(currentEditor.getJSON() as WriterJsonDocument))
       },
-      onUpdate: ({ editor: currentEditor }) => {
+      onUpdate: ({ editor: currentEditor, transaction }) => {
         const editVersion = useWriterSessionStore.getState().markDirty()
         const content = currentEditor.getJSON() as WriterJsonDocument
         useWriterSessionStore.getState().setOutline(deriveWriterOutline(content))
@@ -195,6 +210,27 @@ export default function WriterEditor({ document, autosaveRegistry }: WriterEdito
           content,
           editVersion
         })
+
+        // 接受建议事务不失效；目标文本被用户改动时标记建议失效（decoration 由 plugin 映射/重建）
+        if (transaction.docChanged && !transaction.getMeta('writerSuggestionAccept')) {
+          const suggestion = useWriterSuggestionStore.getState()
+          if (suggestion.activeProposal) {
+            const validation = validateProposalAgainstState(
+              suggestion.activeProposal,
+              currentEditor.state
+            )
+            if (!validation.valid) {
+              suggestion.invalidate(validation.reason)
+              refreshWriterSuggestionDecorations(
+                (tr) => currentEditor.view.dispatch(tr),
+                currentEditor.state
+              )
+            }
+          }
+        }
+      },
+      onDestroy: () => {
+        registerWriterEditor(null)
       }
     },
     [autosaveController, document.id]
@@ -234,6 +270,7 @@ export default function WriterEditor({ document, autosaveRegistry }: WriterEdito
       .getState()
       .openDocument(document.id, revisionCoordinator.revision, document.title)
     autosaveRegistry.register(autosaveController)
+    useWriterSuggestionStore.getState().cancelForDocumentSwitch()
 
     const flush = (): void => {
       void autosaveController.flush()
@@ -252,6 +289,8 @@ export default function WriterEditor({ document, autosaveRegistry }: WriterEdito
         flush: () => autosaveRegistry.dispose(autosaveController),
         collectGarbage: (id) => window.api.writer.collectGarbage(id)
       })
+      useWriterSuggestionStore.getState().cancelForDocumentSwitch()
+      registerWriterEditor(null)
       if (useWriterSessionStore.getState().currentDocumentId === document.id) {
         useWriterSessionStore.getState().closeDocument()
       }
@@ -286,6 +325,7 @@ export default function WriterEditor({ document, autosaveRegistry }: WriterEdito
           </span>
         </div>
         <EditorContent editor={editor} className={styles.editorContent} />
+        {editor ? <WriterSuggestionActions editor={editor} /> : null}
         <input
           ref={imageInputRef}
           type="file"
