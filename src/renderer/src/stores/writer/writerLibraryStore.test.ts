@@ -42,6 +42,7 @@ function mockWriterApi(overrides: Partial<WriterApi>): void {
     deleteFolder: async () => ({ success: true }),
     importAsset: async () => ({ success: false, error: '未配置' }),
     collectGarbage: async () => ({ success: false, error: '未配置' }),
+    exportDocument: async () => ({ success: true, data: { canceled: true } }),
     onFlushRequested: () => () => undefined,
     acknowledgeFlush: async () => undefined,
     ...overrides
