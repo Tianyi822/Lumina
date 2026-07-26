@@ -3,6 +3,7 @@ import type { EditorState } from '@tiptap/pm/state'
 import type { WriterAiProposal } from '@shared/types/writer'
 import { writerAiProposalSchema } from '@shared/schemas/writerSchema'
 import { validateProposalAgainstState } from '@renderer/components/writer/suggestions/writerSuggestionCore'
+import type { WriterSuggestionPendingAction } from '@renderer/components/writer/suggestions/writerSuggestionLabels'
 
 export type WriterSuggestionStatus = 'idle' | 'pending' | 'active' | 'invalid'
 
@@ -15,12 +16,17 @@ export interface WriterSuggestionStore {
   status: WriterSuggestionStatus
   activeProposal: WriterAiProposal | null
   pendingRequest: WriterSuggestionPendingRequest | null
+  pendingAction: WriterSuggestionPendingAction | null
   pendingOperationIndexes: number[]
   acceptedOperationIndexes: number[]
   invalidReason: string | null
 
   reset: () => void
-  beginRequest: (documentId: string, baseRevision: number) => void
+  beginRequest: (
+    documentId: string,
+    baseRevision: number,
+    pendingAction?: WriterSuggestionPendingAction | null
+  ) => void
   ingestProposal: (
     proposal: unknown,
     currentDocumentId: string,
@@ -39,6 +45,7 @@ const initialState = {
   status: 'idle' as const,
   activeProposal: null as WriterAiProposal | null,
   pendingRequest: null as WriterSuggestionPendingRequest | null,
+  pendingAction: null as WriterSuggestionPendingAction | null,
   pendingOperationIndexes: [] as number[],
   acceptedOperationIndexes: [] as number[],
   invalidReason: null as string | null
@@ -52,10 +59,11 @@ export const useWriterSuggestionStore = create<WriterSuggestionStore>((set, get)
 
   reset: () => set(initialState),
 
-  beginRequest: (documentId, baseRevision) =>
+  beginRequest: (documentId, baseRevision, pendingAction = null) =>
     set({
       status: 'pending',
       pendingRequest: { documentId, baseRevision },
+      pendingAction,
       activeProposal: null,
       pendingOperationIndexes: [],
       acceptedOperationIndexes: [],
@@ -123,6 +131,7 @@ export const useWriterSuggestionStore = create<WriterSuggestionStore>((set, get)
       status: 'active',
       activeProposal: data,
       pendingRequest: null,
+      pendingAction: null,
       pendingOperationIndexes: data.operations.map((_, index) => index),
       acceptedOperationIndexes: [],
       invalidReason: null
@@ -168,6 +177,7 @@ export const useWriterSuggestionStore = create<WriterSuggestionStore>((set, get)
       pendingOperationIndexes: [],
       acceptedOperationIndexes: [],
       invalidReason: reason,
+      pendingAction: null,
       pendingRequest: get().pendingRequest
     }),
 
