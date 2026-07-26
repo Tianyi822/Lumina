@@ -198,7 +198,7 @@ export function useWriterChatStream(options: UseWriterChatStreamOptions): UseWri
       attachedImages: AttachedImage[] = [],
       options?: SendWriterAiTurnOptions
     ): Promise<void> => {
-      const targetSession = latestRef.current.session
+      const targetSession = options?.session ?? latestRef.current.session
       if (!targetSession) {
         setError('写作聊天会话未就绪')
         return
@@ -292,6 +292,22 @@ export function useWriterChatStream(options: UseWriterChatStreamOptions): UseWri
               writerEditor.state
             )
           }
+        }
+
+        // 气泡选区路径：有编辑器但选区无可编辑文本时中止，避免无 writerContext 空发
+        // 用户可见提示由 WritingPage 负责；此处回滚乐观消息，不触发 onRequestError（文案不匹配）
+        if (
+          turn.scope === 'selection' &&
+          !turn.includeExternalTools &&
+          writerEditor &&
+          !writerContext
+        ) {
+          setError('当前选区没有可编辑文本，无法改写或续写')
+          setMessages(snapshot)
+          streamStore.setSessionSendingState(currentSessionId, false, true)
+          usePaperChatStreamStore.setState({ streamingSessionId: null })
+          useWriterChatStore.getState().setSending(currentSessionId, false)
+          return
         }
 
         const result = await window.api.chat.send(

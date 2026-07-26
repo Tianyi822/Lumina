@@ -12,11 +12,15 @@ import {
   type WriterBubbleAiAction
 } from '@renderer/components/writer/toolbar/writerBubbleAiActions'
 import {
+  createWriterAiRequestContext,
+  getRegisteredWriterEditor
+} from '@renderer/components/writer/suggestions/writerSuggestionCore'
+import {
   WriterAutosaveFlushRegistry,
   flushWriterAutosaveAndAcknowledge
 } from '@renderer/components/writer/writerAutosave'
 import { useNotification } from '@renderer/composables/useNotification'
-import { useWriterLibraryStore } from '@renderer/stores/writer'
+import { useWriterLibraryStore, useWriterSessionStore } from '@renderer/stores/writer'
 import { useUIStateStore } from '@renderer/stores/uiStateStore'
 import styles from './WritingPage.module.css'
 
@@ -82,22 +86,33 @@ export default function WritingPage() {
         }
         return
       }
-      // 确保会话已加载（面板从未打开过时）
-      if (!sessionState.session) {
-        const ok = await sessionState.loadSessionWithContext()
-        if (!ok) {
-          notify.error('写作对话', sessionState.error || '加载写作聊天会话失败', {
+
+      // 返回 SessionData 并传入 send，避免 ensure 后同 tick latestRef 仍为 null
+      const session = await sessionState.ensureSession()
+      if (!session) {
+        notify.error('写作对话', '加载写作聊天会话失败', {
+          source: 'chat'
+        })
+        return
+      }
+
+      // 气泡选区：无可编辑文本块时中止，避免无 writerContext 空发
+      const editor = getRegisteredWriterEditor()
+      if (editor) {
+        const revision = useWriterSessionStore.getState().revision
+        const context = createWriterAiRequestContext(editor, 'selection', revision)
+        if (!context) {
+          notify.warning('写作对话', '当前选区没有可编辑文本，无法改写或续写', {
             source: 'chat'
           })
           return
         }
       }
-      await streamState.sendMessage(
-        getWriterBubbleAiPrompt(action),
-        [],
-        [],
-        buildWriterBubbleSendOptions()
-      )
+
+      await streamState.sendMessage(getWriterBubbleAiPrompt(action), [], [], {
+        ...buildWriterBubbleSendOptions(),
+        session
+      })
     },
     [notify, sessionState, streamState]
   )

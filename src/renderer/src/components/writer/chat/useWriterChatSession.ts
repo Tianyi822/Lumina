@@ -5,6 +5,10 @@ import { usePaperChatMessageCacheStore } from '@renderer/stores'
 import { useWriterChatStore } from '@renderer/stores/writer'
 import { messageToSessionMessage, sessionMessageToMessage } from '@renderer/utils/messageHelpers'
 import { deepClone } from '@shared/utils'
+import {
+  coalesceInflightByKey,
+  createInflightByKeyState
+} from './coalesceInflightByKey'
 
 interface UseWriterChatSessionReturn {
   session: SessionData | null
@@ -55,6 +59,7 @@ export function useWriterChatSession(documentId: string | null | undefined): Use
   const sessionRef = useRef<SessionData | null>(session)
   const messagesRef = useRef<Message[]>(messages)
   const saveQueueRef = useRef<Promise<void>>(Promise.resolve())
+  const ensureInflightRef = useRef(createInflightByKeyState<SessionData | null>())
   const selectionRef = useRef({
     selectedModel,
     selectedMCPTools,
@@ -154,45 +159,48 @@ export function useWriterChatSession(documentId: string | null | undefined): Use
       return null
     }
 
-    setLoading(true)
-    setErrorState('')
+    // 页面 effect 与气泡动作并发时合并为同一 inflight，避免重复 list→create
+    return coalesceInflightByKey(ensureInflightRef.current, currentDocumentId, async () => {
+      setLoading(true)
+      setErrorState('')
 
-    try {
-      const list = await window.api.session.list()
-      const existing = list.find(
-        (item) =>
-          item.sessionType === 'writer' &&
-          item.resourceRef?.kind === 'writer' &&
-          item.resourceRef.id === currentDocumentId
-      )
+      try {
+        const list = await window.api.session.list()
+        const existing = list.find(
+          (item) =>
+            item.sessionType === 'writer' &&
+            item.resourceRef?.kind === 'writer' &&
+            item.resourceRef.id === currentDocumentId
+        )
 
-      if (existing) {
-        const loaded = await window.api.session.load(existing.sessionId)
-        if (!loaded.success || !loaded.data) {
-          setErrorState(loaded.error || '加载写作聊天会话失败')
+        if (existing) {
+          const loaded = await window.api.session.load(existing.sessionId)
+          if (!loaded.success || !loaded.data) {
+            setErrorState(loaded.error || '加载写作聊天会话失败')
+            return null
+          }
+          applySessionData(loaded.data)
+          return loaded.data
+        }
+
+        const created = await window.api.session.create('写作对话', 'writer', {
+          kind: 'writer',
+          id: currentDocumentId
+        })
+        if (!created.success || !created.data) {
+          setErrorState(created.error || '创建写作聊天会话失败')
           return null
         }
-        applySessionData(loaded.data)
-        return loaded.data
-      }
 
-      const created = await window.api.session.create('写作对话', 'writer', {
-        kind: 'writer',
-        id: currentDocumentId
-      })
-      if (!created.success || !created.data) {
-        setErrorState(created.error || '创建写作聊天会话失败')
+        applySessionData(created.data)
+        return created.data
+      } catch (caught) {
+        setErrorState(caught instanceof Error ? caught.message : String(caught))
         return null
+      } finally {
+        setLoading(false)
       }
-
-      applySessionData(created.data)
-      return created.data
-    } catch (caught) {
-      setErrorState(caught instanceof Error ? caught.message : String(caught))
-      return null
-    } finally {
-      setLoading(false)
-    }
+    })
   }, [applySessionData])
 
   const loadSessionWithContext = useCallback(async (): Promise<boolean> => {
