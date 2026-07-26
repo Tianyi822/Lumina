@@ -1,0 +1,99 @@
+.editorSurface {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  background: var(--sm-color-bg-canvas);
+  color: var(--sm-color-text-primary);
+}
+
+.content {
+  width: min(100%, var(--sm-writer-content-max-width));
+  min-height: 100%;
+  margin: 0 auto;
+  padding: clamp(var(--sm-space-6), 6vw, calc(var(--sm-space-6) * 2));
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: var(--sm-space-4);
+  padding-top: var(--sm-titlebar-height);
+  padding-right: var(--sm-window-controls-safe-width, 0px);
+  padding-bottom: var(--sm-space-6);
+}
+
+.titleInput {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--sm-color-text-primary);
+  font: inherit;
+  font-size: var(--sm-writer-title-font-size);
+  font-weight: 600;
+  line-height: var(--sm-writer-title-line-height);
+}
+
+.titleInput::placeholder {
+  color: var(--sm-color-text-tertiary);
+}
+
+.saveStatus {
+  flex: 0 0 auto;
+  color: var(--sm-color-text-tertiary);
+  font-size: var(--sm-writer-status-font-size);
+}
+
+.editorContent {
+  min-height: calc(100% - var(--sm-titlebar-height));
+}
+
+.editorContent :global(.tiptap) {
+  min-height: 60vh;
+  outline: 0;
+  color: var(--sm-color-text-primary);
+  font-family: var(--sm-font-sans);
+  font-size: var(--sm-writer-body-font-size);
+  line-height: var(--sm-writer-body-line-height);
+}
+
+.editorContent :global(.tiptap p),
+.editorContent :global(.tiptap h1),
+.editorContent :global(.tiptap h2),
+.editorContent :global(.tiptap h3),
+.editorContent :global(.tiptap ul),
+.editorContent :global(.tiptap ol),
+.editorContent :global(.tiptap blockquote),
+.editorContent :global(.tiptap pre) {
+  margin: 0 0 var(--sm-space-4);
+}
+
+.editorContent :global(.tiptap h1),
+.editorContent :global(.tiptap h2),
+.editorContent :global(.tiptap h3) {
+  line-height: var(--sm-writer-heading-line-height);
+}
+
+.editorContent :global(.tiptap ul),
+.editorContent :global(.tiptap ol) {
+  padding-left: var(--sm-space-6);
+}
+
+.editorContent :global(.tiptap a) {
+  color: var(--sm-color-accent);
+}
+
+.editorContent :global(.tiptap p.is-editor-empty:first-child::before) {
+  float: left;
+  height: 0;
+  color: var(--sm-color-text-tertiary);
+  content: attr(data-placeholder);
+  pointer-events: none;
+}
+
+.editorContent :global(.tiptap ::selection) {
+  background: var(--sm-color-surface-selected);
+}

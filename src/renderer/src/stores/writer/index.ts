@@ -10,3 +10,5 @@ export type {
   WriterLibraryStore,
   WriterSidebarMode
 } from './writerLibraryStore'
+export { useWriterSessionStore } from './writerSessionStore'
+export type { WriterSaveStatus, WriterSessionStore } from './writerSessionStore'

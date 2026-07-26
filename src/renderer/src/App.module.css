@@ -91,6 +91,11 @@
   top: 0;
 }
 
+.workspacePage:global(.sm-workspace-page--writer) :global(.sm-workspace-main),
+.workspacePage:global(.sm-workspace-page--writer) :global(.sm-workspace-main__body) {
+  background: var(--sm-color-bg-canvas);
+}
+
 /* 论文聊天关闭时让阅读滚动条贴近窗口右缘。 */
 .paperReaderFlushRight :global(.sm-workspace-main) {
   margin-right: calc(var(--sm-workspace-page-padding, var(--sm-space-3)) * -1);
