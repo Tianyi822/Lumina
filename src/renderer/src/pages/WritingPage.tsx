@@ -11,6 +11,7 @@ import {
   getWriterBubbleAiPrompt,
   type WriterBubbleAiAction
 } from '@renderer/components/writer/toolbar/writerBubbleAiActions'
+import { formatWriterChatError } from '@renderer/components/writer/chat/formatWriterChatError'
 import {
   createWriterAiRequestContext,
   getRegisteredWriterEditor
@@ -59,8 +60,8 @@ export default function WritingPage() {
     selectedKnowledgeBases: sessionState.selectedKnowledgeBases,
     saveCurrentSession: sessionState.saveCurrentSession,
     setError: sessionState.setError,
-    onRequestError: () => {
-      notify.error('写作对话请求失败', '模型请求失败，请稍后重试或换一个模型。', {
+    onRequestError: (message) => {
+      notify.error('写作对话请求失败', formatWriterChatError(message), {
         source: 'chat'
       })
     }

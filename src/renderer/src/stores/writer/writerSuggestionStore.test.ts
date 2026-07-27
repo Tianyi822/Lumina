@@ -165,3 +165,24 @@ test('切换文档取消请求并清空建议', () => {
   assert.equal(useWriterSuggestionStore.getState().status, 'idle')
   assert.equal(useWriterSuggestionStore.getState().pendingRequest, null)
 })
+
+test('clearPendingRequest 仅清除 pending 等待态', () => {
+  useWriterSuggestionStore.getState().reset()
+  useWriterSuggestionStore.getState().beginRequest('writer-doc-test01', 2, 'rewrite', 8)
+  assert.equal(useWriterSuggestionStore.getState().status, 'pending')
+  useWriterSuggestionStore.getState().clearPendingRequest()
+  assert.equal(useWriterSuggestionStore.getState().status, 'idle')
+  assert.equal(useWriterSuggestionStore.getState().pendingRequest, null)
+  assert.equal(useWriterSuggestionStore.getState().pendingAction, null)
+  assert.equal(useWriterSuggestionStore.getState().pendingAnchorPos, null)
+
+  // active 态不受影响
+  useWriterSuggestionStore.getState().beginRequest('writer-doc-test01', 2)
+  useWriterSuggestionStore
+    .getState()
+    .ingestProposal(makeProposal(), 'writer-doc-test01', 2, createValidEditorState())
+  assert.equal(useWriterSuggestionStore.getState().status, 'active')
+  useWriterSuggestionStore.getState().clearPendingRequest()
+  assert.equal(useWriterSuggestionStore.getState().status, 'active')
+  assert.ok(useWriterSuggestionStore.getState().activeProposal)
+})

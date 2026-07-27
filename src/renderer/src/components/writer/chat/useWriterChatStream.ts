@@ -29,6 +29,17 @@ import {
 
 export type { SendWriterAiTurnOptions }
 
+/** 请求结束且仍停留在 pending 时，清除等待骨架并刷新装饰 */
+function clearPendingWriterSuggestion(): void {
+  const suggestion = useWriterSuggestionStore.getState()
+  if (suggestion.status !== 'pending') return
+  suggestion.clearPendingRequest()
+  const editor = getRegisteredWriterEditor()
+  if (editor) {
+    refreshWriterSuggestionDecorations((tr) => editor.view.dispatch(tr), editor.state)
+  }
+}
+
 interface UseWriterChatStreamOptions {
   session: SessionData | null
   messagesRef: MutableRefObject<Message[]>
@@ -134,6 +145,10 @@ export function useWriterChatStream(options: UseWriterChatStreamOptions): UseWri
                 editor.state
               )
             if (ingested) {
+              // 收起原生选区，避免选区高亮盖住浮动确认条
+              const sel = editor.state.selection
+              const collapsePos = Math.max(sel.from, sel.to)
+              editor.commands.setTextSelection(collapsePos)
               refreshWriterSuggestionDecorations(
                 (tr) => editor.view.dispatch(tr),
                 editor.state
@@ -151,6 +166,8 @@ export function useWriterChatStream(options: UseWriterChatStreamOptions): UseWri
         if (event.type === 'error' && event.error) {
           reportRequestError(event.error)
         }
+        // 失败或结束但未产出建议时，去掉「AI 正在改写」骨架
+        clearPendingWriterSuggestion()
 
         const nextMessages = current.messagesRef.current.map((msg) => {
           if (!msg.isStreaming) return msg
@@ -353,6 +370,7 @@ export function useWriterChatStream(options: UseWriterChatStreamOptions): UseWri
         }
 
         if (!result.success && result.error) {
+          clearPendingWriterSuggestion()
           reportRequestError(result.error)
         }
       } catch (caught) {
@@ -361,6 +379,7 @@ export function useWriterChatStream(options: UseWriterChatStreamOptions): UseWri
         streamStore.setSessionSendingState(currentSessionId, false, true)
         usePaperChatStreamStore.setState({ streamingSessionId: null })
         useWriterChatStore.getState().setSending(currentSessionId, false)
+        clearPendingWriterSuggestion()
         reportRequestError(message)
       }
     },
@@ -376,6 +395,7 @@ export function useWriterChatStream(options: UseWriterChatStreamOptions): UseWri
     await usePaperChatStreamStore.getState().stopRequest(currentSessionId, messagesRef.current)
     setMessages([...messagesRef.current])
     useWriterChatStore.getState().setSending(currentSessionId, false)
+    clearPendingWriterSuggestion()
     await saveCurrentSession()
   }, [messagesRef, saveCurrentSession, setMessages])
 

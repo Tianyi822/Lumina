@@ -40,6 +40,7 @@ export interface WriterSuggestionStore {
   acceptAll: () => void
   rejectAll: () => void
   invalidate: (reason: string) => void
+  clearPendingRequest: () => void
   cancelForDocumentSwitch: () => void
 }
 
@@ -185,6 +186,13 @@ export const useWriterSuggestionStore = create<WriterSuggestionStore>((set, get)
       pendingAction: null,
       pendingAnchorPos: null,
       pendingRequest: get().pendingRequest
+    }),
+
+  /** 请求失败/结束且未产出建议时，清除「AI 正在改写」等待态 */
+  clearPendingRequest: () =>
+    set((state) => {
+      if (state.status !== 'pending') return state
+      return { ...initialState }
     }),
 
   cancelForDocumentSwitch: () => set(initialState)
