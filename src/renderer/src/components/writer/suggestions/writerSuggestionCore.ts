@@ -90,15 +90,16 @@ export function createWriterAiRequestContext(
   const joined = blocks.map((block) => block.text).join('\n')
   const first = blocks[0]!
   const last = blocks[blocks.length - 1]!
+  const { startOffset, endOffset } = resolveAnchorOffsets(editor.state, scope, blocks)
   const anchor: WriterAiAnchor = {
     documentId,
     baseRevision: revision,
     scope,
     startBlockId: first.nodeId,
     endBlockId: last.nodeId,
-    startOffset: 0,
+    startOffset,
     // 多块范围时 endOffset 相对 endBlock（末块），不是首块
-    endOffset: last.text.length,
+    endOffset,
     expectedTextHash: hashWriterText(joined)
   }
 
@@ -297,6 +298,50 @@ function omitBlockPos(
     text: block.text,
     level: block.level
   }
+}
+
+/**
+ * 解析锚点在首/末块内的字符偏移。
+ * selection：精确到选区；cursor：光标处；其余范围覆盖整块。
+ */
+function resolveAnchorOffsets(
+  state: EditorState,
+  scope: WriterAiScope,
+  blocks: WriterAiContextBlock[]
+): { startOffset: number; endOffset: number } {
+  const first = blocks[0]!
+  const last = blocks[blocks.length - 1]!
+
+  if (scope === 'selection') {
+    const selFrom = Math.min(state.selection.from, state.selection.to)
+    const selTo = Math.max(state.selection.from, state.selection.to)
+    const firstLoc = findBlockByNodeId(state, first.nodeId)
+    const lastLoc = findBlockByNodeId(state, last.nodeId)
+    if (!firstLoc || !lastLoc) {
+      return { startOffset: 0, endOffset: last.text.length }
+    }
+    return {
+      startOffset: clampOffset(selFrom - firstLoc.textStart, first.text.length),
+      endOffset: clampOffset(selTo - lastLoc.textStart, last.text.length)
+    }
+  }
+
+  if (scope === 'cursor') {
+    const loc = findBlockByNodeId(state, first.nodeId)
+    if (!loc) {
+      return { startOffset: 0, endOffset: 0 }
+    }
+    const offset = clampOffset(state.selection.head - loc.textStart, first.text.length)
+    return { startOffset: offset, endOffset: offset }
+  }
+
+  return { startOffset: 0, endOffset: last.text.length }
+}
+
+function clampOffset(value: number, max: number): number {
+  if (value < 0) return 0
+  if (value > max) return max
+  return value
 }
 
 function collectContextBlocks(state: EditorState, scope: WriterAiScope): WriterAiContextBlock[] {

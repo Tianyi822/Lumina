@@ -23,6 +23,18 @@ function insertionSlotKey(afterBlockId: string | undefined): string {
   return afterBlockId ? `__writer_insert_after:${afterBlockId}` : INSERT_BLOCKS_DOC_START
 }
 
+/** 去掉 insertion 与 context 后缀的最长重叠前缀（用于续写去重） */
+function stripOverlappingPrefix(context: string, insertion: string): string {
+  if (!context || !insertion) return insertion
+  const max = Math.min(context.length, insertion.length)
+  for (let len = max; len > 0; len--) {
+    if (context.endsWith(insertion.slice(0, len))) {
+      return insertion.slice(len)
+    }
+  }
+  return insertion
+}
+
 const ALLOWED_BLOCK_TYPES = new Set<WriterAiContextBlock['type']>([
   'paragraph',
   'heading',
@@ -277,7 +289,115 @@ export class WriterToolAdapter implements ToolAdapter {
       }
     }
 
-    return ops
+    return this.normalizeSelectionOperations(ops, blockMap)
+  }
+
+  /**
+   * 修正 selection 范围上模型常见的偏移错误：
+   * 1) 相对选区的 from/to（从 0 起算）→ 映射为块内绝对偏移
+   * 2) 不完整 replace → 扩展到整段选区，避免尾部原文残留重叠
+   * 3) 续写 insert 与选区尾部前缀重叠 → 剥掉重叠前缀
+   */
+  private normalizeSelectionOperations(
+    ops: WriterEditOperation[],
+    blockMap: Map<string, WriterAiContextBlock>
+  ): WriterEditOperation[] {
+    const { anchor } = this.context
+    if (anchor.scope !== 'selection') return ops
+
+    let next = ops
+
+    if (anchor.startBlockId === anchor.endBlockId) {
+      const blockId = anchor.startBlockId
+      const block = blockMap.get(blockId)
+      const selFrom = anchor.startOffset
+      const selTo = anchor.endOffset
+      if (block && selFrom < selTo) {
+        const selLen = selTo - selFrom
+        const textMutations = next.filter(
+          (op) =>
+            (op.kind === 'replace_text' || op.kind === 'delete_text') && op.blockId === blockId
+        )
+        const replaces = next.filter(
+          (op): op is Extract<WriterEditOperation, { kind: 'replace_text' }> =>
+            op.kind === 'replace_text' && op.blockId === blockId
+        )
+
+        if (replaces.length === 1 && textMutations.length === 1) {
+          const op = replaces[0]!
+          let from = op.from
+          let to = op.to
+
+          // 模型把选区当作 [0, selLen) 时，映射到块内绝对偏移
+          if (selFrom > 0 && from === 0 && to === selLen) {
+            from = selFrom
+            to = selTo
+          }
+
+          // 不完整覆盖：扩展到整段选区（保留模型给出的替换文本）
+          if (from >= selFrom && to <= selTo && (from > selFrom || to < selTo)) {
+            from = selFrom
+            to = selTo
+          }
+
+          if (from !== op.from || to !== op.to) {
+            const slice = block.text.slice(from, to)
+            next = next.map((item) =>
+              item === op
+                ? {
+                    ...op,
+                    from,
+                    to,
+                    expectedTextHash: hashWriterText(slice)
+                  }
+                : item
+            )
+          }
+        }
+      }
+    }
+
+    return this.stripContinuationOverlap(next, blockMap)
+  }
+
+  /** 续写 insert 常重复选区尾部；剥掉与选区后缀的最长公共前缀 */
+  private stripContinuationOverlap(
+    ops: WriterEditOperation[],
+    blockMap: Map<string, WriterAiContextBlock>
+  ): WriterEditOperation[] {
+    const { anchor } = this.context
+    const result: WriterEditOperation[] = []
+
+    for (const op of ops) {
+      if (op.kind !== 'insert_text' || op.blockId !== anchor.endBlockId) {
+        result.push(op)
+        continue
+      }
+      if (op.offset !== anchor.endOffset) {
+        result.push(op)
+        continue
+      }
+
+      const block = blockMap.get(op.blockId)
+      if (!block) {
+        result.push(op)
+        continue
+      }
+
+      const selectedSuffix =
+        anchor.startBlockId === anchor.endBlockId
+          ? block.text.slice(anchor.startOffset, anchor.endOffset)
+          : block.text.slice(0, anchor.endOffset)
+      const stripped = stripOverlappingPrefix(selectedSuffix, op.text)
+      if (stripped.length === 0) continue
+      if (stripped === op.text) {
+        result.push(op)
+        continue
+      }
+      result.push({ ...op, text: stripped })
+    }
+
+    return result
   }
 
   private assertInScope(blockId: string, blockMap: Map<string, WriterAiContextBlock>): void {

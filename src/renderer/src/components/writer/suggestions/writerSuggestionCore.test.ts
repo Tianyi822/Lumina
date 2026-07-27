@@ -198,6 +198,28 @@ test('createWriterAiRequestContext 按 document 范围收集块', () => {
   useWriterSessionStore.getState().closeDocument()
 })
 
+test('createWriterAiRequestContext 对 selection 记录精确块内偏移', () => {
+  useWriterSessionStore.getState().openDocument('writer-test-doc', 2, '测试文档')
+  const full = '拿这个写作助手试了试续写，用着还挺流畅方便的。'
+  const editor = createSuggestionEditor(full, '范围外')
+  const targetPos = 1 // 段落内容起点（doc 下第一块 pos+1）
+  const from = targetPos + 2
+  const to = targetPos + full.length - 1
+  editor.commands.setTextSelection({ from, to })
+
+  const context = createWriterAiRequestContext(editor, 'selection', 2)
+  assert.ok(context)
+  assert.equal(context.anchor.scope, 'selection')
+  assert.equal(context.anchor.startBlockId, 'target-block')
+  assert.equal(context.anchor.endBlockId, 'target-block')
+  assert.equal(context.anchor.startOffset, 2)
+  assert.equal(context.anchor.endOffset, full.length - 1)
+  assert.equal(context.blocks[0]?.text, full)
+
+  editor.destroy()
+  useWriterSessionStore.getState().closeDocument()
+})
+
 test('块 A 文本替换与 after A 的 insert_blocks 不重叠', () => {
   const state = createSuggestionState('目标文本', '目标外内容')
   const proposal: WriterAiProposal = {

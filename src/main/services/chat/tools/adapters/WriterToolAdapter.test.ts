@@ -247,3 +247,119 @@ test('同 afterBlockId 的多次 insert_blocks 判定为重叠', async () => {
   assert.equal(result.success, false)
   assert.match(String(result.error), /重叠/)
 })
+
+test('selection 单块改写：不完整 replace_text 扩展为整段选区', async () => {
+  const text = '拿这个写作助手试了试续写，用着还挺流畅方便的。'
+  const context = createWriterContext({
+    scope: 'selection',
+    blocks: [{ nodeId: 'p-1', type: 'paragraph', text }],
+    anchor: {
+      documentId: 'writer-aaaaaaaa',
+      baseRevision: 3,
+      scope: 'selection',
+      startBlockId: 'p-1',
+      endBlockId: 'p-1',
+      startOffset: 0,
+      endOffset: text.length,
+      expectedTextHash: hashWriterText(text)
+    }
+  })
+  const adapter = new WriterToolAdapter(context)
+  const result = await adapter.execute('writer__propose_edits', {
+    operations: [
+      {
+        kind: 'replace_text',
+        blockId: 'p-1',
+        // 模型常漏掉尾部，留下「方便的。」之类重叠残留
+        from: 0,
+        to: text.length - 4,
+        text: '随手试了下这个写作助手的续写功能，还挺流畅方便的。'
+      }
+    ]
+  })
+  assert.equal(result.success, true)
+  const op = (result.content as WriterAiProposal).operations[0]
+  assert.equal(op.kind, 'replace_text')
+  if (op.kind === 'replace_text') {
+    assert.equal(op.from, 0)
+    assert.equal(op.to, text.length)
+    assert.equal(op.expectedTextHash, hashWriterText(text))
+  }
+})
+
+test('selection 单块改写：相对选区的 from/to 映射为块内绝对偏移', async () => {
+  const text = '前缀选中内容后缀'
+  const startOffset = 2
+  const endOffset = 6
+  const selected = text.slice(startOffset, endOffset)
+  const context = createWriterContext({
+    scope: 'selection',
+    blocks: [{ nodeId: 'p-1', type: 'paragraph', text }],
+    anchor: {
+      documentId: 'writer-aaaaaaaa',
+      baseRevision: 3,
+      scope: 'selection',
+      startBlockId: 'p-1',
+      endBlockId: 'p-1',
+      startOffset,
+      endOffset,
+      expectedTextHash: hashWriterText(text)
+    }
+  })
+  const adapter = new WriterToolAdapter(context)
+  const result = await adapter.execute('writer__propose_edits', {
+    operations: [
+      {
+        kind: 'replace_text',
+        blockId: 'p-1',
+        from: 0,
+        to: selected.length,
+        text: '改写后'
+      }
+    ]
+  })
+  assert.equal(result.success, true)
+  const op = (result.content as WriterAiProposal).operations[0]
+  assert.equal(op.kind, 'replace_text')
+  if (op.kind === 'replace_text') {
+    assert.equal(op.from, startOffset)
+    assert.equal(op.to, endOffset)
+    assert.equal(op.expectedTextHash, hashWriterText(selected))
+    assert.equal(op.text, '改写后')
+  }
+})
+
+test('selection 续写：去掉与选区尾部重叠的插入前缀', async () => {
+  const text = '用着还挺流畅方便的。'
+  const context = createWriterContext({
+    scope: 'selection',
+    blocks: [{ nodeId: 'p-1', type: 'paragraph', text }],
+    anchor: {
+      documentId: 'writer-aaaaaaaa',
+      baseRevision: 3,
+      scope: 'selection',
+      startBlockId: 'p-1',
+      endBlockId: 'p-1',
+      startOffset: 0,
+      endOffset: text.length,
+      expectedTextHash: hashWriterText(text)
+    }
+  })
+  const adapter = new WriterToolAdapter(context)
+  const result = await adapter.execute('writer__propose_edits', {
+    operations: [
+      {
+        kind: 'insert_text',
+        blockId: 'p-1',
+        offset: text.length,
+        text: '方便的。接下来可以再试试改写。'
+      }
+    ]
+  })
+  assert.equal(result.success, true)
+  const op = (result.content as WriterAiProposal).operations[0]
+  assert.equal(op.kind, 'insert_text')
+  if (op.kind === 'insert_text') {
+    assert.equal(op.text, '接下来可以再试试改写。')
+  }
+})

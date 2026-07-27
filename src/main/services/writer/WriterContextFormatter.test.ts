@@ -49,6 +49,27 @@ test('cursor/selection/section 只包含目标块', () => {
   }
 })
 
+test('selection 上下文明确要求 replace_text 覆盖完整选区偏移', () => {
+  const formatted = WriterContextFormatter.format(
+    makeContext({
+      scope: 'selection',
+      blocks: [{ nodeId: 'p-1', type: 'paragraph', text: '前缀选中内容后缀' }],
+      anchor: {
+        documentId: 'writer-aaaaaaaa',
+        baseRevision: 1,
+        scope: 'selection',
+        startBlockId: 'p-1',
+        endBlockId: 'p-1',
+        startOffset: 2,
+        endOffset: 6,
+        expectedTextHash: 'hash'
+      }
+    })
+  )
+  assert.match(formatted, /完整覆盖|必须覆盖|from\s*=\s*选区|选区起止/)
+  assert.match(formatted, /p-1\[2\].*p-1\[6\]|锚点：p-1\[2\]/)
+})
+
 test('document 按标题分组', () => {
   const formatted = WriterContextFormatter.format(
     makeContext({
