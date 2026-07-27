@@ -145,6 +145,9 @@ test('insert_blocks 预览按块拆分而非 join 拼接', () => {
   assert.equal(blocks[0]?.textContent, '第一段')
   assert.equal(blocks[1]?.getAttribute('data-block-type'), 'heading')
   assert.ok(element.querySelector('.sm-writer-diff-toolbar'))
-  assert.ok(element.querySelector('[aria-label="全部接受建议"]'))
+  // 仅 1 项 pending 时不展示批量动作，避免与单条接受/拒绝重复
+  assert.equal(element.querySelector('[aria-label="全部接受建议"]'), null)
+  assert.ok(element.querySelector('[aria-label="接受该项建议"]'))
+  assert.ok(element.querySelector('[aria-label="拒绝该项建议"]'))
   useWriterSuggestionStore.getState().reset()
 })

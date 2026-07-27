@@ -53,8 +53,10 @@ test('操作条含接受拒绝与可选批量动作', () => {
   assert.match(el.textContent ?? '', /2 项待确认/)
   assert.ok(el.querySelector('[aria-label="全部接受建议"]'))
   assert.ok(el.querySelector('[aria-label="全部拒绝建议"]'))
+  assert.ok(el.querySelector('.sm-writer-diff-toolbar__divider'))
   assert.ok(el.querySelector('[aria-label="接受该项建议"]'))
   assert.ok(el.querySelector('[aria-label="拒绝该项建议"]'))
+  assert.ok(el.querySelector('.sm-writer-diff-toolbar__btn--reject'))
 })
 
 test('操作条无批量时不渲染全部接受拒绝', () => {

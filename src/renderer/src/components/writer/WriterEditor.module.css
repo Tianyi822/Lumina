@@ -377,40 +377,78 @@
   display: inline-flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--sm-space-1);
-  margin-top: var(--sm-space-1);
-  padding: 0;
-  border: none;
-  background: transparent;
+  gap: 4px;
+  margin-top: var(--sm-space-2);
+  padding: 4px;
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: 10px;
+  background: var(--sm-color-surface-1);
+  box-shadow: var(--sm-shadow-sm);
+  backdrop-filter: blur(18px);
   font-size: var(--sm-text-xs);
   color: var(--sm-color-text-secondary);
 }
 
 .editorContent :global(.sm-writer-diff-toolbar__summary) {
-  margin-right: var(--sm-space-1);
+  padding: 0 var(--sm-space-2);
   color: var(--sm-color-text-tertiary);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.editorContent :global(.sm-writer-diff-toolbar__divider) {
+  flex: 0 0 auto;
+  width: 1px;
+  height: 18px;
+  margin: 0 2px;
+  background: var(--sm-color-border-subtle);
 }
 
 .editorContent :global(.sm-writer-diff-toolbar__btn) {
   appearance: none;
-  border: 1px solid var(--sm-color-border-default);
-  border-radius: var(--sm-radius-sm);
-  padding: 0 var(--sm-space-2);
-  min-height: var(--sm-space-6);
-  font-size: var(--sm-text-xs);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 6px;
+  padding: 0 10px;
+  min-height: 28px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
   line-height: 1;
+  white-space: nowrap;
   cursor: pointer;
-  background: var(--sm-color-surface-2);
+  background: transparent;
+  color: var(--sm-color-text-secondary);
+  transition:
+    background-color var(--sm-transition-fast),
+    color var(--sm-transition-fast);
+}
+
+.editorContent :global(.sm-writer-diff-toolbar__btn:hover),
+.editorContent :global(.sm-writer-diff-toolbar__btn:focus-visible) {
+  outline: 0;
+  background: var(--sm-color-surface-hover);
   color: var(--sm-color-text-primary);
 }
 
 .editorContent :global(.sm-writer-diff-toolbar__btn--primary) {
-  border-color: var(--sm-color-border-accent);
-  background: var(--sm-color-accent-10);
+  background: var(--sm-color-writer-diff-add-bg);
+  color: var(--sm-color-writer-diff-add-text);
 }
 
-.editorContent :global(.sm-writer-diff-toolbar__btn:hover) {
-  background: var(--sm-color-surface-hover);
+.editorContent :global(.sm-writer-diff-toolbar__btn--primary:hover),
+.editorContent :global(.sm-writer-diff-toolbar__btn--primary:focus-visible) {
+  background: var(--sm-color-writer-diff-add-bg);
+  color: var(--sm-color-writer-diff-add-text);
+  filter: brightness(1.08);
+}
+
+.editorContent :global(.sm-writer-diff-toolbar__btn--reject:hover),
+.editorContent :global(.sm-writer-diff-toolbar__btn--reject:focus-visible) {
+  background: var(--sm-color-writer-diff-delete-bg);
+  color: var(--sm-color-writer-diff-delete-text);
 }
 
 @keyframes sm-writer-diff-pending-pulse {

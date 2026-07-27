@@ -117,7 +117,8 @@ function buildActiveDecorations(
     if (!op) continue
     const toolbarCtx: OperationToolbarContext = {
       operationIndex: index,
-      showBatchActions: i === 0,
+      // 仅一项时不重复展示「全部接受/拒绝」
+      showBatchActions: i === 0 && pendingCount > 1,
       pendingCount,
       editor
     }

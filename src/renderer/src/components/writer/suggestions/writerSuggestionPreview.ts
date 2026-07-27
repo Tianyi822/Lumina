@@ -76,7 +76,7 @@ function createToolbarButton(
   return button
 }
 
-/** 预览旁紧凑操作条：单条接受/拒绝；首项可附带批量动作 */
+/** 预览旁紧凑操作条：单条接受/拒绝；多项时首项附带批量动作 */
 export function createOperationToolbarElement(options: OperationToolbarOptions): HTMLElement {
   // 使用 span，便于挂到内联预览旁而不破坏 HTML 嵌套
   const root = document.createElement('span')
@@ -98,10 +98,17 @@ export function createOperationToolbarElement(options: OperationToolbarOptions):
       )
     )
     root.appendChild(
-      createToolbarButton('全部拒绝', '全部拒绝建议', 'sm-writer-diff-toolbar__btn', () =>
-        options.onRejectAll()
+      createToolbarButton(
+        '全部拒绝',
+        '全部拒绝建议',
+        'sm-writer-diff-toolbar__btn sm-writer-diff-toolbar__btn--reject',
+        () => options.onRejectAll()
       )
     )
+    const divider = document.createElement('span')
+    divider.className = 'sm-writer-diff-toolbar__divider'
+    divider.setAttribute('aria-hidden', 'true')
+    root.appendChild(divider)
   }
 
   root.appendChild(
@@ -113,8 +120,11 @@ export function createOperationToolbarElement(options: OperationToolbarOptions):
     )
   )
   root.appendChild(
-    createToolbarButton('拒绝', '拒绝该项建议', 'sm-writer-diff-toolbar__btn', () =>
-      options.onRejectOne(options.operationIndex)
+    createToolbarButton(
+      '拒绝',
+      '拒绝该项建议',
+      'sm-writer-diff-toolbar__btn sm-writer-diff-toolbar__btn--reject',
+      () => options.onRejectOne(options.operationIndex)
     )
   )
 
