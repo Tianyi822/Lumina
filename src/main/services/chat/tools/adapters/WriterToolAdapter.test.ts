@@ -363,3 +363,47 @@ test('selection 续写：去掉与选区尾部重叠的插入前缀', async () =
     assert.equal(op.text, '接下来可以再试试改写。')
   }
 })
+
+test('replace_text 越界 to 钳制到块长而不是直接失败', async () => {
+  const text = '试了试这个写作助手，续写功能用起来确实还挺流畅方便'
+  assert.equal(text.length, 25)
+  const adapter = new WriterToolAdapter(
+    createWriterContext({
+      scope: 'selection',
+      blocks: [
+        { nodeId: 'p-0', type: 'paragraph', text: '测试一下' },
+        { nodeId: 'new-paragraph-1', type: 'paragraph', text },
+        { nodeId: 'p-2', type: 'paragraph', text: '如果以后写论文笔记' }
+      ],
+      anchor: {
+        documentId: 'writer-aaaaaaaa',
+        baseRevision: 3,
+        scope: 'selection',
+        startBlockId: 'p-0',
+        endBlockId: 'p-2',
+        startOffset: 0,
+        endOffset: '如果以后写论文笔记'.length,
+        expectedTextHash: hashWriterText(`测试一下\n${text}\n如果以后写论文笔记`)
+      }
+    })
+  )
+  const result = await adapter.execute('writer__propose_edits', {
+    operations: [
+      {
+        kind: 'replace_text',
+        blockId: 'new-paragraph-1',
+        from: 0,
+        to: 27,
+        text: '试了试这个写作助手，续写功能用着确实还挺流畅方便。'
+      }
+    ]
+  })
+  assert.equal(result.success, true)
+  const op = (result.content as WriterAiProposal).operations[0]
+  assert.equal(op.kind, 'replace_text')
+  if (op.kind === 'replace_text') {
+    assert.equal(op.from, 0)
+    assert.equal(op.to, 25)
+    assert.equal(op.expectedTextHash, hashWriterText(text))
+  }
+})

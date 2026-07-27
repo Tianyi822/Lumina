@@ -35,6 +35,13 @@ function stripOverlappingPrefix(context: string, insertion: string): string {
   return insertion
 }
 
+/** 模型常把字符数算多：将半开区间钳到合法块内范围 */
+function clampTextRange(from: number, to: number, length: number): { from: number; to: number } {
+  const clampedFrom = Math.max(0, Math.min(from, length))
+  const clampedTo = Math.max(clampedFrom, Math.min(to, length))
+  return { from: clampedFrom, to: clampedTo }
+}
+
 const ALLOWED_BLOCK_TYPES = new Set<WriterAiContextBlock['type']>([
   'paragraph',
   'heading',
@@ -211,16 +218,18 @@ export class WriterToolAdapter implements ToolAdapter {
         }
         case 'replace_text': {
           this.assertInScope(input.blockId, blockMap)
-          this.assertRange(input.blockId, input.from, input.to, blockMap)
+          const block = blockMap.get(input.blockId)!
+          const { from, to } = clampTextRange(input.from, input.to, block.text.length)
+          this.assertRange(input.blockId, from, to, blockMap)
           insertChars += input.text.length
           this.assertInsertBudget(insertChars)
-          this.recordRange(textRanges, claimedBlocks, input.blockId, input.from, input.to)
-          const slice = blockMap.get(input.blockId)!.text.slice(input.from, input.to)
+          this.recordRange(textRanges, claimedBlocks, input.blockId, from, to)
+          const slice = block.text.slice(from, to)
           ops.push({
             kind: 'replace_text',
             blockId: input.blockId,
-            from: input.from,
-            to: input.to,
+            from,
+            to,
             text: input.text,
             expectedTextHash: hashWriterText(slice)
           })
@@ -228,14 +237,16 @@ export class WriterToolAdapter implements ToolAdapter {
         }
         case 'delete_text': {
           this.assertInScope(input.blockId, blockMap)
-          this.assertRange(input.blockId, input.from, input.to, blockMap)
-          this.recordRange(textRanges, claimedBlocks, input.blockId, input.from, input.to)
-          const slice = blockMap.get(input.blockId)!.text.slice(input.from, input.to)
+          const block = blockMap.get(input.blockId)!
+          const { from, to } = clampTextRange(input.from, input.to, block.text.length)
+          this.assertRange(input.blockId, from, to, blockMap)
+          this.recordRange(textRanges, claimedBlocks, input.blockId, from, to)
+          const slice = block.text.slice(from, to)
           ops.push({
             kind: 'delete_text',
             blockId: input.blockId,
-            from: input.from,
-            to: input.to,
+            from,
+            to,
             expectedTextHash: hashWriterText(slice)
           })
           break
