@@ -230,8 +230,12 @@ export default function WriterEditor({
           editVersion
         })
 
-        // 接受建议事务不失效；目标文本被用户改动时标记建议失效（decoration 由 plugin 映射/重建）
-        if (transaction.docChanged && !transaction.getMeta('writerSuggestionAccept')) {
+        // 建议落盘事务不失效（全部接受 / 单条接受）；仅用户改动目标文本时标记失效
+        if (
+          transaction.docChanged &&
+          !transaction.getMeta('writerSuggestionAccept') &&
+          !transaction.getMeta('writerSuggestionApply')
+        ) {
           const suggestion = useWriterSuggestionStore.getState()
           if (suggestion.activeProposal) {
             const validation = validateProposalAgainstState(

@@ -29,6 +29,8 @@ export function acceptWriterSuggestionOperation(editor: Editor, index: number): 
   }
 
   const tr = applyAcceptedOperations(editor.state, [op])
+  // writerSuggestionApply：告知 onUpdate 这是建议落盘，勿按「目标被用户改动」失效
+  tr.setMeta('writerSuggestionApply', true)
   tr.setMeta('writerSuggestionRefresh', true)
   editor.view.dispatch(tr)
   store.acceptOperation(index)
