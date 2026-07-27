@@ -58,6 +58,7 @@ function buildToolbarOptions(ctx: OperationToolbarContext): OperationToolbarOpti
 
 function withToolbar(preview: HTMLElement, ctx: OperationToolbarContext): HTMLElement {
   // 块级预览根可直接挂工具条；内联 span 外包一层，避免工具条打断文本流语义
+  preview.setAttribute('contenteditable', 'false')
   if (
     preview.classList.contains('sm-writer-diff-add-blocks') ||
     preview.classList.contains('sm-writer-diff-op')
@@ -66,6 +67,7 @@ function withToolbar(preview: HTMLElement, ctx: OperationToolbarContext): HTMLEl
   }
   const wrapper = document.createElement('span')
   wrapper.className = 'sm-writer-diff-op'
+  wrapper.setAttribute('contenteditable', 'false')
   wrapper.appendChild(preview)
   return appendOperationToolbar(wrapper, buildToolbarOptions(ctx))
 }

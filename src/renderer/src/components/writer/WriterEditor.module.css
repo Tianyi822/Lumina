@@ -281,10 +281,13 @@
 }
 
 .editorContent :global(.sm-writer-diff-add-blocks) {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--sm-space-2);
   margin: var(--sm-space-2) 0;
+  /* 为底部悬浮确认条预留点击空间，但不撑开段落行盒本身 */
+  padding-bottom: 0;
 }
 
 .editorContent :global(.sm-writer-diff-add-blocks .sm-writer-diff-add-block) {
@@ -365,20 +368,37 @@
   width: 64%;
 }
 
+/* 预览锚点：行内块不撑开额外行高；确认条绝对定位悬浮 */
 .editorContent :global(.sm-writer-diff-op) {
-  display: inline-flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--sm-space-1);
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
   vertical-align: baseline;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.editorContent :global(.sm-writer-diff-add) {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.editorContent :global(.sm-writer-diff-add::selection),
+.editorContent :global(.sm-writer-diff-op::selection) {
+  background: transparent;
+  color: inherit;
 }
 
 .editorContent :global(.sm-writer-diff-toolbar) {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 20;
   display: inline-flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 4px;
-  margin-top: var(--sm-space-2);
+  margin: 0;
   padding: 4px;
   border: 1px solid var(--sm-color-border-default);
   border-radius: 10px;
@@ -387,6 +407,21 @@
   backdrop-filter: blur(18px);
   font-size: var(--sm-text-xs);
   color: var(--sm-color-text-secondary);
+  user-select: none;
+  -webkit-user-select: none;
+  pointer-events: auto;
+}
+
+.editorContent :global(.sm-writer-diff-toolbar),
+.editorContent :global(.sm-writer-diff-toolbar *) {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.editorContent :global(.sm-writer-diff-toolbar::selection),
+.editorContent :global(.sm-writer-diff-toolbar *::selection) {
+  background: transparent;
+  color: inherit;
 }
 
 .editorContent :global(.sm-writer-diff-toolbar__summary) {

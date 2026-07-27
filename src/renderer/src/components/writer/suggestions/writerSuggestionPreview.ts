@@ -83,6 +83,10 @@ export function createOperationToolbarElement(options: OperationToolbarOptions):
   root.className = 'sm-writer-diff-toolbar'
   root.setAttribute('role', 'toolbar')
   root.setAttribute('aria-label', 'AI 编辑建议')
+  // 悬浮控件：不参与 contenteditable 编辑与原生选区绘制
+  root.setAttribute('contenteditable', 'false')
+  root.setAttribute('data-writer-floating-toolbar', 'true')
+  root.setAttribute('aria-hidden', 'false')
 
   if (options.showBatchActions) {
     const summary = document.createElement('span')

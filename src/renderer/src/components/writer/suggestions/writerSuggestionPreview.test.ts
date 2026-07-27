@@ -73,3 +73,17 @@ test('操作条无批量时不渲染全部接受拒绝', () => {
   assert.ok(el.querySelector('[aria-label="接受该项建议"]'))
   assert.ok(el.querySelector('[aria-label="拒绝该项建议"]'))
 })
+
+test('操作条标记为不可编辑且不可选中，避免原生选区覆盖', () => {
+  const el = createOperationToolbarElement({
+    operationIndex: 0,
+    showBatchActions: false,
+    pendingCount: 1,
+    onAcceptOne: () => undefined,
+    onRejectOne: () => undefined,
+    onAcceptAll: () => undefined,
+    onRejectAll: () => undefined
+  })
+  assert.equal(el.getAttribute('contenteditable'), 'false')
+  assert.equal(el.getAttribute('data-writer-floating-toolbar'), 'true')
+})
