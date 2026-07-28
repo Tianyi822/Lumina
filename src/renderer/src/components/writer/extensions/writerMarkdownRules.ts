@@ -1,6 +1,8 @@
 import { Extension, InputRule } from '@tiptap/core'
 import type { InputRuleMatch, Range } from '@tiptap/core'
-import { Plugin, Selection } from '@tiptap/pm/state'
+import { wrapIn } from '@tiptap/pm/commands'
+import { wrapInList } from '@tiptap/pm/schema-list'
+import { Plugin, Selection, TextSelection } from '@tiptap/pm/state'
 import type { EditorState, Transaction } from '@tiptap/pm/state'
 import { normalizeWriterCodeLanguage } from './writerMath'
 
@@ -154,6 +156,53 @@ function restoreSelectionAfterConversion(tr: Transaction, selectionFrom: number)
   tr.setSelection(Selection.near(tr.doc.resolve(mapped)))
 }
 
+// 删除触发前缀后，在选区移入目标块的中间 state 上执行 ProseMirror 命令，
+// 把产生的步骤重放到以 state 为基准的 tr 上（中间 state 与最终 tr 文档一致，步骤位置兼容）
+function replayCommandOnBlock(
+  state: EditorState,
+  blockFrom: number,
+  prefixLength: number,
+  command: (state: EditorState, dispatch?: (tr: Transaction) => void) => boolean
+): Transaction | null {
+  const intermediateTr = state.tr.delete(blockFrom + 1, blockFrom + 1 + prefixLength)
+  // 选区必须绑定删除前缀后的当前文档，否则 setSelection 会因文档不一致抛错
+  intermediateTr.setSelection(TextSelection.create(intermediateTr.doc, blockFrom + 1))
+  const intermediateState = state.apply(intermediateTr)
+  const holder: { tr: Transaction | null } = { tr: null }
+  const applied = command(intermediateState, (produced) => {
+    holder.tr = produced
+  })
+  const producedTr = holder.tr
+  if (!applied || !producedTr) return null
+
+  const tr = state.tr
+  tr.delete(blockFrom + 1, blockFrom + 1 + prefixLength)
+  for (const step of producedTr.steps) tr.step(step)
+  return tr
+}
+
+// 在 tr 文档中定位 blockFrom 附近的目标节点并合并写入属性（如有序列表起始编号、任务勾选态）
+function setListAttributeNearBlock(
+  tr: Transaction,
+  blockFrom: number,
+  nodeName: 'orderedList' | 'taskItem',
+  attributes: Record<string, unknown>
+): void {
+  const mappedFrom = tr.mapping.map(blockFrom)
+  let nodePos: number | null = null
+  tr.doc.nodesBetween(mappedFrom, mappedFrom + 1, (node, pos) => {
+    if (nodePos === null && node.type.name === nodeName) {
+      nodePos = pos
+      return false
+    }
+    return true
+  })
+  if (nodePos === null) return
+  const node = tr.doc.nodeAt(nodePos)
+  if (!node) return
+  tr.setNodeMarkup(nodePos, undefined, { ...node.attrs, ...attributes })
+}
+
 // 对 blockFrom 处的 paragraph 构造块级 Markdown 转换事务；状态不符或不支持的类型返回 null
 export function buildWriterBlockConversion(
   state: EditorState,
@@ -170,6 +219,41 @@ export function buildWriterBlockConversion(
     // 触发前缀为 level 个 '#' 加 1 个空格
     tr.delete(blockFrom + 1, blockFrom + 1 + match.level + 1)
     tr.setNodeMarkup(blockFrom, state.schema.nodes.heading, { level: match.level })
+    restoreSelectionAfterConversion(tr, selectionFrom)
+    return tr
+  }
+
+  if (match.kind === 'blockquote') {
+    const tr = replayCommandOnBlock(state, blockFrom, 2, wrapIn(state.schema.nodes.blockquote))
+    if (!tr) return null
+    restoreSelectionAfterConversion(tr, selectionFrom)
+    return tr
+  }
+
+  if (match.kind === 'bulletList') {
+    const tr = replayCommandOnBlock(state, blockFrom, 2, wrapInList(state.schema.nodes.bulletList))
+    if (!tr) return null
+    restoreSelectionAfterConversion(tr, selectionFrom)
+    return tr
+  }
+
+  if (match.kind === 'orderedList') {
+    const tr = replayCommandOnBlock(
+      state,
+      blockFrom,
+      String(match.start).length + 2,
+      wrapInList(state.schema.nodes.orderedList)
+    )
+    if (!tr) return null
+    setListAttributeNearBlock(tr, blockFrom, 'orderedList', { start: match.start })
+    restoreSelectionAfterConversion(tr, selectionFrom)
+    return tr
+  }
+
+  if (match.kind === 'taskList') {
+    const tr = replayCommandOnBlock(state, blockFrom, 6, wrapInList(state.schema.nodes.taskList))
+    if (!tr) return null
+    setListAttributeNearBlock(tr, blockFrom, 'taskItem', { checked: match.checked })
     restoreSelectionAfterConversion(tr, selectionFrom)
     return tr
   }

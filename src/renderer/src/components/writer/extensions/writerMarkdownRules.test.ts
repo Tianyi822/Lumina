@@ -324,3 +324,113 @@ test('不支持的 match 类型返回 null', () => {
   const state = createStateWithDoc(twoParagraphDoc, 8)
   assert.equal(buildWriterBlockConversion(state, 0, { kind: 'bold', content: 'x' }), null)
 })
+
+test('引用转换：删除前缀并包裹引用块', () => {
+  const quoteDoc = {
+    type: 'doc',
+    content: [
+      { type: 'paragraph', content: [{ type: 'text', text: '> 引用内容' }] },
+      { type: 'paragraph', content: [{ type: 'text', text: '正文' }] }
+    ]
+  }
+  const state = createStateWithDoc(quoteDoc, 9)
+  const tr = buildWriterBlockConversion(state, 0, { kind: 'blockquote' })
+  assert.ok(tr)
+  assert.deepEqual(toPlainDocJSON(tr.doc), {
+    type: 'doc',
+    content: [
+      {
+        type: 'blockquote',
+        content: [{ type: 'paragraph', content: [{ type: 'text', text: '引用内容' }] }]
+      },
+      { type: 'paragraph', content: [{ type: 'text', text: '正文' }] }
+    ]
+  })
+})
+
+test('无序列表转换：删除前缀并包裹列表', () => {
+  const bulletDoc = {
+    type: 'doc',
+    content: [
+      { type: 'paragraph', content: [{ type: 'text', text: '- 项目' }] },
+      { type: 'paragraph', content: [{ type: 'text', text: '正文' }] }
+    ]
+  }
+  const state = createStateWithDoc(bulletDoc, 8)
+  const tr = buildWriterBlockConversion(state, 0, { kind: 'bulletList' })
+  assert.ok(tr)
+  assert.deepEqual(toPlainDocJSON(tr.doc), {
+    type: 'doc',
+    content: [
+      {
+        type: 'bulletList',
+        content: [
+          {
+            type: 'listItem',
+            content: [{ type: 'paragraph', content: [{ type: 'text', text: '项目' }] }]
+          }
+        ]
+      },
+      { type: 'paragraph', content: [{ type: 'text', text: '正文' }] }
+    ]
+  })
+})
+
+test('有序列表转换：保留起始编号', () => {
+  const orderedDoc = {
+    type: 'doc',
+    content: [
+      { type: 'paragraph', content: [{ type: 'text', text: '12. 项目' }] },
+      { type: 'paragraph', content: [{ type: 'text', text: '正文' }] }
+    ]
+  }
+  const state = createStateWithDoc(orderedDoc, 10)
+  const tr = buildWriterBlockConversion(state, 0, { kind: 'orderedList', start: 12 })
+  assert.ok(tr)
+  assert.deepEqual(toPlainDocJSON(tr.doc), {
+    type: 'doc',
+    content: [
+      {
+        type: 'orderedList',
+        // TipTap 3.29 orderedList 自带 type 属性（默认 null），节点序列化时一并出现
+        attrs: { start: 12, type: null },
+        content: [
+          {
+            type: 'listItem',
+            content: [{ type: 'paragraph', content: [{ type: 'text', text: '项目' }] }]
+          }
+        ]
+      },
+      { type: 'paragraph', content: [{ type: 'text', text: '正文' }] }
+    ]
+  })
+})
+
+test('任务列表转换：保留勾选状态', () => {
+  const taskDoc = {
+    type: 'doc',
+    content: [
+      { type: 'paragraph', content: [{ type: 'text', text: '- [x] 买菜' }] },
+      { type: 'paragraph', content: [{ type: 'text', text: '正文' }] }
+    ]
+  }
+  const state = createStateWithDoc(taskDoc, 11)
+  const tr = buildWriterBlockConversion(state, 0, { kind: 'taskList', checked: true })
+  assert.ok(tr)
+  assert.deepEqual(toPlainDocJSON(tr.doc), {
+    type: 'doc',
+    content: [
+      {
+        type: 'taskList',
+        content: [
+          {
+            type: 'taskItem',
+            attrs: { checked: true },
+            content: [{ type: 'paragraph', content: [{ type: 'text', text: '买菜' }] }]
+          }
+        ]
+      },
+      { type: 'paragraph', content: [{ type: 'text', text: '正文' }] }
+    ]
+  })
+})
