@@ -119,6 +119,30 @@ export function shouldApplyWriterInputRule(context: WriterInputRuleContext): boo
   return matchWriterInstantRule(context.textBeforeCursor) !== null
 }
 
+// ---------------------------------------------------------------------------
+// 延迟块级转换：离块检测
+// ---------------------------------------------------------------------------
+
+// 光标所在 textblock 的起点位置（position before 该块）；doc 顶层无 depth 时返回 null
+function getSelectionTextblockFrom(state: EditorState): number | null {
+  const { $from } = state.selection
+  if ($from.depth < 1) return null
+  return $from.before($from.depth)
+}
+
+// 光标已离开 prevBlockFrom 指向的 paragraph 块时返回该块位置与完整文本，否则返回 null
+export function getWriterBlockConversionTarget(
+  prevBlockFrom: number | null,
+  state: EditorState
+): { from: number; text: string } | null {
+  if (prevBlockFrom === null) return null
+  if (prevBlockFrom < 0 || prevBlockFrom >= state.doc.content.size) return null
+  if (getSelectionTextblockFrom(state) === prevBlockFrom) return null
+  const prevBlock = state.doc.nodeAt(prevBlockFrom)
+  if (!prevBlock || prevBlock.type.name !== 'paragraph') return null
+  return { from: prevBlockFrom, text: prevBlock.textContent }
+}
+
 export function nextWriterCompositionState(
   current: boolean,
   transition: WriterCompositionTransition
