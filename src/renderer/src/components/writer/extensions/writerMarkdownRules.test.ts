@@ -1,22 +1,36 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
+  matchWriterBlockRule,
+  matchWriterInstantRule,
   matchWriterMarkdownRule,
   nextWriterCompositionState,
   shouldApplyWriterInputRule
 } from './writerMarkdownRules'
 
-test('IME composition 期间不执行 Markdown 转换', () => {
-  assert.equal(shouldApplyWriterInputRule({ composing: true, textBeforeCursor: '# ' }), false)
-  assert.equal(shouldApplyWriterInputRule({ composing: false, textBeforeCursor: '# ' }), true)
+test('IME composition 期间不执行即时 Markdown 转换', () => {
+  assert.equal(
+    shouldApplyWriterInputRule({ composing: true, textBeforeCursor: '前 **粗体**' }),
+    false
+  )
+  assert.equal(
+    shouldApplyWriterInputRule({ composing: false, textBeforeCursor: '前 **粗体**' }),
+    true
+  )
   assert.equal(
     shouldApplyWriterInputRule({
       composing: false,
       eventIsComposing: true,
-      textBeforeCursor: '# '
+      textBeforeCursor: '前 **粗体**'
     }),
     false
   )
+})
+
+test('块级语法不再由输入规则即时转换', () => {
+  assert.equal(shouldApplyWriterInputRule({ composing: false, textBeforeCursor: '# ' }), false)
+  assert.equal(shouldApplyWriterInputRule({ composing: false, textBeforeCursor: '1. ' }), false)
+  assert.equal(shouldApplyWriterInputRule({ composing: false, textBeforeCursor: '```' }), false)
 })
 
 test('compositionend 之后保持保护直到延迟释放', () => {
@@ -108,4 +122,29 @@ test('逐键输入双美元块公式时不会被行内公式抢先转换', () =>
     null,
     { kind: 'blockMath', content: 'x' }
   ])
+})
+
+test('块级规则前缀匹配：触发符加内容也能命中', () => {
+  assert.deepEqual(matchWriterBlockRule('### 报告'), { kind: 'heading', level: 3 })
+  assert.deepEqual(matchWriterBlockRule('> 引用内容'), { kind: 'blockquote' })
+  assert.deepEqual(matchWriterBlockRule('- 项目'), { kind: 'bulletList' })
+  assert.deepEqual(matchWriterBlockRule('+ 项目'), { kind: 'bulletList' })
+  assert.deepEqual(matchWriterBlockRule('12. 项目'), { kind: 'orderedList', start: 12 })
+  assert.deepEqual(matchWriterBlockRule('- [x] 买菜'), { kind: 'taskList', checked: true })
+  assert.deepEqual(matchWriterBlockRule('```python'), { kind: 'codeBlock', language: 'python' })
+  assert.deepEqual(matchWriterBlockRule('---'), { kind: 'horizontalRule' })
+})
+
+test('块级规则只输入触发符也命中，非行首与越界不命中', () => {
+  assert.deepEqual(matchWriterBlockRule('# '), { kind: 'heading', level: 1 })
+  assert.deepEqual(matchWriterBlockRule('####### 越界'), null)
+  assert.equal(matchWriterBlockRule('正文 # 不是行首'), null)
+  assert.equal(matchWriterBlockRule('普通文本'), null)
+  assert.equal(matchWriterBlockRule(''), null)
+})
+
+test('即时规则只匹配闭合符触发的行内语法', () => {
+  assert.deepEqual(matchWriterInstantRule('前 **粗体**'), { kind: 'bold', content: '粗体' })
+  assert.equal(matchWriterInstantRule('# '), null)
+  assert.equal(matchWriterInstantRule('---'), null)
 })

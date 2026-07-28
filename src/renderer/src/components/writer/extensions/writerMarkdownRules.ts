@@ -34,35 +34,8 @@ interface RuleDefinition {
   match: (result: RegExpMatchArray) => WriterMarkdownMatch
 }
 
-const RULE_DEFINITIONS: RuleDefinition[] = [
-  {
-    expression: /^(#{1,6}) $/,
-    match: (result) => ({ kind: 'heading', level: result[1].length })
-  },
-  {
-    expression: /^> $/,
-    match: () => ({ kind: 'blockquote' })
-  },
-  {
-    expression: /^- \[([ xX])\] $/,
-    match: (result) => ({ kind: 'taskList', checked: result[1].toLowerCase() === 'x' })
-  },
-  {
-    expression: /^(?:[-+*]) $/,
-    match: () => ({ kind: 'bulletList' })
-  },
-  {
-    expression: /^(\d+)\. $/,
-    match: (result) => ({ kind: 'orderedList', start: Number(result[1]) })
-  },
-  {
-    expression: /^```([a-zA-Z0-9_+-]*)$/,
-    match: (result) => ({ kind: 'codeBlock', language: result[1] || null })
-  },
-  {
-    expression: /^(?:---|\*\*\*|___)$/,
-    match: () => ({ kind: 'horizontalRule' })
-  },
+// 即时规则：闭合符触发（行内语法与块公式），维持输入即转换
+const INSTANT_RULE_DEFINITIONS: RuleDefinition[] = [
   {
     expression: /^\$\$([^$\n]+)\$\$$/,
     match: (result) => ({ kind: 'blockMath', content: result[1] })
@@ -89,17 +62,61 @@ const RULE_DEFINITIONS: RuleDefinition[] = [
   }
 ]
 
-export function matchWriterMarkdownRule(textBeforeCursor: string): WriterMarkdownMatch | null {
-  for (const definition of RULE_DEFINITIONS) {
-    const result = textBeforeCursor.match(definition.expression)
+// 延迟规则：块级语法，光标离开文本块后才转换；前缀匹配兼容「触发符 + 内容」
+const DEFERRED_BLOCK_RULE_DEFINITIONS: RuleDefinition[] = [
+  {
+    expression: /^(#{1,6}) /,
+    match: (result) => ({ kind: 'heading', level: result[1].length })
+  },
+  {
+    expression: /^> /,
+    match: () => ({ kind: 'blockquote' })
+  },
+  {
+    expression: /^- \[([ xX])\] /,
+    match: (result) => ({ kind: 'taskList', checked: result[1].toLowerCase() === 'x' })
+  },
+  {
+    expression: /^(?:[-+*]) /,
+    match: () => ({ kind: 'bulletList' })
+  },
+  {
+    expression: /^(\d+)\. /,
+    match: (result) => ({ kind: 'orderedList', start: Number(result[1]) })
+  },
+  {
+    expression: /^```([a-zA-Z0-9_+-]*)$/,
+    match: (result) => ({ kind: 'codeBlock', language: result[1] || null })
+  },
+  {
+    expression: /^(?:---|\*\*\*|___)$/,
+    match: () => ({ kind: 'horizontalRule' })
+  }
+]
+
+export function matchWriterBlockRule(text: string): WriterMarkdownMatch | null {
+  for (const definition of DEFERRED_BLOCK_RULE_DEFINITIONS) {
+    const result = text.match(definition.expression)
     if (result) return definition.match(result)
   }
   return null
 }
 
+export function matchWriterInstantRule(text: string): WriterMarkdownMatch | null {
+  for (const definition of INSTANT_RULE_DEFINITIONS) {
+    const result = text.match(definition.expression)
+    if (result) return definition.match(result)
+  }
+  return null
+}
+
+export function matchWriterMarkdownRule(textBeforeCursor: string): WriterMarkdownMatch | null {
+  return matchWriterBlockRule(textBeforeCursor) ?? matchWriterInstantRule(textBeforeCursor)
+}
+
 export function shouldApplyWriterInputRule(context: WriterInputRuleContext): boolean {
   if (context.composing || context.eventIsComposing) return false
-  return matchWriterMarkdownRule(context.textBeforeCursor) !== null
+  return matchWriterInstantRule(context.textBeforeCursor) !== null
 }
 
 export function nextWriterCompositionState(
@@ -190,11 +207,11 @@ export const WriterMarkdownRules = Extension.create<
   addInputRules() {
     const isComposing = (): boolean => this.editor.view.composing || this.storage.eventIsComposing
 
-    return RULE_DEFINITIONS.map(
+    return INSTANT_RULE_DEFINITIONS.map(
       (definition) =>
         new InputRule({
           find: createRuleFinder(definition.expression, definition.match, isComposing),
-          handler: ({ state, range, match, chain }) => {
+          handler: ({ state, range, match }) => {
             if (isComposing()) return
             const writerMatch = getRuleMatch(match.data)
             if (!writerMatch) return
@@ -210,32 +227,7 @@ export const WriterMarkdownRules = Extension.create<
 
             if (writerMatch.kind === 'inlineMath' || writerMatch.kind === 'blockMath') {
               replaceWithMath(state, range, writerMatch.kind, writerMatch.content)
-              return
             }
-
-            const command = chain().deleteRange(range)
-            if (writerMatch.kind === 'heading') {
-              command.setHeading({ level: writerMatch.level as 1 | 2 | 3 | 4 | 5 | 6 }).run()
-            } else if (writerMatch.kind === 'blockquote') {
-              command.toggleBlockquote().run()
-            } else if (writerMatch.kind === 'bulletList') {
-              command.toggleBulletList().run()
-            } else if (writerMatch.kind === 'orderedList') {
-              command
-                .toggleOrderedList()
-                .updateAttributes('orderedList', { start: writerMatch.start })
-                .run()
-            } else if (writerMatch.kind === 'taskList') {
-              command
-                .toggleTaskList()
-                .updateAttributes('taskItem', { checked: writerMatch.checked })
-                .run()
-            } else if (writerMatch.kind === 'codeBlock') {
-              command.setCodeBlock({ language: writerMatch.language ?? '' }).run()
-            } else if (writerMatch.kind === 'horizontalRule') {
-              command.setHorizontalRule().run()
-            }
-            return
           }
         })
     )
