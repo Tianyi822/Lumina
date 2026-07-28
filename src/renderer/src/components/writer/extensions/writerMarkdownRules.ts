@@ -1,7 +1,8 @@
 import { Extension, InputRule } from '@tiptap/core'
 import type { InputRuleMatch, Range } from '@tiptap/core'
-import { Plugin } from '@tiptap/pm/state'
-import type { EditorState } from '@tiptap/pm/state'
+import { Plugin, Selection } from '@tiptap/pm/state'
+import type { EditorState, Transaction } from '@tiptap/pm/state'
+import { normalizeWriterCodeLanguage } from './writerMath'
 
 export type WriterMarkdownMatch =
   | { kind: 'heading'; level: number }
@@ -141,6 +142,63 @@ export function getWriterBlockConversionTarget(
   const prevBlock = state.doc.nodeAt(prevBlockFrom)
   if (!prevBlock || prevBlock.type.name !== 'paragraph') return null
   return { from: prevBlockFrom, text: prevBlock.textContent }
+}
+
+// ---------------------------------------------------------------------------
+// 延迟块级转换：转换事务构造
+// ---------------------------------------------------------------------------
+
+// 转换完成后把选区恢复到原光标位置（经步骤映射），保证用户光标不因后台转换跳动
+function restoreSelectionAfterConversion(tr: Transaction, selectionFrom: number): void {
+  const mapped = Math.min(tr.mapping.map(selectionFrom), tr.doc.content.size)
+  tr.setSelection(Selection.near(tr.doc.resolve(mapped)))
+}
+
+// 对 blockFrom 处的 paragraph 构造块级 Markdown 转换事务；状态不符或不支持的类型返回 null
+export function buildWriterBlockConversion(
+  state: EditorState,
+  blockFrom: number,
+  match: WriterMarkdownMatch
+): Transaction | null {
+  if (blockFrom < 0 || blockFrom >= state.doc.content.size) return null
+  const block = state.doc.nodeAt(blockFrom)
+  if (!block || block.type.name !== 'paragraph') return null
+  const selectionFrom = state.selection.from
+
+  if (match.kind === 'heading') {
+    const tr = state.tr
+    // 触发前缀为 level 个 '#' 加 1 个空格
+    tr.delete(blockFrom + 1, blockFrom + 1 + match.level + 1)
+    tr.setNodeMarkup(blockFrom, state.schema.nodes.heading, { level: match.level })
+    restoreSelectionAfterConversion(tr, selectionFrom)
+    return tr
+  }
+
+  if (match.kind === 'codeBlock') {
+    const tr = state.tr
+    // 删除围栏文本（块内全部内容），再变更节点类型并归一化语言
+    tr.delete(blockFrom + 1, blockFrom + block.nodeSize - 1)
+    tr.setNodeMarkup(blockFrom, state.schema.nodes.codeBlock, {
+      language: normalizeWriterCodeLanguage(match.language)
+    })
+    restoreSelectionAfterConversion(tr, selectionFrom)
+    return tr
+  }
+
+  if (match.kind === 'horizontalRule') {
+    const hr = state.schema.nodes.horizontalRule.create()
+    const tr = state.tr
+    tr.replaceWith(blockFrom, blockFrom + block.nodeSize, hr)
+    // 分割线位于文末时补一个空段落，保证其后有可编辑位置
+    const hrEnd = blockFrom + hr.nodeSize
+    if (hrEnd >= tr.doc.content.size) {
+      tr.insert(hrEnd, state.schema.nodes.paragraph.create())
+    }
+    restoreSelectionAfterConversion(tr, selectionFrom)
+    return tr
+  }
+
+  return null
 }
 
 export function nextWriterCompositionState(

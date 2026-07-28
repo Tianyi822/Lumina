@@ -5,8 +5,9 @@ import StarterKit from '@tiptap/starter-kit'
 import TaskList from '@tiptap/extension-task-list'
 import TaskItem from '@tiptap/extension-task-item'
 import { EditorState, TextSelection } from '@tiptap/pm/state'
-import type { Schema } from '@tiptap/pm/model'
+import type { Node as PMNode, Schema } from '@tiptap/pm/model'
 import {
+  buildWriterBlockConversion,
   getWriterBlockConversionTarget,
   matchWriterBlockRule,
   matchWriterInstantRule,
@@ -35,6 +36,12 @@ function createStateWithDoc(docJson: unknown, cursorPos?: number): EditorState {
   const state = EditorState.create({ schema: testSchema, doc })
   if (cursorPos === undefined) return state
   return state.apply(state.tr.setSelection(TextSelection.create(doc, cursorPos)))
+}
+
+// ProseMirror 节点 attrs 为 null 原型对象，assert.deepEqual 会连原型一起比较；
+// 经 JSON 往返归一化成普通对象后再与字面值深比较
+function toPlainDocJSON(doc: PMNode): unknown {
+  return JSON.parse(JSON.stringify(doc))
 }
 
 // 文档位置约定（两段：'# 标题' + '正文'）：
@@ -214,4 +221,106 @@ test('旧块已不是 paragraph 时不产生转换目标', () => {
   }
   const state = createStateWithDoc(headingDoc, 6)
   assert.equal(getWriterBlockConversionTarget(0, state), null)
+})
+
+test('标题转换：删除触发前缀并变更节点，选区恢复到原光标所在块', () => {
+  const state = createStateWithDoc(twoParagraphDoc, 8)
+  const tr = buildWriterBlockConversion(state, 0, { kind: 'heading', level: 1 })
+  assert.ok(tr)
+  assert.deepEqual(toPlainDocJSON(tr.doc), {
+    type: 'doc',
+    content: [
+      { type: 'heading', attrs: { level: 1 }, content: [{ type: 'text', text: '标题' }] },
+      { type: 'paragraph', content: [{ type: 'text', text: '正文' }] }
+    ]
+  })
+  // 原光标在第二段，转换后仍应落在第二段内
+  assert.equal(tr.selection.$from.parent.textContent, '正文')
+})
+
+test('只输入触发符的块转换为空标题', () => {
+  const emptyHeadingDoc = {
+    type: 'doc',
+    content: [
+      { type: 'paragraph', content: [{ type: 'text', text: '### ' }] },
+      { type: 'paragraph', content: [{ type: 'text', text: '正文' }] }
+    ]
+  }
+  const state = createStateWithDoc(emptyHeadingDoc, 7)
+  const tr = buildWriterBlockConversion(state, 0, { kind: 'heading', level: 3 })
+  assert.ok(tr)
+  assert.deepEqual(toPlainDocJSON(tr.doc), {
+    type: 'doc',
+    content: [
+      { type: 'heading', attrs: { level: 3 } },
+      { type: 'paragraph', content: [{ type: 'text', text: '正文' }] }
+    ]
+  })
+})
+
+test('代码块转换：删除围栏文本并归一化语言', () => {
+  const codeFenceDoc = {
+    type: 'doc',
+    content: [
+      { type: 'paragraph', content: [{ type: 'text', text: '```python' }] },
+      { type: 'paragraph', content: [{ type: 'text', text: '正文' }] }
+    ]
+  }
+  const state = createStateWithDoc(codeFenceDoc, 13)
+  const tr = buildWriterBlockConversion(state, 0, { kind: 'codeBlock', language: 'python' })
+  assert.ok(tr)
+  assert.deepEqual(toPlainDocJSON(tr.doc), {
+    type: 'doc',
+    content: [
+      { type: 'codeBlock', attrs: { language: 'python' } },
+      { type: 'paragraph', content: [{ type: 'text', text: '正文' }] }
+    ]
+  })
+})
+
+test('分割线转换：位于文末时自动补空段落', () => {
+  const hrDoc = {
+    type: 'doc',
+    content: [
+      { type: 'paragraph', content: [{ type: 'text', text: '正文' }] },
+      { type: 'paragraph', content: [{ type: 'text', text: '---' }] }
+    ]
+  }
+  // '正文' 段占 [0, 4)，'---' 段占 [4, 9)
+  const state = createStateWithDoc(hrDoc, 2)
+  const tr = buildWriterBlockConversion(state, 4, { kind: 'horizontalRule' })
+  assert.ok(tr)
+  assert.deepEqual(toPlainDocJSON(tr.doc), {
+    type: 'doc',
+    content: [
+      { type: 'paragraph', content: [{ type: 'text', text: '正文' }] },
+      { type: 'horizontalRule' },
+      { type: 'paragraph' }
+    ]
+  })
+})
+
+test('分割线转换：位于文档中部时不补段落', () => {
+  const hrMidDoc = {
+    type: 'doc',
+    content: [
+      { type: 'paragraph', content: [{ type: 'text', text: '---' }] },
+      { type: 'paragraph', content: [{ type: 'text', text: '正文' }] }
+    ]
+  }
+  const state = createStateWithDoc(hrMidDoc, 7)
+  const tr = buildWriterBlockConversion(state, 0, { kind: 'horizontalRule' })
+  assert.ok(tr)
+  assert.deepEqual(toPlainDocJSON(tr.doc), {
+    type: 'doc',
+    content: [
+      { type: 'horizontalRule' },
+      { type: 'paragraph', content: [{ type: 'text', text: '正文' }] }
+    ]
+  })
+})
+
+test('不支持的 match 类型返回 null', () => {
+  const state = createStateWithDoc(twoParagraphDoc, 8)
+  assert.equal(buildWriterBlockConversion(state, 0, { kind: 'bold', content: 'x' }), null)
 })
