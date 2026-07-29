@@ -15,7 +15,16 @@ import type { MCPTool } from './mcp'
 /**
  * 会话的类型
  */
-export type SessionType = 'default' | 'tool' | 'knowledge' | 'paper'
+export type SessionType = 'default' | 'tool' | 'knowledge' | 'paper' | 'writer'
+
+/**
+ * 会话关联的外部资源引用
+ * 目前仅写作会话用于绑定文档 ID
+ */
+export interface SessionResourceRef {
+  kind: 'writer'
+  id: string
+}
 
 /**
  * ReAct 步骤（持久化用）
@@ -111,7 +120,7 @@ interface SessionMeta {
  * 会话级选择状态
  * 用于持久化当前会话选择的 MCP 工具和知识库
  */
-interface SessionSelectionState {
+export interface SessionSelectionState {
   /** 当前会话选中的 MCP 工具 */
   selectedMCPTools: MCPTool[]
   /** 当前会话选中的知识库 */
@@ -122,6 +131,8 @@ interface SessionSelectionState {
   enablePlanMode?: boolean
   /** 当前会话是否启用论文联网搜索（仅论文会话） */
   enablePaperWebSearch?: boolean
+  /** 写作会话主动选择的论文 ID；默认未选择，不自动读取最近论文 */
+  selectedPaperId?: string
 }
 
 /**
@@ -135,6 +146,8 @@ export interface SessionData extends SessionMeta {
   selectionState?: SessionSelectionState
   /** 活跃能力状态（可选，兼容旧会话） */
   capabilities?: ActiveCapabilityState
+  /** 关联资源引用（写作会话绑定文档） */
+  resourceRef?: SessionResourceRef
 }
 
 export interface ActiveCapabilityState {
@@ -157,6 +170,8 @@ export interface SessionListItem {
   createdAt: string
   /** 会话最后更新时间 */
   updatedAt: string
+  /** 关联资源引用（写作会话用于按文档查找） */
+  resourceRef?: SessionResourceRef
 }
 
 /**

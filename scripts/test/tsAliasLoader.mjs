@@ -1,7 +1,9 @@
 /* eslint-disable @typescript-eslint/explicit-function-return-type */
 import { existsSync, statSync } from 'node:fs'
+import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { transform } from 'esbuild'
 
 const loaderDir = path.dirname(fileURLToPath(import.meta.url))
 const projectRoot = path.resolve(loaderDir, '..', '..')
@@ -244,4 +246,32 @@ export async function resolve(specifier, context, nextResolve) {
   }
 
   return nextResolve(specifier, context)
+}
+
+export async function load(url, context, nextLoad) {
+  if (url.endsWith('.css')) {
+    return {
+      format: 'module',
+      source: 'export default new Proxy({}, { get: (_target, property) => String(property) })',
+      shortCircuit: true
+    }
+  }
+
+  if (url.endsWith('.tsx')) {
+    const source = await readFile(fileURLToPath(url), 'utf8')
+    const result = await transform(source, {
+      loader: 'tsx',
+      format: 'esm',
+      jsx: 'automatic',
+      target: 'esnext',
+      sourcefile: fileURLToPath(url)
+    })
+    return {
+      format: 'module',
+      source: result.code,
+      shortCircuit: true
+    }
+  }
+
+  return nextLoad(url, context)
 }

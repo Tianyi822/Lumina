@@ -15,6 +15,10 @@ export interface ProcessingFile {
   error?: string
 }
 
+// 未初始化会话必须复用同一空数组，否则 useSyncExternalStore 每次取到新引用会无限重渲染
+const EMPTY_DOCUMENTS: PendingDocument[] = []
+const EMPTY_PROCESSING_FILES: ProcessingFile[] = []
+
 interface PaperChatDocumentUploadState {
   pendingDocuments: Map<string, PendingDocument[]>
   processingFiles: Map<string, ProcessingFile[]>
@@ -37,8 +41,9 @@ export const usePaperChatDocumentUploadStore = create<PaperChatDocumentUploadSta
     pendingDocuments: new Map(),
     processingFiles: new Map(),
 
-    getSessionDocuments: (sessionId) => get().pendingDocuments.get(sessionId) || [],
-    getSessionProcessingFiles: (sessionId) => get().processingFiles.get(sessionId) || [],
+    getSessionDocuments: (sessionId) => get().pendingDocuments.get(sessionId) || EMPTY_DOCUMENTS,
+    getSessionProcessingFiles: (sessionId) =>
+      get().processingFiles.get(sessionId) || EMPTY_PROCESSING_FILES,
     hasPendingDocuments: (sessionId) => {
       const docs = get().pendingDocuments.get(sessionId)
       return docs !== undefined && docs.length > 0

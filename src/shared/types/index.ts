@@ -31,3 +31,6 @@ export * from './paper-web-search'
 
 // 自动更新相关的类型
 export * from './update'
+
+// 写作相关的类型
+export * from './writer'

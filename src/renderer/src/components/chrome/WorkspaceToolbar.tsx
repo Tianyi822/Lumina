@@ -16,18 +16,23 @@ import TocPanel from './toolbar/TocPanel'
 import FigurePanel from './toolbar/FigurePanel'
 import OriginalPdfButton from './toolbar/OriginalPdfButton'
 import PaperChatButton from './toolbar/PaperChatButton'
+import WriterChatButton from './toolbar/WriterChatButton'
+import WriterExportButton from './toolbar/WriterExportButton'
+import { useWriterLibraryStore } from '@renderer/stores/writer'
 
 const EMPTY_PAPER_FIGURES: PaperFigureItem[] = []
 const EMPTY_FIGURE_TRANSLATION_MAP: Record<string, string> = {}
 
 /**
- * 论文工具栏组件
- * 提供翻译切换、目录面板、图表面板、原文 PDF 查看、论文聊天等功能按钮
+ * 工作区工具栏：按当前视图在一级侧栏底部展示论文/写作工具
  */
 export default function WorkspaceToolbar() {
   const currentView = useUIStateStore((s) => s.currentView)
   const paperChatPanelOpen = useUIStateStore((s) => s.paperChatPanelOpen)
   const togglePaperChatPanel = useUIStateStore((s) => s.togglePaperChatPanel)
+  const writerChatPanelOpen = useUIStateStore((s) => s.writerChatPanelOpen)
+  const toggleWriterChatPanel = useUIStateStore((s) => s.toggleWriterChatPanel)
+  const currentDocumentId = useWriterLibraryStore((s) => s.currentDocumentId)
   const currentPaperId = usePaperListStore((s) => s.currentPaperId)
   const isOcrCompleted = usePaperListStore((s) => s.isOcrCompleted())
   const markdownLoading = usePaperListStore((s) => s.markdownLoading)
@@ -77,7 +82,9 @@ export default function WorkspaceToolbar() {
 
   // 判断各工具的可用性
   const isPaperView = currentView === 'paper'
+  const isWriterView = currentView === 'writer'
   const isPaperToolbar = isPaperView && Boolean(currentPaperId)
+  const isWriterToolbar = isWriterView && Boolean(currentDocumentId)
   const canOpenToc = Boolean(currentPaperId)
   const canOpenFigurePanel = Boolean(currentPaperId)
   const canOpenPaperChat = Boolean(currentPaperId && isOcrCompleted)
@@ -170,6 +177,13 @@ export default function WorkspaceToolbar() {
     closeFigurePanel()
     togglePaperChatPanel()
   }, [canOpenPaperChat, closeFigurePanel, closeTocPanel, togglePaperChatPanel])
+
+  const handleToggleWriterChat = useCallback((): void => {
+    if (!currentDocumentId) {
+      return
+    }
+    toggleWriterChatPanel()
+  }, [currentDocumentId, toggleWriterChatPanel])
 
   const handleSelectTocItem = useCallback(
     (headingId: string): void => {
@@ -287,12 +301,16 @@ export default function WorkspaceToolbar() {
     }
   }, [handleClickOutside, handleKeyDown])
 
-  if (!isPaperToolbar) {
+  if (!isPaperToolbar && !isWriterToolbar) {
     return null
   }
 
   return (
-    <div className={styles['sm-workspace-toolbar__sidebar-shell']} role="toolbar" aria-label="论文工具">
+    <div
+      className={styles['sm-workspace-toolbar__sidebar-shell']}
+      role="toolbar"
+      aria-label={isWriterToolbar ? '写作工具' : '论文工具'}
+    >
       <div className={styles['sm-workspace-toolbar__controls--sidebar']}>
       {isPaperView && currentPaperId && !originalPdfVisible && (
         <TranslationToggleButton
@@ -343,6 +361,16 @@ export default function WorkspaceToolbar() {
       {isPaperView && canOpenPaperChat && (
         <PaperChatButton isActive={paperChatPanelOpen} onClick={handleTogglePaperChat} />
       )}
+
+      {isWriterToolbar ? (
+        <>
+          <WriterExportButton documentId={currentDocumentId} />
+          <WriterChatButton
+            isActive={writerChatPanelOpen}
+            onClick={handleToggleWriterChat}
+          />
+        </>
+      ) : null}
       </div>
     </div>
   )

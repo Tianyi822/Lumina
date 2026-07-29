@@ -458,6 +458,8 @@ export interface ChatRequest {
   enablePlanMode?: boolean
   /** 是否启用论文联网搜索（仅论文会话可用） */
   enablePaperWebSearch?: boolean
+  /** 写作会话的只读编辑上下文；存在且有效时进入 ReAct 并启用 writer 工具 */
+  writerContext?: import('./writer').WriterAiRequestContext
 }
 
 /**

@@ -4,6 +4,7 @@ import { DefaultSessionFactory } from './DefaultSessionFactory'
 import { ToolSessionFactory } from './ToolSessionFactory'
 import { KnowledgeSessionFactory } from './KnowledgeSessionFactory'
 import { PaperSessionFactory } from './PaperSessionFactory'
+import { WriterSessionFactory } from './WriterSessionFactory'
 
 /**
  * 会话工厂注册表
@@ -31,13 +32,14 @@ export class SessionFactoryRegistry {
 
   /**
    * 注册默认的会话工厂
-   * 注册 default、tool、knowledge、paper 四种内置工厂
+   * 注册 default、tool、knowledge、paper、writer 五种内置工厂
    */
   private registerDefaultFactories(): void {
     this.register(new DefaultSessionFactory())
     this.register(new ToolSessionFactory())
     this.register(new KnowledgeSessionFactory())
     this.register(new PaperSessionFactory())
+    this.register(new WriterSessionFactory())
   }
 
   /**

@@ -346,3 +346,47 @@
   opacity: 1;
   transform: translateY(-50%) translateX(0);
 }
+
+.sm-workspace-toolbar__writer-export-menu {
+  position: absolute;
+  top: 50%;
+  left: calc(100% + var(--sm-space-2));
+  z-index: 30;
+  transform: translateY(-50%);
+  min-width: 132px;
+  padding: var(--sm-space-1);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-sm);
+  background: var(--sm-color-surface-1);
+  box-shadow: var(--sm-shadow-e2);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sm-workspace-toolbar__writer-export-item {
+  border: none;
+  border-radius: var(--sm-radius-sm);
+  background: transparent;
+  color: var(--sm-color-text-primary);
+  font-size: var(--sm-text-sm);
+  text-align: left;
+  padding: var(--sm-space-2) var(--sm-space-3);
+  cursor: pointer;
+}
+
+.sm-workspace-toolbar__writer-export-item:hover:not(:disabled) {
+  background: var(--sm-color-surface-hover);
+}
+
+.sm-workspace-toolbar__writer-export-item:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* 菜单打开时隐藏同按钮的 tooltip，避免叠层 */
+.sm-workspace-toolbar__item-wrap:has(.sm-workspace-toolbar__writer-export-menu)
+  > .sm-workspace-toolbar__tooltip {
+  opacity: 0;
+  pointer-events: none;
+}

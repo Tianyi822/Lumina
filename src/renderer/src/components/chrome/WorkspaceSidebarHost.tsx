@@ -4,6 +4,7 @@ import { useUIStateStore } from '@renderer/stores'
 import PaperSidebarSection from '@renderer/components/chrome/PaperSidebarSection'
 import KnowledgeSidebarSection from '@renderer/components/chrome/KnowledgeSidebarSection'
 import PrimarySidebar from '@renderer/components/chrome/PrimarySidebar'
+import WriterSidebarSection from '@renderer/components/chrome/WriterSidebarSection'
 import styles from './WorkspaceSidebarHost.module.css'
 
 const PAPER_SIDEBAR_MIN_WIDTH = 260
@@ -22,32 +23,35 @@ export default function WorkspaceSidebarHost({ onOpenSettings }: WorkspaceSideba
   const isCurrentSidebarCollapsed = useUIStateStore((s) => s.isCurrentSidebarCollapsed())
   const paperSidebarWidth = useUIStateStore((s) => s.paperSidebarWidth)
   const setPaperSidebarWidth = useUIStateStore((s) => s.setPaperSidebarWidth)
+  const writerSidebarWidth = useUIStateStore((s) => s.writerSidebarWidth)
+  const setWriterSidebarWidth = useUIStateStore((s) => s.setWriterSidebarWidth)
+  const currentSidebarWidth = currentView === 'writer' ? writerSidebarWidth : paperSidebarWidth
 
   const [isResizingSidebar, setIsResizingSidebar] = useState(false)
   const secondarySidebarRef = useRef<HTMLDivElement>(null)
   const isResizingSidebarRef = useRef(false)
-  const sidebarWidthRef = useRef(paperSidebarWidth)
+  const sidebarWidthRef = useRef(currentSidebarWidth)
   const pendingSidebarWidthRef = useRef<number | null>(null)
   const sidebarResizeRafRef = useRef<number | null>(null)
 
   // 非拖拽时同步 ref 与 store 的实际宽度
   useEffect(() => {
     if (!isResizingSidebarRef.current) {
-      sidebarWidthRef.current = paperSidebarWidth
+      sidebarWidthRef.current = currentSidebarWidth
     }
-  }, [paperSidebarWidth])
+  }, [currentSidebarWidth])
 
   // 论文视图时设置侧边栏宽度 CSS 变量
   useEffect(() => {
-    if (currentView === 'paper') {
+    if (currentView === 'paper' || currentView === 'writer') {
       secondarySidebarRef.current?.style.setProperty(
         '--paper-sidebar-width',
-        `${paperSidebarWidth}px`
+        `${currentSidebarWidth}px`
       )
     } else {
       secondarySidebarRef.current?.style.removeProperty('--paper-sidebar-width')
     }
-  }, [currentView, paperSidebarWidth])
+  }, [currentSidebarWidth, currentView])
 
   // 应用侧边栏宽度（带 RAF 防抖和范围钳制）
   const applySidebarWidth = useCallback((nextWidth: number) => {
@@ -97,8 +101,9 @@ export default function WorkspaceSidebarHost({ onOpenSettings }: WorkspaceSideba
       sidebarResizeRafRef.current = null
     }
     pendingSidebarWidthRef.current = null
-    setPaperSidebarWidth(sidebarWidthRef.current)
-  }, [handleSidebarResizeMove, setPaperSidebarWidth])
+    if (currentView === 'writer') setWriterSidebarWidth(sidebarWidthRef.current)
+    else setPaperSidebarWidth(sidebarWidthRef.current)
+  }, [currentView, handleSidebarResizeMove, setPaperSidebarWidth, setWriterSidebarWidth])
 
   // 开始侧边栏宽度拖拽
   const startSidebarResize = useCallback(
@@ -147,13 +152,14 @@ export default function WorkspaceSidebarHost({ onOpenSettings }: WorkspaceSideba
                   >
                     {transitionKey === 'paper' && <PaperSidebarSection />}
                     {transitionKey === 'knowledge' && <KnowledgeSidebarSection />}
+                    {transitionKey === 'writer' && <WriterSidebarSection />}
                   </div>
                 )}
               </CssSwitchTransition>
             </div>
           </div>
         </aside>
-        {currentView === 'paper' && !isCurrentSidebarCollapsed && (
+        {(currentView === 'paper' || currentView === 'writer') && !isCurrentSidebarCollapsed && (
           <div
             className={styles.sidebarResizeHandle}
             role="separator"

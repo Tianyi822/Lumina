@@ -87,6 +87,10 @@ describe('ToolResultEnricher', () => {
       assert.equal(enricher.inferCategory('paper_web__search'), 'paper_web')
     })
 
+    it('writer__propose_edits → writer', () => {
+      assert.equal(enricher.inferCategory('writer__propose_edits'), 'writer')
+    })
+
     it('myserver__tool → mcp', () => {
       assert.equal(enricher.inferCategory('myserver__tool'), 'mcp')
     })

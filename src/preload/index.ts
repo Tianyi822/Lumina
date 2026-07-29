@@ -17,6 +17,7 @@ import { toolStatsApi } from './apis/toolStats'
 import { paperWebSearchApi } from './apis/paperWebSearch'
 import { updateApi } from './apis/update'
 import { capabilityApi } from './apis/capability'
+import { writerApi } from './apis/writer'
 
 /**
  * 自定义渲染器 API
@@ -47,7 +48,9 @@ const api = {
   // 自动更新 API
   update: updateApi,
   // 能力系统 API
-  capability: capabilityApi
+  capability: capabilityApi,
+  // 写作工作区 API
+  writer: writerApi
 }
 
 // 使用 contextBridge 向渲染器暴露 API

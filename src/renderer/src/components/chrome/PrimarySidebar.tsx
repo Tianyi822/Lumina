@@ -1,34 +1,21 @@
-import { useCallback, useMemo } from 'react'
+import { useCallback } from 'react'
 import SvgIcon from '@renderer/components/icons/SvgIcon'
 import { uploadAndRenderPdf } from '@renderer/stores/paper'
 import { useKnowledgeStore } from '@renderer/stores'
+import { useWriterLibraryStore } from '@renderer/stores/writer'
 import { hasPendingUpdateBadge, useUpdateStore } from '@renderer/stores/updateStore'
 import { useUIStateStore } from '@renderer/stores/uiStateStore'
-import type { UIStateStore, ViewMode } from '@renderer/stores/uiStateStore'
+import type { UIStateStore } from '@renderer/stores/uiStateStore'
 import WorkspaceToolbar from '@renderer/components/chrome/WorkspaceToolbar'
+import {
+  getWorkspaceAddLabel,
+  WORKSPACE_NAV_ITEMS,
+  type WorkspaceNavItem
+} from './workspaceNavigation'
 import styles from './PrimarySidebar.module.css'
 
 const ICON_SIZE = 18
 const EXPAND_ICON_SIZE = 11
-
-interface NavItem {
-  id: string
-  icon: string
-  label: string
-  view: ViewMode
-  showTooltip: boolean
-}
-
-const ADD_LABEL_BY_VIEW: Record<ViewMode, string> = {
-  paper: '添加论文',
-  knowledge: '新增知识库'
-}
-
-/** 一级侧边栏导航项（论文阅读 + 知识库） */
-const TOP_NAV_ITEMS: NavItem[] = [
-  { id: 'read', icon: 'read', label: '阅读', view: 'paper', showTooltip: true },
-  { id: 'knowledge', icon: 'knowledge', label: '知识库', view: 'knowledge', showTooltip: true }
-]
 
 const BOTTOM_NAV_ITEM = { id: 'settings', icon: 'settings', label: '设置' } as const
 
@@ -38,6 +25,7 @@ interface PrimarySidebarProps {
 
 function selectIsSecondarySidebarCollapsed(state: UIStateStore): boolean {
   if (state.currentView === 'paper') return state.paperSidebarCollapsed
+  if (state.currentView === 'writer') return state.writerSidebarCollapsed
   return state.knowledgeSidebarCollapsed
 }
 
@@ -60,15 +48,7 @@ export default function PrimarySidebar({ onOpenSettings }: PrimarySidebarProps) 
 
   const isDarkTheme = currentTheme === 'lumina-dark'
 
-  const addTooltip = ADD_LABEL_BY_VIEW[currentView]
-
-  // 一级侧边栏导航项（论文阅读 + 知识库）
-  const navItems = useMemo(() => {
-    return TOP_NAV_ITEMS.map((item) => ({
-      ...item,
-      tooltip: item.showTooltip ? item.label : undefined
-    }))
-  }, [])
+  const addTooltip = getWorkspaceAddLabel(currentView)
 
   // 根据当前视图执行不同的添加操作（上传论文/创建知识库）
   const handleAddClick = useCallback((): void => {
@@ -80,6 +60,7 @@ export default function PrimarySidebar({ onOpenSettings }: PrimarySidebarProps) 
       openCreateForm()
       return
     }
+    void useWriterLibraryStore.getState().createAndOpen()
   }, [currentView, openCreateForm])
 
   const handleExpandToggle = useCallback(
@@ -90,7 +71,7 @@ export default function PrimarySidebar({ onOpenSettings }: PrimarySidebarProps) 
     [toggleCurrentSidebar]
   )
 
-  const handleNavClick = (item: NavItem): void => {
+  const handleNavClick = (item: WorkspaceNavItem): void => {
     void setCurrentView(item.view)
   }
 
@@ -140,9 +121,9 @@ export default function PrimarySidebar({ onOpenSettings }: PrimarySidebarProps) 
           </button>
         </div>
 
-        {navItems.map((item) => {
+        {WORKSPACE_NAV_ITEMS.map((item) => {
           const isActive = item.view === currentView
-          const tooltip = item.tooltip
+          const tooltip = item.label
 
           return (
             <div key={item.id} className={styles['sm-primary-sidebar__item-wrap']}>
@@ -154,16 +135,14 @@ export default function PrimarySidebar({ onOpenSettings }: PrimarySidebarProps) 
                 ]
                   .filter(Boolean)
                   .join(' ')}
-                aria-label={tooltip ?? item.label}
+                aria-label={tooltip}
                 onClick={() => handleNavClick(item)}
               >
                 <SvgIcon name={item.icon} size={ICON_SIZE} />
               </button>
-              {tooltip ? (
-                <span className={styles['sm-primary-sidebar__tooltip']} role="tooltip">
-                  {tooltip}
-                </span>
-              ) : null}
+              <span className={styles['sm-primary-sidebar__tooltip']} role="tooltip">
+                {tooltip}
+              </span>
             </div>
           )
         })}

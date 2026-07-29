@@ -1,0 +1,512 @@
+.editorSurface {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  background: var(--sm-color-bg-canvas);
+  color: var(--sm-color-text-primary);
+}
+
+.content {
+  width: 100%;
+  min-height: 100%;
+  box-sizing: border-box;
+  padding: clamp(var(--sm-space-6), 4vw, calc(var(--sm-space-6) * 2))
+    max(var(--sm-space-6), var(--sm-window-controls-safe-width, 0px))
+    clamp(var(--sm-space-6), 6vw, calc(var(--sm-space-6) * 2))
+    var(--sm-space-6);
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: var(--sm-space-4);
+  padding-bottom: var(--sm-space-6);
+}
+
+.titleInput {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--sm-color-text-primary);
+  font: inherit;
+  font-size: var(--sm-writer-title-font-size);
+  font-weight: 600;
+  line-height: var(--sm-writer-title-line-height);
+}
+
+.titleInput::placeholder {
+  color: var(--sm-color-text-tertiary);
+}
+
+.saveStatus {
+  flex: 0 0 auto;
+  color: var(--sm-color-text-tertiary);
+  font-size: var(--sm-writer-status-font-size);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.editorContent {
+  min-height: calc(100% - var(--sm-titlebar-height));
+}
+
+.editorContent :global(.tiptap) {
+  min-height: 60vh;
+  outline: 0;
+  color: var(--sm-color-text-primary);
+  font-family: var(--sm-font-sans);
+  font-size: var(--sm-writer-body-font-size);
+  line-height: var(--sm-writer-body-line-height);
+}
+
+.editorContent :global(.tiptap p),
+.editorContent :global(.tiptap h1),
+.editorContent :global(.tiptap h2),
+.editorContent :global(.tiptap h3),
+.editorContent :global(.tiptap h4),
+.editorContent :global(.tiptap h5),
+.editorContent :global(.tiptap h6),
+.editorContent :global(.tiptap ul),
+.editorContent :global(.tiptap ol),
+.editorContent :global(.tiptap blockquote),
+.editorContent :global(.tiptap pre),
+.editorContent :global(.tiptap table),
+.editorContent :global(.tiptap [data-type='block-math']) {
+  margin: 0 0 var(--sm-space-4);
+}
+
+.editorContent :global(.tiptap h1),
+.editorContent :global(.tiptap h2),
+.editorContent :global(.tiptap h3),
+.editorContent :global(.tiptap h4),
+.editorContent :global(.tiptap h5),
+.editorContent :global(.tiptap h6) {
+  line-height: var(--sm-writer-heading-line-height);
+}
+
+.editorContent :global(.tiptap ul),
+.editorContent :global(.tiptap ol) {
+  padding-left: var(--sm-space-6);
+}
+
+.editorContent :global(.tiptap ul[data-type='taskList']) {
+  padding-left: 0;
+  list-style: none;
+}
+
+.editorContent :global(.tiptap li[data-type='taskItem']) {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sm-space-3);
+}
+
+.editorContent :global(.tiptap li[data-type='taskItem'] > label) {
+  padding-top: var(--sm-space-2);
+}
+
+.editorContent :global(.tiptap li[data-type='taskItem'] > div) {
+  flex: 1;
+  min-width: 0;
+}
+
+.editorContent :global(.tiptap blockquote) {
+  padding-left: var(--sm-space-4);
+  border-left: var(--sm-focus-ring-size) solid var(--sm-color-border-strong);
+  color: var(--sm-color-text-secondary);
+}
+
+.editorContent :global(.tiptap pre) {
+  padding: var(--sm-space-4);
+  overflow-x: auto;
+  border: 1px solid var(--sm-color-border-subtle);
+  border-radius: var(--sm-radius-md);
+  background: var(--sm-color-surface-1);
+  font-family: var(--sm-font-mono);
+}
+
+/* NodeView 代码块外层已有边框，内层 pre 不再套边框/底色，避免双边框 */
+.editorContent :global(.tiptap [data-writer-code-block] pre) {
+  margin: 0;
+  padding: var(--sm-space-4);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.editorContent :global(.tiptap code) {
+  font-family: var(--sm-font-mono);
+}
+
+.editorContent :global(.tiptap :not(pre) > code) {
+  padding: var(--sm-space-2);
+  border-radius: var(--sm-radius-sm);
+  background: var(--sm-color-surface-2);
+}
+
+.editorContent :global(.tiptap mark) {
+  background: var(--sm-color-accent-18);
+  color: inherit;
+}
+
+.editorContent :global(.tiptap hr) {
+  margin: var(--sm-space-6) 0;
+  border: 0;
+  border-top: 1px solid var(--sm-color-border-default);
+}
+
+.editorContent :global(.tableWrapper) {
+  overflow-x: auto;
+}
+
+.editorContent :global(.tiptap table) {
+  width: 100%;
+  min-width: calc(var(--sm-space-6) * 8);
+  table-layout: fixed;
+  border-collapse: collapse;
+}
+
+.editorContent :global(.tiptap th),
+.editorContent :global(.tiptap td) {
+  min-width: calc(var(--sm-space-6) * 3);
+  padding: var(--sm-space-3);
+  border: 1px solid var(--sm-color-border-default);
+  vertical-align: top;
+}
+
+.editorContent :global(.tiptap th) {
+  background: var(--sm-color-surface-1);
+  font-weight: 600;
+}
+
+.editorContent :global(.tiptap [data-type='inline-math']),
+.editorContent :global(.tiptap [data-type='block-math']) {
+  font-family: var(--sm-font-mono);
+}
+
+.editorContent :global(.tiptap [data-type='block-math']) {
+  padding: var(--sm-space-4);
+  overflow-x: auto;
+  text-align: center;
+}
+
+.editorContent :global(.tiptap a) {
+  color: var(--sm-color-accent);
+}
+
+.editorContent :global(.tiptap p.is-editor-empty:first-child::before) {
+  float: left;
+  height: 0;
+  color: var(--sm-color-text-tertiary);
+  content: attr(data-placeholder);
+  pointer-events: none;
+}
+
+.editorContent :global(.tiptap ::selection) {
+  background: var(--sm-selection-background);
+  color: var(--sm-selection-color);
+}
+
+.editorContent :global(.tiptap *::selection) {
+  background: var(--sm-selection-background);
+  color: var(--sm-selection-color);
+}
+
+.editorContent :global(.tiptap .writer-footnote-ref) {
+  padding: 0 2px;
+  color: var(--sm-color-accent);
+  font-size: var(--sm-writer-status-font-size);
+  cursor: pointer;
+}
+
+.editorContent :global(.tiptap .writer-footnote-ref::after) {
+  content: '[' attr(data-number) ']';
+}
+
+.editorContent :global(.tiptap .writer-footnote-def) {
+  padding: var(--sm-space-3);
+  border: 1px solid var(--sm-color-border-subtle);
+  border-radius: var(--sm-radius-md);
+  background: var(--sm-color-surface-1);
+  color: var(--sm-color-text-secondary);
+  font-size: var(--sm-writer-status-font-size);
+  cursor: pointer;
+}
+
+.editorContent :global(.tiptap .writer-footnote-def::before) {
+  margin-right: var(--sm-space-2);
+  content: attr(data-number) '.';
+}
+
+.editorContent :global(.tiptap .writer-footnote-def[data-unreferenced='true']::after) {
+  margin-left: var(--sm-space-2);
+  padding: 0 var(--sm-space-2);
+  border-radius: var(--sm-radius-sm);
+  background: var(--sm-color-surface-2);
+  color: var(--sm-color-text-tertiary);
+  content: '未引用';
+}
+
+.editorContent :global(.sm-writer-diff-add),
+.editorContent :global(.sm-writer-diff-add-block) {
+  background: var(--sm-color-writer-diff-add-bg);
+  color: var(--sm-color-writer-diff-add-text);
+}
+
+.editorContent :global(.sm-writer-diff-delete),
+.editorContent :global(.sm-writer-diff-delete-block) {
+  background: var(--sm-color-writer-diff-delete-bg);
+  color: var(--sm-color-writer-diff-delete-text);
+  text-decoration: line-through;
+}
+
+.editorContent :global(.sm-writer-diff-add-block) {
+  display: block;
+  margin: var(--sm-space-2) 0;
+  padding: var(--sm-space-2);
+  border-radius: var(--sm-radius-sm);
+  white-space: pre-wrap;
+}
+
+.editorContent :global(.sm-writer-diff-add-blocks) {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sm-space-2);
+  margin: var(--sm-space-2) 0;
+  /* 为底部悬浮确认条预留点击空间，但不撑开段落行盒本身 */
+  padding-bottom: 0;
+}
+
+.editorContent :global(.sm-writer-diff-add-blocks .sm-writer-diff-add-block) {
+  margin: 0;
+}
+
+.editorContent :global(.sm-writer-diff-add-block[data-block-type='heading']) {
+  font-weight: 600;
+}
+
+.editorContent :global(.sm-writer-diff-add-block[data-block-type='heading'][data-heading-level='1']) {
+  font-size: var(--sm-text-2xl);
+}
+
+.editorContent :global(.sm-writer-diff-add-block[data-block-type='heading'][data-heading-level='2']) {
+  font-size: var(--sm-text-xl);
+}
+
+.editorContent :global(.sm-writer-diff-add-block[data-block-type='heading'][data-heading-level='3']) {
+  font-size: var(--sm-text-lg);
+}
+
+.editorContent :global(.sm-writer-diff-add-block[data-block-type='blockquote']) {
+  padding-left: var(--sm-space-4);
+  border-left: 3px solid var(--sm-color-border-subtle);
+}
+
+.editorContent :global(.sm-writer-diff-add-block[data-block-type='codeBlock']) {
+  font-family: var(--sm-font-mono);
+  font-size: var(--sm-text-sm);
+}
+
+.editorContent :global(.sm-writer-diff-add-block[data-block-type='listItem']) {
+  position: relative;
+  padding-left: var(--sm-space-4);
+}
+
+.editorContent :global(.sm-writer-diff-add-block[data-block-type='listItem'])::before {
+  content: '•';
+  position: absolute;
+  left: var(--sm-space-2);
+  color: var(--sm-color-text-secondary);
+}
+
+.editorContent :global(.sm-writer-diff-pending) {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sm-space-2);
+  margin: var(--sm-space-2) 0;
+  padding: var(--sm-space-3);
+  border-radius: var(--sm-radius-sm);
+  background: var(--sm-color-writer-diff-add-bg);
+  color: var(--sm-color-writer-diff-add-text);
+}
+
+.editorContent :global(.sm-writer-diff-pending-label) {
+  color: var(--sm-color-writer-diff-add-text);
+  font-size: var(--sm-text-sm);
+}
+
+.editorContent :global(.sm-writer-diff-pending-skeleton) {
+  height: var(--sm-space-3);
+  border-radius: var(--sm-radius-sm);
+  background: var(--sm-color-writer-diff-add-text);
+  opacity: 0.28;
+  animation: sm-writer-diff-pending-pulse 1.4s ease-in-out infinite;
+}
+
+.editorContent :global(.sm-writer-diff-pending-skeleton:nth-child(2)) {
+  width: 92%;
+}
+
+.editorContent :global(.sm-writer-diff-pending-skeleton:nth-child(3)) {
+  width: 78%;
+}
+
+.editorContent :global(.sm-writer-diff-pending-skeleton:nth-child(4)) {
+  width: 64%;
+}
+
+/* 预览锚点：行内块不撑开额外行高；确认条绝对定位悬浮 */
+.editorContent :global(.sm-writer-diff-op) {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  vertical-align: baseline;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.editorContent :global(.sm-writer-diff-add) {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.editorContent :global(.sm-writer-diff-add::selection),
+.editorContent :global(.sm-writer-diff-op::selection) {
+  background: transparent;
+  color: inherit;
+}
+
+.editorContent :global(.sm-writer-diff-toolbar) {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 20;
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+  padding: 4px;
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: 10px;
+  background: var(--sm-color-surface-1);
+  box-shadow: var(--sm-shadow-sm);
+  backdrop-filter: blur(18px);
+  font-size: var(--sm-text-xs);
+  color: var(--sm-color-text-secondary);
+  user-select: none;
+  -webkit-user-select: none;
+  pointer-events: auto;
+}
+
+.editorContent :global(.sm-writer-diff-toolbar),
+.editorContent :global(.sm-writer-diff-toolbar *) {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.editorContent :global(.sm-writer-diff-toolbar::selection),
+.editorContent :global(.sm-writer-diff-toolbar *::selection) {
+  background: transparent;
+  color: inherit;
+}
+
+.editorContent :global(.sm-writer-diff-toolbar__summary) {
+  padding: 0 var(--sm-space-2);
+  color: var(--sm-color-text-tertiary);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.editorContent :global(.sm-writer-diff-toolbar__divider) {
+  flex: 0 0 auto;
+  width: 1px;
+  height: 18px;
+  margin: 0 2px;
+  background: var(--sm-color-border-subtle);
+}
+
+.editorContent :global(.sm-writer-diff-toolbar__btn) {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 6px;
+  padding: 0 10px;
+  min-height: 28px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  background: transparent;
+  color: var(--sm-color-text-secondary);
+  transition:
+    background-color var(--sm-transition-fast),
+    color var(--sm-transition-fast);
+}
+
+.editorContent :global(.sm-writer-diff-toolbar__btn:hover),
+.editorContent :global(.sm-writer-diff-toolbar__btn:focus-visible) {
+  outline: 0;
+  background: var(--sm-color-surface-hover);
+  color: var(--sm-color-text-primary);
+}
+
+.editorContent :global(.sm-writer-diff-toolbar__btn--primary) {
+  background: var(--sm-color-writer-diff-add-bg);
+  color: var(--sm-color-writer-diff-add-text);
+}
+
+.editorContent :global(.sm-writer-diff-toolbar__btn--primary:hover),
+.editorContent :global(.sm-writer-diff-toolbar__btn--primary:focus-visible) {
+  background: var(--sm-color-writer-diff-add-bg);
+  color: var(--sm-color-writer-diff-add-text);
+  filter: brightness(1.08);
+}
+
+.editorContent :global(.sm-writer-diff-toolbar__btn--reject:hover),
+.editorContent :global(.sm-writer-diff-toolbar__btn--reject:focus-visible) {
+  background: var(--sm-color-writer-diff-delete-bg);
+  color: var(--sm-color-writer-diff-delete-text);
+}
+
+@keyframes sm-writer-diff-pending-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+
+  50% {
+    opacity: 0.9;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .editorContent :global(.sm-writer-diff-add),
+  .editorContent :global(.sm-writer-diff-delete),
+  .editorContent :global(.sm-writer-diff-add-block),
+  .editorContent :global(.sm-writer-diff-delete-block) {
+    transition: none;
+  }
+
+  .editorContent :global(.sm-writer-diff-pending-skeleton) {
+    animation: none;
+    opacity: 0.65;
+  }
+}

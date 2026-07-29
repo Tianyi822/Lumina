@@ -59,6 +59,11 @@
   --sm-color-paper-annotation-border-hover: rgba(0, 0, 0, 0.22);
   --sm-color-paper-annotation-active-ring: rgba(0, 0, 0, 0.14);
 
+  --sm-color-writer-diff-add-bg: rgba(126, 197, 148, 0.28);
+  --sm-color-writer-diff-add-text: #1f5c34;
+  --sm-color-writer-diff-delete-bg: rgba(214, 120, 120, 0.24);
+  --sm-color-writer-diff-delete-text: #8a3030;
+
   --sm-color-border-subtle: rgba(0, 0, 0, 0.06);
   --sm-color-border-default: rgba(0, 0, 0, 0.1);
   --sm-color-border-strong: rgba(0, 0, 0, 0.16);

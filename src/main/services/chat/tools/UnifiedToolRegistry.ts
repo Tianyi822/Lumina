@@ -240,6 +240,18 @@ export class UnifiedToolRegistry {
         continue
       }
 
+      if (rt.category === 'writer') {
+        openAITools.push({
+          type: 'function' as const,
+          function: {
+            name: `writer__${name}`,
+            description,
+            parameters: stableParameters
+          }
+        })
+        continue
+      }
+
       // MCP 工具：使用增强描述
       const toolKey = `${rt.serverName}__${name}`
       const enhancedDescription = enhancedDescriptions.get(toolKey) || description
@@ -278,7 +290,10 @@ export class UnifiedToolRegistry {
   ): Map<string, string> {
     const mcpTools = tools.filter(
       (t) =>
-        t.serverName !== 'knowledge' && t.serverName !== 'paper' && t.serverName !== 'paper_web'
+        t.serverName !== 'knowledge' &&
+        t.serverName !== 'paper' &&
+        t.serverName !== 'paper_web' &&
+        t.serverName !== 'writer'
     )
     return enhanceToolDescriptions(mcpTools, level)
   }
@@ -297,6 +312,7 @@ export class UnifiedToolRegistry {
     if (tool.category === 'knowledge') return `knowledge__${name}`
     if (tool.category === 'paper') return `paper__${name}`
     if (tool.category === 'paper_web') return `paper_web__${name}`
+    if (tool.category === 'writer') return `writer__${name}`
     return this.sanitizeName(tool.serverName, name)
   }
 

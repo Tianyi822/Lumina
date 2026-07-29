@@ -472,19 +472,14 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
           return
         }
 
-        // 点击正文图片时打开 figure 预览窗口
+        // 点击正文图片时打开 figure 预览窗口（首次点击图片列表可能尚未加载，由 action 内部按需加载）
         const imgTarget = (event.target as HTMLElement).closest('img[data-paper-figure-id]')
         if (imgTarget) {
           const figureId = imgTarget.getAttribute('data-paper-figure-id')
           if (figureId && paperId) {
-            const figure = usePaperFigureStore
-              .getState()
-              .figuresByPaperId[paperId]?.find((f) => f.id === figureId)
-            if (figure) {
-              usePaperFigureStore.getState().openFigurePreview(figure)
-              event.preventDefault()
-              return
-            }
+            void usePaperFigureStore.getState().openFigurePreviewById(paperId, figureId)
+            event.preventDefault()
+            return
           }
         }
 

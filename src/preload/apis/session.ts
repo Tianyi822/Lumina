@@ -2,6 +2,7 @@ import { ipcRenderer } from 'electron'
 import type {
   SessionData,
   SessionListItem,
+  SessionResourceRef,
   SessionResult,
   SessionType
 } from '@shared/types/session'
@@ -13,8 +14,12 @@ export const sessionApi = {
   /**
    * 创建新会话
    */
-  create: (title?: string, type?: SessionType): Promise<SessionResult> => {
-    return ipcRenderer.invoke('session:create', title, type)
+  create: (
+    title?: string,
+    type?: SessionType,
+    resourceRef?: SessionResourceRef
+  ): Promise<SessionResult> => {
+    return ipcRenderer.invoke('session:create', title, type, resourceRef)
   },
 
   /**

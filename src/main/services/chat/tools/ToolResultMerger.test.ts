@@ -6,7 +6,7 @@ import type { EnrichedToolResult } from './PipelineTypes'
 function makeEnrichedResult(
   toolName: string,
   content: string,
-  sourceType: 'paper' | 'knowledge' | 'paper_web' | 'mcp' = 'paper',
+  sourceType: 'paper' | 'knowledge' | 'paper_web' | 'mcp' | 'writer' = 'paper',
   coverage: 'high' | 'medium' | 'low' = 'high',
   confidence: number = 0.8
 ): EnrichedToolResult {
@@ -71,6 +71,18 @@ describe('ToolResultMerger', () => {
       assert.equal(merged.results.length, 1)
       assert.equal(merged.results[0].toolName, 'paper__search_context')
       assert.equal(merged.mergedContent, null)
+    })
+
+    it('writer 结果不排序不拼接不去重', () => {
+      const results = [
+        makeEnrichedResult('writer__propose_edits', '{"ops":1}', 'writer'),
+        makeEnrichedResult('writer__propose_edits', '{"ops":2}', 'writer')
+      ]
+      const merged = merger.merge(results, 'smart_merge')
+      assert.equal(merged.results.length, 2)
+      assert.equal(merged.mergedContent, null)
+      assert.equal(merged.results[0].content, '{"ops":1}')
+      assert.equal(merged.results[1].content, '{"ops":2}')
     })
   })
 

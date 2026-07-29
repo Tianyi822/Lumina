@@ -1,0 +1,522 @@
+import assert from 'node:assert/strict'
+import test from 'node:test'
+import { getSchema } from '@tiptap/core'
+import StarterKit from '@tiptap/starter-kit'
+import TaskList from '@tiptap/extension-task-list'
+import TaskItem from '@tiptap/extension-task-item'
+import { EditorState, TextSelection } from '@tiptap/pm/state'
+import type { Node as PMNode, Schema } from '@tiptap/pm/model'
+import {
+  buildWriterBlockConversion,
+  convertAllPendingWriterMarkdownBlocks,
+  decideWriterDeferredConversion,
+  findPendingWriterMarkdownBlock,
+  getWriterBlockConversionTarget,
+  matchWriterBlockRule,
+  matchWriterInstantRule,
+  matchWriterMarkdownRule,
+  nextWriterCompositionState,
+  shouldApplyWriterInputRule
+} from './writerMarkdownRules'
+
+// ---------------------------------------------------------------------------
+// 无 DOM 测试脚手架：基于真实扩展构造 ProseMirror Schema 与 EditorState
+// ---------------------------------------------------------------------------
+
+function createTestSchema(): Schema {
+  return getSchema([
+    StarterKit.configure({ heading: { levels: [1, 2, 3, 4, 5, 6] } }),
+    TaskList,
+    TaskItem.configure({ nested: true })
+  ])
+}
+
+const testSchema = createTestSchema()
+
+// cursorPos 为空时不显式设置选区（默认在文档开头）
+function createStateWithDoc(docJson: unknown, cursorPos?: number): EditorState {
+  const doc = testSchema.nodeFromJSON(docJson)
+  const state = EditorState.create({ schema: testSchema, doc })
+  if (cursorPos === undefined) return state
+  return state.apply(state.tr.setSelection(TextSelection.create(doc, cursorPos)))
+}
+
+// ProseMirror 节点 attrs 为 null 原型对象，assert.deepEqual 会连原型一起比较；
+// 经 JSON 往返归一化成普通对象后再与字面值深比较
+function toPlainDocJSON(doc: PMNode): unknown {
+  return JSON.parse(JSON.stringify(doc))
+}
+
+// 文档位置约定（两段：'# 标题' + '正文'）：
+// 第一段 paragraph 占 [0, 6)，第二段 paragraph 占 [6, 10)，光标进第二段用 pos 8
+const twoParagraphDoc = {
+  type: 'doc',
+  content: [
+    { type: 'paragraph', content: [{ type: 'text', text: '# 标题' }] },
+    { type: 'paragraph', content: [{ type: 'text', text: '正文' }] }
+  ]
+}
+
+test('IME composition 期间不执行即时 Markdown 转换', () => {
+  assert.equal(
+    shouldApplyWriterInputRule({ composing: true, textBeforeCursor: '前 **粗体**' }),
+    false
+  )
+  assert.equal(
+    shouldApplyWriterInputRule({ composing: false, textBeforeCursor: '前 **粗体**' }),
+    true
+  )
+  assert.equal(
+    shouldApplyWriterInputRule({
+      composing: false,
+      eventIsComposing: true,
+      textBeforeCursor: '前 **粗体**'
+    }),
+    false
+  )
+})
+
+test('块级语法不再由输入规则即时转换', () => {
+  assert.equal(shouldApplyWriterInputRule({ composing: false, textBeforeCursor: '# ' }), false)
+  assert.equal(shouldApplyWriterInputRule({ composing: false, textBeforeCursor: '1. ' }), false)
+  assert.equal(shouldApplyWriterInputRule({ composing: false, textBeforeCursor: '```' }), false)
+})
+
+test('compositionend 之后保持保护直到延迟释放', () => {
+  assert.equal(nextWriterCompositionState(false, 'compositionstart'), true)
+  assert.equal(nextWriterCompositionState(true, 'compositionend'), true)
+  assert.equal(nextWriterCompositionState(true, 'release'), false)
+})
+
+test('标题规则只识别一级到六级标题', () => {
+  for (let level = 1; level <= 6; level += 1) {
+    assert.deepEqual(matchWriterMarkdownRule(`${'#'.repeat(level)} `), {
+      kind: 'heading',
+      level
+    })
+  }
+
+  assert.equal(matchWriterMarkdownRule('####### '), null)
+})
+
+test('识别引用、无序列表、有序列表和任务列表', () => {
+  assert.deepEqual(matchWriterMarkdownRule('> '), { kind: 'blockquote' })
+  assert.deepEqual(matchWriterMarkdownRule('- '), { kind: 'bulletList' })
+  assert.deepEqual(matchWriterMarkdownRule('1. '), { kind: 'orderedList', start: 1 })
+  assert.deepEqual(matchWriterMarkdownRule('12. '), { kind: 'orderedList', start: 12 })
+  assert.deepEqual(matchWriterMarkdownRule('- [ ] '), {
+    kind: 'taskList',
+    checked: false
+  })
+  assert.deepEqual(matchWriterMarkdownRule('- [x] '), {
+    kind: 'taskList',
+    checked: true
+  })
+})
+
+test('识别代码围栏和分隔线', () => {
+  assert.deepEqual(matchWriterMarkdownRule('```'), { kind: 'codeBlock', language: null })
+  assert.deepEqual(matchWriterMarkdownRule('```ts'), {
+    kind: 'codeBlock',
+    language: 'ts'
+  })
+  assert.deepEqual(matchWriterMarkdownRule('---'), { kind: 'horizontalRule' })
+})
+
+test('识别粗体、斜体、删除线和行内公式', () => {
+  assert.deepEqual(matchWriterMarkdownRule('前 **粗体**'), {
+    kind: 'bold',
+    content: '粗体'
+  })
+  assert.deepEqual(matchWriterMarkdownRule('前 *斜体*'), {
+    kind: 'italic',
+    content: '斜体'
+  })
+  assert.deepEqual(matchWriterMarkdownRule('前 ~~删除~~'), {
+    kind: 'strike',
+    content: '删除'
+  })
+  assert.deepEqual(matchWriterMarkdownRule('前 $x^2 + y^2$'), {
+    kind: 'inlineMath',
+    content: 'x^2 + y^2'
+  })
+})
+
+test('下划线斜体不会抢占三下划线分隔线', () => {
+  assert.deepEqual(matchWriterMarkdownRule('前 _斜体_'), {
+    kind: 'italic',
+    content: '斜体'
+  })
+  assert.deepEqual(matchWriterMarkdownRule('___'), { kind: 'horizontalRule' })
+})
+
+test('独占一行的双美元符号识别为块公式', () => {
+  assert.deepEqual(matchWriterMarkdownRule('$$\\int_0^1 x dx$$'), {
+    kind: 'blockMath',
+    content: '\\int_0^1 x dx'
+  })
+  assert.notDeepEqual(matchWriterMarkdownRule('前 $$x$$'), {
+    kind: 'blockMath',
+    content: 'x'
+  })
+})
+
+test('逐键输入双美元块公式时不会被行内公式抢先转换', () => {
+  const typedPrefixes = ['$', '$$', '$$x', '$$x$', '$$x$$']
+
+  assert.deepEqual(typedPrefixes.map(matchWriterMarkdownRule), [
+    null,
+    null,
+    null,
+    null,
+    { kind: 'blockMath', content: 'x' }
+  ])
+})
+
+test('块级规则前缀匹配：触发符加内容也能命中', () => {
+  assert.deepEqual(matchWriterBlockRule('### 报告'), { kind: 'heading', level: 3 })
+  assert.deepEqual(matchWriterBlockRule('> 引用内容'), { kind: 'blockquote' })
+  assert.deepEqual(matchWriterBlockRule('- 项目'), { kind: 'bulletList' })
+  assert.deepEqual(matchWriterBlockRule('+ 项目'), { kind: 'bulletList' })
+  assert.deepEqual(matchWriterBlockRule('12. 项目'), { kind: 'orderedList', start: 12 })
+  assert.deepEqual(matchWriterBlockRule('- [x] 买菜'), { kind: 'taskList', checked: true })
+  assert.deepEqual(matchWriterBlockRule('```python'), { kind: 'codeBlock', language: 'python' })
+  assert.deepEqual(matchWriterBlockRule('---'), { kind: 'horizontalRule' })
+})
+
+test('块级规则只输入触发符也命中，非行首与越界不命中', () => {
+  assert.deepEqual(matchWriterBlockRule('# '), { kind: 'heading', level: 1 })
+  assert.deepEqual(matchWriterBlockRule('####### 越界'), null)
+  assert.equal(matchWriterBlockRule('正文 # 不是行首'), null)
+  assert.equal(matchWriterBlockRule('普通文本'), null)
+  assert.equal(matchWriterBlockRule(''), null)
+})
+
+test('即时规则只匹配闭合符触发的行内语法', () => {
+  assert.deepEqual(matchWriterInstantRule('前 **粗体**'), { kind: 'bold', content: '粗体' })
+  assert.equal(matchWriterInstantRule('# '), null)
+  assert.equal(matchWriterInstantRule('---'), null)
+})
+
+test('光标未离开块时不产生转换目标', () => {
+  const state = createStateWithDoc(twoParagraphDoc, 2)
+  assert.equal(getWriterBlockConversionTarget(0, state), null)
+})
+
+test('光标离开后返回旧块位置与文本', () => {
+  const state = createStateWithDoc(twoParagraphDoc, 8)
+  assert.deepEqual(getWriterBlockConversionTarget(0, state), { from: 0, text: '# 标题' })
+})
+
+test('prevBlockFrom 为空或越界时不产生转换目标', () => {
+  const state = createStateWithDoc(twoParagraphDoc, 8)
+  assert.equal(getWriterBlockConversionTarget(null, state), null)
+  assert.equal(getWriterBlockConversionTarget(999, state), null)
+})
+
+test('旧块已不是 paragraph 时不产生转换目标', () => {
+  const headingDoc = {
+    type: 'doc',
+    content: [
+      { type: 'heading', attrs: { level: 1 }, content: [{ type: 'text', text: '标题' }] },
+      { type: 'paragraph', content: [{ type: 'text', text: '正文' }] }
+    ]
+  }
+  const state = createStateWithDoc(headingDoc, 6)
+  assert.equal(getWriterBlockConversionTarget(0, state), null)
+})
+
+test('标题转换：删除触发前缀并变更节点，选区恢复到原光标所在块', () => {
+  const state = createStateWithDoc(twoParagraphDoc, 8)
+  const tr = buildWriterBlockConversion(state, 0, { kind: 'heading', level: 1 })
+  assert.ok(tr)
+  assert.deepEqual(toPlainDocJSON(tr.doc), {
+    type: 'doc',
+    content: [
+      { type: 'heading', attrs: { level: 1 }, content: [{ type: 'text', text: '标题' }] },
+      { type: 'paragraph', content: [{ type: 'text', text: '正文' }] }
+    ]
+  })
+  // 原光标在第二段，转换后仍应落在第二段内
+  assert.equal(tr.selection.$from.parent.textContent, '正文')
+})
+
+test('只输入触发符的块转换为空标题', () => {
+  const emptyHeadingDoc = {
+    type: 'doc',
+    content: [
+      { type: 'paragraph', content: [{ type: 'text', text: '### ' }] },
+      { type: 'paragraph', content: [{ type: 'text', text: '正文' }] }
+    ]
+  }
+  const state = createStateWithDoc(emptyHeadingDoc, 7)
+  const tr = buildWriterBlockConversion(state, 0, { kind: 'heading', level: 3 })
+  assert.ok(tr)
+  assert.deepEqual(toPlainDocJSON(tr.doc), {
+    type: 'doc',
+    content: [
+      { type: 'heading', attrs: { level: 3 } },
+      { type: 'paragraph', content: [{ type: 'text', text: '正文' }] }
+    ]
+  })
+})
+
+test('代码块转换：删除围栏文本并归一化语言', () => {
+  const codeFenceDoc = {
+    type: 'doc',
+    content: [
+      { type: 'paragraph', content: [{ type: 'text', text: '```python' }] },
+      { type: 'paragraph', content: [{ type: 'text', text: '正文' }] }
+    ]
+  }
+  const state = createStateWithDoc(codeFenceDoc, 13)
+  const tr = buildWriterBlockConversion(state, 0, { kind: 'codeBlock', language: 'python' })
+  assert.ok(tr)
+  assert.deepEqual(toPlainDocJSON(tr.doc), {
+    type: 'doc',
+    content: [
+      { type: 'codeBlock', attrs: { language: 'python' } },
+      { type: 'paragraph', content: [{ type: 'text', text: '正文' }] }
+    ]
+  })
+})
+
+test('分割线转换：位于文末时自动补空段落', () => {
+  const hrDoc = {
+    type: 'doc',
+    content: [
+      { type: 'paragraph', content: [{ type: 'text', text: '正文' }] },
+      { type: 'paragraph', content: [{ type: 'text', text: '---' }] }
+    ]
+  }
+  // '正文' 段占 [0, 4)，'---' 段占 [4, 9)
+  const state = createStateWithDoc(hrDoc, 2)
+  const tr = buildWriterBlockConversion(state, 4, { kind: 'horizontalRule' })
+  assert.ok(tr)
+  assert.deepEqual(toPlainDocJSON(tr.doc), {
+    type: 'doc',
+    content: [
+      { type: 'paragraph', content: [{ type: 'text', text: '正文' }] },
+      { type: 'horizontalRule' },
+      { type: 'paragraph' }
+    ]
+  })
+})
+
+test('分割线转换：位于文档中部时不补段落', () => {
+  const hrMidDoc = {
+    type: 'doc',
+    content: [
+      { type: 'paragraph', content: [{ type: 'text', text: '---' }] },
+      { type: 'paragraph', content: [{ type: 'text', text: '正文' }] }
+    ]
+  }
+  const state = createStateWithDoc(hrMidDoc, 7)
+  const tr = buildWriterBlockConversion(state, 0, { kind: 'horizontalRule' })
+  assert.ok(tr)
+  assert.deepEqual(toPlainDocJSON(tr.doc), {
+    type: 'doc',
+    content: [
+      { type: 'horizontalRule' },
+      { type: 'paragraph', content: [{ type: 'text', text: '正文' }] }
+    ]
+  })
+})
+
+test('不支持的 match 类型返回 null', () => {
+  const state = createStateWithDoc(twoParagraphDoc, 8)
+  assert.equal(buildWriterBlockConversion(state, 0, { kind: 'bold', content: 'x' }), null)
+})
+
+test('引用转换：删除前缀并包裹引用块', () => {
+  const quoteDoc = {
+    type: 'doc',
+    content: [
+      { type: 'paragraph', content: [{ type: 'text', text: '> 引用内容' }] },
+      { type: 'paragraph', content: [{ type: 'text', text: '正文' }] }
+    ]
+  }
+  const state = createStateWithDoc(quoteDoc, 9)
+  const tr = buildWriterBlockConversion(state, 0, { kind: 'blockquote' })
+  assert.ok(tr)
+  assert.deepEqual(toPlainDocJSON(tr.doc), {
+    type: 'doc',
+    content: [
+      {
+        type: 'blockquote',
+        content: [{ type: 'paragraph', content: [{ type: 'text', text: '引用内容' }] }]
+      },
+      { type: 'paragraph', content: [{ type: 'text', text: '正文' }] }
+    ]
+  })
+})
+
+test('无序列表转换：删除前缀并包裹列表', () => {
+  const bulletDoc = {
+    type: 'doc',
+    content: [
+      { type: 'paragraph', content: [{ type: 'text', text: '- 项目' }] },
+      { type: 'paragraph', content: [{ type: 'text', text: '正文' }] }
+    ]
+  }
+  const state = createStateWithDoc(bulletDoc, 8)
+  const tr = buildWriterBlockConversion(state, 0, { kind: 'bulletList' })
+  assert.ok(tr)
+  assert.deepEqual(toPlainDocJSON(tr.doc), {
+    type: 'doc',
+    content: [
+      {
+        type: 'bulletList',
+        content: [
+          {
+            type: 'listItem',
+            content: [{ type: 'paragraph', content: [{ type: 'text', text: '项目' }] }]
+          }
+        ]
+      },
+      { type: 'paragraph', content: [{ type: 'text', text: '正文' }] }
+    ]
+  })
+})
+
+test('有序列表转换：保留起始编号', () => {
+  const orderedDoc = {
+    type: 'doc',
+    content: [
+      { type: 'paragraph', content: [{ type: 'text', text: '12. 项目' }] },
+      { type: 'paragraph', content: [{ type: 'text', text: '正文' }] }
+    ]
+  }
+  const state = createStateWithDoc(orderedDoc, 10)
+  const tr = buildWriterBlockConversion(state, 0, { kind: 'orderedList', start: 12 })
+  assert.ok(tr)
+  assert.deepEqual(toPlainDocJSON(tr.doc), {
+    type: 'doc',
+    content: [
+      {
+        type: 'orderedList',
+        // TipTap 3.29 orderedList 自带 type 属性（默认 null），节点序列化时一并出现
+        attrs: { start: 12, type: null },
+        content: [
+          {
+            type: 'listItem',
+            content: [{ type: 'paragraph', content: [{ type: 'text', text: '项目' }] }]
+          }
+        ]
+      },
+      { type: 'paragraph', content: [{ type: 'text', text: '正文' }] }
+    ]
+  })
+})
+
+test('任务列表转换：保留勾选状态', () => {
+  const taskDoc = {
+    type: 'doc',
+    content: [
+      { type: 'paragraph', content: [{ type: 'text', text: '- [x] 买菜' }] },
+      { type: 'paragraph', content: [{ type: 'text', text: '正文' }] }
+    ]
+  }
+  const state = createStateWithDoc(taskDoc, 11)
+  const tr = buildWriterBlockConversion(state, 0, { kind: 'taskList', checked: true })
+  assert.ok(tr)
+  assert.deepEqual(toPlainDocJSON(tr.doc), {
+    type: 'doc',
+    content: [
+      {
+        type: 'taskList',
+        content: [
+          {
+            type: 'taskItem',
+            attrs: { checked: true },
+            content: [{ type: 'paragraph', content: [{ type: 'text', text: '买菜' }] }]
+          }
+        ]
+      },
+      { type: 'paragraph', content: [{ type: 'text', text: '正文' }] }
+    ]
+  })
+})
+
+test('离块决策：光标离开时产出转换事务并更新块跟踪位置', () => {
+  const state = createStateWithDoc(twoParagraphDoc, 8)
+  const decision = decideWriterDeferredConversion(0, state, false)
+  assert.ok(decision.transaction)
+  assert.equal(decision.nextPrevBlockFrom, 6)
+  assert.equal(decision.transaction.doc.content.child(0).type.name, 'heading')
+})
+
+test('离块决策：光标未离开或无匹配时不产出事务', () => {
+  const cursorInside = createStateWithDoc(twoParagraphDoc, 2)
+  const stayDecision = decideWriterDeferredConversion(0, cursorInside, false)
+  assert.equal(stayDecision.transaction, null)
+  assert.equal(stayDecision.nextPrevBlockFrom, 0)
+
+  const plainDoc = {
+    type: 'doc',
+    content: [
+      { type: 'paragraph', content: [{ type: 'text', text: '普通文本' }] },
+      { type: 'paragraph', content: [{ type: 'text', text: '正文' }] }
+    ]
+  }
+  const noMatch = createStateWithDoc(plainDoc, 8)
+  assert.equal(decideWriterDeferredConversion(0, noMatch, false).transaction, null)
+})
+
+test('离块决策：IME composing 期间不产出事务', () => {
+  const state = createStateWithDoc(twoParagraphDoc, 8)
+  const decision = decideWriterDeferredConversion(0, state, true)
+  assert.equal(decision.transaction, null)
+  assert.equal(decision.nextPrevBlockFrom, 6)
+})
+
+test('兜底扫描：跳过光标所在块，命中其余待转换块', () => {
+  // 光标在第一段（pending 块）→ 跳过，无其他匹配 → null
+  const cursorInPending = createStateWithDoc(twoParagraphDoc, 2)
+  assert.equal(findPendingWriterMarkdownBlock(cursorInPending), null)
+
+  // 光标在第二段 → 命中第一段
+  const cursorOutside = createStateWithDoc(twoParagraphDoc, 8)
+  assert.deepEqual(findPendingWriterMarkdownBlock(cursorOutside), {
+    from: 0,
+    match: { kind: 'heading', level: 1 }
+  })
+})
+
+test('兜底扫描：代码块与标题节点不参与匹配', () => {
+  const nonParagraphDoc = {
+    type: 'doc',
+    content: [
+      { type: 'codeBlock', attrs: { language: null }, content: [{ type: 'text', text: '# 注释' }] },
+      { type: 'paragraph', content: [{ type: 'text', text: '正文' }] }
+    ]
+  }
+  const state = createStateWithDoc(nonParagraphDoc, 7)
+  assert.equal(findPendingWriterMarkdownBlock(state), null)
+})
+
+test('兜底转换：循环转换所有 pending 块并跳过光标块', () => {
+  const multiPendingDoc = {
+    type: 'doc',
+    content: [
+      { type: 'paragraph', content: [{ type: 'text', text: '# 甲' }] },
+      { type: 'paragraph', content: [{ type: 'text', text: '> 乙' }] },
+      { type: 'paragraph', content: [{ type: 'text', text: '光标在此' }] }
+    ]
+  }
+  // '# 甲' 占 [0, 5)，'> 乙' 占 [5, 10)，'光标在此' 段从 10 开始，光标放 12
+  const holder = { state: createStateWithDoc(multiPendingDoc, 12) }
+  const converted = convertAllPendingWriterMarkdownBlocks(holder, (tr) => {
+    holder.state = holder.state.apply(tr)
+  })
+  assert.equal(converted, true)
+  assert.equal(holder.state.doc.content.child(0).type.name, 'heading')
+  assert.equal(holder.state.doc.content.child(1).type.name, 'blockquote')
+  assert.equal(holder.state.doc.content.child(2).type.name, 'paragraph')
+
+  // 再次执行：已无 pending 块
+  const again = convertAllPendingWriterMarkdownBlocks(holder, (tr) => {
+    holder.state = holder.state.apply(tr)
+  })
+  assert.equal(again, false)
+})

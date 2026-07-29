@@ -36,6 +36,9 @@ import imageStyles from './input/PaperChatAttachedImages.module.css'
 import quoteStyles from './input/PaperChatAttachedQuotes.module.css'
 import processingStyles from './input/PaperChatProcessingFiles.module.css'
 
+// selector 空态必须复用同一引用，否则每次渲染返回新数组会触发无限重渲染
+const EMPTY_LIST: never[] = []
+
 interface QuickReplyOption {
   id: string
   label: string
@@ -59,6 +62,10 @@ interface PaperChatInputProps {
   isSending: boolean
   disabled?: boolean
   isDragging?: boolean
+  /** 是否允许论文引文附件；写作面板传 false */
+  allowPaperQuotes?: boolean
+  /** 是否允许论文联网搜索；写作面板传 false */
+  allowPaperWebSearch?: boolean
   quickReply?: PaperChatQuickReply | null
   userInteraction?: UserInteractionRequest | null
   showUserInteraction?: boolean
@@ -99,6 +106,8 @@ export default function PaperChatInput({
   isSending,
   disabled,
   isDragging = false,
+  allowPaperQuotes = true,
+  allowPaperWebSearch = true,
   quickReply,
   userInteraction,
   showUserInteraction,
@@ -122,19 +131,19 @@ export default function PaperChatInput({
   const [attachmentError, setAttachmentError] = useState('')
 
   const pendingDocuments = usePaperChatDocumentUploadStore((s) =>
-    sessionId ? s.getSessionDocuments(sessionId) : []
+    sessionId ? s.getSessionDocuments(sessionId) : EMPTY_LIST
   )
   const processingFiles = usePaperChatDocumentUploadStore((s) =>
-    sessionId ? s.getSessionProcessingFiles(sessionId) : []
+    sessionId ? s.getSessionProcessingFiles(sessionId) : EMPTY_LIST
   )
   const pendingImages = usePaperChatImageUploadStore((s) =>
-    sessionId ? s.getSessionImages(sessionId) : []
+    sessionId ? s.getSessionImages(sessionId) : EMPTY_LIST
   )
   const processingImages = usePaperChatImageUploadStore((s) =>
-    sessionId ? s.getSessionProcessingImages(sessionId) : []
+    sessionId ? s.getSessionProcessingImages(sessionId) : EMPTY_LIST
   )
   const pendingQuotes = usePaperChatQuoteStore((s) =>
-    sessionId ? s.getSessionQuotes(sessionId) : []
+    sessionId && allowPaperQuotes ? s.getSessionQuotes(sessionId) : EMPTY_LIST
   )
 
   // 检查是否有待发送的附件（文档、图片或引文）
@@ -160,8 +169,10 @@ export default function PaperChatInput({
     if (!sessionId) return
     usePaperChatDocumentUploadStore.getState().initSession(sessionId)
     usePaperChatImageUploadStore.getState().initSession(sessionId)
-    usePaperChatQuoteStore.getState().initSession(sessionId)
-  }, [sessionId])
+    if (allowPaperQuotes) {
+      usePaperChatQuoteStore.getState().initSession(sessionId)
+    }
+  }, [allowPaperQuotes, sessionId])
 
   async function handleFiles(files: File[]): Promise<void> {
     if (!sessionId || files.length === 0) return
@@ -197,13 +208,17 @@ export default function PaperChatInput({
     const images = toPaperChatAttachedImages(
       usePaperChatImageUploadStore.getState().getSessionImages(sessionId)
     )
-    const quotes = usePaperChatQuoteStore.getState().getPendingQuotesForSending(sessionId)
+    const quotes = allowPaperQuotes
+      ? usePaperChatQuoteStore.getState().getPendingQuotesForSending(sessionId)
+      : []
 
     // 立即清空输入栏和所有待发送附件，避免异步发送期间的竞态条件
     onUpdateInput('')
     usePaperChatDocumentUploadStore.getState().clearPendingDocuments(sessionId)
     usePaperChatImageUploadStore.getState().clearImages(sessionId)
-    usePaperChatQuoteStore.getState().clearQuotes(sessionId)
+    if (allowPaperQuotes) {
+      usePaperChatQuoteStore.getState().clearQuotes(sessionId)
+    }
     onDismissQuickReply?.(quickReply?.messageId || '')
     onHideUserInteraction?.()
     onHideCapabilitySuggestion?.()
@@ -382,7 +397,7 @@ export default function PaperChatInput({
         </div>
       )}
 
-      {pendingQuotes.length > 0 && (
+      {allowPaperQuotes && pendingQuotes.length > 0 && (
         <div className={quoteStyles['paper-chat-input__pending-quotes']}>
           {pendingQuotes.map((quote) => (
             <div key={quote.id} className={quoteStyles['paper-chat-input__pending-quote']}>
@@ -491,6 +506,7 @@ export default function PaperChatInput({
           selectedTools={selectedMCPTools}
           selectedKnowledgeBases={selectedKnowledgeBases}
           enablePaperWebSearch={enablePaperWebSearch}
+          allowPaperWebSearch={allowPaperWebSearch}
           totalAttachmentCount={totalAttachmentCount}
           onUpdateSelectedTools={onUpdateSelectedTools}
           onUpdateSelectedKnowledgeBases={onUpdateSelectedKnowledgeBases}

@@ -13,6 +13,7 @@ import { CssSwitchTransition } from '@renderer/components/motion/CssTransition'
 
 const PaperReaderPage = lazy(() => import('@renderer/pages/PaperReaderPage'))
 const KnowledgePage = lazy(() => import('@renderer/pages/KnowledgePage'))
+const WritingPage = lazy(() => import('@renderer/pages/WritingPage'))
 
 import styles from './App.module.css'
 
@@ -100,6 +101,12 @@ export default function App() {
       return (
         <Suspense fallback={fallback}>
           <KnowledgePage key="knowledge" />
+        </Suspense>
+      )
+    if (view === 'writer')
+      return (
+        <Suspense fallback={fallback}>
+          <WritingPage key="writer" />
         </Suspense>
       )
     return null

@@ -1,0 +1,164 @@
+.bubbleMenu {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  max-width: min(90vw, calc(var(--sm-space-6) * 28));
+  min-width: auto;
+  padding: 6px;
+  overflow-x: auto;
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: 10px;
+  background: var(--sm-color-surface-1);
+  box-shadow: none;
+  backdrop-filter: blur(18px);
+}
+
+.toolbarButton,
+.linkSubmit,
+.slashItem {
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--sm-color-text-primary);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background-color 0.12s ease;
+}
+
+.toolbarButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  height: 28px;
+  padding: 0 8px;
+  white-space: nowrap;
+}
+
+.toolbarButton:hover,
+.toolbarButton:focus-visible,
+.slashItem:hover,
+.slashItem:focus-visible {
+  outline: 0;
+  background: var(--sm-color-surface-hover);
+  color: var(--sm-color-text-primary);
+}
+
+.toolbarButton[data-active],
+.toolbarButton[aria-pressed='true'],
+.slashItem[data-active] {
+  outline: 0;
+  background: var(--sm-color-accent-16);
+  color: var(--sm-color-text-primary);
+}
+
+.toolbarButton[data-active]:hover,
+.toolbarButton[aria-pressed='true']:hover {
+  background: var(--sm-color-accent-22);
+}
+
+.bubbleAiDivider {
+  flex: 0 0 auto;
+  width: 1px;
+  height: 20px;
+  margin: 0 4px;
+  background: var(--sm-color-border-subtle);
+}
+
+.toolbarButton:disabled,
+.toolbarButton[aria-busy='true'] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.linkForm {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: calc(var(--sm-space-6) * 8);
+  padding-left: 4px;
+  border-left: 1px solid var(--sm-color-border-subtle);
+}
+
+.linkInput {
+  min-width: 0;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: 6px;
+  outline: 0;
+  background: var(--sm-color-surface-2);
+  color: var(--sm-color-text-primary);
+  font: inherit;
+  font-size: 13px;
+}
+
+.linkInput:focus {
+  border-color: var(--sm-color-border-selected);
+}
+
+.linkInput[aria-invalid='true'] {
+  border-color: var(--sm-color-border-accent);
+}
+
+.linkSubmit {
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--sm-color-border-accent);
+  background: var(--sm-color-accent-12);
+  color: var(--sm-color-text-primary);
+}
+
+.linkSubmit:hover,
+.linkSubmit:focus-visible {
+  outline: 0;
+  background: var(--sm-color-accent-18);
+  border-color: var(--sm-color-accent-28);
+  color: var(--sm-color-text-primary);
+}
+
+.slashMenu {
+  position: fixed;
+  z-index: 20;
+  top: var(--writer-slash-menu-top);
+  left: var(--writer-slash-menu-left);
+  display: flex;
+  flex-direction: column;
+  width: calc(var(--sm-space-6) * 9);
+  max-height: min(50vh, calc(var(--sm-space-6) * 14));
+  padding: 6px;
+  overflow-y: auto;
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: 10px;
+  background: var(--sm-color-surface-1);
+  box-shadow:
+    0 16px 40px rgba(15, 23, 42, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(18px);
+  transform: translateY(var(--sm-space-2));
+}
+
+.slashItem {
+  width: 100%;
+  height: 28px;
+  padding: 0 8px;
+  text-align: left;
+}
+
+.emptyState {
+  padding: var(--sm-space-3);
+  color: var(--sm-color-text-tertiary);
+  font-size: 13px;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

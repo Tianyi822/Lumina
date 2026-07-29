@@ -1,12 +1,12 @@
 import { SessionFactory } from './SessionFactory'
-import { SessionData, SessionType } from '@main/types/session'
+import { SessionData, SessionResourceRef, SessionType } from '@main/types/session'
 
 /**
  * 默认会话工厂
  * 用于创建标准对话类型的会话
  */
 export class DefaultSessionFactory implements SessionFactory {
-  create(title?: string): SessionData {
+  create(title?: string, _resourceRef?: SessionResourceRef): SessionData {
     const sessionId = this.generateSessionId()
     const now = new Date().toISOString()
     const sessionTitle = title || '新对话'

@@ -1,5 +1,5 @@
 import { SessionFactory } from './SessionFactory'
-import { SessionData, SessionType } from '@main/types/session'
+import { SessionData, SessionResourceRef, SessionType } from '@main/types/session'
 
 /**
  * 工具会话工厂
@@ -8,7 +8,7 @@ import { SessionData, SessionType } from '@main/types/session'
 export class ToolSessionFactory implements SessionFactory {
   private readonly defaultTitle = '工具对话'
 
-  create(title?: string): SessionData {
+  create(title?: string, _resourceRef?: SessionResourceRef): SessionData {
     const sessionId = this.generateSessionId()
     const now = new Date().toISOString()
     const sessionTitle = title || this.defaultTitle

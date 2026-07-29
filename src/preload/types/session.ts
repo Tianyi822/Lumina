@@ -1,6 +1,7 @@
 import type {
   SessionData,
   SessionListItem,
+  SessionResourceRef,
   SessionResult,
   SessionType
 } from '@shared/types/session'
@@ -9,6 +10,7 @@ export type {
   SessionData,
   SessionListItem,
   SessionMessage,
+  SessionResourceRef,
   SessionResult,
   SessionType
 } from '@shared/types/session'
@@ -18,7 +20,11 @@ export type {
  */
 export interface SessionApi {
   /** 创建新会话 */
-  create: (title?: string, type?: SessionType) => Promise<SessionResult>
+  create: (
+    title?: string,
+    type?: SessionType,
+    resourceRef?: SessionResourceRef
+  ) => Promise<SessionResult>
   /** 保存会话数据 */
   save: (data: SessionData) => Promise<SessionResult>
   /** 加载指定会话 */

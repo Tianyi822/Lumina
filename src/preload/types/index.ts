@@ -18,6 +18,7 @@ export * from './toolStats'
 export * from './paperWebSearch'
 export * from './update'
 export * from './capability'
+export * from './writer'
 export * from './customApi'
 
 /**

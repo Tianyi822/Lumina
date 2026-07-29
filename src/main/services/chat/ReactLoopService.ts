@@ -25,7 +25,7 @@ import { capabilityRegistry } from './tools/capabilities/CapabilityRegistry'
 import { registerBuiltinCapabilities } from './tools/capabilities/registerBuiltinCapabilities'
 import { capabilityManager } from './tools/CapabilityManager'
 import { presetRegistry } from './tools/presets/PresetRegistry'
-import { CHAT_PAPER_PRESET, CHAT_DEFAULT_PRESET } from './tools/presets/builtinPresets'
+import { CHAT_PAPER_PRESET, CHAT_DEFAULT_PRESET, CHAT_WRITER_PRESET } from './tools/presets/builtinPresets'
 import type { TokenUsage } from '../../types/chat'
 import {
   addTokenUsage,
@@ -33,6 +33,7 @@ import {
   createEmptyTokenUsage,
   recordPromptCacheDiagnostics
 } from './PromptCacheOptimizer'
+import { WriterContextFormatter } from '../writer/WriterContextFormatter'
 
 /**
  * 从消息列表中提取最近一条用户的文本输入作为原始查询
@@ -55,7 +56,10 @@ export function extractOriginalQuery(
  * 从 ChatRequest 提取工具能力相关字段
  */
 function buildComposerContext(
-  request: Pick<ChatRequest, 'paperId' | 'enablePaperWebSearch' | 'selectedTools'>,
+  request: Pick<
+    ChatRequest,
+    'paperId' | 'enablePaperWebSearch' | 'selectedTools' | 'writerContext'
+  >,
   selectedKnowledgeBases?: KnowledgeBaseReference[],
   mcpService?: unknown
 ): Record<string, unknown> {
@@ -64,6 +68,7 @@ function buildComposerContext(
     enablePaperWebSearch: request.enablePaperWebSearch,
     selectedKnowledgeBases,
     selectedTools: request.selectedTools,
+    writerContext: request.writerContext,
     mcpService
   }
 }
@@ -140,6 +145,7 @@ export class ReactLoopService {
     registerBuiltinCapabilities()
     presetRegistry.register(CHAT_PAPER_PRESET)
     presetRegistry.register(CHAT_DEFAULT_PRESET)
+    presetRegistry.register(CHAT_WRITER_PRESET)
     // 初始化能力组合器，用于动态编排可用工具
     this.capabilityComposer = new CapabilityComposer(capabilityRegistry)
   }
@@ -213,11 +219,24 @@ export class ReactLoopService {
           fewShotExamples: getFewShotExamples(request.sessionType)
         }
       )
-      // 构建对话消息列表（系统提示 + 用户历史消息 + 知识库结果）
+      // 构建对话消息列表（系统提示 + 可选写作只读上下文 + 用户历史消息 + 知识库结果）
       const conversationMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
-        { role: 'system', content: systemPrompt },
-        ...formatMessagesWithKnowledge(messages, knowledgeResults)
+        { role: 'system', content: systemPrompt }
       ]
+      if (request.writerContext) {
+        const budgetError = WriterContextFormatter.checkTokenBudget(request.writerContext)
+        if (budgetError) {
+          if (!runtimeOptions.suppressFinalEvents) {
+            this.streamHandler.sendError(webContents, sessionId, budgetError, turnId, 'failed')
+          }
+          return { success: false, error: budgetError }
+        }
+        conversationMessages.push({
+          role: 'system',
+          content: WriterContextFormatter.format(request.writerContext)
+        })
+      }
+      conversationMessages.push(...formatMessagesWithKnowledge(messages, knowledgeResults))
       // 记录模型完整对话转录，用于返回给调用方
       const modelTranscript: ChatMessage[] = []
 
@@ -415,6 +434,14 @@ export class ReactLoopService {
       !capState.activeCapabilities.includes('knowledge')
     ) {
       capabilityManager.addCapability(sid, 'knowledge')
+    }
+    // 写作会话：仅在用户主动选择论文时启用论文检索
+    if (
+      sessionType === 'writer' &&
+      request.paperId &&
+      !capState.activeCapabilities.includes('paper')
+    ) {
+      capabilityManager.addCapability(sid, 'paper')
     }
 
     capState = capabilityManager.getCapabilities(sid)!

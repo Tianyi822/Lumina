@@ -1,0 +1,110 @@
+.inlineMath,
+.blockMath {
+  position: relative;
+  color: var(--sm-color-text-primary);
+}
+
+.inlineMath {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sm-space-2);
+}
+
+.blockMath {
+  display: block;
+  padding: var(--sm-space-4);
+  overflow-x: auto;
+  text-align: center;
+}
+
+.rendered {
+  font-family: var(--sm-font-mono);
+}
+
+.renderError {
+  color: var(--sm-color-status-danger);
+  font-family: var(--sm-font-mono);
+  font-size: var(--sm-text-sm);
+}
+
+.copyButton,
+.actionButton {
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-sm);
+  background: var(--sm-color-surface-2);
+  color: var(--sm-color-text-secondary);
+  font: inherit;
+  font-size: var(--sm-text-xs);
+  cursor: pointer;
+}
+
+.copyButton {
+  padding: var(--sm-space-2);
+}
+
+.blockMath .copyButton {
+  position: absolute;
+  top: var(--sm-space-2);
+  right: var(--sm-space-2);
+}
+
+.editorPopover {
+  position: absolute;
+  z-index: 2;
+  top: calc(100% + var(--sm-space-2));
+  left: 0;
+  display: grid;
+  min-width: min(calc(var(--sm-space-6) * 16), 80vw);
+  gap: var(--sm-space-2);
+  padding: var(--sm-space-3);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-md);
+  background: var(--sm-color-surface-1);
+  box-shadow: var(--sm-shadow-md);
+  text-align: left;
+}
+
+.editorLabel {
+  display: grid;
+  gap: var(--sm-space-2);
+  color: var(--sm-color-text-secondary);
+  font-size: var(--sm-text-xs);
+}
+
+.sourceInput {
+  min-height: calc(var(--sm-space-6) * 4);
+  resize: vertical;
+  padding: var(--sm-space-2);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-sm);
+  outline: none;
+  background: var(--sm-color-bg-embedded);
+  color: var(--sm-color-text-primary);
+  font: inherit;
+  font-family: var(--sm-font-mono);
+}
+
+.preview {
+  min-height: var(--sm-space-6);
+  padding: var(--sm-space-2);
+  border-radius: var(--sm-radius-sm);
+  background: var(--sm-color-surface-2);
+  color: var(--sm-color-text-primary);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--sm-space-2);
+}
+
+.actionButton {
+  padding: var(--sm-space-2) var(--sm-space-3);
+}
+
+.copyButton:hover,
+.actionButton:hover {
+  border-color: var(--sm-color-border-strong);
+  background: var(--sm-color-surface-hover);
+  color: var(--sm-color-text-primary);
+}

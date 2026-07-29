@@ -8,7 +8,9 @@
     "src/renderer/src/main.tsx",
     "electron.vite.config.ts",
     "scripts/test/tsAliasLoader.mjs",
-    "scripts/build/**/*.{cjs,mjs}"
+    "scripts/build/**/*.{cjs,mjs}",
+    // 旁置测试作为独立入口，避免 knip 把测试专用导出/文件误报为未使用
+    "src/**/*.{test,spec}.{ts,tsx,mjs}"
   ],
   "project": ["src/**/*.{ts,tsx}", "scripts/**/*.{ts,mjs,cjs}"],
   // Windows 特有调用，非死代码
@@ -21,5 +23,27 @@
   // preload/types 是 contextBridge 的类型契约（含 declare global Window.api），
   // 被 renderer 全代码库经 window.api.* 隐式消费，knip 不追踪 global augmentation 故误报。
   // 经 Task 3 验证：删除会导致 renderer typecheck 崩塌，确认为假阳性，整目录忽略。
-  "ignore": ["src/preload/types/**", "src/preload/index.d.ts"]
+  "ignore": ["src/preload/types/**", "src/preload/index.d.ts"],
+  // 子系统 barrel / 跨进程契约导出：生产入口经更深路径引用，但对外稳定 API 需保留
+  "ignoreIssues": {
+    "src/main/services/writer/index.ts": ["exports", "types"],
+    "src/main/services/session/factories/index.ts": ["exports"],
+    "src/renderer/src/stores/index.ts": ["exports"],
+    "src/renderer/src/stores/writer/index.ts": ["exports", "types"],
+    "src/shared/schemas/writerSchema.ts": ["exports"],
+    "src/main/services/writer/writerPaths.ts": ["exports"],
+    "src/main/services/writer/WriterAssetService.ts": ["exports"],
+    "src/main/services/writer/WriterContextFormatter.ts": ["exports"],
+    "src/main/services/writer/WriterFlushCoordinator.ts": ["exports"],
+    "src/main/services/writer/WriterDocxExporter.ts": ["types"],
+    "src/renderer/src/components/writer/extensions/writerMath.ts": ["exports", "types"],
+    "src/renderer/src/components/writer/suggestions/writerSuggestionCore.ts": ["types"],
+    "src/renderer/src/components/writer/toolbar/writerSlashMenuKeymap.ts": ["types"],
+    "src/renderer/src/stores/uiStateStore.ts": ["types"],
+    "src/renderer/src/stores/writer/writerChatStore.ts": ["types"],
+    "src/renderer/src/stores/writer/writerLibraryStore.ts": ["types"],
+    "src/renderer/src/stores/writer/writerSessionStore.ts": ["types"],
+    "src/renderer/src/stores/writer/writerSuggestionStore.ts": ["types"],
+    "src/shared/types/session.ts": ["types"]
+  }
 }

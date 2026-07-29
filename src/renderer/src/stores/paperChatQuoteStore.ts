@@ -3,6 +3,9 @@ import type { PaperQuote } from '@shared/types/chat'
 
 type PendingQuote = PaperQuote
 
+// 未初始化会话必须复用同一空数组，否则 useSyncExternalStore 每次取到新引用会无限重渲染
+const EMPTY_QUOTES: PendingQuote[] = []
+
 interface PaperChatQuoteState {
   pendingQuotes: Map<string, PendingQuote[]>
 
@@ -19,7 +22,7 @@ interface PaperChatQuoteState {
 export const usePaperChatQuoteStore = create<PaperChatQuoteState>()((set, get) => ({
   pendingQuotes: new Map(),
 
-  getSessionQuotes: (sessionId) => get().pendingQuotes.get(sessionId) || [],
+  getSessionQuotes: (sessionId) => get().pendingQuotes.get(sessionId) || EMPTY_QUOTES,
 
   hasPendingQuotes: (sessionId) => {
     const quotes = get().pendingQuotes.get(sessionId)
