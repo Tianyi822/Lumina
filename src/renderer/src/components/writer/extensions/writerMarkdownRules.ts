@@ -190,6 +190,8 @@ function setListAttributeNearBlock(
 ): void {
   const mappedFrom = tr.mapping.map(blockFrom)
   let nodePos: number | null = null
+  // 1 宽窗口即够：nodesBetween 会访问起点落在区间内的节点，转换后 list 起点恰为
+  // mappedFrom、其首个 item 起点为 mappedFrom + 1，两类目标节点（orderedList/taskItem）均被覆盖
   tr.doc.nodesBetween(mappedFrom, mappedFrom + 1, (node, pos) => {
     if (nodePos === null && node.type.name === nodeName) {
       nodePos = pos

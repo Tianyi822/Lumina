@@ -80,7 +80,7 @@
 ### 4.3 持久化兜底
 
 - 新增 `convertAllPendingWriterMarkdownBlocks(editor)`：扫描全文 textblock（仅 paragraph），对匹配块级规则且**非光标所在块**执行转换；返回是否有转换。
-- 调用点：`writerAutosave.ts` 每次 save/flush 在 `editor.getJSON()` 序列化前调用一次。退出握手 `flushWriterAutosaveAndAcknowledge` 走同一 flush 路径，自动覆盖。
+- 调用点：`WriterEditor.tsx` 的 blur/beforeunload flush 与 `WritingPage.tsx` 的退出握手 flush，均在落盘前先执行一次兜底转换。（实施调整：不在每次 debounce save 前执行——避免 600ms 间隔的重转没收用户撤销、污染撤销历史分组。）
 - 光标所在块的 pending 源码允许落盘为纯文本：下次打开后光标进入再离开即补转换；导出为 Markdown 时该文本恰好仍是合法 Markdown 语法，无害。
 
 ### 4.4 纯函数拆分（可测性）
