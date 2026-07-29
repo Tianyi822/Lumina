@@ -156,6 +156,32 @@ export interface ActiveCapabilityState {
 }
 
 /**
+ * 会话元数据记录（JSONL meta 行的 data 载荷）
+ * 即 SessionData 去掉 messages 后的全部字段
+ */
+export type SessionMetaData = Omit<SessionData, 'messages'>
+
+/**
+ * 会话 JSONL 行记录信封
+ * 每行一个对象，kind 判别行类型；首行必为 meta，最后一条 meta 生效
+ */
+export type SessionJsonlRecord =
+  | { kind: 'meta'; v: 1; data: SessionMetaData }
+  | { kind: 'message'; data: SessionMessage }
+
+/**
+ * 会话元数据补丁（session:updateMeta 通道载荷）
+ */
+export interface SessionMetaPatch {
+  /** 新标题 */
+  title?: string
+  /** 会话级选择状态 */
+  selectionState?: SessionSelectionState
+  /** 活跃能力状态 */
+  capabilities?: ActiveCapabilityState
+}
+
+/**
  * 会话列表项
  * 用于在侧边栏显示会话信息
  */
