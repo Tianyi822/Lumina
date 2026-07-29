@@ -318,6 +318,45 @@ export function decideWriterDeferredConversion(
   return { nextPrevBlockFrom, transaction }
 }
 
+// ---------------------------------------------------------------------------
+// 延迟块级转换：持久化兜底（保存/退出前转换所有非光标块的 pending 源码行）
+// ---------------------------------------------------------------------------
+
+// 全文扫描首个命中块级规则的 paragraph（跳过光标所在块），无则返回 null
+export function findPendingWriterMarkdownBlock(
+  state: EditorState
+): { from: number; match: WriterMarkdownMatch } | null {
+  const cursorBlockFrom = getSelectionTextblockFrom(state)
+  let pending: { from: number; match: WriterMarkdownMatch } | null = null
+  state.doc.descendants((node, pos) => {
+    if (pending) return false
+    if (node.type.name !== 'paragraph') return true
+    if (pos === cursorBlockFrom) return true
+    const match = matchWriterBlockRule(node.textContent)
+    if (match) pending = { from: pos, match }
+    return !pending
+  })
+  return pending
+}
+
+// 有界循环转换所有待转换块；每次转换后重新扫描，避免持有失效位置
+export function convertAllPendingWriterMarkdownBlocks(
+  editor: { state: EditorState },
+  dispatch: (tr: Transaction) => void
+): boolean {
+  let converted = false
+  for (let guard = 0; guard < 100; guard += 1) {
+    const pending = findPendingWriterMarkdownBlock(editor.state)
+    if (!pending) return converted
+    const tr = buildWriterBlockConversion(editor.state, pending.from, pending.match)
+    if (!tr) return converted
+    tr.setMeta(WRITER_DEFERRED_CONVERSION_META, true)
+    dispatch(tr)
+    converted = true
+  }
+  return converted
+}
+
 export function nextWriterCompositionState(
   current: boolean,
   transition: WriterCompositionTransition

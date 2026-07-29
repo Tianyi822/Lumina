@@ -8,7 +8,9 @@ import { EditorState, TextSelection } from '@tiptap/pm/state'
 import type { Node as PMNode, Schema } from '@tiptap/pm/model'
 import {
   buildWriterBlockConversion,
+  convertAllPendingWriterMarkdownBlocks,
   decideWriterDeferredConversion,
+  findPendingWriterMarkdownBlock,
   getWriterBlockConversionTarget,
   matchWriterBlockRule,
   matchWriterInstantRule,
@@ -466,4 +468,55 @@ test('离块决策：IME composing 期间不产出事务', () => {
   const decision = decideWriterDeferredConversion(0, state, true)
   assert.equal(decision.transaction, null)
   assert.equal(decision.nextPrevBlockFrom, 6)
+})
+
+test('兜底扫描：跳过光标所在块，命中其余待转换块', () => {
+  // 光标在第一段（pending 块）→ 跳过，无其他匹配 → null
+  const cursorInPending = createStateWithDoc(twoParagraphDoc, 2)
+  assert.equal(findPendingWriterMarkdownBlock(cursorInPending), null)
+
+  // 光标在第二段 → 命中第一段
+  const cursorOutside = createStateWithDoc(twoParagraphDoc, 8)
+  assert.deepEqual(findPendingWriterMarkdownBlock(cursorOutside), {
+    from: 0,
+    match: { kind: 'heading', level: 1 }
+  })
+})
+
+test('兜底扫描：代码块与标题节点不参与匹配', () => {
+  const nonParagraphDoc = {
+    type: 'doc',
+    content: [
+      { type: 'codeBlock', attrs: { language: null }, content: [{ type: 'text', text: '# 注释' }] },
+      { type: 'paragraph', content: [{ type: 'text', text: '正文' }] }
+    ]
+  }
+  const state = createStateWithDoc(nonParagraphDoc, 7)
+  assert.equal(findPendingWriterMarkdownBlock(state), null)
+})
+
+test('兜底转换：循环转换所有 pending 块并跳过光标块', () => {
+  const multiPendingDoc = {
+    type: 'doc',
+    content: [
+      { type: 'paragraph', content: [{ type: 'text', text: '# 甲' }] },
+      { type: 'paragraph', content: [{ type: 'text', text: '> 乙' }] },
+      { type: 'paragraph', content: [{ type: 'text', text: '光标在此' }] }
+    ]
+  }
+  // '# 甲' 占 [0, 5)，'> 乙' 占 [5, 10)，'光标在此' 段从 10 开始，光标放 12
+  const holder = { state: createStateWithDoc(multiPendingDoc, 12) }
+  const converted = convertAllPendingWriterMarkdownBlocks(holder, (tr) => {
+    holder.state = holder.state.apply(tr)
+  })
+  assert.equal(converted, true)
+  assert.equal(holder.state.doc.content.child(0).type.name, 'heading')
+  assert.equal(holder.state.doc.content.child(1).type.name, 'blockquote')
+  assert.equal(holder.state.doc.content.child(2).type.name, 'paragraph')
+
+  // 再次执行：已无 pending 块
+  const again = convertAllPendingWriterMarkdownBlocks(holder, (tr) => {
+    holder.state = holder.state.apply(tr)
+  })
+  assert.equal(again, false)
 })

@@ -16,6 +16,7 @@ import {
   createWriterAiRequestContext,
   getRegisteredWriterEditor
 } from '@renderer/components/writer/suggestions/writerSuggestionCore'
+import { convertAllPendingWriterMarkdownBlocks } from '@renderer/components/writer/extensions/writerMarkdownRules'
 import {
   WriterAutosaveFlushRegistry,
   flushWriterAutosaveAndAcknowledge
@@ -172,6 +173,11 @@ export default function WritingPage() {
   useEffect(
     () =>
       window.api.writer.onFlushRequested(async () => {
+        // 退出握手前先兜底转换 pending 的块级 Markdown 源码行，再统一刷盘
+        const editor = getRegisteredWriterEditor()
+        if (editor) {
+          convertAllPendingWriterMarkdownBlocks(editor, (tr) => editor.view.dispatch(tr))
+        }
         await flushWriterAutosaveAndAcknowledge(autosaveRegistryRef.current!, () =>
           window.api.writer.acknowledgeFlush()
         )

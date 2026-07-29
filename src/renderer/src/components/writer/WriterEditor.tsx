@@ -14,6 +14,7 @@ import {
   queueWriterImageImport,
   runWriterDocumentCloseGc
 } from './extensions/writerImage'
+import { convertAllPendingWriterMarkdownBlocks } from './extensions/writerMarkdownRules'
 import WriterTableControls from './nodes/WriterTableControls'
 import { deriveWriterOutline } from './outline/writerOutline'
 import {
@@ -324,6 +325,14 @@ export default function WriterEditor({
     }
 
     const flush = (): void => {
+      const currentEditor = editorRef.current
+      if (currentEditor) {
+        // 失焦保存前兜底转换 pending 的块级 Markdown 源码行（跳过光标块），
+        // 转换触发 onUpdate 生成新快照，随后的 flush 落盘即为转换后内容
+        convertAllPendingWriterMarkdownBlocks(currentEditor, (tr) =>
+          currentEditor.view.dispatch(tr)
+        )
+      }
       void autosaveController.flush()
     }
     window.addEventListener('blur', flush)
