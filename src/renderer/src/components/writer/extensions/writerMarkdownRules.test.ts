@@ -8,6 +8,7 @@ import { EditorState, TextSelection } from '@tiptap/pm/state'
 import type { Node as PMNode, Schema } from '@tiptap/pm/model'
 import {
   buildWriterBlockConversion,
+  decideWriterDeferredConversion,
   getWriterBlockConversionTarget,
   matchWriterBlockRule,
   matchWriterInstantRule,
@@ -433,4 +434,36 @@ test('任务列表转换：保留勾选状态', () => {
       { type: 'paragraph', content: [{ type: 'text', text: '正文' }] }
     ]
   })
+})
+
+test('离块决策：光标离开时产出转换事务并更新块跟踪位置', () => {
+  const state = createStateWithDoc(twoParagraphDoc, 8)
+  const decision = decideWriterDeferredConversion(0, state, false)
+  assert.ok(decision.transaction)
+  assert.equal(decision.nextPrevBlockFrom, 6)
+  assert.equal(decision.transaction.doc.content.child(0).type.name, 'heading')
+})
+
+test('离块决策：光标未离开或无匹配时不产出事务', () => {
+  const cursorInside = createStateWithDoc(twoParagraphDoc, 2)
+  const stayDecision = decideWriterDeferredConversion(0, cursorInside, false)
+  assert.equal(stayDecision.transaction, null)
+  assert.equal(stayDecision.nextPrevBlockFrom, 0)
+
+  const plainDoc = {
+    type: 'doc',
+    content: [
+      { type: 'paragraph', content: [{ type: 'text', text: '普通文本' }] },
+      { type: 'paragraph', content: [{ type: 'text', text: '正文' }] }
+    ]
+  }
+  const noMatch = createStateWithDoc(plainDoc, 8)
+  assert.equal(decideWriterDeferredConversion(0, noMatch, false).transaction, null)
+})
+
+test('离块决策：IME composing 期间不产出事务', () => {
+  const state = createStateWithDoc(twoParagraphDoc, 8)
+  const decision = decideWriterDeferredConversion(0, state, true)
+  assert.equal(decision.transaction, null)
+  assert.equal(decision.nextPrevBlockFrom, 6)
 })

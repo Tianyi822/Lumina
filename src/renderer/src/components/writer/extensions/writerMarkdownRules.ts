@@ -285,6 +285,39 @@ export function buildWriterBlockConversion(
   return null
 }
 
+// ---------------------------------------------------------------------------
+// 延迟块级转换：离块决策（供插件与测试使用）
+// ---------------------------------------------------------------------------
+
+// 转换事务的 meta 键：插件据此跳过自身派发的事务，防止重入
+const WRITER_DEFERRED_CONVERSION_META = 'writerDeferredMarkdownConversion'
+
+export interface WriterDeferredConversionDecision {
+  nextPrevBlockFrom: number | null
+  transaction: Transaction | null
+}
+
+// 单步决策：光标离开旧块且旧块文本命中块级规则时产出转换事务（带防重入 meta）
+export function decideWriterDeferredConversion(
+  prevBlockFrom: number | null,
+  state: EditorState,
+  composing: boolean
+): WriterDeferredConversionDecision {
+  const nextPrevBlockFrom = getSelectionTextblockFrom(state)
+  if (composing) return { nextPrevBlockFrom, transaction: null }
+
+  const target = getWriterBlockConversionTarget(prevBlockFrom, state)
+  if (!target) return { nextPrevBlockFrom, transaction: null }
+
+  const match = matchWriterBlockRule(target.text)
+  if (!match) return { nextPrevBlockFrom, transaction: null }
+
+  const transaction = buildWriterBlockConversion(state, target.from, match)
+  if (!transaction) return { nextPrevBlockFrom, transaction: null }
+  transaction.setMeta(WRITER_DEFERRED_CONVERSION_META, true)
+  return { nextPrevBlockFrom, transaction }
+}
+
 export function nextWriterCompositionState(
   current: boolean,
   transition: WriterCompositionTransition
@@ -401,6 +434,9 @@ export const WriterMarkdownRules = Extension.create<
 
   addProseMirrorPlugins() {
     let releaseTimer: ReturnType<typeof setTimeout> | undefined
+    // 光标上一个所在 textblock 的起点；null 表示尚未初始化
+    let prevBlockFrom: number | null = null
+    const isComposing = (): boolean => this.editor.view.composing || this.storage.eventIsComposing
     return [
       new Plugin({
         view: () => ({
@@ -435,6 +471,23 @@ export const WriterMarkdownRules = Extension.create<
               return false
             }
           }
+        }
+      }),
+      // 离块检测：光标离开 paragraph 块时，对命中块级规则的旧块同步派发转换事务
+      new Plugin({
+        appendTransaction: (transactions, _oldState, newState) => {
+          if (prevBlockFrom !== null) {
+            for (const tr of transactions) {
+              prevBlockFrom = tr.mapping.map(prevBlockFrom)
+            }
+          }
+          // 自身派发的转换事务不参与检测，防止重入
+          if (transactions.some((tr) => tr.getMeta(WRITER_DEFERRED_CONVERSION_META))) {
+            return null
+          }
+          const decision = decideWriterDeferredConversion(prevBlockFrom, newState, isComposing())
+          prevBlockFrom = decision.nextPrevBlockFrom
+          return decision.transaction
         }
       })
     ]
