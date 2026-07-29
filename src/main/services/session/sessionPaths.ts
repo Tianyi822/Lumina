@@ -9,11 +9,18 @@ export function getDataDirPath(): string {
   return join(getConfigDirPath(), DATA_DIR_NAME)
 }
 
+// 生成 JSONL 会话文件名
+// 文件名只含 sessionId，标题变更不再引起文件改名
+export function getSessionJsonlFileName(sessionId: string): string {
+  return `${sessionId}.jsonl`
+}
+
 // 清理文件名中的非法字符
-// 移除特殊字符，替换空格，限制长度
+// 移除特殊字符，替换空格，限制长度；纯空白回退为 untitled
 export function sanitizeFileName(name: string): string {
   return (
     name
+      .trim() // 先去首尾空白，避免纯空白被转成下划线
       .replace(/[/\\?%*:|"<>]/g, '') // 移除非法字符
       .replace(/\s+/g, '_') // 空格转下划线
       .substring(0, 50) || 'untitled'
