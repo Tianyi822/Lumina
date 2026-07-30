@@ -1,4 +1,4 @@
-import { join, normalize, basename } from 'path'
+import { join } from 'path'
 import { getConfigDirPath } from '../config/configPaths'
 
 // 数据目录名称
@@ -38,35 +38,6 @@ export function isValidSessionId(sessionId: string): boolean {
 
   // 额外检查：确保没有路径分隔符
   if (sessionId.includes('/') || sessionId.includes('\\') || sessionId.includes('..')) {
-    return false
-  }
-
-  return true
-}
-
-// 生成会话文件路径
-// 文件名格式: {sessionId}-{title}.json
-export function getSessionFilePath(sessionId: string, title: string): string {
-  const safeTitle = sanitizeFileName(title)
-  const fileName = `${sessionId}-${safeTitle}.json`
-  return join(getDataDirPath(), fileName)
-}
-
-// 验证文件路径是否在数据目录内（防止路径遍历）
-// 确保文件不会被写入到数据目录之外的位置
-export function isPathInDataDir(filePath: string): boolean {
-  const dataDir = getDataDirPath()
-  const normalizedPath = normalize(filePath)
-  const normalizedDataDir = normalize(dataDir)
-
-  // 确保路径在数据目录内
-  if (!normalizedPath.startsWith(normalizedDataDir)) {
-    return false
-  }
-
-  // 确保文件名不包含路径分隔符（防止子目录遍历）
-  const fileName = basename(normalizedPath)
-  if (fileName !== basename(filePath)) {
     return false
   }
 
