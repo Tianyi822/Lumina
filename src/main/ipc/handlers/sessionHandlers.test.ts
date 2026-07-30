@@ -85,4 +85,8 @@ test('validateSessionMetaPatch', async (t) => {
   await t.test('非对象返回错误', () => {
     assert.equal(validateSessionMetaPatch('x'), '元数据补丁必须是对象')
   })
+
+  await t.test('数组返回错误', () => {
+    assert.equal(validateSessionMetaPatch([]), '元数据补丁必须是对象')
+  })
 })

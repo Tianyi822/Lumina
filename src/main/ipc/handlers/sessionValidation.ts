@@ -43,7 +43,7 @@ export function validateAppendMessages(messages: unknown): string | null {
 
 /** 校验 session:updateMeta 的 patch 参数 */
 export function validateSessionMetaPatch(patch: unknown): string | null {
-  if (typeof patch !== 'object' || patch === null) {
+  if (typeof patch !== 'object' || patch === null || Array.isArray(patch)) {
     return '元数据补丁必须是对象'
   }
   const record = patch as Record<string, unknown>
