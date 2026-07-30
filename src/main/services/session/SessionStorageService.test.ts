@@ -274,4 +274,20 @@ test('SessionStorageService', async (t) => {
     assert.equal(loaded?.messages.length, 10)
     rmSync(root, { recursive: true, force: true })
   })
+
+  await t.test('重复 id 消息加载时去重且后者生效', async () => {
+    const root = createTempRoot()
+    const storage = new SessionStorageService(() => root)
+    await storage.initialize()
+    const session = makeSession('aaa013', 2)
+    await storage.rewriteSession(session)
+    // 模拟并发竞态下同 id 消息被重复追加（内容已更新）
+    const duplicated = { ...makeMessage('msg-1'), content: '补写后的内容' }
+    await storage.appendMessages(session.sessionId, [duplicated])
+    const loadedDeduplicated = await storage.loadSession(session.sessionId)
+    assert.equal(loadedDeduplicated?.messages.length, 2)
+    assert.equal(loadedDeduplicated?.messages[1].id, 'msg-1')
+    assert.equal(loadedDeduplicated?.messages[1].content, '补写后的内容')
+    rmSync(root, { recursive: true, force: true })
+  })
 })

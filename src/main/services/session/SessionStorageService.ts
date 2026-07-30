@@ -313,6 +313,7 @@ export class SessionStorageService {
     let meta: SessionMetaData | null = null
     let metaLineCount = 0
     const messages: SessionMessage[] = []
+    const messageIndexById = new Map<string, number>()
     const reader = createInterface({
       input: createReadStream(filePath, { encoding: 'utf-8' }),
       crlfDelay: Infinity
@@ -331,7 +332,14 @@ export class SessionStorageService {
           meta = record.data
           metaLineCount++
         } else {
-          messages.push(record.data)
+          // 按 id 去重：并发竞态下重复追加的消息以后出现者为准（可能含补写内容）
+          const existingIndex = messageIndexById.get(record.data.id)
+          if (existingIndex !== undefined) {
+            messages[existingIndex] = record.data
+          } else {
+            messageIndexById.set(record.data.id, messages.length)
+            messages.push(record.data)
+          }
         }
       }
     } catch (error) {
