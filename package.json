@@ -32,6 +32,7 @@
     "test:plan-execute": "node --loader ./scripts/test/tsAliasLoader.mjs --test --experimental-strip-types src/main/services/chat/PlanExecuteService.test.ts",
     "test:paper-web-search": "node --loader ./scripts/test/tsAliasLoader.mjs --test --experimental-strip-types src/main/services/paper-web-search/PaperWebSearchService.test.ts src/main/services/chat/tools/adapters/PaperWebSearchToolAdapter.test.ts",
     "test:mcp-handlers": "node --loader ./scripts/test/tsAliasLoader.mjs --test --experimental-strip-types src/main/ipc/handlers/mcpHandlers.test.ts",
+    "test:session": "node --loader ./scripts/test/tsAliasLoader.mjs --test --experimental-strip-types src/main/services/session/SessionStorageService.test.ts src/main/services/session/sessionPaths.test.ts",
     "test:session-handlers": "node --loader ./scripts/test/tsAliasLoader.mjs --test --experimental-strip-types src/main/ipc/handlers/sessionHandlers.test.ts",
     "test:error-handlers": "node --test --experimental-strip-types src/shared/utils/error-handlers.test.mjs",
     "test:embedding": "node --loader ./scripts/test/tsAliasLoader.mjs --test --experimental-strip-types src/main/services/embedding/EmbeddingService.test.ts",

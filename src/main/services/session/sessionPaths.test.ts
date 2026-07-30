@@ -36,5 +36,6 @@ test('sessionPaths', async (t) => {
   await t.test('sanitizeFileName 清洗非法字符', () => {
     assert.equal(sanitizeFileName('a/b\\c:d'), 'abcd')
     assert.equal(sanitizeFileName('  '), 'untitled')
+    assert.equal(sanitizeFileName('  abc  '), 'abc')
   })
 })
