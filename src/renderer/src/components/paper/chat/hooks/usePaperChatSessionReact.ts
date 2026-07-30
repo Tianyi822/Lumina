@@ -6,8 +6,9 @@ import { ensurePaperChatSession } from '@renderer/stores/paper'
 import { usePaperChatMessageCacheStore } from '@renderer/stores'
 import { messageToSessionMessage, sessionMessageToMessage } from '@renderer/utils/messageHelpers'
 import {
-  diffAppendableMessages,
-  serializeSessionMessages
+  persistSessionIncrementally,
+  serializeSessionMessages,
+  type SessionPersistenceCursor
 } from '@renderer/utils/sessionPersistence'
 import { deepClone } from '@shared/utils'
 
@@ -72,8 +73,7 @@ export function usePaperChatSessionReact(
   const sessionRef = useRef<SessionData | null>(session)
   const messagesRef = useRef<Message[]>(messages)
   const saveQueueRef = useRef<Promise<void>>(Promise.resolve())
-  const lastPersistedCountRef = useRef(0)
-  const lastPersistedSerializedRef = useRef<string[]>([])
+  const cursorRef = useRef<SessionPersistenceCursor>({ serialized: [], count: 0 })
   // 加载时若过滤了 legacy 全文消息，需在下次保存强制一次全量重写以清除磁盘残留
   const forceRewriteRef = useRef(false)
   const selectionRef = useRef({
@@ -111,69 +111,37 @@ export function usePaperChatSessionReact(
       }
 
       const selection = selectionRef.current
-      const selectionState = {
+      // 在队列内构造 plain 数据（deepClone 消除 Zustand Proxy），交由持久化协议做 diff 决策
+      const selectionState = deepClone({
         selectedMCPTools: selection.selectedMCPTools,
         selectedKnowledgeBases: selection.selectedKnowledgeBases,
         selectedModel: selection.selectedModel,
         enablePaperWebSearch: selection.enablePaperWebSearch
-      }
-      const nextMessages = toPlainSessionData({
+      })
+      const plainSession = toPlainSessionData({
         ...currentSession,
         messages: messagesRef.current.map(messageToSessionMessage)
-      }).messages
-      const nextSerialized = serializeSessionMessages(nextMessages)
-
-      const decision = diffAppendableMessages(
-        lastPersistedSerializedRef.current,
-        nextSerialized,
-        lastPersistedCountRef.current
-      )
-
-      // rewrite：前缀被改写/删除，或加载时过滤过 legacy 消息需清除磁盘残留
-      if (decision.kind === 'rewrite' || forceRewriteRef.current) {
-        forceRewriteRef.current = false
-        const plain = toPlainSessionData({
-          ...currentSession,
-          messages: nextMessages,
-          selectionState
-        })
-        const result = await window.api.session.save(plain)
-        if (!result.success) {
-          setErrorState(result.error || '保存论文聊天会话失败')
-          return false
-        }
-        sessionRef.current = plain
-        setSession(plain)
-        lastPersistedSerializedRef.current = nextSerialized
-        lastPersistedCountRef.current = nextSerialized.length
-        return true
-      }
-
-      // 追加新增消息
-      if (decision.kind === 'append') {
-        const appended = await window.api.session.appendMessages(
-          currentSession.sessionId,
-          nextMessages.slice(decision.startIndex)
-        )
-        if (!appended.success) {
-          setErrorState(appended.error || '保存论文聊天会话失败')
-          return false
-        }
-        lastPersistedSerializedRef.current = nextSerialized
-        lastPersistedCountRef.current = nextSerialized.length
-      }
-
-      // selection 变化以 meta 追加落盘（noop / append 之后都执行）；deepClone 消除 Zustand Proxy
-      const metaResult = await window.api.session.updateMeta(currentSession.sessionId, {
-        selectionState: deepClone(selectionState)
       })
-      if (!metaResult.success) {
-        setErrorState(metaResult.error || '保存论文聊天会话失败')
+
+      const result = await persistSessionIncrementally({
+        session: plainSession,
+        nextMessages: plainSession.messages,
+        selectionState,
+        cursor: cursorRef.current,
+        // 加载时过滤过 legacy 全文消息时强制一次全量重写以清除磁盘残留
+        forceRewrite: forceRewriteRef.current,
+        errorLabel: '保存论文聊天会话失败'
+      })
+      if (!result.ok) {
+        setErrorState(result.error || '保存论文聊天会话失败')
         return false
       }
-      const nextSessionState: SessionData = { ...currentSession, selectionState }
-      sessionRef.current = nextSessionState
-      setSession(nextSessionState)
+      // 保存成功后才清零强制重写标志，失败时下次仍会重试
+      forceRewriteRef.current = false
+      if (result.nextSession) {
+        sessionRef.current = result.nextSession
+        setSession(result.nextSession)
+      }
       return true
     })
 
@@ -205,8 +173,7 @@ export function usePaperChatSessionReact(
       const persistedSnapshot = serializeSessionMessages(nextSession.messages)
       const hadLegacy =
         removeLegacyPaperFulltextMessages(nextMessages).length !== nextMessages.length
-      lastPersistedSerializedRef.current = persistedSnapshot
-      lastPersistedCountRef.current = persistedSnapshot.length
+      cursorRef.current = { serialized: persistedSnapshot, count: persistedSnapshot.length }
       forceRewriteRef.current = hadLegacy
       setSelectedMCPTools(nextSession.selectionState?.selectedMCPTools || [])
       setSelectedKnowledgeBases(nextSession.selectionState?.selectedKnowledgeBases || [])
