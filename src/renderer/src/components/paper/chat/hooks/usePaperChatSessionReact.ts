@@ -5,6 +5,11 @@ import type { PaperDocument } from '@shared/types/paper'
 import { ensurePaperChatSession } from '@renderer/stores/paper'
 import { usePaperChatMessageCacheStore } from '@renderer/stores'
 import { messageToSessionMessage, sessionMessageToMessage } from '@renderer/utils/messageHelpers'
+import {
+  persistSessionIncrementally,
+  serializeSessionMessages,
+  type SessionPersistenceCursor
+} from '@renderer/utils/sessionPersistence'
 import { deepClone } from '@shared/utils'
 
 interface UsePaperChatSessionReactReturn {
@@ -68,6 +73,9 @@ export function usePaperChatSessionReact(
   const sessionRef = useRef<SessionData | null>(session)
   const messagesRef = useRef<Message[]>(messages)
   const saveQueueRef = useRef<Promise<void>>(Promise.resolve())
+  const cursorRef = useRef<SessionPersistenceCursor>({ serialized: [], count: 0 })
+  // 加载时若过滤了 legacy 全文消息，需在下次保存强制一次全量重写以清除磁盘残留
+  const forceRewriteRef = useRef(false)
   const selectionRef = useRef({
     selectedModel,
     selectedMCPTools,
@@ -103,26 +111,37 @@ export function usePaperChatSessionReact(
       }
 
       const selection = selectionRef.current
-      const sessionToSave: SessionData = {
+      // 在队列内构造 plain 数据（deepClone 消除 Zustand Proxy），交由持久化协议做 diff 决策
+      const selectionState = deepClone({
+        selectedMCPTools: selection.selectedMCPTools,
+        selectedKnowledgeBases: selection.selectedKnowledgeBases,
+        selectedModel: selection.selectedModel,
+        enablePaperWebSearch: selection.enablePaperWebSearch
+      })
+      const plainSession = toPlainSessionData({
         ...currentSession,
-        messages: messagesRef.current.map(messageToSessionMessage),
-        selectionState: {
-          selectedMCPTools: selection.selectedMCPTools,
-          selectedKnowledgeBases: selection.selectedKnowledgeBases,
-          selectedModel: selection.selectedModel,
-          enablePaperWebSearch: selection.enablePaperWebSearch
-        }
-      }
+        messages: messagesRef.current.map(messageToSessionMessage)
+      })
 
-      const plainSessionToSave = toPlainSessionData(sessionToSave)
-      const result = await window.api.session.save(plainSessionToSave)
-      if (!result.success) {
+      const result = await persistSessionIncrementally({
+        session: plainSession,
+        nextMessages: plainSession.messages,
+        selectionState,
+        cursor: cursorRef.current,
+        // 加载时过滤过 legacy 全文消息时强制一次全量重写以清除磁盘残留
+        forceRewrite: forceRewriteRef.current,
+        errorLabel: '保存论文聊天会话失败'
+      })
+      if (!result.ok) {
         setErrorState(result.error || '保存论文聊天会话失败')
         return false
       }
-
-      sessionRef.current = plainSessionToSave
-      setSession(plainSessionToSave)
+      // 保存成功后才清零强制重写标志，失败时下次仍会重试
+      forceRewriteRef.current = false
+      if (result.nextSession) {
+        sessionRef.current = result.nextSession
+        setSession(result.nextSession)
+      }
       return true
     })
 
@@ -150,6 +169,12 @@ export function usePaperChatSessionReact(
         )
 
       setMessages(removeLegacyPaperFulltextMessages(nextMessages))
+      // 记录已落盘快照（磁盘态），并在检测到 legacy 过滤时标记强制重写
+      const persistedSnapshot = serializeSessionMessages(nextSession.messages)
+      const hadLegacy =
+        removeLegacyPaperFulltextMessages(nextMessages).length !== nextMessages.length
+      cursorRef.current = { serialized: persistedSnapshot, count: persistedSnapshot.length }
+      forceRewriteRef.current = hadLegacy
       setSelectedMCPTools(nextSession.selectionState?.selectedMCPTools || [])
       setSelectedKnowledgeBases(nextSession.selectionState?.selectedKnowledgeBases || [])
       setEnablePaperWebSearch(nextSession.selectionState?.enablePaperWebSearch || false)

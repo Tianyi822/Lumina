@@ -12,7 +12,8 @@ import {
   initializeKnowledge,
   initializeEmbeddingModels,
   initializeFileService,
-  initializeWriterService
+  initializeWriterService,
+  initializeSessionService
 } from '@main/ipc'
 import { mcpService } from '@main/services/mcp'
 import { getKnowledgeMCPServerService } from '@main/services/knowledge/KnowledgeMCPServerService'
@@ -170,6 +171,15 @@ export function initializeApp(): void {
 
     // 注册所有 IPC 处理程序
     registerAllIpcHandlers()
+
+    // 初始化会话服务（迁移旧 JSON、恢复 tmp、就绪 index）；失败不阻止应用启动
+    try {
+      await initializeSessionService()
+    } catch (error) {
+      logger.error('会话服务初始化失败，会话功能不可用', 'main', {
+        error: error instanceof Error ? error.message : String(error)
+      })
+    }
 
     // 初始化 MCP 服务
     initializeMCP()

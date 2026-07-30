@@ -1,6 +1,8 @@
 import type {
   SessionData,
   SessionListItem,
+  SessionMessage,
+  SessionMetaPatch,
   SessionResourceRef,
   SessionResult,
   SessionType
@@ -10,6 +12,7 @@ export type {
   SessionData,
   SessionListItem,
   SessionMessage,
+  SessionMetaPatch,
   SessionResourceRef,
   SessionResult,
   SessionType
@@ -27,6 +30,10 @@ export interface SessionApi {
   ) => Promise<SessionResult>
   /** 保存会话数据 */
   save: (data: SessionData) => Promise<SessionResult>
+  /** 追加一批新消息 */
+  appendMessages: (sessionId: string, messages: SessionMessage[]) => Promise<SessionResult>
+  /** 更新会话元数据 */
+  updateMeta: (sessionId: string, patch: SessionMetaPatch) => Promise<SessionResult>
   /** 加载指定会话 */
   load: (sessionId: string) => Promise<SessionResult>
   /** 获取所有会话列表 */

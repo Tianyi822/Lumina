@@ -4,11 +4,13 @@ import type { KnowledgeBase, MCPTool, Message, SessionData } from '@renderer/typ
 import { usePaperChatMessageCacheStore } from '@renderer/stores'
 import { useWriterChatStore } from '@renderer/stores/writer'
 import { messageToSessionMessage, sessionMessageToMessage } from '@renderer/utils/messageHelpers'
-import { deepClone } from '@shared/utils'
 import {
-  coalesceInflightByKey,
-  createInflightByKeyState
-} from './coalesceInflightByKey'
+  persistSessionIncrementally,
+  serializeSessionMessages,
+  type SessionPersistenceCursor
+} from '@renderer/utils/sessionPersistence'
+import { deepClone } from '@shared/utils'
+import { coalesceInflightByKey, createInflightByKeyState } from './coalesceInflightByKey'
 
 interface UseWriterChatSessionReturn {
   session: SessionData | null
@@ -44,7 +46,9 @@ function toPlainSessionData(sessionData: SessionData): SessionData {
  * 写作聊天会话 Hook：按文档 resourceRef 查找/创建独立 writer 会话。
  * 新会话不自动选择论文，也不自动把写作文档加入知识库。
  */
-export function useWriterChatSession(documentId: string | null | undefined): UseWriterChatSessionReturn {
+export function useWriterChatSession(
+  documentId: string | null | undefined
+): UseWriterChatSessionReturn {
   const [session, setSession] = useState<SessionData | null>(null)
   const [messages, setMessagesState] = useState<Message[]>([])
   const [inputMessage, setInputMessage] = useState('')
@@ -59,6 +63,7 @@ export function useWriterChatSession(documentId: string | null | undefined): Use
   const sessionRef = useRef<SessionData | null>(session)
   const messagesRef = useRef<Message[]>(messages)
   const saveQueueRef = useRef<Promise<void>>(Promise.resolve())
+  const cursorRef = useRef<SessionPersistenceCursor>({ serialized: [], count: 0 })
   const ensureInflightRef = useRef(createInflightByKeyState<SessionData | null>())
   const selectionRef = useRef({
     selectedModel,
@@ -95,26 +100,33 @@ export function useWriterChatSession(documentId: string | null | undefined): Use
       }
 
       const selection = selectionRef.current
-      const sessionToSave: SessionData = {
+      // 在队列内构造 plain 数据（deepClone 消除 Zustand Proxy），交由持久化协议做 diff 决策
+      const selectionState = deepClone({
+        selectedMCPTools: selection.selectedMCPTools,
+        selectedKnowledgeBases: selection.selectedKnowledgeBases,
+        selectedModel: selection.selectedModel,
+        selectedPaperId: selection.selectedPaperId
+      })
+      const plainSession = toPlainSessionData({
         ...currentSession,
-        messages: messagesRef.current.map(messageToSessionMessage),
-        selectionState: {
-          selectedMCPTools: selection.selectedMCPTools,
-          selectedKnowledgeBases: selection.selectedKnowledgeBases,
-          selectedModel: selection.selectedModel,
-          selectedPaperId: selection.selectedPaperId
-        }
-      }
+        messages: messagesRef.current.map(messageToSessionMessage)
+      })
 
-      const plainSessionToSave = toPlainSessionData(sessionToSave)
-      const result = await window.api.session.save(plainSessionToSave)
-      if (!result.success) {
+      const result = await persistSessionIncrementally({
+        session: plainSession,
+        nextMessages: plainSession.messages,
+        selectionState,
+        cursor: cursorRef.current,
+        errorLabel: '保存写作聊天会话失败'
+      })
+      if (!result.ok) {
         setErrorState(result.error || '保存写作聊天会话失败')
         return false
       }
-
-      sessionRef.current = plainSessionToSave
-      setSession(plainSessionToSave)
+      if (result.nextSession) {
+        sessionRef.current = result.nextSession
+        setSession(result.nextSession)
+      }
       return true
     })
 
@@ -141,13 +153,17 @@ export function useWriterChatSession(documentId: string | null | undefined): Use
         )
 
       setMessages(nextMessages)
+      const persistedSnapshot = serializeSessionMessages(nextSession.messages)
+      cursorRef.current = { serialized: persistedSnapshot, count: persistedSnapshot.length }
       setSelectedMCPTools(nextSession.selectionState?.selectedMCPTools || [])
       setSelectedKnowledgeBases(nextSession.selectionState?.selectedKnowledgeBases || [])
       setSelectedModel(nextSession.selectionState?.selectedModel || '')
       // 仅使用会话中显式保存的论文选择；不读取 lastPaperId
       const paperId = nextSession.selectionState?.selectedPaperId
       setSelectedPaperId(paperId)
-      useWriterChatStore.getState().initializeSession(nextSession.sessionId, nextSession.resourceRef?.id || '')
+      useWriterChatStore
+        .getState()
+        .initializeSession(nextSession.sessionId, nextSession.resourceRef?.id || '')
       useWriterChatStore.getState().setSelectedPaperId(nextSession.sessionId, paperId)
     },
     [setMessages]
