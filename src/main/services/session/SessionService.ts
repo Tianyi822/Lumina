@@ -13,20 +13,8 @@ import { SessionFactoryRegistry } from './factories'
 import { SessionStorageService } from './SessionStorageService'
 
 /**
- * 从消息内容生成会话标题
- * 超过 20 个字符时截断并加省略号
- */
-export function generateTitle(firstMessage: string): string {
-  const trimmed = firstMessage.trim()
-  if (trimmed.length <= 20) {
-    return trimmed || '新对话'
-  }
-  return trimmed.substring(0, 20) + '...'
-}
-
-/**
  * 会话服务（编排门面）
- * 负责校验、工厂创建、标题生成；持久化委托 SessionStorageService
+ * 负责校验、工厂创建；持久化委托 SessionStorageService
  */
 export class SessionService {
   private initialized = false
