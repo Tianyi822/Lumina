@@ -142,6 +142,10 @@ export class SessionStorageService {
   }
 
   private sessionFilePath(sessionId: string): string {
+    // 统一防线：拒绝非法 ID，防止路径遍历（写/删路径均经过此处）
+    if (!isValidSessionId(sessionId)) {
+      throw new Error(`非法的会话 ID: ${sessionId}`)
+    }
     return join(this.rootDir, getSessionJsonlFileName(sessionId))
   }
 
@@ -152,13 +156,17 @@ export class SessionStorageService {
   private runExclusive<T>(key: string, operation: () => Promise<T>): Promise<T> {
     const tail = this.queueTails.get(key) ?? Promise.resolve()
     const next = tail.then(operation, operation)
-    this.queueTails.set(
-      key,
-      next.then(
-        () => undefined,
-        () => undefined
-      )
+    const stored = next.then(
+      () => undefined,
+      () => undefined
     )
+    this.queueTails.set(key, stored)
+    // 队列尾 settle 后若仍是当前尾则清理，避免 Map 无限增长
+    void stored.then(() => {
+      if (this.queueTails.get(key) === stored) {
+        this.queueTails.delete(key)
+      }
+    })
     return next
   }
 
@@ -309,21 +317,32 @@ export class SessionStorageService {
       input: createReadStream(filePath, { encoding: 'utf-8' }),
       crlfDelay: Infinity
     })
-    for await (const line of reader) {
-      if (!line.trim()) {
-        continue
+    try {
+      for await (const line of reader) {
+        if (!line.trim()) {
+          continue
+        }
+        const record = parseJsonlRecord(line)
+        if (!record) {
+          logger.warn('跳过无法解析的会话记录行', 'main', { sessionId })
+          continue
+        }
+        if (record.kind === 'meta') {
+          meta = record.data
+          metaLineCount++
+        } else {
+          messages.push(record.data)
+        }
       }
-      const record = parseJsonlRecord(line)
-      if (!record) {
-        logger.warn('跳过无法解析的会话记录行', 'main', { sessionId })
-        continue
-      }
-      if (record.kind === 'meta') {
-        meta = record.data
-        metaLineCount++
-      } else {
-        messages.push(record.data)
-      }
+    } catch (error) {
+      // 流级 I/O 错误（EACCES/EIO/TOCTOU）视为文件不可读，与不存在同语义
+      logger.error('读取会话文件流失败', 'main', {
+        sessionId,
+        error: error instanceof Error ? error.message : String(error)
+      })
+      return null
+    } finally {
+      reader.close()
     }
     if (!meta) {
       return null

@@ -83,6 +83,15 @@ test('SessionStorageService', async (t) => {
     rmSync(root, { recursive: true, force: true })
   })
 
+  await t.test('appendMeta 目标不存在返回 false', async () => {
+    const root = createTempRoot()
+    const storage = new SessionStorageService(() => root)
+    await storage.initialize()
+    const ok = await storage.appendMeta(makeSessionId('nope02'), { title: '新标题' })
+    assert.equal(ok, false)
+    rmSync(root, { recursive: true, force: true })
+  })
+
   await t.test('appendMeta 追加 meta 行且最后一条生效', async () => {
     const root = createTempRoot()
     const storage = new SessionStorageService(() => root)
@@ -167,6 +176,19 @@ test('SessionStorageService', async (t) => {
     // 删除 index 后应能从 jsonl 重建
     rmSync(join(root, 'index.json'))
     list = await storage.listSessions()
+    assert.equal(list.length, 2)
+    rmSync(root, { recursive: true, force: true })
+  })
+
+  await t.test('index 内容损坏时 listSessions 重建', async () => {
+    const root = createTempRoot()
+    const storage = new SessionStorageService(() => root)
+    await storage.initialize()
+    await storage.rewriteSession(makeSession('aaa013'))
+    await storage.rewriteSession(makeSession('aaa014'))
+    // 覆写为非法 JSON，读取失败后应从 jsonl 重建
+    writeFileSync(join(root, 'index.json'), '{ 坏数据', 'utf-8')
+    const list = await storage.listSessions()
     assert.equal(list.length, 2)
     rmSync(root, { recursive: true, force: true })
   })
