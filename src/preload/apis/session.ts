@@ -2,6 +2,8 @@ import { ipcRenderer } from 'electron'
 import type {
   SessionData,
   SessionListItem,
+  SessionMessage,
+  SessionMetaPatch,
   SessionResourceRef,
   SessionResult,
   SessionType
@@ -27,6 +29,20 @@ export const sessionApi = {
    */
   save: (data: SessionData): Promise<SessionResult> => {
     return ipcRenderer.invoke('session:save', data)
+  },
+
+  /**
+   * 追加一批新消息（增量高频路径）
+   */
+  appendMessages: (sessionId: string, messages: SessionMessage[]): Promise<SessionResult> => {
+    return ipcRenderer.invoke('session:appendMessages', sessionId, messages)
+  },
+
+  /**
+   * 更新会话元数据（标题/选择状态/能力）
+   */
+  updateMeta: (sessionId: string, patch: SessionMetaPatch): Promise<SessionResult> => {
+    return ipcRenderer.invoke('session:updateMeta', sessionId, patch)
   },
 
   /**

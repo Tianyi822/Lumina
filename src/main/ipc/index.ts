@@ -25,6 +25,7 @@ export { initializeKnowledge } from './handlers/knowledgeHandlers'
 export { initializeEmbeddingModels } from './handlers/embeddingModelHandlers'
 export { initializeFileService } from './handlers/fileHandlers'
 export { initializeWriterService } from '@main/services/writer'
+export { initializeSessionService } from '@main/services/session'
 
 /**
  * 注册所有 IPC 处理程序

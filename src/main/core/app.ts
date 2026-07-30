@@ -12,7 +12,8 @@ import {
   initializeKnowledge,
   initializeEmbeddingModels,
   initializeFileService,
-  initializeWriterService
+  initializeWriterService,
+  initializeSessionService
 } from '@main/ipc'
 import { mcpService } from '@main/services/mcp'
 import { getKnowledgeMCPServerService } from '@main/services/knowledge/KnowledgeMCPServerService'
@@ -170,6 +171,9 @@ export function initializeApp(): void {
 
     // 注册所有 IPC 处理程序
     registerAllIpcHandlers()
+
+    // 初始化会话服务（迁移旧 JSON、恢复 tmp、就绪 index）
+    await initializeSessionService()
 
     // 初始化 MCP 服务
     initializeMCP()
