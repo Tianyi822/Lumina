@@ -5,6 +5,10 @@ import type { PaperDocument } from '@shared/types/paper'
 import { ensurePaperChatSession } from '@renderer/stores/paper'
 import { usePaperChatMessageCacheStore } from '@renderer/stores'
 import { messageToSessionMessage, sessionMessageToMessage } from '@renderer/utils/messageHelpers'
+import {
+  diffAppendableMessages,
+  serializeSessionMessages
+} from '@renderer/utils/sessionPersistence'
 import { deepClone } from '@shared/utils'
 
 interface UsePaperChatSessionReactReturn {
@@ -68,6 +72,10 @@ export function usePaperChatSessionReact(
   const sessionRef = useRef<SessionData | null>(session)
   const messagesRef = useRef<Message[]>(messages)
   const saveQueueRef = useRef<Promise<void>>(Promise.resolve())
+  const lastPersistedCountRef = useRef(0)
+  const lastPersistedSerializedRef = useRef<string[]>([])
+  // 加载时若过滤了 legacy 全文消息，需在下次保存强制一次全量重写以清除磁盘残留
+  const forceRewriteRef = useRef(false)
   const selectionRef = useRef({
     selectedModel,
     selectedMCPTools,
@@ -103,26 +111,69 @@ export function usePaperChatSessionReact(
       }
 
       const selection = selectionRef.current
-      const sessionToSave: SessionData = {
+      const selectionState = {
+        selectedMCPTools: selection.selectedMCPTools,
+        selectedKnowledgeBases: selection.selectedKnowledgeBases,
+        selectedModel: selection.selectedModel,
+        enablePaperWebSearch: selection.enablePaperWebSearch
+      }
+      const nextMessages = toPlainSessionData({
         ...currentSession,
-        messages: messagesRef.current.map(messageToSessionMessage),
-        selectionState: {
-          selectedMCPTools: selection.selectedMCPTools,
-          selectedKnowledgeBases: selection.selectedKnowledgeBases,
-          selectedModel: selection.selectedModel,
-          enablePaperWebSearch: selection.enablePaperWebSearch
+        messages: messagesRef.current.map(messageToSessionMessage)
+      }).messages
+      const nextSerialized = serializeSessionMessages(nextMessages)
+
+      const decision = diffAppendableMessages(
+        lastPersistedSerializedRef.current,
+        nextSerialized,
+        lastPersistedCountRef.current
+      )
+
+      // rewrite：前缀被改写/删除，或加载时过滤过 legacy 消息需清除磁盘残留
+      if (decision.kind === 'rewrite' || forceRewriteRef.current) {
+        forceRewriteRef.current = false
+        const plain = toPlainSessionData({
+          ...currentSession,
+          messages: nextMessages,
+          selectionState
+        })
+        const result = await window.api.session.save(plain)
+        if (!result.success) {
+          setErrorState(result.error || '保存论文聊天会话失败')
+          return false
         }
+        sessionRef.current = plain
+        setSession(plain)
+        lastPersistedSerializedRef.current = nextSerialized
+        lastPersistedCountRef.current = nextSerialized.length
+        return true
       }
 
-      const plainSessionToSave = toPlainSessionData(sessionToSave)
-      const result = await window.api.session.save(plainSessionToSave)
-      if (!result.success) {
-        setErrorState(result.error || '保存论文聊天会话失败')
+      // 追加新增消息
+      if (decision.kind === 'append') {
+        const appended = await window.api.session.appendMessages(
+          currentSession.sessionId,
+          nextMessages.slice(decision.startIndex)
+        )
+        if (!appended.success) {
+          setErrorState(appended.error || '保存论文聊天会话失败')
+          return false
+        }
+        lastPersistedSerializedRef.current = nextSerialized
+        lastPersistedCountRef.current = nextSerialized.length
+      }
+
+      // selection 变化以 meta 追加落盘（noop / append 之后都执行）；deepClone 消除 Zustand Proxy
+      const metaResult = await window.api.session.updateMeta(currentSession.sessionId, {
+        selectionState: deepClone(selectionState)
+      })
+      if (!metaResult.success) {
+        setErrorState(metaResult.error || '保存论文聊天会话失败')
         return false
       }
-
-      sessionRef.current = plainSessionToSave
-      setSession(plainSessionToSave)
+      const nextSessionState: SessionData = { ...currentSession, selectionState }
+      sessionRef.current = nextSessionState
+      setSession(nextSessionState)
       return true
     })
 
@@ -150,6 +201,13 @@ export function usePaperChatSessionReact(
         )
 
       setMessages(removeLegacyPaperFulltextMessages(nextMessages))
+      // 记录已落盘快照（磁盘态），并在检测到 legacy 过滤时标记强制重写
+      const persistedSnapshot = serializeSessionMessages(nextSession.messages)
+      const hadLegacy =
+        removeLegacyPaperFulltextMessages(nextMessages).length !== nextMessages.length
+      lastPersistedSerializedRef.current = persistedSnapshot
+      lastPersistedCountRef.current = persistedSnapshot.length
+      forceRewriteRef.current = hadLegacy
       setSelectedMCPTools(nextSession.selectionState?.selectedMCPTools || [])
       setSelectedKnowledgeBases(nextSession.selectionState?.selectedKnowledgeBases || [])
       setEnablePaperWebSearch(nextSession.selectionState?.enablePaperWebSearch || false)
