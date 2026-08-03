@@ -9,7 +9,7 @@ import { randomBytes } from 'node:crypto'
 import { utf8ToBytes } from '../crypto/base64url'
 
 /** AAD 前缀（固定长度，拼接无歧义） */
-export const SESSION_SNAPSHOT_AAD_PREFIX = 'lumina-session-file:'
+const SESSION_SNAPSHOT_AAD_PREFIX = 'lumina-session-file:'
 
 const NONCE_BYTES = 24
 const TAG_BYTES = 16

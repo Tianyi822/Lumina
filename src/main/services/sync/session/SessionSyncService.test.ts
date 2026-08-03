@@ -1,6 +1,6 @@
 /**
  * SessionSyncService 引擎单测：内存假 RelayClient + tmpdir 真实存储层。
- * 覆盖：未连接跳过、上传新建、下行落盘、双端合并、删除双向、解密失败、4MiB 上限。
+ * 覆盖：未连接跳过、上传新建、下行落盘、双端合并、删除双向、解密失败、4MiB 上限、409 CAS 重试。
  */
 import test from 'node:test'
 import assert from 'node:assert/strict'
@@ -23,6 +23,10 @@ type SyncServiceLike = Pick<SyncService, 'getStatus' | 'getDataKey' | 'getClient
 /** 内存假 RelayClient：实现 session-files 的 CAS 语义 */
 class FakeRelayClient {
   files = new Map<string, { bytes: Uint8Array; version: number }>()
+  /** 一次性钩子：下次 PUT 前把指定会话升级为给定内容/版本（模拟对端并发写入制造 409） */
+  upgradeOnNextPut: { sessionId: string; bytes: Uint8Array; version: number } | null = null
+  /** 持续 409 的会话：PUT 永远返回 stale，且每次把存储版本 +1（GET 总能拿到更新版本） */
+  alwaysStaleSessionIds = new Set<string>()
 
   async listSessionFiles(): Promise<
     SyncResult<{
@@ -55,6 +59,22 @@ class FakeRelayClient {
     baseVersion: number,
     bytes: Uint8Array
   ): Promise<SyncResult<{ version: number; size: number }>> {
+    if (this.alwaysStaleSessionIds.has(sessionId)) {
+      const current = this.files.get(sessionId)
+      const version = (current?.version ?? 0) + 1
+      this.files.set(sessionId, { bytes: current?.bytes ?? bytes, version })
+      return {
+        success: false,
+        code: 'stale_session_file',
+        error: '版本过期',
+        extra: { currentVersion: version }
+      }
+    }
+    if (this.upgradeOnNextPut && this.upgradeOnNextPut.sessionId === sessionId) {
+      const upgrade = this.upgradeOnNextPut
+      this.upgradeOnNextPut = null
+      this.files.set(sessionId, { bytes: upgrade.bytes, version: upgrade.version })
+    }
     const current = this.files.get(sessionId)?.version ?? 0
     if (current !== baseVersion) {
       return {
@@ -313,6 +333,73 @@ test('并发 syncNow 串行执行且都成功', async () => {
     assert.equal(r1.success, true)
     assert.equal(r2.success, true)
     assert.equal(h.relay.files.get('session-800-iii')?.version, 1)
+  } finally {
+    h.cleanup()
+  }
+})
+
+test('409 CAS 重试：stale 一次后拉新合并、重传成功', async () => {
+  const h = makeHarness()
+  try {
+    await h.storage.initialize()
+    // 基线：m1 已同步（远端 v1、tracker v1）
+    writeLocal(h.dir, 'session-900-jjj', sessionFileText('session-900-jjj', ['m1']))
+    await h.engine.syncNow()
+    // 本地追加 m2（dirty）；对端在引擎 PUT(base=1) 前把该文件升级为 v2（含新远端消息 m3）
+    writeLocal(
+      h.dir,
+      'session-900-jjj',
+      sessionFileText('session-900-jjj', ['m1', 'm2'], '2026-08-01T01:30:00.000Z')
+    )
+    const remoteV2Text = sessionFileText(
+      'session-900-jjj',
+      ['m1', 'm3'],
+      '2026-08-01T02:00:00.000Z'
+    )
+    h.relay.upgradeOnNextPut = {
+      sessionId: 'session-900-jjj',
+      bytes: sealSessionSnapshot(DEK, 'session-900-jjj', new TextEncoder().encode(remoteV2Text)),
+      version: 2
+    }
+    const result = await h.engine.syncNow()
+    assert.equal(result.success, true)
+    assert.equal(result.data?.uploaded, 1)
+    assert.ok((result.data?.merged ?? 0) >= 1, '409 后应发生行级合并')
+    assert.equal(h.tracker.getData().sessions['session-900-jjj']?.version, 3)
+    const remoteFinal = h.relay.files.get('session-900-jjj')
+    assert.ok(remoteFinal)
+    const remotePlain = new TextDecoder().decode(
+      openSessionSnapshot(DEK, 'session-900-jjj', remoteFinal.bytes)
+    )
+    assert.ok(remotePlain.includes('m2') && remotePlain.includes('m3'), '远端应包含双方消息')
+  } finally {
+    h.cleanup()
+  }
+})
+
+test('409 CAS 重试：持续 stale 至重试耗尽记 error', async () => {
+  const h = makeHarness()
+  try {
+    await h.storage.initialize()
+    // 基线：远端 v1、tracker v1、本地 dirty（contentHash 对不上即 dirty）
+    const remoteText = sessionFileText('session-901-kkk', ['m1'])
+    h.relay.files.set('session-901-kkk', {
+      bytes: sealSessionSnapshot(DEK, 'session-901-kkk', new TextEncoder().encode(remoteText)),
+      version: 1
+    })
+    writeLocal(
+      h.dir,
+      'session-901-kkk',
+      sessionFileText('session-901-kkk', ['m1', 'm2'], '2026-08-01T01:30:00.000Z')
+    )
+    h.tracker.setSession('session-901-kkk', { version: 1, contentHash: 'stale-hash' })
+    // 该会话每次 PUT 都 stale 且存储版本 +1 → GET 总能拿到更新版本，重试必然耗尽
+    h.relay.alwaysStaleSessionIds.add('session-901-kkk')
+    const result = await h.engine.syncNow()
+    assert.equal(result.success, false)
+    const error = result.data?.errors.find((e) => e.sessionId === 'session-901-kkk')
+    assert.ok(error, '应记录该会话的错误')
+    assert.ok(error.message.includes('版本冲突重试耗尽'), `message 应含重试耗尽：${error.message}`)
   } finally {
     h.cleanup()
   }

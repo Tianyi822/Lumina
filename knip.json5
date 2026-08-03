@@ -45,8 +45,6 @@
     "src/renderer/src/stores/writer/writerSessionStore.ts": ["types"],
     "src/renderer/src/stores/writer/writerSuggestionStore.ts": ["types"],
     "src/shared/types/session.ts": ["types"],
-    // SESSION_SNAPSHOT_AAD_PREFIX 是同步引擎（后续任务）消费的对外契约常量
-    "src/main/services/sync/session/sessionSnapshotCrypto.ts": ["exports"],
     // SessionSyncErrorItem 仅在文件内被 SessionSyncResult.errors 引用，外部消费方
     // （引擎/preload/renderer）均经结构推断使用，无显式具名导入，knip 误报 unused
     "src/shared/types/sync.ts": ["types"]

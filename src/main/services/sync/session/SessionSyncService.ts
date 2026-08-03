@@ -50,6 +50,12 @@ interface LocalSessionFile {
   hash: string
 }
 
+/** 本地读取判别结果：仅 ENOENT 判 missing，其余 I/O 错误判 error（不得视为"文件已删除"） */
+type LocalReadResult =
+  | ({ kind: 'ok' } & LocalSessionFile)
+  | { kind: 'missing' }
+  | { kind: 'error'; message: string }
+
 function emptyResult(): SessionSyncResult {
   return {
     uploaded: 0,
@@ -203,13 +209,14 @@ export class SessionSyncService {
     }
   }
 
-  /** 读取本地会话文件字节与 hash；失败返回 null */
-  private async readLocal(dir: string, sessionId: string): Promise<LocalSessionFile | null> {
+  /** 读取本地会话文件字节与 hash；仅 ENOENT 判 missing，其余错误返回 error 供调用方收敛 */
+  private async readLocal(dir: string, sessionId: string): Promise<LocalReadResult> {
     try {
       const bytes = new Uint8Array(await readFile(join(dir, getSessionJsonlFileName(sessionId))))
-      return { bytes, hash: sha256Hex(bytes) }
-    } catch {
-      return null
+      return { kind: 'ok', bytes, hash: sha256Hex(bytes) }
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return { kind: 'missing' }
+      return { kind: 'error', message: error instanceof Error ? error.message : String(error) }
     }
   }
 
@@ -240,23 +247,32 @@ export class SessionSyncService {
     // 扫描本地会话文件（忽略非 .jsonl 与非法命名）
     const dir = this.sessionsDirProvider()
     const localMap = new Map<string, LocalSessionFile>()
+    /** 本轮读取失败（非 ENOENT）的会话：不得判定为本地消失，禁止触发上行删除 */
+    const unreadable = new Set<string>()
     let files: string[] = []
     try {
       files = await readdir(dir)
-    } catch {
-      // 目录不存在视为空
+    } catch (error) {
+      // 目录不存在视为空；其他 I/O 错误中止整轮（整轮 error，避免误判消失而批量删除远端）
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
     }
     for (const file of files) {
       if (!file.endsWith('.jsonl')) continue
       const sessionId = file.slice(0, -'.jsonl'.length)
       if (!isValidSessionId(sessionId)) continue
       const local = await this.readLocal(dir, sessionId)
-      if (local) localMap.set(sessionId, local)
+      if (local.kind === 'ok') {
+        localMap.set(sessionId, local)
+      } else if (local.kind === 'error') {
+        result.errors.push({ sessionId, message: `本地读取失败：${local.message}` })
+        unreadable.add(sessionId)
+      }
     }
 
     // 1) 本地上行删除：tracker 有记录 + 本地文件消失
     for (const sessionId of Object.keys(data.sessions)) {
       if (localMap.has(sessionId)) continue
+      if (unreadable.has(sessionId)) continue // 读取失败 ≠ 已删除，禁止误判触发远端删除
       const remoteVersion = remote.get(sessionId)
       if (remoteVersion === undefined) {
         tracker.removeSession(sessionId)
@@ -311,12 +327,24 @@ export class SessionSyncService {
           result.errors.push({ sessionId, message: '远端内容无法解析' })
           continue
         }
-        await this.storage.rewriteSession({ ...parsed.meta, messages: parsed.messages })
+        try {
+          await this.storage.rewriteSession({ ...parsed.meta, messages: parsed.messages })
+        } catch (error) {
+          result.errors.push({
+            sessionId,
+            message: `落盘失败：${error instanceof Error ? error.message : String(error)}`
+          })
+          continue
+        }
         const disk = await this.readLocal(dir, sessionId)
-        if (disk) localMap.set(sessionId, disk)
+        if (disk.kind === 'error') {
+          result.errors.push({ sessionId, message: `本地读取失败：${disk.message}` })
+          continue
+        }
+        if (disk.kind === 'ok') localMap.set(sessionId, disk)
         tracker.setSession(sessionId, {
           version: confirmedVersion,
-          contentHash: disk?.hash ?? sha256Hex(new Uint8Array(0))
+          contentHash: disk.kind === 'ok' ? disk.hash : sha256Hex(new Uint8Array(0))
         })
         result.downloaded++
         continue
@@ -327,15 +355,33 @@ export class SessionSyncService {
         result.errors.push({ sessionId, message: '合并失败：meta 不可用' })
         continue
       }
-      await this.storage.rewriteSession({ ...merged.meta, messages: merged.messages })
+      try {
+        await this.storage.rewriteSession({ ...merged.meta, messages: merged.messages })
+      } catch (error) {
+        result.errors.push({
+          sessionId,
+          message: `落盘失败：${error instanceof Error ? error.message : String(error)}`
+        })
+        continue
+      }
       const disk = await this.readLocal(dir, sessionId)
-      if (disk) localMap.set(sessionId, disk)
-      tracker.setSession(sessionId, {
-        version: confirmedVersion,
-        contentHash: disk?.hash ?? local.hash
-      })
+      if (disk.kind === 'error') {
+        result.errors.push({ sessionId, message: `本地读取失败：${disk.message}` })
+        continue
+      }
+      if (disk.kind === 'ok') localMap.set(sessionId, disk)
       result.merged++
-      if (merged.content !== remoteText) pendingUpload.add(sessionId)
+      if (merged.content === remoteText) {
+        // 合并结果与远端一致、无需回传：直接确认远端版本
+        tracker.setSession(sessionId, {
+          version: confirmedVersion,
+          contentHash: disk.kind === 'ok' ? disk.hash : local.hash
+        })
+      } else {
+        // 需回传：不提前确认版本（保留旧 tracker 条目）；阶段 4 凭 dirty 上行，
+        // 若上行失败下轮远端仍领先 → 重新下载合并重试，避免永久停摆
+        pendingUpload.add(sessionId)
+      }
     }
 
     // 3) 远端删除 → 下行删除：tracker 有记录 + 本地存在 + 远端消失
@@ -344,7 +390,15 @@ export class SessionSyncService {
       const local = localMap.get(sessionId)
       if (!local) continue // 已在 (1) 处理
       if (local.hash !== tracked.contentHash) continue // 本地有未同步变更 → 保留，上行阶段复活
-      await this.storage.deleteSession(sessionId)
+      try {
+        await this.storage.deleteSession(sessionId)
+      } catch (error) {
+        result.errors.push({
+          sessionId,
+          message: `落盘失败：${error instanceof Error ? error.message : String(error)}`
+        })
+        continue
+      }
       tracker.removeSession(sessionId)
       localMap.delete(sessionId)
       result.deletedLocal++
@@ -387,8 +441,13 @@ export class SessionSyncService {
     result: SessionSyncResult,
     localMap: Map<string, LocalSessionFile>
   ): Promise<void> {
-    let current = await this.readLocal(dir, sessionId)
-    if (!current) return
+    const initial = await this.readLocal(dir, sessionId)
+    if (initial.kind === 'error') {
+      result.errors.push({ sessionId, message: `本地读取失败：${initial.message}` })
+      return
+    }
+    if (initial.kind === 'missing') return
+    let current: LocalSessionFile = initial
     let base = baseVersion
     for (let attempt = 0; attempt <= CAS_RETRY_LIMIT; attempt++) {
       if (current.bytes.byteLength + CIPHER_OVERHEAD_BYTES > MAX_SESSION_FILE_BYTES) {
@@ -429,9 +488,21 @@ export class SessionSyncService {
         result.errors.push({ sessionId, message: '冲突合并失败：meta 不可用' })
         return
       }
-      await this.storage.rewriteSession({ ...merged.meta, messages: merged.messages })
+      try {
+        await this.storage.rewriteSession({ ...merged.meta, messages: merged.messages })
+      } catch (error) {
+        result.errors.push({
+          sessionId,
+          message: `落盘失败：${error instanceof Error ? error.message : String(error)}`
+        })
+        return
+      }
       const disk = await this.readLocal(dir, sessionId)
-      if (!disk) {
+      if (disk.kind === 'error') {
+        result.errors.push({ sessionId, message: `本地读取失败：${disk.message}` })
+        return
+      }
+      if (disk.kind === 'missing') {
         result.errors.push({ sessionId, message: '合并落盘后读取失败' })
         return
       }
