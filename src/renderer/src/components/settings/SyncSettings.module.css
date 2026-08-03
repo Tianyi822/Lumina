@@ -197,3 +197,19 @@
     flex-direction: column;
   }
 }
+
+.sync-settings__session-sync {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sm-space-2);
+  color: var(--sm-color-text-secondary);
+  font-size: 12px;
+}
+
+.sync-settings__session-errors {
+  margin: 0;
+  padding-left: var(--sm-space-4);
+  color: var(--sm-color-status-danger);
+  font-size: 12px;
+  line-height: 1.6;
+}

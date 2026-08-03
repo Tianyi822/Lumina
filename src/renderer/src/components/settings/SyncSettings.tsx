@@ -10,6 +10,13 @@ function formatTimestamp(unixSeconds: number | null): string {
   return new Date(unixSeconds * 1000).toLocaleString('zh-CN')
 }
 
+function formatIsoDateTime(iso: string | null): string {
+  if (!iso) return '从未'
+  const time = Date.parse(iso)
+  if (Number.isNaN(time)) return '从未'
+  return new Date(time).toLocaleString('zh-CN')
+}
+
 function formatLastSeen(unixSeconds: number): string {
   return new Date(unixSeconds * 1000).toLocaleString('zh-CN')
 }
@@ -55,6 +62,7 @@ export default function SyncSettings() {
   const lastReconcile = useSyncStore((state) => state.lastReconcile)
   const pendingAction = useSyncStore((state) => state.pendingAction)
   const error = useSyncStore((state) => state.error)
+  const sessionSync = useSyncStore((state) => state.sessionSync)
 
   const discover = useSyncStore((state) => state.discover)
   const connect = useSyncStore((state) => state.connect)
@@ -67,6 +75,7 @@ export default function SyncSettings() {
   const revokeDevice = useSyncStore((state) => state.revokeDevice)
   const discardOtherGroups = useSyncStore((state) => state.discardOtherGroups)
   const reconcile = useSyncStore((state) => state.reconcile)
+  const syncSessionsNow = useSyncStore((state) => state.syncSessionsNow)
   const requestConfirm = useNotificationCenterStore((state) => state.requestConfirm)
 
   const [relayUrl, setRelayUrl] = useState(storedRelayUrl)
@@ -418,6 +427,59 @@ export default function SyncSettings() {
                   最近对账：{lastReconcile.manifestHeads.length} 个 Manifest head，
                   {lastReconcile.sessionFiles.length} 个会话快照
                 </span>
+              )}
+            </div>
+          </section>
+
+          <section
+            className={['sm-settings-page__section', styles['sync-settings__section']].join(' ')}
+          >
+            <div className="sm-settings-page__section-header">
+              <div>
+                <h3 className="sm-settings-page__section-title">会话同步</h3>
+                <p className="sm-settings-page__section-description">
+                  会话以整文件密文快照同步，冲突按消息合并；每 60 秒自动一轮。
+                </p>
+              </div>
+              <button
+                className="sm-button sm-button--primary"
+                disabled={pendingAction === 'session-sync' || sessionSync.phase === 'running'}
+                onClick={() => void syncSessionsNow()}
+              >
+                {sessionSync.phase === 'running' || pendingAction === 'session-sync'
+                  ? '同步中...'
+                  : '立即同步'}
+              </button>
+            </div>
+            <div className={styles['sync-settings__session-sync']}>
+              <span>
+                状态：
+                {sessionSync.phase === 'running'
+                  ? '同步中'
+                  : sessionSync.phase === 'error'
+                    ? '失败'
+                    : '空闲'}
+                {' · '}最近同步：{formatIsoDateTime(sessionSync.lastSyncAt)}
+              </span>
+              {sessionSync.lastResult && (
+                <span>
+                  上次结果：↑{sessionSync.lastResult.uploaded} 上行 · ↓
+                  {sessionSync.lastResult.downloaded} 下行 · ⇄{sessionSync.lastResult.merged} 合并 ·
+                  ✕{sessionSync.lastResult.deletedLocal + sessionSync.lastResult.deletedRemote} 删除
+                  · 跳过 {sessionSync.lastResult.skipped}
+                </span>
+              )}
+              {sessionSync.lastError && (
+                <span className={styles['sync-settings__error']}>{sessionSync.lastError}</span>
+              )}
+              {sessionSync.lastResult && sessionSync.lastResult.errors.length > 0 && (
+                <ul className={styles['sync-settings__session-errors']}>
+                  {sessionSync.lastResult.errors.slice(0, 5).map((item) => (
+                    <li key={item.sessionId}>
+                      {item.sessionId}：{item.message}
+                    </li>
+                  ))}
+                </ul>
               )}
             </div>
           </section>
