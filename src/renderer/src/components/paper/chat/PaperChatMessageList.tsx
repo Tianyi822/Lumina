@@ -10,10 +10,7 @@ import {
 } from 'react'
 import type { Message } from '@renderer/types'
 import type { PaperQuote } from '@shared/types/chat'
-import {
-  calculateComposerAnchoredScrollTop,
-  parseCssPixelValue
-} from './paperChatScrollAnchor'
+import { calculateComposerAnchoredScrollTop, parseCssPixelValue } from './paperChatScrollAnchor'
 import PaperChatMessage from './message/PaperChatMessage'
 import styles from './PaperChatMessageList.module.css'
 

@@ -130,7 +130,9 @@ function parseWriterIndex(value: unknown): WriterIndex | null {
 }
 
 /** 将历史文档转换为当前 Schema，保持函数无 I/O 副作用 */
-function migrateWriterDocument(value: unknown): { document: WriterDocument; changed: boolean } | null {
+function migrateWriterDocument(
+  value: unknown
+): { document: WriterDocument; changed: boolean } | null {
   const parsed = writerDocumentSchema.safeParse(value)
   if (!parsed.success) {
     return null
@@ -282,7 +284,9 @@ export class WriterStorageService {
         }
         await rm(getWriterDocumentDir(id, this.rootPath), { recursive: true, force: false })
         this.index.documents = this.index.documents.filter((document) => document.id !== id)
-        this.index.recentDocumentIds = this.index.recentDocumentIds.filter((recentId) => recentId !== id)
+        this.index.recentDocumentIds = this.index.recentDocumentIds.filter(
+          (recentId) => recentId !== id
+        )
         await this.writeIndexAtomically(this.index)
         return { success: true }
       } catch (error) {

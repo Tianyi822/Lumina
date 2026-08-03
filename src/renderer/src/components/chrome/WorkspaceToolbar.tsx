@@ -312,65 +312,62 @@ export default function WorkspaceToolbar() {
       aria-label={isWriterToolbar ? '写作工具' : '论文工具'}
     >
       <div className={styles['sm-workspace-toolbar__controls--sidebar']}>
-      {isPaperView && currentPaperId && !originalPdfVisible && (
-        <TranslationToggleButton
-          isActive={translationVisible}
-          isPending={isCurrentPaperTranslating}
-          title={translationButtonTitle}
-          onToggle={() => {
-            void handleToggleTranslation()
-          }}
-        />
-      )}
-
-      {isPaperView && currentPaperId && !originalPdfVisible && (
-        <TocPanel
-          showTocPanel={showTocPanel}
-          onToggle={handleToggleToc}
-          canOpenToc={canOpenToc}
-          markdownLoading={markdownLoading}
-          hasAnyTocEntries={hasAnyTocEntries}
-          paperTocTitle={paperTocTitle}
-          paperTocItems={paperTocItems}
-          onSelectTocItem={handleSelectTocItem}
-          getTocEntryDisplayText={getTocEntryDisplayText}
-          containerRef={tocContainerRef}
-        />
-      )}
-
-      {isPaperView && currentPaperId && !originalPdfVisible && (
-        <FigurePanel
-          showFigurePanel={showFigurePanel}
-          onToggle={() => {
-            void handleToggleFigurePanel()
-          }}
-          canOpenFigurePanel={canOpenFigurePanel}
-          currentFigureLoading={currentFigureLoading}
-          currentPaperFigures={currentPaperFigures}
-          getFigureItemLabel={getFigureItemLabel}
-          onPreviewFigure={handlePreviewFigure}
-          containerRef={figureContainerRef}
-          figurePanelRef={figurePanelRef}
-        />
-      )}
-
-      {isPaperView && currentPaperId && (
-        <OriginalPdfButton isActive={originalPdfVisible} onClick={handleToggleOriginalPdf} />
-      )}
-
-      {isPaperView && canOpenPaperChat && (
-        <PaperChatButton isActive={paperChatPanelOpen} onClick={handleTogglePaperChat} />
-      )}
-
-      {isWriterToolbar ? (
-        <>
-          <WriterExportButton documentId={currentDocumentId} />
-          <WriterChatButton
-            isActive={writerChatPanelOpen}
-            onClick={handleToggleWriterChat}
+        {isPaperView && currentPaperId && !originalPdfVisible && (
+          <TranslationToggleButton
+            isActive={translationVisible}
+            isPending={isCurrentPaperTranslating}
+            title={translationButtonTitle}
+            onToggle={() => {
+              void handleToggleTranslation()
+            }}
           />
-        </>
-      ) : null}
+        )}
+
+        {isPaperView && currentPaperId && !originalPdfVisible && (
+          <TocPanel
+            showTocPanel={showTocPanel}
+            onToggle={handleToggleToc}
+            canOpenToc={canOpenToc}
+            markdownLoading={markdownLoading}
+            hasAnyTocEntries={hasAnyTocEntries}
+            paperTocTitle={paperTocTitle}
+            paperTocItems={paperTocItems}
+            onSelectTocItem={handleSelectTocItem}
+            getTocEntryDisplayText={getTocEntryDisplayText}
+            containerRef={tocContainerRef}
+          />
+        )}
+
+        {isPaperView && currentPaperId && !originalPdfVisible && (
+          <FigurePanel
+            showFigurePanel={showFigurePanel}
+            onToggle={() => {
+              void handleToggleFigurePanel()
+            }}
+            canOpenFigurePanel={canOpenFigurePanel}
+            currentFigureLoading={currentFigureLoading}
+            currentPaperFigures={currentPaperFigures}
+            getFigureItemLabel={getFigureItemLabel}
+            onPreviewFigure={handlePreviewFigure}
+            containerRef={figureContainerRef}
+            figurePanelRef={figurePanelRef}
+          />
+        )}
+
+        {isPaperView && currentPaperId && (
+          <OriginalPdfButton isActive={originalPdfVisible} onClick={handleToggleOriginalPdf} />
+        )}
+
+        {isPaperView && canOpenPaperChat && (
+          <PaperChatButton isActive={paperChatPanelOpen} onClick={handleTogglePaperChat} />
+        )}
+
+        {isWriterToolbar ? (
+          <>
+            <WriterExportButton documentId={currentDocumentId} />
+            <WriterChatButton isActive={writerChatPanelOpen} onClick={handleToggleWriterChat} />
+          </>
+        ) : null}
       </div>
     </div>
   )

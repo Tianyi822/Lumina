@@ -344,14 +344,17 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
     const unresolvedNotifiedRef = useRef(false)
 
     // 同步段落元数据并调度懒渲染；invalidateAllMeasurements 由 usePaperVirtualizer layoutKey effect 处理
-    const syncMetasAndSchedule = useCallback((onAfterLayout?: () => void): void => {
-      probe.mark('pr:metas-start') // PERF-PROBE:firstpaint
-      engine.renderSegmentMetas()
-      probe.mark('pr:metas-end') // PERF-PROBE:firstpaint（取代旧 paper-switch-first-paint）
-      requestAnimationFrame(() => {
-        syncTablesAndRemeasure(onAfterLayout)
-      })
-    }, [engine, syncTablesAndRemeasure])
+    const syncMetasAndSchedule = useCallback(
+      (onAfterLayout?: () => void): void => {
+        probe.mark('pr:metas-start') // PERF-PROBE:firstpaint
+        engine.renderSegmentMetas()
+        probe.mark('pr:metas-end') // PERF-PROBE:firstpaint（取代旧 paper-switch-first-paint）
+        requestAnimationFrame(() => {
+          syncTablesAndRemeasure(onAfterLayout)
+        })
+      },
+      [engine, syncTablesAndRemeasure]
+    )
 
     const annotationInvalidateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
     const pendingAnnotationRemeasureStableIdsRef = useRef<Set<string>>(new Set())

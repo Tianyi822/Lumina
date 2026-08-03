@@ -1,13 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import {
-  existsSync,
-  mkdtempSync,
-  mkdirSync,
-  readFileSync,
-  rmSync,
-  writeFileSync
-} from 'node:fs'
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { WriterExportDocument } from '@shared/types/writer'

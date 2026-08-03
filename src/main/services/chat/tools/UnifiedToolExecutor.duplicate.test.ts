@@ -2,10 +2,7 @@ import { describe, it, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
 
 import { UnifiedToolExecutor } from './UnifiedToolExecutor'
-import type {
-  ToolCallDefinition,
-  UnifiedToolExecutorOptions
-} from './UnifiedToolExecutor'
+import type { ToolCallDefinition, UnifiedToolExecutorOptions } from './UnifiedToolExecutor'
 import type { RegisteredTool, ToolAdapter } from './UnifiedToolRegistry'
 import type { MCPToolCallResult } from '@shared/types/mcp'
 import type { ToolCategory } from '@shared/types/tool-stats'
@@ -204,11 +201,7 @@ describe('UnifiedToolExecutor 连续重复调用检测', () => {
     assert.equal(streamEvents[0].type, 'tool_call', '第一个事件应为 tool_call')
     assert.equal(streamEvents[1].type, 'tool_result', '第二个事件应为 tool_result')
     // ID 应一致，构成完整配对
-    assert.equal(
-      streamEvents[0].toolCall?.id,
-      'p3',
-      'tool_call 事件应携带被拦截调用的 id'
-    )
+    assert.equal(streamEvents[0].toolCall?.id, 'p3', 'tool_call 事件应携带被拦截调用的 id')
     assert.equal(
       streamEvents[0].toolCall?.name,
       'search_context',
@@ -219,11 +212,7 @@ describe('UnifiedToolExecutor 连续重复调用检测', () => {
       { path: '/tmp/p' },
       'tool_call 事件应携带解析后的参数'
     )
-    assert.equal(
-      streamEvents[1].toolResult?.id,
-      'p3',
-      'tool_result 事件应与 tool_call 的 id 匹配'
-    )
+    assert.equal(streamEvents[1].toolResult?.id, 'p3', 'tool_result 事件应与 tool_call 的 id 匹配')
     assert.equal(streamEvents[1].toolResult?.success, false, 'tool_result 应标记为失败')
   })
 
@@ -298,7 +287,10 @@ describe('UnifiedToolExecutor 连续重复调用检测', () => {
   })
 
   it('白名单工具（knowledge__search / paper__read_page）连续重复调用不应被拦截', async () => {
-    const { executor, adapterCalls } = createExecutorWithTools(['knowledge__search', 'paper__read_page'])
+    const { executor, adapterCalls } = createExecutorWithTools([
+      'knowledge__search',
+      'paper__read_page'
+    ])
 
     // knowledge__search 连续 6 次相同参数
     for (let i = 0; i < 6; i++) {

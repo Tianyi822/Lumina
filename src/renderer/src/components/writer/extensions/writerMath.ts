@@ -86,7 +86,9 @@ export function normalizeWriterCodeBlockContent(content: unknown): unknown {
     ? content.content.map(normalizeWriterCodeBlockContent)
     : content.content
   if (content.type !== 'codeBlock') {
-    return normalizedContent === content.content ? content : { ...content, content: normalizedContent }
+    return normalizedContent === content.content
+      ? content
+      : { ...content, content: normalizedContent }
   }
 
   const attributes = isRecord(content.attrs) ? content.attrs : {}
@@ -121,10 +123,7 @@ export function openWriterMathDraft(current: WriterMathDraft, latex: string): Wr
   return current.editing ? current : createWriterMathDraft(latex)
 }
 
-export function reconcileWriterMathDraft(
-  current: WriterMathDraft,
-  latex: string
-): WriterMathDraft {
+export function reconcileWriterMathDraft(current: WriterMathDraft, latex: string): WriterMathDraft {
   return current.sourceLatex === latex
     ? current
     : {

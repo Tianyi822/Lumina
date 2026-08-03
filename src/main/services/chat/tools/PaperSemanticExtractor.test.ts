@@ -7,9 +7,7 @@ describe('PaperSemanticExtractor', () => {
 
   describe('extractKeywords', () => {
     it('英文标题应过滤停用词并返回有效关键词', () => {
-      const keywords = extractor.extractKeywords(
-        'Attention Is All You Need'
-      )
+      const keywords = extractor.extractKeywords('Attention Is All You Need')
       assert.ok(!keywords.includes('Is'))
       assert.ok(!keywords.includes('All'))
       assert.ok(!keywords.includes('You'))
@@ -18,9 +16,7 @@ describe('PaperSemanticExtractor', () => {
     })
 
     it('中文标题应按虚词分段后提取 2-4 字组合', () => {
-      const keywords = extractor.extractKeywords(
-        '基于深度学习的自然语言处理研究'
-      )
+      const keywords = extractor.extractKeywords('基于深度学习的自然语言处理研究')
       assert.ok(keywords.length > 0)
       // "深度学习" 和 "自然语言处理" 应作为有意义的片段出现
       assert.ok(keywords.some((k) => k.includes('深度') || k.includes('学习')))
@@ -30,9 +26,7 @@ describe('PaperSemanticExtractor', () => {
     })
 
     it('混合标题应同时提取中英文关键词', () => {
-      const keywords = extractor.extractKeywords(
-        '基于 Transformer 的 BERT 预训练模型'
-      )
+      const keywords = extractor.extractKeywords('基于 Transformer 的 BERT 预训练模型')
       const hasChinese = keywords.some((k) => /[一-鿿]/.test(k))
       const hasEnglish = keywords.some((k) => /^[a-zA-Z]/.test(k))
       assert.ok(hasChinese, '应包含中文关键词')
@@ -54,9 +48,7 @@ describe('PaperSemanticExtractor', () => {
     })
 
     it('纯英文论文标题应正常提取', () => {
-      const keywords = extractor.extractKeywords(
-        'Deep Residual Learning for Image Recognition'
-      )
+      const keywords = extractor.extractKeywords('Deep Residual Learning for Image Recognition')
       assert.ok(keywords.includes('Deep'))
       assert.ok(keywords.includes('Residual'))
       assert.ok(keywords.includes('Learning'))

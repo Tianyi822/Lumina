@@ -145,10 +145,7 @@ test('链接与加粗标记映射到 runs', () => {
           {
             type: 'text',
             text: '外链',
-            marks: [
-              { type: 'link', attrs: { href: 'https://example.com' } },
-              { type: 'bold' }
-            ]
+            marks: [{ type: 'link', attrs: { href: 'https://example.com' } }, { type: 'bold' }]
           }
         ]
       }

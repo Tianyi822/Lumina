@@ -1,11 +1,4 @@
-import {
-  copyFileSync,
-  existsSync,
-  mkdirSync,
-  renameSync,
-  rmSync,
-  writeFileSync
-} from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { basename, dirname, join } from 'node:path'
 import type {
   WriterExportDocument,
@@ -38,8 +31,7 @@ export class WriterMarkdownExporter {
     document: WriterExportDocument,
     options?: WriterMarkdownRenderOptions
   ): Promise<WriterMarkdownRenderResult> {
-    const assetsBaseName =
-      options?.assetsBaseName ?? sanitizeExportBaseName(document.title)
+    const assetsBaseName = options?.assetsBaseName ?? sanitizeExportBaseName(document.title)
     const markdown = renderMarkdownDocument(document, assetsBaseName)
     return { markdown, warnings: [...document.warnings] }
   }
@@ -50,10 +42,7 @@ export class WriterMarkdownExporter {
    * 2. 全部成功后再以 backup→rename 方式提交最终文件 / `<basename>.assets/`
    * 3. 失败清理临时产物；已有 `.md` 与 `.assets` 保持不变（或从 backup 恢复）
    */
-  async export(
-    document: WriterExportDocument,
-    outputPath: string
-  ): Promise<WriterResult<void>> {
+  async export(document: WriterExportDocument, outputPath: string): Promise<WriterResult<void>> {
     const directory = dirname(outputPath)
     const baseName = basename(outputPath, '.md')
     const finalAssetsDir = join(directory, `${baseName}.assets`)
@@ -180,8 +169,7 @@ function renderList(
       }
 
       const [first, ...rest] = item.nodes
-      const firstLine =
-        first != null ? renderNode(first, assetsBaseName, listDepth + 1) : ''
+      const firstLine = first != null ? renderNode(first, assetsBaseName, listDepth + 1) : ''
       const head = `${indent}${marker} ${firstLine}`.trimEnd()
       const nested = rest
         .map((child) => {
@@ -246,9 +234,7 @@ function renderTable(rows: WriterExportTableRow[]): string {
 }
 
 function renderFootnotes(items: WriterExportFootnote[]): string {
-  return items
-    .map((item) => `[^${item.number}]: ${renderRuns(item.runs)}`)
-    .join('\n')
+  return items.map((item) => `[^${item.number}]: ${renderRuns(item.runs)}`).join('\n')
 }
 
 function renderCodeFence(language: string | undefined, text: string): string {

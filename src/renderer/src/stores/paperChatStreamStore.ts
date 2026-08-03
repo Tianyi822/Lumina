@@ -99,7 +99,7 @@ export const usePaperChatStreamStore = create<PaperChatStreamState>()((set, get)
   getSessionSendingState: (sessionId) => get().sessionSendingStates.get(sessionId) || false,
 
   setSessionSendingState: (sessionId, state, isCurrentSession = false) =>
-        // 更新会话发送状态，可选标记为当前会话
+    // 更新会话发送状态，可选标记为当前会话
     set((s) => {
       const next = new Map(s.sessionSendingStates)
       next.set(sessionId, state)

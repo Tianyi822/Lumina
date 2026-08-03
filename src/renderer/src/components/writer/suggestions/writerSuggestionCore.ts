@@ -289,9 +289,7 @@ export function findBlockByNodeId(state: EditorState, nodeId: string): LocatedBl
   return found
 }
 
-function omitBlockPos(
-  block: WriterAiContextBlock & { pos: number }
-): WriterAiContextBlock {
+function omitBlockPos(block: WriterAiContextBlock & { pos: number }): WriterAiContextBlock {
   return {
     nodeId: block.nodeId,
     type: block.type,

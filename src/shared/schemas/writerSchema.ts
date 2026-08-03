@@ -125,15 +125,13 @@ const writerBlockOpsInputSchema = z.object({
   blocks: z.array(writerAiContextBlockSchema).min(1)
 })
 
-export const writerEditOperationInputSchema: z.ZodType<WriterEditOperationInput> = z.discriminatedUnion(
-  'kind',
-  [
+export const writerEditOperationInputSchema: z.ZodType<WriterEditOperationInput> =
+  z.discriminatedUnion('kind', [
     writerInsertTextInputSchema,
     writerReplaceTextInputSchema,
     writerDeleteTextInputSchema,
     writerBlockOpsInputSchema
-  ]
-)
+  ])
 
 const MAX_PROPOSE_INSERT_CHARS = 100_000
 
@@ -201,13 +199,16 @@ const writerReplaceBlocksOpSchema = z.object({
   expectedBlockHashes: z.record(z.string(), z.string())
 })
 
-export const writerEditOperationSchema: z.ZodType<WriterEditOperation> = z.discriminatedUnion('kind', [
-  writerInsertTextOpSchema,
-  writerReplaceTextOpSchema,
-  writerDeleteTextOpSchema,
-  writerInsertBlocksOpSchema,
-  writerReplaceBlocksOpSchema
-])
+export const writerEditOperationSchema: z.ZodType<WriterEditOperation> = z.discriminatedUnion(
+  'kind',
+  [
+    writerInsertTextOpSchema,
+    writerReplaceTextOpSchema,
+    writerDeleteTextOpSchema,
+    writerInsertBlocksOpSchema,
+    writerReplaceBlocksOpSchema
+  ]
+)
 
 export const writerAiProposalSchema: z.ZodType<WriterAiProposal> = z.object({
   proposalId: z.string().min(1),

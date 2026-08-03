@@ -11,8 +11,7 @@ export const capabilityApi = {
     ipcRenderer.invoke('capability:add', sessionId, capabilityId),
 
   /** 获取会话当前已激活的能力状态 */
-  getState: (sessionId: string) =>
-    ipcRenderer.invoke('capability:getState', sessionId),
+  getState: (sessionId: string) => ipcRenderer.invoke('capability:getState', sessionId),
 
   /** 响应对能力的建议（接受或拒绝） */
   respondSuggestion: (sessionId: string, capabilityId: string, accepted: boolean) =>

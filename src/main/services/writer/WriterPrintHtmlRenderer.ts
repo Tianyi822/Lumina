@@ -28,9 +28,11 @@ export class WriterPrintHtmlRenderer {
   private readonly highlightCssPath: string
 
   constructor(options: WriterPrintHtmlRendererOptions = {}) {
-    this.katexCssPath = options.katexCssPath ?? resolvePackageCss('katex/package.json', 'dist/katex.min.css')
+    this.katexCssPath =
+      options.katexCssPath ?? resolvePackageCss('katex/package.json', 'dist/katex.min.css')
     this.highlightCssPath =
-      options.highlightCssPath ?? resolvePackageCss('highlight.js/package.json', 'styles/github.css')
+      options.highlightCssPath ??
+      resolvePackageCss('highlight.js/package.json', 'styles/github.css')
   }
 
   render(document: WriterExportDocument): WriterResult<string> {
@@ -310,9 +312,7 @@ function detectMime(bytes: Buffer): string {
 
 /** 去掉注释与网络 url，保证打印 HTML 完全离线。 */
 function sanitizeOfflineCss(css: string): string {
-  return css
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/url\(\s*['"]?https?:[^)]+\)/gi, 'url()')
+  return css.replace(/\/\*[\s\S]*?\*\//g, '').replace(/url\(\s*['"]?https?:[^)]+\)/gi, 'url()')
 }
 
 function escapeHtml(value: string): string {

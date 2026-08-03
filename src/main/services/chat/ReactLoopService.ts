@@ -25,7 +25,11 @@ import { capabilityRegistry } from './tools/capabilities/CapabilityRegistry'
 import { registerBuiltinCapabilities } from './tools/capabilities/registerBuiltinCapabilities'
 import { capabilityManager } from './tools/CapabilityManager'
 import { presetRegistry } from './tools/presets/PresetRegistry'
-import { CHAT_PAPER_PRESET, CHAT_DEFAULT_PRESET, CHAT_WRITER_PRESET } from './tools/presets/builtinPresets'
+import {
+  CHAT_PAPER_PRESET,
+  CHAT_DEFAULT_PRESET,
+  CHAT_WRITER_PRESET
+} from './tools/presets/builtinPresets'
 import type { TokenUsage } from '../../types/chat'
 import {
   addTokenUsage,

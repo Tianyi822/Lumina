@@ -631,7 +631,7 @@ export default function PaperOriginalPdfView({ paperId }: PaperOriginalPdfViewPr
         onScroll={recordScrollPosition}
       >
         {/* pages 非空才渲染 PDF 页面内容 */}
-      {pages.length > 0 && (
+        {pages.length > 0 && (
           <div className={styles['paper-original-pdf-view__content']}>
             {pages.map((page) => {
               const pageState = pageStates[page.pageIndex] || { status: 'idle' }

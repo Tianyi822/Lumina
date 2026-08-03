@@ -314,5 +314,8 @@ test('writerSuggestionPluginKey 已导出', () => {
   assert.ok(writerSuggestionPluginKey)
   assert.equal(String(writerSuggestionPluginKey), '[object Object]')
   // PluginKey 内部 key 形如 writerSuggestion$
-  assert.match(String((writerSuggestionPluginKey as { key?: string }).key ?? ''), /writerSuggestion/)
+  assert.match(
+    String((writerSuggestionPluginKey as { key?: string }).key ?? ''),
+    /writerSuggestion/
+  )
 })

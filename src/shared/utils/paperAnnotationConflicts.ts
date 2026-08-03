@@ -4,7 +4,8 @@ import type {
   PaperAnnotationTextAnchor
 } from '../types/paper'
 
-export const PAPER_ANNOTATION_NOTE_CONFLICT_MESSAGE = '该段已有笔记覆盖了选中范围，请调整选区或编辑已有笔记'
+export const PAPER_ANNOTATION_NOTE_CONFLICT_MESSAGE =
+  '该段已有笔记覆盖了选中范围，请调整选区或编辑已有笔记'
 
 type PaperAnnotationNoteConflictReason = 'range_overlap'
 

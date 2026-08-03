@@ -50,7 +50,10 @@ test('unlinkFileFromKB 会同步清理本地索引失效文件', () => {
   const kb = useKnowledgeStore.getState().knowledgeBases[0]
   assert.deepEqual(kb.linkedFileIds, ['file-2'])
   assert.equal(kb.documentCount, 1)
-  assert.deepEqual(kb.indexInvalidation?.files.map((file) => file.fileId), ['file-2'])
+  assert.deepEqual(
+    kb.indexInvalidation?.files.map((file) => file.fileId),
+    ['file-2']
+  )
 })
 
 test('unlinkFileFromKB 移除最后一个失效文件时清空本地失效状态', () => {

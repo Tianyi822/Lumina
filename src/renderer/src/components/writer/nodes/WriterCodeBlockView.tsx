@@ -56,7 +56,12 @@ export default function WriterCodeBlockView({ node, updateAttributes }: NodeView
             ))}
           </select>
         </label>
-        <button type="button" className={styles.copyButton} aria-label="复制代码" onClick={copyCode}>
+        <button
+          type="button"
+          className={styles.copyButton}
+          aria-label="复制代码"
+          onClick={copyCode}
+        >
           复制
         </button>
       </div>

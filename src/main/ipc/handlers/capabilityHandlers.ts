@@ -7,14 +7,11 @@ import { capabilityManager } from '@main/services/chat/tools/CapabilityManager'
  */
 export function registerCapabilityHandlers(): void {
   // 为会话添加指定的能力
-  ipcMain.handle(
-    'capability:add',
-    async (_event, sessionId: string, capabilityId: string) => {
-      const state = capabilityManager.addCapability(sessionId, capabilityId)
-      if (!state) return { success: false, error: '会话不存在' }
-      return { success: true, data: state }
-    }
-  )
+  ipcMain.handle('capability:add', async (_event, sessionId: string, capabilityId: string) => {
+    const state = capabilityManager.addCapability(sessionId, capabilityId)
+    if (!state) return { success: false, error: '会话不存在' }
+    return { success: true, data: state }
+  })
 
   // 获取会话当前已激活的能力状态
   ipcMain.handle('capability:getState', async (_event, sessionId: string) => {

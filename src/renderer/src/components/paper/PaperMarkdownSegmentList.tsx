@@ -90,12 +90,11 @@ const PaperMarkdownSegmentItem = memo(
               dangerouslySetInnerHTML={{ __html: segment.originalHtml }}
             />
           ) : showError ? (
-            <p className={styles['paper-markdown-view__segment-fallback']}>{segment.originalText}</p>
+            <p className={styles['paper-markdown-view__segment-fallback']}>
+              {segment.originalText}
+            </p>
           ) : (
-            <div
-              className={styles['paper-markdown-view__segment-skeleton']}
-              aria-hidden="true"
-            />
+            <div className={styles['paper-markdown-view__segment-skeleton']} aria-hidden="true" />
           )}
         </div>
 
@@ -237,10 +236,7 @@ const PaperMarkdownSegmentItem = memo(
                 </button>
               </>
             ) : (
-              <div
-                className={styles['paper-markdown-view__segment-skeleton']}
-                aria-hidden="true"
-              />
+              <div className={styles['paper-markdown-view__segment-skeleton']} aria-hidden="true" />
             )}
           </div>
         )}

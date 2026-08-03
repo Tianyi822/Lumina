@@ -214,7 +214,7 @@ export async function readFileContent(filePath: string, fileName: string): Promi
     return readPptxFile(filePath)
   }
 
-    // 未知扩展名作为纯文本文件读取
+  // 未知扩展名作为纯文本文件读取
   return readTextFile(filePath)
 }
 

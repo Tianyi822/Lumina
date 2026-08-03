@@ -79,7 +79,10 @@ test('validateSessionMetaPatch', async (t) => {
   })
 
   await t.test('title 超长返回错误', () => {
-    assert.equal(validateSessionMetaPatch({ title: 'x'.repeat(201) }), '标题长度不能超过 200 个字符')
+    assert.equal(
+      validateSessionMetaPatch({ title: 'x'.repeat(201) }),
+      '标题长度不能超过 200 个字符'
+    )
   })
 
   await t.test('非对象返回错误', () => {

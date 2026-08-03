@@ -91,8 +91,10 @@ export class WriterService {
     this.getWebContentsIds = options.getWebContentsIds
     this.documentMapper = options.documentMapper ?? new WriterDocumentMapper()
     this.markdownExporter = options.markdownExporter ?? new WriterMarkdownExporter()
-    this.docxExporter = options.docxExporter ?? new WriterDocxExporter(new WriterFormulaRasterizer())
-    this.printExporter = options.printExporter ?? new WriterPrintExporter(new WriterPrintHtmlRenderer())
+    this.docxExporter =
+      options.docxExporter ?? new WriterDocxExporter(new WriterFormulaRasterizer())
+    this.printExporter =
+      options.printExporter ?? new WriterPrintExporter(new WriterPrintHtmlRenderer())
     this.exportDialog = options.exportDialog ?? createDefaultExportDialog()
   }
 
@@ -194,41 +196,44 @@ export class WriterService {
     documentId: string,
     format: WriterExportFormat
   ): Promise<WriterResult<WriterExportOutcome>> {
-    return this.runOperation('导出写作文档失败', async (): Promise<WriterResult<WriterExportOutcome>> => {
-      if (format !== 'markdown' && format !== 'docx' && format !== 'pdf') {
-        return {
-          success: false,
-          code: 'invalid_input',
-          error: `暂不支持导出格式：${format}`
+    return this.runOperation(
+      '导出写作文档失败',
+      async (): Promise<WriterResult<WriterExportOutcome>> => {
+        if (format !== 'markdown' && format !== 'docx' && format !== 'pdf') {
+          return {
+            success: false,
+            code: 'invalid_input',
+            error: `暂不支持导出格式：${format}`
+          }
         }
-      }
 
-      const documentResult = await this.storageService.getDocument(documentId)
-      if (!documentResult.success || !documentResult.data) {
-        return {
-          success: false,
-          code: documentResult.code ?? 'not_found',
-          error: documentResult.error ?? '写作文档不存在'
+        const documentResult = await this.storageService.getDocument(documentId)
+        if (!documentResult.success || !documentResult.data) {
+          return {
+            success: false,
+            code: documentResult.code ?? 'not_found',
+            error: documentResult.error ?? '写作文档不存在'
+          }
         }
-      }
 
-      const mapped = this.documentMapper.map(documentResult.data)
-      if (!mapped.success || !mapped.data) {
-        return {
-          success: false,
-          code: mapped.code ?? 'invalid_input',
-          error: mapped.error ?? '映射写作文档失败'
+        const mapped = this.documentMapper.map(documentResult.data)
+        if (!mapped.success || !mapped.data) {
+          return {
+            success: false,
+            code: mapped.code ?? 'invalid_input',
+            error: mapped.error ?? '映射写作文档失败'
+          }
         }
-      }
 
-      if (format === 'markdown') {
-        return this.exportMarkdown(documentId, documentResult.data.title, mapped.data)
+        if (format === 'markdown') {
+          return this.exportMarkdown(documentId, documentResult.data.title, mapped.data)
+        }
+        if (format === 'docx') {
+          return this.exportDocx(documentId, documentResult.data.title, mapped.data)
+        }
+        return this.exportPdf(documentId, documentResult.data.title, mapped.data)
       }
-      if (format === 'docx') {
-        return this.exportDocx(documentId, documentResult.data.title, mapped.data)
-      }
-      return this.exportPdf(documentId, documentResult.data.title, mapped.data)
-    })
+    )
   }
 
   private async exportMarkdown(
@@ -236,51 +241,51 @@ export class WriterService {
     title: string,
     exportDocument: WriterExportDocument
   ): Promise<WriterResult<WriterExportOutcome>> {
-      const defaultName = `${sanitizeExportBaseName(title)}.md`
-      const saveResult = await this.exportDialog.showSaveDialog({
-        title: '导出 Markdown',
-        defaultPath: defaultName,
-        filters: [{ name: 'Markdown', extensions: ['md'] }]
+    const defaultName = `${sanitizeExportBaseName(title)}.md`
+    const saveResult = await this.exportDialog.showSaveDialog({
+      title: '导出 Markdown',
+      defaultPath: defaultName,
+      filters: [{ name: 'Markdown', extensions: ['md'] }]
+    })
+    if (saveResult.canceled || !saveResult.filePath) {
+      return { success: true, data: { canceled: true } }
+    }
+
+    const outputPath = ensureMarkdownExtension(saveResult.filePath)
+    const assetsDir = join(dirname(outputPath), `${basename(outputPath, '.md')}.assets`)
+
+    if (existsSync(assetsDir)) {
+      const confirm = await this.exportDialog.showMessageBox({
+        type: 'warning',
+        buttons: ['取消', '覆盖'],
+        cancelId: 0,
+        defaultId: 0,
+        title: '覆盖导出资源',
+        message: `目标目录已存在同名资源文件夹：\n${assetsDir}\n\n是否覆盖？`
       })
-      if (saveResult.canceled || !saveResult.filePath) {
+      if (confirm.response !== 1) {
         return { success: true, data: { canceled: true } }
       }
+      // 确认后不在此处删除；由 exporter 在 commit 阶段原子替换，失败时保留原目录
+    }
 
-      const outputPath = ensureMarkdownExtension(saveResult.filePath)
-      const assetsDir = join(dirname(outputPath), `${basename(outputPath, '.md')}.assets`)
-
-      if (existsSync(assetsDir)) {
-        const confirm = await this.exportDialog.showMessageBox({
-          type: 'warning',
-          buttons: ['取消', '覆盖'],
-          cancelId: 0,
-          defaultId: 0,
-          title: '覆盖导出资源',
-          message: `目标目录已存在同名资源文件夹：\n${assetsDir}\n\n是否覆盖？`
-        })
-        if (confirm.response !== 1) {
-          return { success: true, data: { canceled: true } }
-        }
-        // 确认后不在此处删除；由 exporter 在 commit 阶段原子替换，失败时保留原目录
+    const exportResult = await this.markdownExporter.export(exportDocument, outputPath)
+    if (!exportResult.success) {
+      return {
+        success: false,
+        code: exportResult.code ?? 'io_error',
+        error: exportResult.error ?? 'Markdown 导出失败'
       }
+    }
 
-      const exportResult = await this.markdownExporter.export(exportDocument, outputPath)
-      if (!exportResult.success) {
-        return {
-          success: false,
-          code: exportResult.code ?? 'io_error',
-          error: exportResult.error ?? 'Markdown 导出失败'
-        }
-      }
+    if (exportDocument.warnings.length > 0) {
+      logger.warn('写作文档导出含降级警告', 'main', {
+        documentId,
+        warnings: exportDocument.warnings
+      })
+    }
 
-      if (exportDocument.warnings.length > 0) {
-        logger.warn('写作文档导出含降级警告', 'main', {
-          documentId,
-          warnings: exportDocument.warnings
-        })
-      }
-
-      return { success: true, data: { canceled: false, outputPath } }
+    return { success: true, data: { canceled: false, outputPath } }
   }
 
   private async exportDocx(
