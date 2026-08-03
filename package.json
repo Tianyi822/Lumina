@@ -14,6 +14,7 @@
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json --composite false",
     "typecheck": "npm run typecheck:node && npm run typecheck:web",
     "test:sync": "node --loader ./scripts/test/tsAliasLoader.mjs --test --experimental-strip-types src/main/services/sync/crypto/protocol.test.ts src/main/services/sync/transport/RelayClient.test.ts src/main/services/sync/SyncStore.test.ts src/main/services/sync/SyncService.test.ts src/renderer/src/stores/syncStore.test.ts",
+    "test:sync:integration": "node --loader ./scripts/test/tsAliasLoader.mjs --test --experimental-strip-types src/main/services/sync/SyncService.integration.test.ts",
     "test:theme": "node --test --experimental-strip-types src/shared/utils/theme.test.mjs",
     "test:writer": "npm run test:writer:shared && npm run test:writer:main && npm run test:writer:renderer",
     "test:update": "node --loader ./scripts/test/tsAliasLoader.mjs --test --experimental-strip-types src/main/services/update/updateDiagnostics.test.ts src/main/services/update/ReleaseNotesService.test.ts && node --test scripts/build/validateReleaseAssets.test.mjs",
