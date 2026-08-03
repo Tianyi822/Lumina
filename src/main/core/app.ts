@@ -13,7 +13,8 @@ import {
   initializeEmbeddingModels,
   initializeFileService,
   initializeWriterService,
-  initializeSessionService
+  initializeSessionService,
+  initializeSyncService
 } from '@main/ipc'
 import { mcpService } from '@main/services/mcp'
 import { getKnowledgeMCPServerService } from '@main/services/knowledge/KnowledgeMCPServerService'
@@ -198,6 +199,13 @@ export function initializeApp(): void {
 
     // 初始化写作服务（依赖通用文件服务已完成启动）
     await initializeWriterService()
+
+    // 初始化数据同步服务：恢复本地身份并后台续期，失败不阻止应用启动
+    initializeSyncService().catch((error) => {
+      logger.warn('同步服务初始化失败', 'main', {
+        error: error instanceof Error ? error.message : String(error)
+      })
+    })
 
     // 创建主窗口
     const mainWindow = createApplicationWindow()

@@ -19,6 +19,7 @@ import type { PaperWebSearchApi } from './paperWebSearch'
 import type { UpdateApi } from './update'
 import type { CapabilityApi } from './capability'
 import type { WriterApi } from './writer'
+import type { SyncApi } from './sync'
 
 /**
  * 自定义的完整 API 集合
@@ -65,4 +66,6 @@ export interface CustomApi {
   capability: CapabilityApi
   /** 写作工作区 */
   writer: WriterApi
+  /** 数据同步 */
+  sync: SyncApi
 }

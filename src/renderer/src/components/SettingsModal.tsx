@@ -8,6 +8,7 @@ import KnowledgeMCPSettings from './settings/KnowledgeMCPSettings'
 import PaperReaderSettings from './settings/PaperReaderSettings'
 import ToolStatsSettings from './settings/ToolStatsSettings'
 import UpdateSettings from './settings/UpdateSettings'
+import SyncSettings from './settings/SyncSettings'
 import styles from './SettingsModal.module.css'
 
 type SettingsTabKey =
@@ -18,9 +19,10 @@ type SettingsTabKey =
   | 'knowledge'
   | 'toolStats'
   | 'theme'
+  | 'sync'
   | 'update'
 
-type SettingsCategoryId = 'paper' | 'knowledge' | 'advanced' | 'theme' | 'update'
+type SettingsCategoryId = 'paper' | 'knowledge' | 'advanced' | 'theme' | 'sync' | 'update'
 
 interface SettingsModalProps {
   onClose: () => void
@@ -38,6 +40,7 @@ const settingsCategories: SettingsCategory[] = [
   { id: 'knowledge', label: '知识库配置', items: ['embedding', 'knowledge'] },
   { id: 'advanced', label: '高级功能', items: ['mcp', 'toolStats'] },
   { id: 'theme', label: '主题设置', items: ['theme'] },
+  { id: 'sync', label: '数据同步', items: ['sync'] },
   { id: 'update', label: '升级版本', items: ['update'] }
 ]
 
@@ -151,6 +154,8 @@ function SettingsModal({ onClose, onMcpUpdated }: SettingsModalProps) {
                           return <PaperReaderSettings key="paperReader" />
                         case 'update':
                           return <UpdateSettings key="update" />
+                        case 'sync':
+                          return <SyncSettings key="sync" />
                         default:
                           return null
                       }

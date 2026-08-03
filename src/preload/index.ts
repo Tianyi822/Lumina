@@ -18,6 +18,7 @@ import { paperWebSearchApi } from './apis/paperWebSearch'
 import { updateApi } from './apis/update'
 import { capabilityApi } from './apis/capability'
 import { writerApi } from './apis/writer'
+import { syncApi } from './apis/sync'
 
 /**
  * 自定义渲染器 API
@@ -50,7 +51,9 @@ const api = {
   // 能力系统 API
   capability: capabilityApi,
   // 写作工作区 API
-  writer: writerApi
+  writer: writerApi,
+  // 数据同步 API
+  sync: syncApi
 }
 
 // 使用 contextBridge 向渲染器暴露 API

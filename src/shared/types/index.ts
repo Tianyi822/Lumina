@@ -34,3 +34,6 @@ export * from './update'
 
 // 写作相关的类型
 export * from './writer'
+
+// 数据同步相关的类型
+export * from './sync'

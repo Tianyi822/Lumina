@@ -19,6 +19,7 @@ export * from './paperWebSearch'
 export * from './update'
 export * from './capability'
 export * from './writer'
+export * from './sync'
 export * from './customApi'
 
 /**
