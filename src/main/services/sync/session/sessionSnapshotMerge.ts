@@ -45,7 +45,9 @@ function isSessionMetaLike(value: unknown): value is SessionMetaData {
 }
 
 /** 序列化一条记录（与 SessionStorageService.serializeRecord 字节一致） */
-function serializeRecord(record: { kind: 'meta'; v: 1; data: SessionMetaData } | { kind: 'message'; data: SessionMessage }): string {
+function serializeRecord(
+  record: { kind: 'meta'; v: 1; data: SessionMetaData } | { kind: 'message'; data: SessionMessage }
+): string {
   return JSON.stringify(record) + '\n'
 }
 
@@ -88,7 +90,10 @@ export function parseSessionJsonl(content: string): ParsedSessionJsonl {
 }
 
 /** 比较 meta 新旧：updatedAt 较新者胜；相等/不可解析判远端胜 */
-function pickNewerMeta(local: SessionMetaData | null, remote: SessionMetaData | null): 'local' | 'remote' {
+function pickNewerMeta(
+  local: SessionMetaData | null,
+  remote: SessionMetaData | null
+): 'local' | 'remote' {
   if (!local) return 'remote'
   if (!remote) return 'local'
   const localTime = Date.parse(local.updatedAt)
@@ -117,9 +122,10 @@ export function mergeSessionJsonl(local: string, remote: string): SessionMergeRe
     }
   }
 
-  const meta = (pickNewerMeta(localParsed.meta, remoteParsed.meta) === 'local'
-    ? localParsed.meta
-    : remoteParsed.meta) ?? remoteParsed.meta
+  const meta =
+    (pickNewerMeta(localParsed.meta, remoteParsed.meta) === 'local'
+      ? localParsed.meta
+      : remoteParsed.meta) ?? remoteParsed.meta
 
   // 消息 union：先放本地，再用远端覆盖同 id 不同内容者
   const messages: SessionMessage[] = [...localParsed.messages]
@@ -137,7 +143,9 @@ export function mergeSessionJsonl(local: string, remote: string): SessionMergeRe
       conflictResolved = true
     }
   }
-  messages.sort((a, b) => (a.timestamp === b.timestamp ? a.id.localeCompare(b.id) : a.timestamp < b.timestamp ? -1 : 1))
+  messages.sort((a, b) =>
+    a.timestamp === b.timestamp ? a.id.localeCompare(b.id) : a.timestamp < b.timestamp ? -1 : 1
+  )
 
   if (!meta) {
     return { content: remote, meta: null, messages, conflictResolved, fallback: true }
