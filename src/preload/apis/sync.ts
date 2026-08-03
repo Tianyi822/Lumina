@@ -7,11 +7,14 @@ import type {
   ReconcileSummary,
   RedeemResult,
   RelayDevice,
+  SessionSyncResult,
+  SessionSyncState,
   SyncCodeResult,
   SyncResult,
   SyncStatus
 } from '@shared/types/sync'
 import type { SyncApi } from '../types/sync'
+import { createIpcListener } from './base'
 
 /**
  * 数据同步相关的 API。
@@ -55,6 +58,18 @@ export const syncApi: SyncApi = {
   },
   reconcile: () => {
     return invoke<ReconcileSummary>('sync:reconcile')
+  },
+  sessionSyncNow: () => {
+    return invoke<SessionSyncResult>('sync:sessionSyncNow')
+  },
+  getSessionSyncState: () => {
+    return invoke<SessionSyncState>('sync:getSessionSyncState')
+  },
+  onSessionSyncState: (callback) => {
+    return createIpcListener<SessionSyncState>('sync:sessionSyncState', callback)
+  },
+  notifySessionFileEvent: () => {
+    ipcRenderer.send('sync:sessionFileEvent')
   }
 }
 

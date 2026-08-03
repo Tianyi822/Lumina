@@ -6,6 +6,8 @@ import type {
   ReconcileSummary,
   RedeemResult,
   RelayDevice,
+  SessionSyncResult,
+  SessionSyncState,
   SyncCodeResult,
   SyncResult,
   SyncStatus
@@ -46,4 +48,12 @@ export interface SyncApi {
   createEventTicket: () => Promise<SyncResult<EventTicketResult>>
   /** 断线重连后的全量对账 */
   reconcile: () => Promise<SyncResult<ReconcileSummary>>
+  /** 手动触发会话同步（等待完成） */
+  sessionSyncNow: () => Promise<SyncResult<SessionSyncResult>>
+  /** 读取会话同步引擎状态 */
+  getSessionSyncState: () => Promise<SyncResult<SessionSyncState>>
+  /** 订阅会话同步状态推送；返回取消订阅函数 */
+  onSessionSyncState: (callback: (state: SessionSyncState) => void) => () => void
+  /** 转发 WebSocket 的 session_file_* 事件给主进程同步引擎（去抖由引擎负责） */
+  notifySessionFileEvent: () => void
 }

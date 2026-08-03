@@ -6,6 +6,7 @@ import type {
   ReconcileSummary,
   RelayDevice,
   RelayEvent,
+  SessionSyncState,
   SyncCodeResult,
   SyncResult,
   SyncStatus
@@ -35,6 +36,7 @@ interface SyncStoreState {
   lastEvent: RelayEvent | null
   lastReconcile: ReconcileSummary | null
   eventConnected: boolean
+  sessionSync: SessionSyncState
   pendingAction: string | null
   error: string | null
 
@@ -49,6 +51,8 @@ interface SyncStoreState {
   revokeDevice: (deviceId: string) => Promise<boolean>
   discardOtherGroups: () => Promise<boolean>
   reconcile: () => Promise<void>
+  syncSessionsNow: () => Promise<boolean>
+  bindSessionSyncState: () => void
   setupEventStream: () => void
   cleanupEventStream: () => void
   handleRelayEvent: (event: RelayEvent) => Promise<void>
@@ -68,6 +72,12 @@ const initialData = {
   lastEvent: null,
   lastReconcile: null,
   eventConnected: false,
+  sessionSync: {
+    phase: 'idle',
+    lastSyncAt: null,
+    lastResult: null,
+    lastError: null
+  } as SessionSyncState,
   pendingAction: null,
   error: null
 }
@@ -78,6 +88,8 @@ let codeTimer: ReturnType<typeof setInterval> | null = null
 let reconnectAttempt = 0
 let shouldReconnect = false
 let eventTicketPending = false
+let sessionSyncBound = false
+let sessionSyncUnsubscribe: (() => void) | null = null
 
 function patchFromStatus(status: SyncStatus): Partial<SyncStoreState> {
   return {
@@ -260,6 +272,7 @@ export const useSyncStore = create<SyncStoreState>()((set, get) => ({
     }
     set(patchFromStatus(result.data))
     if (result.data.connected) {
+      get().bindSessionSyncState()
       get().setupEventStream()
     } else {
       get().cleanupEventStream()
@@ -366,6 +379,41 @@ export const useSyncStore = create<SyncStoreState>()((set, get) => ({
     }
   },
 
+  syncSessionsNow: async () => {
+    set({ pendingAction: 'session-sync', error: null })
+    const result = await window.api.sync.sessionSyncNow()
+    set({ pendingAction: null })
+    if (!result.success) {
+      const message = formatFailure(result, '会话同步失败')
+      set({ error: message })
+      notifyError('数据同步', message, { source: 'settings' })
+      return false
+    }
+    if (result.data) {
+      set({
+        sessionSync: {
+          phase: result.data.errors.length > 0 ? 'error' : 'idle',
+          lastSyncAt: new Date().toISOString(),
+          lastResult: result.data,
+          lastError:
+            result.data.errors.length > 0 ? `${result.data.errors.length} 个会话同步失败` : null
+        }
+      })
+    }
+    return true
+  },
+
+  bindSessionSyncState: () => {
+    if (sessionSyncBound) return
+    sessionSyncBound = true
+    sessionSyncUnsubscribe = window.api.sync.onSessionSyncState((state) =>
+      set({ sessionSync: state })
+    )
+    void window.api.sync.getSessionSyncState().then((result) => {
+      if (result.success && result.data) set({ sessionSync: result.data })
+    })
+  },
+
   setupEventStream: () => {
     if (get().status !== 'connected') return
     shouldReconnect = true
@@ -434,6 +482,11 @@ export const useSyncStore = create<SyncStoreState>()((set, get) => ({
     reconnectAttempt = 0
     clearReconnectTimer()
     closeSocket()
+    if (sessionSyncUnsubscribe) {
+      sessionSyncUnsubscribe()
+      sessionSyncUnsubscribe = null
+    }
+    sessionSyncBound = false
     set({ eventConnected: false })
   },
 
@@ -457,8 +510,11 @@ export const useSyncStore = create<SyncStoreState>()((set, get) => ({
         }
         return
       case 'manifest_updated':
+        await get().reconcile()
+        return
       case 'session_file_updated':
       case 'session_file_deleted':
+        window.api.sync.notifySessionFileEvent()
         await get().reconcile()
     }
   }
