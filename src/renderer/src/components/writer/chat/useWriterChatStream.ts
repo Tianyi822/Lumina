@@ -13,7 +13,11 @@ import type {
   StreamEvent
 } from '@renderer/types'
 import { usePaperChatMessageCacheStore, usePaperChatStreamStore } from '@renderer/stores'
-import { useWriterChatStore, useWriterSessionStore, useWriterSuggestionStore } from '@renderer/stores/writer'
+import {
+  useWriterChatStore,
+  useWriterSessionStore,
+  useWriterSuggestionStore
+} from '@renderer/stores/writer'
 import { buildChatMessages } from '@renderer/utils/messageHelpers'
 import { deepClone } from '@shared/utils'
 import {
@@ -22,12 +26,7 @@ import {
   getRegisteredWriterEditor
 } from '@renderer/components/writer/suggestions/writerSuggestionCore'
 import { refreshWriterSuggestionDecorations } from '@renderer/components/writer/suggestions/writerSuggestionPlugin'
-import {
-  resolveWriterAiTurnOptions,
-  type SendWriterAiTurnOptions
-} from './writerAiTurnOptions'
-
-export type { SendWriterAiTurnOptions }
+import { resolveWriterAiTurnOptions, type SendWriterAiTurnOptions } from './writerAiTurnOptions'
 
 /** 请求结束且仍停留在 pending 时，清除等待骨架并刷新装饰 */
 function clearPendingWriterSuggestion(): void {
@@ -89,7 +88,9 @@ function toPlainRequest<T>(request: T): T {
  * 写作对话流式请求 Hook。
  * 写作会话不附带 paperId；正文上下文由 writerContext 提供。
  */
-export function useWriterChatStream(options: UseWriterChatStreamOptions): UseWriterChatStreamReturn {
+export function useWriterChatStream(
+  options: UseWriterChatStreamOptions
+): UseWriterChatStreamReturn {
   const { session, messagesRef, setMessages, saveCurrentSession, setError } = options
 
   const sessionId = session?.sessionId || ''
@@ -149,10 +150,7 @@ export function useWriterChatStream(options: UseWriterChatStreamOptions): UseWri
               const sel = editor.state.selection
               const collapsePos = Math.max(sel.from, sel.to)
               editor.commands.setTextSelection(collapsePos)
-              refreshWriterSuggestionDecorations(
-                (tr) => editor.view.dispatch(tr),
-                editor.state
-              )
+              refreshWriterSuggestionDecorations((tr) => editor.view.dispatch(tr), editor.state)
             }
           }
         }
@@ -296,9 +294,7 @@ export function useWriterChatStream(options: UseWriterChatStreamOptions): UseWri
             turn.scope,
             writerSession.revision
           )
-          writerContext = rawContext
-            ? buildBoundedWriterAiContext(rawContext).context
-            : null
+          writerContext = rawContext ? buildBoundedWriterAiContext(rawContext).context : null
           if (writerContext) {
             const { selection } = writerEditor.state
             const anchorPos = selection.empty ? selection.head : selection.to

@@ -76,10 +76,7 @@ function clampDocPos(state: EditorState, pos: number): number {
   return Math.min(Math.max(1, pos), state.doc.content.size)
 }
 
-function resolvePendingDecorationPos(
-  state: EditorState,
-  pendingAnchorPos: number | null
-): number {
+function resolvePendingDecorationPos(state: EditorState, pendingAnchorPos: number | null): number {
   const { selection } = state
   const raw = pendingAnchorPos ?? (selection.empty ? selection.head : selection.to)
   return clampDocPos(state, raw)
@@ -259,12 +256,7 @@ function buildPluginDecorations(state: EditorState, editor: Editor | null): Deco
   ) {
     return DecorationSet.empty
   }
-  return buildActiveDecorations(
-    state,
-    store.activeProposal,
-    store.pendingOperationIndexes,
-    editor
-  )
+  return buildActiveDecorations(state, store.activeProposal, store.pendingOperationIndexes, editor)
 }
 
 /** @internal 仅供测试断言 decoration 构建 */
@@ -283,13 +275,13 @@ export function createWriterSuggestionExtension() {
     name: 'writerSuggestion',
 
     addProseMirrorPlugins() {
-      const extension = this
+      const { editor } = this
       return [
         new Plugin<WriterSuggestionPluginState>({
           key: writerSuggestionPluginKey,
           state: {
             init: (_, state) => ({
-              decorations: buildPluginDecorations(state, extension.editor)
+              decorations: buildPluginDecorations(state, editor)
             }),
             apply: (tr, pluginState, _oldState, newState) => {
               if (tr.getMeta('writerSuggestionAccept')) {
@@ -304,11 +296,7 @@ export function createWriterSuggestionExtension() {
                   useWriterSuggestionStore.setState({ pendingAnchorPos: anchorPos })
                 }
                 return {
-                  decorations: buildPendingDecorations(
-                    newState,
-                    store.pendingAction,
-                    anchorPos
-                  )
+                  decorations: buildPendingDecorations(newState, store.pendingAction, anchorPos)
                 }
               }
 
@@ -320,12 +308,7 @@ export function createWriterSuggestionExtension() {
 
               if (tr.getMeta('writerSuggestionRefresh') || tr.docChanged) {
                 return {
-                  decorations: buildActiveDecorations(
-                    newState,
-                    proposal,
-                    pending,
-                    extension.editor
-                  )
+                  decorations: buildActiveDecorations(newState, proposal, pending, editor)
                 }
               }
 
