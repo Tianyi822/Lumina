@@ -235,3 +235,35 @@ export interface SyncResult<T = void> {
   error?: string
   extra?: Record<string, unknown>
 }
+
+/** 会话同步的单会话错误条目 */
+export interface SessionSyncErrorItem {
+  sessionId: string
+  message: string
+}
+
+/** 一轮会话同步的结果摘要 */
+export interface SessionSyncResult {
+  /** 上行（新建+覆盖+合并回传）会话数 */
+  uploaded: number
+  /** 下行落盘会话数 */
+  downloaded: number
+  /** 发生行级合并的会话数 */
+  merged: number
+  /** 因远端删除而删除本地的会话数 */
+  deletedLocal: number
+  /** 上行删除远端的会话数 */
+  deletedRemote: number
+  /** 双端一致跳过的会话数 */
+  skipped: number
+  errors: SessionSyncErrorItem[]
+}
+
+/** 会话同步引擎状态（IPC 推送载荷） */
+export interface SessionSyncState {
+  phase: 'idle' | 'running' | 'error'
+  /** 最近一轮完成时间（ISO 8601） */
+  lastSyncAt: string | null
+  lastResult: SessionSyncResult | null
+  lastError: string | null
+}

@@ -116,6 +116,16 @@ export class SyncService {
     }
   }
 
+  /** 主进程内部：取数据加密密钥（未连接返回 null）。不得经 IPC 暴露。 */
+  getDataKey(): Uint8Array | null {
+    return this.dek
+  }
+
+  /** 主进程内部：取已认证的 RelayClient（未连接返回 null）。不得经 IPC 暴露。 */
+  getClient(): RelayClient | null {
+    return this.client
+  }
+
   /** 仅执行服务发现，用于设置页在提交密码前验证 Relay 地址。 */
   async discover(relayUrl: string): Promise<SyncResult<DiscoveryInfo>> {
     let client: RelayClient

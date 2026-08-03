@@ -46,6 +46,8 @@
     "src/renderer/src/stores/writer/writerSuggestionStore.ts": ["types"],
     "src/shared/types/session.ts": ["types"],
     // SESSION_SNAPSHOT_AAD_PREFIX 是同步引擎（后续任务）消费的对外契约常量
-    "src/main/services/sync/session/sessionSnapshotCrypto.ts": ["exports"]
+    "src/main/services/sync/session/sessionSnapshotCrypto.ts": ["exports"],
+    // SessionSync* 类型是同步引擎（Task 5）与渲染进程（Task 7）消费的共享契约
+    "src/shared/types/sync.ts": ["types"]
   }
 }
