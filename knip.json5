@@ -44,6 +44,8 @@
     "src/renderer/src/stores/writer/writerLibraryStore.ts": ["types"],
     "src/renderer/src/stores/writer/writerSessionStore.ts": ["types"],
     "src/renderer/src/stores/writer/writerSuggestionStore.ts": ["types"],
-    "src/shared/types/session.ts": ["types"]
+    "src/shared/types/session.ts": ["types"],
+    // SESSION_SNAPSHOT_AAD_PREFIX 是同步引擎（后续任务）消费的对外契约常量
+    "src/main/services/sync/session/sessionSnapshotCrypto.ts": ["exports"]
   }
 }
