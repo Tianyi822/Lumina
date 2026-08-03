@@ -1,5 +1,6 @@
 import { ipcMain } from 'electron'
 import { getSyncService } from '@main/services/sync'
+import { getSessionSyncService } from '@main/services/sync/session'
 
 /**
  * 注册同步相关 IPC 处理程序。
@@ -11,14 +12,21 @@ export function registerSyncHandlers(): void {
     return getSyncService().discover(relayUrl)
   })
 
-  // 连接（注册/登录自动分流）
-  ipcMain.handle('sync:connect', (_event, relayUrl: string, username: string, password: string) => {
-    return getSyncService().connect(relayUrl, username, password)
-  })
+  // 连接（注册/登录自动分流）；成功后启动会话同步
+  ipcMain.handle(
+    'sync:connect',
+    async (_event, relayUrl: string, username: string, password: string) => {
+      const result = await getSyncService().connect(relayUrl, username, password)
+      if (result.success) getSessionSyncService().start()
+      return result
+    }
+  )
 
-  // 会话续期（无需密码）
-  ipcMain.handle('sync:renewSession', () => {
-    return getSyncService().renewSession()
+  // 会话续期（无需密码）；成功后启动会话同步
+  ipcMain.handle('sync:renewSession', async () => {
+    const result = await getSyncService().renewSession()
+    if (result.success) getSessionSyncService().start()
+    return result
   })
 
   // 获取当前同步状态
@@ -26,8 +34,9 @@ export function registerSyncHandlers(): void {
     return { success: true, data: getSyncService().getStatus() }
   })
 
-  // 断开连接并清除本地身份
+  // 断开连接并清除本地身份；同时停止会话同步定时器
   ipcMain.handle('sync:disconnect', () => {
+    getSessionSyncService().stop()
     return getSyncService().disconnect()
   })
 
@@ -41,9 +50,11 @@ export function registerSyncHandlers(): void {
     return getSyncService().generateSyncCode()
   })
 
-  // 兑换六位同步码
-  ipcMain.handle('sync:redeemSyncCode', (_event, code: string) => {
-    return getSyncService().redeemSyncCode(code)
+  // 兑换六位同步码；成功后立即全量对账同步一轮
+  ipcMain.handle('sync:redeemSyncCode', async (_event, code: string) => {
+    const result = await getSyncService().redeemSyncCode(code)
+    if (result.success) getSessionSyncService().kickoff()
+    return result
   })
 
   // 列出同步组内设备
@@ -69,5 +80,20 @@ export function registerSyncHandlers(): void {
   // 断线重连后的全量对账
   ipcMain.handle('sync:reconcile', () => {
     return getSyncService().reconcile()
+  })
+
+  // 手动触发会话同步（等待完成，返回结果摘要）
+  ipcMain.handle('sync:sessionSyncNow', () => {
+    return getSessionSyncService().syncNow()
+  })
+
+  // 读取会话同步引擎状态
+  ipcMain.handle('sync:getSessionSyncState', () => {
+    return { success: true, data: getSessionSyncService().getState() }
+  })
+
+  // 渲染进程 WebSocket 收到 session_file_* 事件后转发触发（去抖在引擎内）
+  ipcMain.on('sync:sessionFileEvent', () => {
+    getSessionSyncService().handleSessionFileEvent()
   })
 }

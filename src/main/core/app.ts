@@ -25,6 +25,7 @@ import { paperTranslationService } from '@main/services/paper'
 import { startEventLoopMonitoring } from '@main/services/monitoring/eventLoopMonitor'
 import { writerService } from '@main/services/writer'
 import { handleWriterWindowClose } from '@main/services/writer/WriterFlushCoordinator'
+import { initializeSessionSyncService } from '@main/services/sync/session'
 
 const appDisplayName = 'Lumina'
 const SHUTDOWN_TASK_TIMEOUT_MS = 5_000
@@ -201,11 +202,15 @@ export function initializeApp(): void {
     await initializeWriterService()
 
     // 初始化数据同步服务：恢复本地身份并后台续期，失败不阻止应用启动
-    initializeSyncService().catch((error) => {
-      logger.warn('同步服务初始化失败', 'main', {
-        error: error instanceof Error ? error.message : String(error)
+    initializeSyncService()
+      .catch((error) => {
+        logger.warn('同步服务初始化失败', 'main', {
+          error: error instanceof Error ? error.message : String(error)
+        })
       })
-    })
+      .finally(() => {
+        initializeSessionSyncService()
+      })
 
     // 创建主窗口
     const mainWindow = createApplicationWindow()
