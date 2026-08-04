@@ -8,7 +8,7 @@ import { logger } from '@main/services/logger'
 import { getConfigSyncTrackerFilePath } from '../syncPaths'
 
 /** 本设备 manifest 链已确认状态 */
-export interface TrackedConfigEntry {
+interface TrackedConfigEntry {
   /** putSelfManifest 返回的 version */
   selfManifestVersion: number
   /** sha256(上传的 manifest 密文) hex，幂等判定 */
@@ -16,10 +16,8 @@ export interface TrackedConfigEntry {
 }
 
 /** tracker 文件结构 */
-export interface ConfigSyncTrackerData {
+export interface ConfigSyncTrackerData extends TrackedConfigEntry {
   schemaVersion: 1
-  selfManifestVersion: number
-  selfManifestContentHash: string
   /** sha256(本地 config.json 明文) hex（上次同步确认值） */
   syncedConfigHash: string
   /** 对应的 mtime（ISO），LWW 比对基准 */

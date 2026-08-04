@@ -455,9 +455,7 @@ export const useSyncStore = create<SyncStoreState>()((set, get) => ({
   bindConfigSyncState: () => {
     if (configSyncBound) return
     configSyncBound = true
-    configSyncUnsubscribe = window.api.sync.onConfigSyncState((state) =>
-      set({ configSync: state })
-    )
+    configSyncUnsubscribe = window.api.sync.onConfigSyncState((state) => set({ configSync: state }))
     void window.api.sync.getConfigSyncState().then((result) => {
       if (result.success && result.data) set({ configSync: result.data })
     })

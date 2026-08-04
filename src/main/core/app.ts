@@ -25,6 +25,7 @@ import { paperTranslationService } from '@main/services/paper'
 import { startEventLoopMonitoring } from '@main/services/monitoring/eventLoopMonitor'
 import { writerService } from '@main/services/writer'
 import { handleWriterWindowClose } from '@main/services/writer/WriterFlushCoordinator'
+import { initializeConfigSyncService } from '@main/services/sync/config'
 import { initializeSessionSyncService } from '@main/services/sync/session'
 
 const appDisplayName = 'Lumina'
@@ -210,6 +211,7 @@ export function initializeApp(): void {
       })
       .finally(() => {
         initializeSessionSyncService()
+        initializeConfigSyncService()
       })
 
     // 创建主窗口
