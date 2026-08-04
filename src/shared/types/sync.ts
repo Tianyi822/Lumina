@@ -267,3 +267,30 @@ export interface SessionSyncState {
   lastResult: SessionSyncResult | null
   lastError: string | null
 }
+
+/** config 同步的错误条目（无 sessionId，config 是单文件） */
+export interface ConfigSyncErrorItem {
+  message: string
+}
+
+/** 一轮 config 同步的结果摘要 */
+export interface ConfigSyncResult {
+  /** 上行（新建/覆盖）manifest 次数 */
+  uploaded: number
+  /** 下行落盘采纳远端次数 */
+  downloaded: number
+  /** 发生本机优先合并后回写次数 */
+  merged: number
+  /** 双端一致跳过次数 */
+  skipped: number
+  errors: ConfigSyncErrorItem[]
+}
+
+/** config 同步引擎状态（IPC 推送载荷） */
+export interface ConfigSyncState {
+  phase: 'idle' | 'running' | 'error'
+  /** 最近一轮完成时间（ISO 8601） */
+  lastSyncAt: string | null
+  lastResult: ConfigSyncResult | null
+  lastError: string | null
+}

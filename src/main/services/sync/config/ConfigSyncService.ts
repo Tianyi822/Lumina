@@ -1,0 +1,436 @@
+/**
+ * config 同步编排引擎：定时/手动/事件触发，拉取组内最新 manifest head，
+ * 整文件 LWW + 本机优先合并，下行走 ConfigManager.saveConfig，上行走 block + manifest CAS。
+ *
+ * 原则：引擎是旁观者——下行只走 ConfigManager.saveConfig（不直接写 config.json），
+ * 本地文件只读。DEK/RelayClient 经 SyncService 主进程内部接口获取。
+ */
+import { readFile, stat } from 'node:fs/promises'
+import { logger } from '@main/services/logger'
+import type { AppConfig } from '@shared/types/config'
+import type { ConfigSyncResult, ConfigSyncState, SyncResult } from '@shared/types/sync'
+import type { SyncService } from '../SyncService'
+import type { RelayClient } from '../transport/RelayClient'
+import { sha256Hex } from '../crypto/hash'
+import { mergeConfig, collectMachineLocalKeys } from './configMerge'
+import { serializeManifest, parseManifest, createConfigManifestEntry } from './configManifest'
+import {
+  openConfigBlock,
+  sealConfigBlock,
+  openManifest,
+  sealManifest
+} from './configSnapshotCrypto'
+import { ConfigSyncTracker } from './configSyncTracker'
+
+const DEFAULT_INTERVAL_MS = 60_000
+const DEFAULT_EVENT_DEBOUNCE_MS = 2_000
+const CAS_RETRY_LIMIT = 2
+
+type SyncServiceLike = Pick<SyncService, 'getStatus' | 'getDataKey' | 'getClient'>
+type ConfigManagerLike = {
+  getConfig(): AppConfig | null
+  saveConfig(config: AppConfig): { success: boolean; error?: string }
+}
+
+export interface ConfigSyncServiceDeps {
+  syncService: SyncServiceLike
+  configManager: ConfigManagerLike
+  tracker: ConfigSyncTracker
+  /** 状态广播（session/index.ts 装配为 webContents.send） */
+  broadcast: (state: ConfigSyncState) => void
+  /** config.json 路径解析（测试注入） */
+  configPathProvider?: () => string
+  intervalMs?: number
+  eventDebounceMs?: number
+}
+
+function emptyResult(): ConfigSyncResult {
+  return { uploaded: 0, downloaded: 0, merged: 0, skipped: 0, errors: [] }
+}
+
+export class ConfigSyncService {
+  private readonly syncService: SyncServiceLike
+  private readonly configManager: ConfigManagerLike
+  private readonly tracker: ConfigSyncTracker
+  private readonly broadcast: (state: ConfigSyncState) => void
+  private readonly configPath: () => string
+  private readonly intervalMs: number
+  private readonly eventDebounceMs: number
+
+  private state: ConfigSyncState = {
+    phase: 'idle',
+    lastSyncAt: null,
+    lastResult: null,
+    lastError: null
+  }
+  private timer: ReturnType<typeof setInterval> | null = null
+  private eventTimer: ReturnType<typeof setTimeout> | null = null
+  private chain: Promise<void> | null = null
+  private queued = false
+  /** 429 限流恢复时间戳（毫秒）；运行时内存态，不持久化 */
+  private rateLimitedUntil = 0
+
+  constructor(deps: ConfigSyncServiceDeps) {
+    this.syncService = deps.syncService
+    this.configManager = deps.configManager
+    this.tracker = deps.tracker
+    this.broadcast = deps.broadcast
+    this.configPath = deps.configPathProvider ?? (() => '')
+    this.intervalMs = deps.intervalMs ?? DEFAULT_INTERVAL_MS
+    this.eventDebounceMs = deps.eventDebounceMs ?? DEFAULT_EVENT_DEBOUNCE_MS
+  }
+
+  getState(): ConfigSyncState {
+    return this.state
+  }
+
+  /** 启动定时同步（幂等；未连接不启动） */
+  start(): void {
+    if (this.timer || !this.isConnected()) return
+    this.timer = setInterval(() => this.kickoff(), this.intervalMs)
+    this.timer.unref()
+    this.kickoff()
+  }
+
+  stop(): void {
+    if (this.timer) {
+      clearInterval(this.timer)
+      this.timer = null
+    }
+    if (this.eventTimer) {
+      clearTimeout(this.eventTimer)
+      this.eventTimer = null
+    }
+  }
+
+  /** 触发一轮同步（去重合并）；限流期内忽略 */
+  kickoff(): void {
+    if (!this.isConnected()) return
+    if (Date.now() < this.rateLimitedUntil) return
+    this.queued = true
+    if (!this.chain) {
+      this.chain = this.drain()
+    }
+  }
+
+  /** WebSocket manifest_updated 事件入口（去抖后触发） */
+  handleConfigManifestEvent(): void {
+    if (this.eventTimer) clearTimeout(this.eventTimer)
+    this.eventTimer = setTimeout(() => {
+      this.eventTimer = null
+      this.kickoff()
+    }, this.eventDebounceMs)
+  }
+
+  /** 手动触发并等待完成 */
+  async syncNow(): Promise<SyncResult<ConfigSyncResult>> {
+    if (!this.isConnected()) {
+      return { success: false, code: 'not_connected', error: '尚未连接同步服务' }
+    }
+    this.kickoff()
+    if (this.chain) await this.chain
+    const last = this.state.lastResult
+    if (this.state.phase === 'error') {
+      return {
+        success: false,
+        code: 'unknown_error',
+        error: this.state.lastError ?? '配置同步失败',
+        data: last ?? undefined
+      }
+    }
+    return { success: true, data: last ?? emptyResult() }
+  }
+
+  private isConnected(): boolean {
+    return this.syncService.getStatus().connected
+  }
+
+  private getDeviceId(): string {
+    return this.syncService.getStatus().deviceId ?? ''
+  }
+
+  private setState(patch: Partial<ConfigSyncState>): void {
+    this.state = { ...this.state, ...patch }
+    this.broadcast(this.state)
+  }
+
+  private async drain(): Promise<void> {
+    try {
+      while (this.queued) {
+        this.queued = false
+        await this.runOnce()
+      }
+    } finally {
+      this.chain = null
+    }
+  }
+
+  private async runOnce(): Promise<void> {
+    this.setState({ phase: 'running' })
+    try {
+      const result = await this.runSync()
+      const failed = result.errors.length > 0
+      this.setState({
+        phase: failed ? 'error' : 'idle',
+        lastSyncAt: new Date().toISOString(),
+        lastResult: result,
+        lastError: failed ? `${result.errors.length} 项配置同步失败` : null
+      })
+      logger.info('配置同步完成', 'main', {
+        uploaded: result.uploaded,
+        downloaded: result.downloaded,
+        merged: result.merged,
+        skipped: result.skipped,
+        errors: result.errors.length
+      })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      this.setState({ phase: 'error', lastError: message })
+      logger.error('配置同步整轮失败', 'main', { error: message })
+    }
+  }
+
+  private async runSync(): Promise<ConfigSyncResult> {
+    const result = emptyResult()
+    if (!this.isConnected()) return result
+    const dek = this.syncService.getDataKey()
+    const client = this.syncService.getClient()
+    if (!dek || !client) return result
+
+    const configPath = this.configPath()
+    const deviceId = this.getDeviceId()
+
+    // —— 阶段 0:读本地 config(只读) ——
+    let localBytes: Buffer
+    let localMtime: string
+    try {
+      localBytes = await readFile(configPath)
+      const st = await stat(configPath)
+      localMtime = st.mtime.toISOString()
+    } catch (error) {
+      throw new Error(
+        `读取本地 config 失败：${error instanceof Error ? error.message : String(error)}`
+      )
+    }
+    const localConfig = JSON.parse(localBytes.toString('utf-8')) as AppConfig
+    const localHash = sha256Hex(new Uint8Array(localBytes))
+    // dirty 判定：内容 hash 或 mtime 任一变化即视为脏。
+    // 仅 mtime 变（touch/重新保存相同内容）也需上行，以把最新 mtime 同步给组内其他设备，
+    // 保证 LWW 比对基准正确；块内容寻址会自动避免重复传块。
+    const tracked = this.tracker.getData()
+    const dirty = localHash !== tracked.syncedConfigHash || localMtime !== tracked.syncedConfigMtime
+    const machineLocalKeys = collectMachineLocalKeys(localConfig)
+
+    // —— 阶段 1:拉组内所有 manifest head,选 updatedAt 最新 ——
+    const remoteList = await client.listManifests()
+    if (!remoteList.success || !remoteList.data) {
+      if (remoteList.code === 'rate_limited') {
+        const retryAfterMs =
+          typeof remoteList.extra?.retryAfterMs === 'number'
+            ? remoteList.extra.retryAfterMs
+            : this.intervalMs
+        this.rateLimitedUntil = Date.now() + retryAfterMs
+      }
+      throw new Error(
+        `拉取 manifest 列表失败：${remoteList.error ?? remoteList.code ?? '未知错误'}`
+      )
+    }
+    const heads = remoteList.data.heads
+
+    if (heads.length === 0) {
+      // 组内首次:本设备是首推者
+      if (dirty || this.tracker.getData().selfManifestVersion === 0) {
+        await this.upload(client, dek, deviceId, configPath, result)
+      } else {
+        result.skipped++
+      }
+      this.finish(result)
+      return result
+    }
+
+    // 按 updatedAt 降序取最新 head
+    const latestHead = [...heads].sort((a, b) => b.updatedAt - a.updatedAt)[0]
+    const isSelfHead = latestHead.deviceId === deviceId
+
+    // —— 阶段 2:判断是否需要下行 ——
+    if (isSelfHead && latestHead.currentVersion <= this.tracker.getData().selfManifestVersion) {
+      // 远端最新就是我自己推的
+      if (!dirty) {
+        result.skipped++
+        this.finish(result)
+        return result
+      }
+      // 本地 dirty → 上行新版本
+      await this.upload(client, dek, deviceId, configPath, result)
+      this.finish(result)
+      return result
+    }
+
+    // —— 阶段 3:下行(远端有新快照) ——
+    const manifestResp = await client.getManifest(latestHead.deviceId, latestHead.currentVersion)
+    if (!manifestResp.success || !manifestResp.data) {
+      if (manifestResp.code !== 'manifest_not_found') {
+        result.errors.push({
+          message: `下载 manifest 失败：${manifestResp.error ?? manifestResp.code}`
+        })
+      }
+      this.finish(result)
+      return result
+    }
+    let manifest
+    try {
+      const manifestPlain = openManifest(dek, latestHead.deviceId, manifestResp.data.bytes)
+      manifest = parseManifest(manifestPlain)
+    } catch (error) {
+      result.errors.push({
+        message: `manifest 解密/解析失败：${error instanceof Error ? error.message : String(error)}`
+      })
+      this.finish(result)
+      return result
+    }
+    const entry = manifest.files[0]
+
+    const blockResp = await client.getBlock(entry.blockId)
+    if (!blockResp.success || !blockResp.data) {
+      result.errors.push({ message: `下载 config 块失败：${blockResp.error ?? blockResp.code}` })
+      this.finish(result)
+      return result
+    }
+    let remoteConfig: AppConfig
+    try {
+      const remoteBytes = openConfigBlock(dek, blockResp.data.bytes)
+      remoteConfig = JSON.parse(new TextDecoder().decode(remoteBytes)) as AppConfig
+    } catch (error) {
+      result.errors.push({
+        message: `config 块解密失败：${error instanceof Error ? error.message : String(error)}`
+      })
+      this.finish(result)
+      return result
+    }
+
+    const merge = mergeConfig({
+      local: localConfig,
+      localMtime,
+      remote: remoteConfig,
+      remoteMtime: entry.mtime,
+      machineLocalKeys
+    })
+
+    if (merge.winner === 'remote') {
+      // 采纳远端
+      const save = this.configManager.saveConfig(merge.merged)
+      if (!save.success) {
+        result.errors.push({ message: `落盘失败：${save.error ?? '未知错误'}` })
+        this.finish(result)
+        return result
+      }
+      // 读回真实字节重算 hash/mtime
+      const reread = await this.rereadConfig(configPath)
+      this.tracker.setSyncedConfig(reread.hash, reread.mtime)
+      result.downloaded++
+      this.finish(result)
+      return result // 采纳远端,不推 manifest
+    }
+
+    // winner === 'local' 或 'merged'：可能落盘合并结果后上行
+    if (merge.changed) {
+      const save = this.configManager.saveConfig(merge.merged)
+      if (!save.success) {
+        result.errors.push({ message: `落盘失败：${save.error ?? '未知错误'}` })
+        this.finish(result)
+        return result
+      }
+      if (merge.winner === 'merged') result.merged++
+    }
+    await this.upload(client, dek, deviceId, configPath, result)
+    this.finish(result)
+    return result
+  }
+
+  /** 读回 config.json 真实字节与 mtime（落盘后调用，保证 tracker 与磁盘一致） */
+  private async rereadConfig(configPath: string): Promise<{ hash: string; mtime: string }> {
+    const bytes = await readFile(configPath)
+    const st = await stat(configPath)
+    return { hash: sha256Hex(new Uint8Array(bytes)), mtime: st.mtime.toISOString() }
+  }
+
+  /** 阶段 4:上行（推 block + 新 manifest，CAS 重试） */
+  private async upload(
+    client: NonNullable<ReturnType<SyncServiceLike['getClient']>>,
+    dek: Uint8Array,
+    deviceId: string,
+    configPath: string,
+    result: ConfigSyncResult
+  ): Promise<void> {
+    for (let attempt = 0; attempt <= CAS_RETRY_LIMIT; attempt++) {
+      // 重新读盘：下行 saveConfig 可能刚改了文件
+      let bytes: Buffer
+      let mtime: string
+      try {
+        bytes = await readFile(configPath)
+        const st = await stat(configPath)
+        mtime = st.mtime.toISOString()
+      } catch (error) {
+        result.errors.push({
+          message: `读取本地 config 失败：${error instanceof Error ? error.message : String(error)}`
+        })
+        return
+      }
+      const plainBytes = new Uint8Array(bytes)
+      const ct = sealConfigBlock(dek, plainBytes)
+      // blockId 按明文内容寻址（sha256(明文)），而非密文 hash。
+      // sealConfigBlock 使用随机 nonce，密文每次不同；按明文 hash 才能让相同内容复用同一块，
+      // 触发 blocksMissing 命中已有块而跳过重复上传。
+      const blockId = sha256Hex(plainBytes)
+
+      // 块内容寻址、幂等：先查重，缺才传
+      const missing = await client.blocksMissing([blockId])
+      if (!missing.success || !missing.data) {
+        result.errors.push({ message: `块查重失败：${missing.error ?? missing.code}` })
+        return
+      }
+      if (missing.data.missing.includes(blockId)) {
+        const putBlock = await client.putBlock(blockId, ct)
+        if (!putBlock.success) {
+          result.errors.push({ message: `块上传失败：${putBlock.error ?? putBlock.code}` })
+          return
+        }
+      }
+
+      const entry = createConfigManifestEntry(mtime, plainBytes.length, blockId)
+      const manifestVersion = this.tracker.getData().selfManifestVersion + 1
+      const manifest = { schemaVersion: 1 as const, version: manifestVersion, files: [entry] }
+      const manifestCt = sealManifest(dek, deviceId, serializeManifest(manifest))
+
+      const put = await client.putSelfManifest(
+        this.tracker.getData().selfManifestVersion,
+        manifestCt
+      )
+      if (put.success && put.data) {
+        this.tracker.setSelfManifest(put.data.version, sha256Hex(manifestCt))
+        // 读回 config.json 真实字节算 hash（saveConfig 可能刚格式化过，磁盘字节 ≠ plainBytes）
+        const reread = await this.rereadConfig(configPath)
+        this.tracker.setSyncedConfig(reread.hash, reread.mtime)
+        result.uploaded++
+        return
+      }
+      if (put.code !== 'stale_manifest') {
+        result.errors.push({ message: `manifest 上传失败：${put.error ?? put.code}` })
+        return
+      }
+      // stale_manifest：拉自己最新 head 重算 base
+      const selfList = await client.listManifests()
+      if (selfList.success && selfList.data) {
+        const selfHead = selfList.data.heads.find((h) => h.deviceId === deviceId)
+        this.tracker.setSelfManifest(selfHead?.currentVersion ?? 0, '')
+      }
+      // 继续重试
+    }
+    result.errors.push({ message: '版本冲突重试耗尽' })
+  }
+
+  private finish(result: ConfigSyncResult): void {
+    this.tracker.setLastSyncAt(new Date().toISOString())
+    this.tracker.save()
+  }
+}
