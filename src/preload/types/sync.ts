@@ -1,4 +1,6 @@
 import type {
+  ConfigSyncResult,
+  ConfigSyncState,
   ConnectResult,
   DiscardResult,
   DiscoveryInfo,
@@ -56,4 +58,12 @@ export interface SyncApi {
   onSessionSyncState: (callback: (state: SessionSyncState) => void) => () => void
   /** 转发 WebSocket 的 session_file_* 事件给主进程同步引擎（去抖由引擎负责） */
   notifySessionFileEvent: () => void
+  /** 手动触发配置同步（等待完成） */
+  configSyncNow: () => Promise<SyncResult<ConfigSyncResult>>
+  /** 读取配置同步引擎状态 */
+  getConfigSyncState: () => Promise<SyncResult<ConfigSyncState>>
+  /** 订阅配置同步状态推送；返回取消订阅函数 */
+  onConfigSyncState: (callback: (state: ConfigSyncState) => void) => () => void
+  /** 转发 WebSocket 的 manifest_updated 事件给主进程配置同步引擎（去抖由引擎负责） */
+  notifyConfigManifestEvent: () => void
 }

@@ -1,5 +1,7 @@
 import { ipcRenderer } from 'electron'
 import type {
+  ConfigSyncResult,
+  ConfigSyncState,
   ConnectResult,
   DiscardResult,
   DiscoveryInfo,
@@ -70,6 +72,18 @@ export const syncApi: SyncApi = {
   },
   notifySessionFileEvent: () => {
     ipcRenderer.send('sync:sessionFileEvent')
+  },
+  configSyncNow: () => {
+    return invoke<ConfigSyncResult>('sync:configSyncNow')
+  },
+  getConfigSyncState: () => {
+    return invoke<ConfigSyncState>('sync:getConfigSyncState')
+  },
+  onConfigSyncState: (callback) => {
+    return createIpcListener<ConfigSyncState>('sync:configSyncState', callback)
+  },
+  notifyConfigManifestEvent: () => {
+    ipcRenderer.send('sync:configManifestEvent')
   }
 }
 
