@@ -121,8 +121,8 @@ class FakeRelayClient {
   ): void {
     const blockBytes = new TextEncoder().encode(configJson)
     const ct = sealConfigBlock(DEK, blockBytes)
-    // blockId 按明文内容寻址，与引擎 upload 的 sha256Hex(plainBytes) 一致
-    const blockId = createHash('sha256').update(blockBytes).digest('hex')
+    // blockId 为密文 sha256，与引擎 upload 的 sha256Hex(ct) 一致（遵循 Relay 服务端契约）
+    const blockId = createHash('sha256').update(ct).digest('hex')
     this.blocks.set(blockId, ct)
     const entry = createConfigManifestEntry(mtime, blockBytes.length, blockId)
     const manifest = { schemaVersion: 1 as const, version, files: [entry] }
@@ -312,18 +312,18 @@ test('远端最新即本设备 head + 本地干净 → skipped', async () => {
   }
 })
 
-test('block 内容相同（config 未变仅 mtime 变）→ 不传新块', async () => {
+test('config 内容未变（仅 mtime 变）→ dirty 为 false，整轮 skipped', async () => {
   const h = makeHarness()
   try {
-    await h.engine.syncNow()
-    const blocksBefore = h.relay.blocks.size
-    // 修改 config 文件 mtime 但内容不变（touch）
+    await h.engine.syncNow() // 上行基线
+    // touch：内容不变，仅 mtime 变
     const content = readFileSync(h.configPath, 'utf-8')
     writeFileSync(h.configPath, content, 'utf-8')
     const result = await h.engine.syncNow()
     assert.ok(result.data)
-    assert.equal(result.data.uploaded, 1) // 推了新 manifest
-    assert.equal(h.relay.blocks.size, blocksBefore) // 但没新增 block
+    // hash 未变 → dirty=false → skipped
+    assert.equal(result.data.skipped, 1)
+    assert.equal(result.data.uploaded, 0)
   } finally {
     h.cleanup()
   }

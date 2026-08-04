@@ -214,11 +214,10 @@ export class ConfigSyncService {
     }
     const localConfig = JSON.parse(localBytes.toString('utf-8')) as AppConfig
     const localHash = sha256Hex(new Uint8Array(localBytes))
-    // dirty 判定：内容 hash 或 mtime 任一变化即视为脏。
-    // 仅 mtime 变（touch/重新保存相同内容）也需上行，以把最新 mtime 同步给组内其他设备，
-    // 保证 LWW 比对基准正确；块内容寻址会自动避免重复传块。
+    // dirty 判定：纯 hash 比较。config 仅 KB 级，内容不变即无需上行。
+    // 注：sealConfigBlock 随机 nonce 使同明文密文不同，块级 dedup 不可达，故不做 mtime 触发的多余上行。
     const tracked = this.tracker.getData()
-    const dirty = localHash !== tracked.syncedConfigHash || localMtime !== tracked.syncedConfigMtime
+    const dirty = localHash !== tracked.syncedConfigHash
     const machineLocalKeys = collectMachineLocalKeys(localConfig)
 
     // —— 阶段 1:拉组内所有 manifest head,选 updatedAt 最新 ——
@@ -378,10 +377,10 @@ export class ConfigSyncService {
       }
       const plainBytes = new Uint8Array(bytes)
       const ct = sealConfigBlock(dek, plainBytes)
-      // blockId 按明文内容寻址（sha256(明文)），而非密文 hash。
-      // sealConfigBlock 使用随机 nonce，密文每次不同；按明文 hash 才能让相同内容复用同一块，
-      // 触发 blocksMissing 命中已有块而跳过重复上传。
-      const blockId = sha256Hex(plainBytes)
+      // blockId 为密文 sha256，遵循 Relay 服务端契约：PUT /blocks/:blockId 要求 sha256(body)==blockId，
+      // body 即密文 octet-stream。sealConfigBlock 随机 nonce 导致同明文密文不同，
+      // 因此无法做内容级 dedup（config 仅 KB 级，可接受）。
+      const blockId = sha256Hex(ct)
 
       // 块内容寻址、幂等：先查重，缺才传
       const missing = await client.blocksMissing([blockId])

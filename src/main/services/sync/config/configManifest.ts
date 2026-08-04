@@ -13,7 +13,7 @@ export interface ConfigManifestEntry {
   mtime: string
   /** 明文字节数 */
   size: number
-  /** sha256(明文) hex，内容寻址（明文 hash 保证相同内容复用同一块） */
+  /** sha256(密文) hex，内容寻址 */
   blockId: string
 }
 
