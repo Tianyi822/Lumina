@@ -63,6 +63,7 @@ export default function SyncSettings() {
   const pendingAction = useSyncStore((state) => state.pendingAction)
   const error = useSyncStore((state) => state.error)
   const sessionSync = useSyncStore((state) => state.sessionSync)
+  const configSync = useSyncStore((state) => state.configSync)
 
   const discover = useSyncStore((state) => state.discover)
   const connect = useSyncStore((state) => state.connect)
@@ -76,6 +77,8 @@ export default function SyncSettings() {
   const discardOtherGroups = useSyncStore((state) => state.discardOtherGroups)
   const reconcile = useSyncStore((state) => state.reconcile)
   const syncSessionsNow = useSyncStore((state) => state.syncSessionsNow)
+  const syncConfigNow = useSyncStore((state) => state.syncConfigNow)
+  const bindConfigSyncState = useSyncStore((state) => state.bindConfigSyncState)
   const requestConfirm = useNotificationCenterStore((state) => state.requestConfirm)
 
   const [relayUrl, setRelayUrl] = useState(storedRelayUrl)
@@ -95,6 +98,10 @@ export default function SyncSettings() {
   useEffect(() => {
     void refreshStatus()
   }, [refreshStatus])
+
+  useEffect(() => {
+    bindConfigSyncState()
+  }, [bindConfigSyncState])
 
   useEffect(() => {
     if (storedRelayUrl) setRelayUrl(storedRelayUrl)
@@ -478,6 +485,57 @@ export default function SyncSettings() {
                     <li key={item.sessionId}>
                       {item.sessionId}：{item.message}
                     </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </section>
+
+          <section
+            className={['sm-settings-page__section', styles['sync-settings__section']].join(' ')}
+          >
+            <div className="sm-settings-page__section-header">
+              <div>
+                <h3 className="sm-settings-page__section-title">配置同步</h3>
+                <p className="sm-settings-page__section-description">
+                  应用配置以端到端加密同步，机器相关条目（本地 MCP/嵌入模型）本机优先保留；每 60
+                  秒自动一轮。
+                </p>
+              </div>
+              <button
+                className="sm-button sm-button--primary"
+                disabled={pendingAction === 'config-sync' || configSync.phase === 'running'}
+                onClick={() => void syncConfigNow()}
+              >
+                {configSync.phase === 'running' || pendingAction === 'config-sync'
+                  ? '同步中...'
+                  : '立即同步'}
+              </button>
+            </div>
+            <div className={styles['sync-settings__session-sync']}>
+              <span>
+                状态：
+                {configSync.phase === 'running'
+                  ? '同步中'
+                  : configSync.phase === 'error'
+                    ? '失败'
+                    : '空闲'}
+                {' · '}最近同步：{formatIsoDateTime(configSync.lastSyncAt)}
+              </span>
+              {configSync.lastResult && (
+                <span>
+                  上次结果：↑{configSync.lastResult.uploaded} 上行 · ↓
+                  {configSync.lastResult.downloaded} 下行 · ⇄{configSync.lastResult.merged} 合并 ·
+                  跳过 {configSync.lastResult.skipped}
+                </span>
+              )}
+              {configSync.lastError && (
+                <span className={styles['sync-settings__error']}>{configSync.lastError}</span>
+              )}
+              {configSync.lastResult && configSync.lastResult.errors.length > 0 && (
+                <ul className={styles['sync-settings__session-errors']}>
+                  {configSync.lastResult.errors.slice(0, 5).map((item, index) => (
+                    <li key={index}>{item.message}</li>
                   ))}
                 </ul>
               )}
