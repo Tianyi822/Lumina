@@ -10,7 +10,6 @@ import { logger } from '@main/services/logger'
 import type { AppConfig } from '@shared/types/config'
 import type { ConfigSyncResult, ConfigSyncState, SyncResult } from '@shared/types/sync'
 import type { SyncService } from '../SyncService'
-import type { RelayClient } from '../transport/RelayClient'
 import { sha256Hex } from '../crypto/hash'
 import { mergeConfig, collectMachineLocalKeys } from './configMerge'
 import { serializeManifest, parseManifest, createConfigManifestEntry } from './configManifest'
@@ -428,7 +427,7 @@ export class ConfigSyncService {
     result.errors.push({ message: '版本冲突重试耗尽' })
   }
 
-  private finish(result: ConfigSyncResult): void {
+  private finish(_result: ConfigSyncResult): void {
     this.tracker.setLastSyncAt(new Date().toISOString())
     this.tracker.save()
   }

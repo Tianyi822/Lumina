@@ -74,6 +74,16 @@ function createSyncApi(overrides: Partial<SyncApi> = {}): SyncApi {
     }),
     onSessionSyncState: () => () => {},
     notifySessionFileEvent: () => {},
+    configSyncNow: async () => ({
+      success: true,
+      data: { uploaded: 0, downloaded: 0, merged: 0, skipped: 1, errors: [] }
+    }),
+    getConfigSyncState: async () => ({
+      success: true,
+      data: { phase: 'idle', lastSyncAt: null, lastResult: null, lastError: null }
+    }),
+    onConfigSyncState: () => () => {},
+    notifyConfigManifestEvent: () => {},
     ...overrides
   }
 }
