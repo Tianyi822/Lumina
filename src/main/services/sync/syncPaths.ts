@@ -12,6 +12,7 @@ const SYNC_DIR_NAME = 'sync'
 const STATE_FILE_NAME = 'state.json'
 const SECRETS_FILE_NAME = 'secrets.enc'
 const SESSION_SYNC_FILE_NAME = 'session-sync.json'
+const CONFIG_SYNC_FILE_NAME = 'config-sync.json'
 
 /** 同步元数据目录 ~/.lumina/sync/ */
 export function getSyncDirPath(): string {
@@ -31,4 +32,9 @@ export function getSyncSecretsFilePath(): string {
 /** 会话同步 tracker 文件 ~/.lumina/sync/session-sync.json */
 export function getSessionSyncTrackerFilePath(): string {
   return join(getSyncDirPath(), SESSION_SYNC_FILE_NAME)
+}
+
+/** config 同步 tracker 文件 ~/.lumina/sync/config-sync.json */
+export function getConfigSyncTrackerFilePath(): string {
+  return join(getSyncDirPath(), CONFIG_SYNC_FILE_NAME)
 }
