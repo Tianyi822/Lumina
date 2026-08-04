@@ -2,6 +2,8 @@ import { create } from 'zustand'
 
 import { notifyError, notifySuccess, notifyWarning } from '@renderer/composables/notificationCore'
 import type {
+  ConfigSyncResult,
+  ConfigSyncState,
   DiscoveryInfo,
   ReconcileSummary,
   RelayDevice,
@@ -37,6 +39,7 @@ interface SyncStoreState {
   lastReconcile: ReconcileSummary | null
   eventConnected: boolean
   sessionSync: SessionSyncState
+  configSync: ConfigSyncState
   pendingAction: string | null
   error: string | null
 
@@ -53,6 +56,8 @@ interface SyncStoreState {
   reconcile: () => Promise<void>
   syncSessionsNow: () => Promise<boolean>
   bindSessionSyncState: () => void
+  syncConfigNow: () => Promise<boolean>
+  bindConfigSyncState: () => void
   setupEventStream: () => void
   cleanupEventStream: () => void
   handleRelayEvent: (event: RelayEvent) => Promise<void>
@@ -78,6 +83,12 @@ const initialData = {
     lastResult: null,
     lastError: null
   } as SessionSyncState,
+  configSync: {
+    phase: 'idle',
+    lastSyncAt: null,
+    lastResult: null,
+    lastError: null
+  } as ConfigSyncState,
   pendingAction: null,
   error: null
 }
@@ -90,6 +101,8 @@ let shouldReconnect = false
 let eventTicketPending = false
 let sessionSyncBound = false
 let sessionSyncUnsubscribe: (() => void) | null = null
+let configSyncBound = false
+let configSyncUnsubscribe: (() => void) | null = null
 
 function patchFromStatus(status: SyncStatus): Partial<SyncStoreState> {
   return {
@@ -414,6 +427,42 @@ export const useSyncStore = create<SyncStoreState>()((set, get) => ({
     })
   },
 
+  syncConfigNow: async () => {
+    set({ pendingAction: 'config-sync', error: null })
+    const result = await window.api.sync.configSyncNow()
+    set({ pendingAction: null })
+    if (!result.success) {
+      const message = formatFailure(result, '配置同步失败')
+      set({ error: message })
+      notifyError('数据同步', message, { source: 'settings' })
+      return false
+    }
+    if (result.data) {
+      const syncResult: ConfigSyncResult = result.data
+      set({
+        configSync: {
+          phase: syncResult.errors.length > 0 ? 'error' : 'idle',
+          lastSyncAt: new Date().toISOString(),
+          lastResult: syncResult,
+          lastError:
+            syncResult.errors.length > 0 ? `${syncResult.errors.length} 项配置同步失败` : null
+        }
+      })
+    }
+    return true
+  },
+
+  bindConfigSyncState: () => {
+    if (configSyncBound) return
+    configSyncBound = true
+    configSyncUnsubscribe = window.api.sync.onConfigSyncState((state) =>
+      set({ configSync: state })
+    )
+    void window.api.sync.getConfigSyncState().then((result) => {
+      if (result.success && result.data) set({ configSync: result.data })
+    })
+  },
+
   setupEventStream: () => {
     if (get().status !== 'connected') return
     shouldReconnect = true
@@ -487,6 +536,11 @@ export const useSyncStore = create<SyncStoreState>()((set, get) => ({
       sessionSyncUnsubscribe = null
     }
     sessionSyncBound = false
+    if (configSyncUnsubscribe) {
+      configSyncUnsubscribe()
+      configSyncUnsubscribe = null
+    }
+    configSyncBound = false
     set({ eventConnected: false })
   },
 
@@ -510,6 +564,7 @@ export const useSyncStore = create<SyncStoreState>()((set, get) => ({
         }
         return
       case 'manifest_updated':
+        window.api.sync.notifyConfigManifestEvent()
         await get().reconcile()
         return
       case 'session_file_updated':
