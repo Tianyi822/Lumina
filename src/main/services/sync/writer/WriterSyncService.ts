@@ -36,7 +36,7 @@ const CAS_RETRY_LIMIT = 2
 
 type SyncServiceLike = Pick<SyncService, 'getStatus' | 'getDataKey' | 'getClient'>
 type WriterStorageLike = {
-  listDocuments(): WriterIndex
+  listDocuments(): Promise<{ success: boolean; data?: WriterIndex | null; error?: string }>
   applySyncedIndex(merged: WriterIndex): Promise<{ success: boolean; error?: string }>
   applySyncedDocument(doc: WriterDocument): Promise<{ success: boolean; error?: string }>
   applySyncedDeletedDocument(id: string): Promise<{ success: boolean; error?: string }>
@@ -68,6 +68,11 @@ interface LocalFile {
 
 function emptyResult(): WriterSyncResult {
   return { uploaded: 0, downloaded: 0, deletedLocal: 0, deletedRemote: 0, skipped: 0, errors: [] }
+}
+
+/** 空 index 兜底：本地索引读取失败时按空合并，避免阻塞远端下行 */
+function emptyIndex(): WriterIndex {
+  return { schemaVersion: 1, folders: [], documents: [], recentDocumentIds: [] }
 }
 
 /** asset 文件名正则（sha256 + 扩展名） */
@@ -426,7 +431,8 @@ export class WriterSyncService {
     switch (parsed.kind) {
       case 'index': {
         const remoteIndex = JSON.parse(new TextDecoder().decode(bytes)) as WriterIndex
-        const localIndex = this.storage.listDocuments()
+        const localResult = await this.storage.listDocuments()
+        const localIndex = localResult.success && localResult.data ? localResult.data : emptyIndex()
         const merge = mergeWriterIndex({ local: localIndex, remote: remoteIndex })
         if (merge.changed) {
           await this.storage.applySyncedIndex(merge.merged)

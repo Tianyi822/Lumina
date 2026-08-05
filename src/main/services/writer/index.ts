@@ -20,9 +20,17 @@ const writerFlushCoordinator = new WriterFlushCoordinator({
   }
 })
 
+/**
+ * 底层存储/资源服务单例：与 writerService 共享同一实例。
+ * writing 同步引擎直接复用此实例的写队列（applySynced* / readDocumentForSync / importBytes），
+ * 与 sessionService.getStorage() 共享 SessionStorageService 同理。
+ */
+export const writerStorageService = new WriterStorageService()
+export const writerAssetService = new WriterAssetService()
+
 export const writerService = new WriterService({
-  storageService: new WriterStorageService(),
-  assetService: new WriterAssetService(),
+  storageService: writerStorageService,
+  assetService: writerAssetService,
   flushCoordinator: writerFlushCoordinator,
   getWebContentsIds: () =>
     BrowserWindow.getAllWindows()

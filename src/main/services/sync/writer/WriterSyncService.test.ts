@@ -20,7 +20,7 @@ const DEK = new Uint8Array(randomBytes(32))
 
 type SyncServiceLike = Pick<SyncService, 'getStatus' | 'getDataKey' | 'getClient'>
 type WriterStorageLike = {
-  listDocuments(): WriterIndex
+  listDocuments(): Promise<{ success: boolean; data?: WriterIndex | null; error?: string }>
   applySyncedIndex(merged: WriterIndex): Promise<{ success: boolean; error?: string }>
   applySyncedDocument(doc: WriterDocument): Promise<{ success: boolean; error?: string }>
   applySyncedDeletedDocument(id: string): Promise<{ success: boolean; error?: string }>
@@ -126,7 +126,10 @@ function makeHarness(connected = true): Harness {
   const relay = new FakeRelayClient()
 
   const storage: WriterStorageLike = {
-    listDocuments: () => JSON.parse(readFileSync(join(writingRoot, 'index.json'), 'utf-8')),
+    listDocuments: async () => ({
+      success: true,
+      data: JSON.parse(readFileSync(join(writingRoot, 'index.json'), 'utf-8'))
+    }),
     applySyncedIndex: async (merged) => {
       writeFileSync(join(writingRoot, 'index.json'), JSON.stringify(merged, null, 2), 'utf-8')
       return { success: true }
