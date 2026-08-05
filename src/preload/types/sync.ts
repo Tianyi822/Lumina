@@ -7,6 +7,8 @@ import type {
   EventTicketResult,
   KnowledgeSyncResult,
   KnowledgeSyncState,
+  PaperSyncResult,
+  PaperSyncState,
   ReconcileSummary,
   RedeemResult,
   RelayDevice,
@@ -86,4 +88,14 @@ export interface SyncApi {
   onKnowledgeSyncState: (callback: (state: KnowledgeSyncState) => void) => () => void
   /** 转发 WebSocket 的 knowledge-* session_file 事件（去抖由引擎负责） */
   notifyKnowledgeFileEvent: () => void
+  /** 手动触发论文同步 */
+  paperSyncNow: () => Promise<SyncResult<PaperSyncResult>>
+  /** 读取论文同步引擎状态 */
+  getPaperSyncState: () => Promise<SyncResult<PaperSyncState>>
+  /** 订阅论文同步状态推送；返回取消订阅函数 */
+  onPaperSyncState: (callback: (state: PaperSyncState) => void) => () => void
+  /** 触发论文 pack 懒下载 */
+  requestPaperPackDownload: (paperId: string) => Promise<SyncResult>
+  /** 转发 WebSocket 的 paper-* session_file 事件 */
+  notifyPaperFileEvent: () => void
 }

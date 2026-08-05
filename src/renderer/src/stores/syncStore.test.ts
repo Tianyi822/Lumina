@@ -119,6 +119,26 @@ function createSyncApi(overrides: Partial<SyncApi> = {}): SyncApi {
     }),
     onKnowledgeSyncState: () => () => {},
     notifyKnowledgeFileEvent: () => {},
+    paperSyncNow: async () => ({
+      success: true,
+      data: {
+        uploaded: 0,
+        downloaded: 0,
+        deletedLocal: 0,
+        deletedRemote: 0,
+        blocksUploaded: 0,
+        blocksDownloaded: 0,
+        skipped: 1,
+        errors: []
+      }
+    }),
+    getPaperSyncState: async () => ({
+      success: true,
+      data: { phase: 'idle', lastSyncAt: null, lastResult: null, lastError: null, downloads: {} }
+    }),
+    onPaperSyncState: () => () => {},
+    requestPaperPackDownload: async () => ({ success: true }),
+    notifyPaperFileEvent: () => {},
     ...overrides
   }
 }

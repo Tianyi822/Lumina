@@ -4,6 +4,7 @@ import { getConfigSyncService } from '@main/services/sync/config'
 import { getSessionSyncService } from '@main/services/sync/session'
 import { getWriterSyncService } from '@main/services/sync/writer'
 import { getKnowledgeSyncService } from '@main/services/sync/knowledge'
+import { getPaperSyncService } from '@main/services/sync/paper'
 
 /**
  * 注册同步相关 IPC 处理程序。
@@ -25,6 +26,7 @@ export function registerSyncHandlers(): void {
         getConfigSyncService().start()
         getWriterSyncService().start()
         getKnowledgeSyncService().start()
+        getPaperSyncService().start()
       }
       return result
     }
@@ -38,6 +40,7 @@ export function registerSyncHandlers(): void {
       getConfigSyncService().start()
       getWriterSyncService().start()
       getKnowledgeSyncService().start()
+      getPaperSyncService().start()
     }
     return result
   })
@@ -53,6 +56,7 @@ export function registerSyncHandlers(): void {
     getConfigSyncService().stop()
     getWriterSyncService().stop()
     getKnowledgeSyncService().stop()
+    getPaperSyncService().stop()
     return getSyncService().disconnect()
   })
 
@@ -74,6 +78,7 @@ export function registerSyncHandlers(): void {
       getConfigSyncService().kickoff()
       getWriterSyncService().kickoff()
       getKnowledgeSyncService().kickoff()
+      getPaperSyncService().kickoff()
     }
     return result
   })
@@ -161,5 +166,26 @@ export function registerSyncHandlers(): void {
   // 渲染进程 WebSocket 收到 knowledge-* session_file 事件后转发触发（去抖在引擎内）
   ipcMain.on('sync:knowledgeFileEvent', () => {
     getKnowledgeSyncService().handleKnowledgeFileEvent()
+  })
+
+  // 手动触发论文同步
+  ipcMain.handle('sync:paperSyncNow', () => {
+    return getPaperSyncService().syncNow()
+  })
+
+  // 读取论文同步引擎状态
+  ipcMain.handle('sync:getPaperSyncState', () => {
+    return { success: true, data: getPaperSyncService().getState() }
+  })
+
+  // 触发论文 pack 懒下载
+  ipcMain.handle('sync:requestPaperPackDownload', (_event, paperId: string) => {
+    getPaperSyncService().requestPaperPackDownload(paperId)
+    return { success: true }
+  })
+
+  // 渲染进程 WebSocket 收到 paper-* session_file 事件后转发
+  ipcMain.on('sync:paperFileEvent', () => {
+    getPaperSyncService().handlePaperEvent()
   })
 }

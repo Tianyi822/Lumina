@@ -8,6 +8,8 @@ import type {
   EventTicketResult,
   KnowledgeSyncResult,
   KnowledgeSyncState,
+  PaperSyncResult,
+  PaperSyncState,
   ReconcileSummary,
   RedeemResult,
   RelayDevice,
@@ -112,6 +114,21 @@ export const syncApi: SyncApi = {
   },
   notifyKnowledgeFileEvent: () => {
     ipcRenderer.send('sync:knowledgeFileEvent')
+  },
+  paperSyncNow: () => {
+    return invoke<PaperSyncResult>('sync:paperSyncNow')
+  },
+  getPaperSyncState: () => {
+    return invoke<PaperSyncState>('sync:getPaperSyncState')
+  },
+  onPaperSyncState: (callback) => {
+    return createIpcListener<PaperSyncState>('sync:paperSyncState', callback)
+  },
+  requestPaperPackDownload: (paperId) => {
+    return invoke('sync:requestPaperPackDownload', paperId)
+  },
+  notifyPaperFileEvent: () => {
+    ipcRenderer.send('sync:paperFileEvent')
   }
 }
 
