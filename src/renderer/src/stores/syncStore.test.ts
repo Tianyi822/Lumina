@@ -101,6 +101,24 @@ function createSyncApi(overrides: Partial<SyncApi> = {}): SyncApi {
     }),
     onWriterSyncState: () => () => {},
     notifyWriterFileEvent: () => {},
+    knowledgeSyncNow: async () => ({
+      success: true,
+      data: {
+        uploaded: 0,
+        downloaded: 0,
+        deletedLocal: 0,
+        deletedRemote: 0,
+        reindexed: 0,
+        skipped: 1,
+        errors: []
+      }
+    }),
+    getKnowledgeSyncState: async () => ({
+      success: true,
+      data: { phase: 'idle', lastSyncAt: null, lastResult: null, lastError: null }
+    }),
+    onKnowledgeSyncState: () => () => {},
+    notifyKnowledgeFileEvent: () => {},
     ...overrides
   }
 }

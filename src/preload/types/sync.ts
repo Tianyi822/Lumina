@@ -5,6 +5,8 @@ import type {
   DiscardResult,
   DiscoveryInfo,
   EventTicketResult,
+  KnowledgeSyncResult,
+  KnowledgeSyncState,
   ReconcileSummary,
   RedeemResult,
   RelayDevice,
@@ -76,4 +78,12 @@ export interface SyncApi {
   onWriterSyncState: (callback: (state: WriterSyncState) => void) => () => void
   /** 转发 WebSocket 的 writer-* session_file 事件（去抖由引擎负责） */
   notifyWriterFileEvent: () => void
+  /** 手动触发知识库同步（等待完成） */
+  knowledgeSyncNow: () => Promise<SyncResult<KnowledgeSyncResult>>
+  /** 读取知识库同步引擎状态 */
+  getKnowledgeSyncState: () => Promise<SyncResult<KnowledgeSyncState>>
+  /** 订阅知识库同步状态推送；返回取消订阅函数 */
+  onKnowledgeSyncState: (callback: (state: KnowledgeSyncState) => void) => () => void
+  /** 转发 WebSocket 的 knowledge-* session_file 事件（去抖由引擎负责） */
+  notifyKnowledgeFileEvent: () => void
 }

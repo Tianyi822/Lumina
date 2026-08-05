@@ -6,6 +6,8 @@ import type {
   DiscardResult,
   DiscoveryInfo,
   EventTicketResult,
+  KnowledgeSyncResult,
+  KnowledgeSyncState,
   ReconcileSummary,
   RedeemResult,
   RelayDevice,
@@ -98,6 +100,18 @@ export const syncApi: SyncApi = {
   },
   notifyWriterFileEvent: () => {
     ipcRenderer.send('sync:writerFileEvent')
+  },
+  knowledgeSyncNow: () => {
+    return invoke<KnowledgeSyncResult>('sync:knowledgeSyncNow')
+  },
+  getKnowledgeSyncState: () => {
+    return invoke<KnowledgeSyncState>('sync:getKnowledgeSyncState')
+  },
+  onKnowledgeSyncState: (callback) => {
+    return createIpcListener<KnowledgeSyncState>('sync:knowledgeSyncState', callback)
+  },
+  notifyKnowledgeFileEvent: () => {
+    ipcRenderer.send('sync:knowledgeFileEvent')
   }
 }
 
