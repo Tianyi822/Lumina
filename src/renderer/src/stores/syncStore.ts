@@ -7,6 +7,8 @@ import type {
   DiscoveryInfo,
   KnowledgeSyncResult,
   KnowledgeSyncState,
+  PaperSyncResult,
+  PaperSyncState,
   ReconcileSummary,
   RelayDevice,
   RelayEvent,
@@ -46,6 +48,7 @@ interface SyncStoreState {
   configSync: ConfigSyncState
   writerSync: WriterSyncState
   knowledgeSync: KnowledgeSyncState
+  paperSync: PaperSyncState
   pendingAction: string | null
   error: string | null
 
@@ -68,6 +71,8 @@ interface SyncStoreState {
   bindWriterSyncState: () => void
   syncKnowledgeNow: () => Promise<boolean>
   bindKnowledgeSyncState: () => void
+  syncPaperNow: () => Promise<boolean>
+  bindPaperSyncState: () => void
   setupEventStream: () => void
   cleanupEventStream: () => void
   handleRelayEvent: (event: RelayEvent) => Promise<void>
@@ -111,6 +116,13 @@ const initialData = {
     lastResult: null,
     lastError: null
   } as KnowledgeSyncState,
+  paperSync: {
+    phase: 'idle',
+    lastSyncAt: null,
+    lastResult: null,
+    lastError: null,
+    downloads: {}
+  } as PaperSyncState,
   pendingAction: null,
   error: null
 }
@@ -129,6 +141,8 @@ let writerSyncBound = false
 let writerSyncUnsubscribe: (() => void) | null = null
 let knowledgeSyncBound = false
 let knowledgeSyncUnsubscribe: (() => void) | null = null
+let paperSyncBound = false
+let paperSyncUnsubscribe: (() => void) | null = null
 
 function patchFromStatus(status: SyncStatus): Partial<SyncStoreState> {
   return {
@@ -557,6 +571,41 @@ export const useSyncStore = create<SyncStoreState>()((set, get) => ({
     })
   },
 
+  syncPaperNow: async () => {
+    set({ pendingAction: 'paper-sync', error: null })
+    const result = await window.api.sync.paperSyncNow()
+    set({ pendingAction: null })
+    if (!result.success) {
+      const message = formatFailure(result, '论文同步失败')
+      set({ error: message })
+      notifyError('数据同步', message, { source: 'settings' })
+      return false
+    }
+    if (result.data) {
+      const syncResult: PaperSyncResult = result.data
+      set({
+        paperSync: {
+          phase: syncResult.errors.length > 0 ? 'error' : 'idle',
+          lastSyncAt: new Date().toISOString(),
+          lastResult: syncResult,
+          lastError:
+            syncResult.errors.length > 0 ? `${syncResult.errors.length} 篇论文同步失败` : null,
+          downloads: get().paperSync.downloads
+        }
+      })
+    }
+    return true
+  },
+
+  bindPaperSyncState: () => {
+    if (paperSyncBound) return
+    paperSyncBound = true
+    paperSyncUnsubscribe = window.api.sync.onPaperSyncState((state) => set({ paperSync: state }))
+    void window.api.sync.getPaperSyncState().then((result) => {
+      if (result.success && result.data) set({ paperSync: result.data })
+    })
+  },
+
   setupEventStream: () => {
     if (get().status !== 'connected') return
     shouldReconnect = true
@@ -645,6 +694,11 @@ export const useSyncStore = create<SyncStoreState>()((set, get) => ({
       knowledgeSyncUnsubscribe = null
     }
     knowledgeSyncBound = false
+    if (paperSyncUnsubscribe) {
+      paperSyncUnsubscribe()
+      paperSyncUnsubscribe = null
+    }
+    paperSyncBound = false
     set({ eventConnected: false })
   },
 
@@ -673,7 +727,9 @@ export const useSyncStore = create<SyncStoreState>()((set, get) => ({
         return
       case 'session_file_updated':
       case 'session_file_deleted':
-        if (event.sessionId.startsWith('knowledge-')) {
+        if (event.sessionId.startsWith('paper-')) {
+          window.api.sync.notifyPaperFileEvent()
+        } else if (event.sessionId.startsWith('knowledge-')) {
           window.api.sync.notifyKnowledgeFileEvent()
         } else if (event.sessionId.startsWith('writer-')) {
           window.api.sync.notifyWriterFileEvent()
