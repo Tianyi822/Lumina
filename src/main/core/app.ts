@@ -27,6 +27,7 @@ import { writerService } from '@main/services/writer'
 import { handleWriterWindowClose } from '@main/services/writer/WriterFlushCoordinator'
 import { initializeConfigSyncService } from '@main/services/sync/config'
 import { initializeKnowledgeSyncService } from '@main/services/sync/knowledge'
+import { initializePaperSyncService } from '@main/services/sync/paper'
 import { initializeSessionSyncService } from '@main/services/sync/session'
 import { initializeWriterSyncService } from '@main/services/sync/writer'
 
@@ -216,6 +217,7 @@ export function initializeApp(): void {
         initializeConfigSyncService()
         initializeWriterSyncService()
         initializeKnowledgeSyncService()
+        initializePaperSyncService()
       })
 
     // 创建主窗口
