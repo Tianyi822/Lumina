@@ -66,6 +66,7 @@ export default function SyncSettings() {
   const configSync = useSyncStore((state) => state.configSync)
   const writerSync = useSyncStore((state) => state.writerSync)
   const knowledgeSync = useSyncStore((state) => state.knowledgeSync)
+  const paperSync = useSyncStore((state) => state.paperSync)
 
   const discover = useSyncStore((state) => state.discover)
   const connect = useSyncStore((state) => state.connect)
@@ -85,6 +86,8 @@ export default function SyncSettings() {
   const bindWriterSyncState = useSyncStore((state) => state.bindWriterSyncState)
   const syncKnowledgeNow = useSyncStore((state) => state.syncKnowledgeNow)
   const bindKnowledgeSyncState = useSyncStore((state) => state.bindKnowledgeSyncState)
+  const syncPaperNow = useSyncStore((state) => state.syncPaperNow)
+  const bindPaperSyncState = useSyncStore((state) => state.bindPaperSyncState)
   const requestConfirm = useNotificationCenterStore((state) => state.requestConfirm)
 
   const [relayUrl, setRelayUrl] = useState(storedRelayUrl)
@@ -116,6 +119,10 @@ export default function SyncSettings() {
   useEffect(() => {
     bindKnowledgeSyncState()
   }, [bindKnowledgeSyncState])
+
+  useEffect(() => {
+    bindPaperSyncState()
+  }, [bindPaperSyncState])
 
   useEffect(() => {
     if (storedRelayUrl) setRelayUrl(storedRelayUrl)
@@ -654,6 +661,60 @@ export default function SyncSettings() {
               {knowledgeSync.lastResult && knowledgeSync.lastResult.errors.length > 0 && (
                 <ul className={styles['sync-settings__session-errors']}>
                   {knowledgeSync.lastResult.errors.slice(0, 5).map((item, index) => (
+                    <li key={index}>
+                      {item.key}：{item.message}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </section>
+
+          <section
+            className={['sm-settings-page__section', styles['sync-settings__section']].join(' ')}
+          >
+            <div className="sm-settings-page__section-header">
+              <div>
+                <h3 className="sm-settings-page__section-title">论文同步</h3>
+                <p className="sm-settings-page__section-description">
+                  论文元数据与批注实时同步；PDF、页图等大文件在打开论文时按需下载。每 60 秒一轮。
+                </p>
+              </div>
+              <button
+                className="sm-button sm-button--primary"
+                disabled={pendingAction === 'paper-sync' || paperSync.phase === 'running'}
+                onClick={() => void syncPaperNow()}
+              >
+                {paperSync.phase === 'running' || pendingAction === 'paper-sync'
+                  ? '同步中...'
+                  : '立即同步'}
+              </button>
+            </div>
+            <div className={styles['sync-settings__session-sync']}>
+              <span>
+                状态：
+                {paperSync.phase === 'running'
+                  ? '同步中'
+                  : paperSync.phase === 'error'
+                    ? '失败'
+                    : '空闲'}
+                {' · '}最近同步：{formatIsoDateTime(paperSync.lastSyncAt)}
+              </span>
+              {paperSync.lastResult && (
+                <span>
+                  上次结果：↑{paperSync.lastResult.uploaded} 文件上行 · ↓
+                  {paperSync.lastResult.downloaded} 下行 · ⟁{paperSync.lastResult.blocksUploaded}{' '}
+                  块上行 · ⇊{paperSync.lastResult.blocksDownloaded} 块下行 · ✕
+                  {paperSync.lastResult.deletedLocal + paperSync.lastResult.deletedRemote} 删除 ·
+                  跳过 {paperSync.lastResult.skipped}
+                </span>
+              )}
+              {paperSync.lastError && (
+                <span className={styles['sync-settings__error']}>{paperSync.lastError}</span>
+              )}
+              {paperSync.lastResult && paperSync.lastResult.errors.length > 0 && (
+                <ul className={styles['sync-settings__session-errors']}>
+                  {paperSync.lastResult.errors.slice(0, 5).map((item, index) => (
                     <li key={index}>
                       {item.key}：{item.message}
                     </li>

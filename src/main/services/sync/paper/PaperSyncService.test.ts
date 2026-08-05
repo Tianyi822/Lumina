@@ -4,7 +4,7 @@
  */
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, renameSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { randomBytes } from 'node:crypto'
@@ -154,7 +154,6 @@ function makeHarness(connected = true): Harness {
     applySyncedPackFile: async (_paperId, relPath, stagingFilePath) => {
       const target = join(papersDir, 'test-paper', relPath)
       mkdirSync(join(dirname_safe(target)), { recursive: true })
-      const { renameSync } = require('node:fs')
       renameSync(stagingFilePath, target)
       return { success: true }
     },

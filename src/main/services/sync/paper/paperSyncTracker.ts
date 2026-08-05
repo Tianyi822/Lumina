@@ -31,7 +31,7 @@ export interface TrackedPaperPackFile {
   blockIds: string[]
 }
 
-export type PaperPackDownloadState = 'remote' | 'downloading' | 'local' | 'error'
+type PaperPackDownloadState = 'remote' | 'downloading' | 'local' | 'error'
 
 /** 每篇论文的 pack 跟踪状态 */
 export interface TrackedPaperPack {
