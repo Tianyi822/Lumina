@@ -73,6 +73,8 @@ interface SyncStoreState {
   bindKnowledgeSyncState: () => void
   syncPaperNow: () => Promise<boolean>
   bindPaperSyncState: () => void
+  /** 统一同步：并行触发全部 5 个模块 */
+  syncAllNow: () => Promise<boolean>
   setupEventStream: () => void
   cleanupEventStream: () => void
   handleRelayEvent: (event: RelayEvent) => Promise<void>
@@ -604,6 +606,19 @@ export const useSyncStore = create<SyncStoreState>()((set, get) => ({
     void window.api.sync.getPaperSyncState().then((result) => {
       if (result.success && result.data) set({ paperSync: result.data })
     })
+  },
+
+  syncAllNow: async () => {
+    set({ pendingAction: 'sync-all', error: null })
+    const results = await Promise.all([
+      get().syncSessionsNow(),
+      get().syncConfigNow(),
+      get().syncWriterNow(),
+      get().syncKnowledgeNow(),
+      get().syncPaperNow()
+    ])
+    set({ pendingAction: null })
+    return results.every((ok) => ok)
   },
 
   setupEventStream: () => {

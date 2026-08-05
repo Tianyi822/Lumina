@@ -79,16 +79,68 @@ export default function SyncSettings() {
   const revokeDevice = useSyncStore((state) => state.revokeDevice)
   const discardOtherGroups = useSyncStore((state) => state.discardOtherGroups)
   const reconcile = useSyncStore((state) => state.reconcile)
-  const syncSessionsNow = useSyncStore((state) => state.syncSessionsNow)
-  const syncConfigNow = useSyncStore((state) => state.syncConfigNow)
+  const syncAllNow = useSyncStore((state) => state.syncAllNow)
   const bindConfigSyncState = useSyncStore((state) => state.bindConfigSyncState)
-  const syncWriterNow = useSyncStore((state) => state.syncWriterNow)
   const bindWriterSyncState = useSyncStore((state) => state.bindWriterSyncState)
-  const syncKnowledgeNow = useSyncStore((state) => state.syncKnowledgeNow)
   const bindKnowledgeSyncState = useSyncStore((state) => state.bindKnowledgeSyncState)
-  const syncPaperNow = useSyncStore((state) => state.syncPaperNow)
   const bindPaperSyncState = useSyncStore((state) => state.bindPaperSyncState)
   const requestConfirm = useNotificationCenterStore((state) => state.requestConfirm)
+
+  /** 同步状态的最小展示接口（5 个模块的状态共享此形状） */
+  type SyncStateView = {
+    phase: 'idle' | 'running' | 'error'
+    lastSyncAt: string | null
+    lastResult: { errors: Array<{ message: string; sessionId?: string; key?: string }> } | null
+    lastError: string | null
+  }
+
+  /** 五个同步模块的展示配置（驱动统一渲染） */
+  const SYNC_MODULES: Array<{
+    name: string
+    state: SyncStateView
+    resultFormat: (r: unknown) => string
+  }> = [
+    {
+      name: '会话',
+      state: sessionSync,
+      resultFormat: (r) => {
+        const d = r as Record<string, number>
+        return `↑${d.uploaded} 上行 · ↓${d.downloaded} 下行 · ⇄${d.merged} 合并 · ✕${d.deletedLocal + d.deletedRemote} 删除 · 跳过 ${d.skipped}`
+      }
+    },
+    {
+      name: '配置',
+      state: configSync,
+      resultFormat: (r) => {
+        const d = r as Record<string, number>
+        return `↑${d.uploaded} 上行 · ↓${d.downloaded} 下行 · ⇄${d.merged} 合并 · 跳过 ${d.skipped}`
+      }
+    },
+    {
+      name: '写作',
+      state: writerSync,
+      resultFormat: (r) => {
+        const d = r as Record<string, number>
+        return `↑${d.uploaded} 上行 · ↓${d.downloaded} 下行 · ✕${d.deletedLocal + d.deletedRemote} 删除 · 跳过 ${d.skipped}`
+      }
+    },
+    {
+      name: '知识库',
+      state: knowledgeSync,
+      resultFormat: (r) => {
+        const d = r as Record<string, number>
+        return `↑${d.uploaded} 上行 · ↓${d.downloaded} 下行 · ⟳${d.reindexed} 重建索引 · ✕${d.deletedLocal + d.deletedRemote} 删除 · 跳过 ${d.skipped}`
+      }
+    },
+    {
+      name: '论文',
+      state: paperSync,
+      resultFormat: (r) => {
+        const d = r as Record<string, number>
+        return `↑${d.uploaded} 文件上行 · ↓${d.downloaded} 下行 · ⟁${d.blocksUploaded} 块上行 · ⇊${d.blocksDownloaded} 块下行 · ✕${d.deletedLocal + d.deletedRemote} 删除 · 跳过 ${d.skipped}`
+      }
+    }
+  ]
 
   const [relayUrl, setRelayUrl] = useState(storedRelayUrl)
   const [username, setUsername] = useState(storedUsername)
@@ -464,263 +516,82 @@ export default function SyncSettings() {
           >
             <div className="sm-settings-page__section-header">
               <div>
-                <h3 className="sm-settings-page__section-title">会话同步</h3>
+                <h3 className="sm-settings-page__section-title">数据同步</h3>
                 <p className="sm-settings-page__section-description">
-                  会话以整文件密文快照同步，冲突按消息合并；每 60 秒自动一轮。
+                  会话、配置、写作、知识库、论文五类数据端到端加密同步；每 60 秒自动一轮。
                 </p>
               </div>
               <button
                 className="sm-button sm-button--primary"
-                disabled={pendingAction === 'session-sync' || sessionSync.phase === 'running'}
-                onClick={() => void syncSessionsNow()}
+                disabled={
+                  pendingAction === 'sync-all' ||
+                  sessionSync.phase === 'running' ||
+                  configSync.phase === 'running' ||
+                  writerSync.phase === 'running' ||
+                  knowledgeSync.phase === 'running' ||
+                  paperSync.phase === 'running'
+                }
+                onClick={() => void syncAllNow()}
               >
-                {sessionSync.phase === 'running' || pendingAction === 'session-sync'
+                {pendingAction === 'sync-all' ||
+                sessionSync.phase === 'running' ||
+                configSync.phase === 'running' ||
+                writerSync.phase === 'running' ||
+                knowledgeSync.phase === 'running' ||
+                paperSync.phase === 'running'
                   ? '同步中...'
                   : '立即同步'}
               </button>
             </div>
-            <div className={styles['sync-settings__session-sync']}>
-              <span>
-                状态：
-                {sessionSync.phase === 'running'
-                  ? '同步中'
-                  : sessionSync.phase === 'error'
-                    ? '失败'
-                    : '空闲'}
-                {' · '}最近同步：{formatIsoDateTime(sessionSync.lastSyncAt)}
-              </span>
-              {sessionSync.lastResult && (
-                <span>
-                  上次结果：↑{sessionSync.lastResult.uploaded} 上行 · ↓
-                  {sessionSync.lastResult.downloaded} 下行 · ⇄{sessionSync.lastResult.merged} 合并 ·
-                  ✕{sessionSync.lastResult.deletedLocal + sessionSync.lastResult.deletedRemote} 删除
-                  · 跳过 {sessionSync.lastResult.skipped}
-                </span>
-              )}
-              {sessionSync.lastError && (
-                <span className={styles['sync-settings__error']}>{sessionSync.lastError}</span>
-              )}
-              {sessionSync.lastResult && sessionSync.lastResult.errors.length > 0 && (
-                <ul className={styles['sync-settings__session-errors']}>
-                  {sessionSync.lastResult.errors.slice(0, 5).map((item) => (
-                    <li key={item.sessionId}>
-                      {item.sessionId}：{item.message}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </section>
-
-          <section
-            className={['sm-settings-page__section', styles['sync-settings__section']].join(' ')}
-          >
-            <div className="sm-settings-page__section-header">
-              <div>
-                <h3 className="sm-settings-page__section-title">配置同步</h3>
-                <p className="sm-settings-page__section-description">
-                  应用配置以端到端加密同步，机器相关条目（本地 MCP/嵌入模型）本机优先保留；每 60
-                  秒自动一轮。
-                </p>
-              </div>
-              <button
-                className="sm-button sm-button--primary"
-                disabled={pendingAction === 'config-sync' || configSync.phase === 'running'}
-                onClick={() => void syncConfigNow()}
-              >
-                {configSync.phase === 'running' || pendingAction === 'config-sync'
-                  ? '同步中...'
-                  : '立即同步'}
-              </button>
-            </div>
-            <div className={styles['sync-settings__session-sync']}>
-              <span>
-                状态：
-                {configSync.phase === 'running'
-                  ? '同步中'
-                  : configSync.phase === 'error'
-                    ? '失败'
-                    : '空闲'}
-                {' · '}最近同步：{formatIsoDateTime(configSync.lastSyncAt)}
-              </span>
-              {configSync.lastResult && (
-                <span>
-                  上次结果：↑{configSync.lastResult.uploaded} 上行 · ↓
-                  {configSync.lastResult.downloaded} 下行 · ⇄{configSync.lastResult.merged} 合并 ·
-                  跳过 {configSync.lastResult.skipped}
-                </span>
-              )}
-              {configSync.lastError && (
-                <span className={styles['sync-settings__error']}>{configSync.lastError}</span>
-              )}
-              {configSync.lastResult && configSync.lastResult.errors.length > 0 && (
-                <ul className={styles['sync-settings__session-errors']}>
-                  {configSync.lastResult.errors.slice(0, 5).map((item, index) => (
-                    <li key={index}>{item.message}</li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </section>
-
-          <section
-            className={['sm-settings-page__section', styles['sync-settings__section']].join(' ')}
-          >
-            <div className="sm-settings-page__section-header">
-              <div>
-                <h3 className="sm-settings-page__section-title">写作同步</h3>
-                <p className="sm-settings-page__section-description">
-                  写作文档以端到端加密同步，冲突按 revision 判定；每 60 秒自动一轮。
-                </p>
-              </div>
-              <button
-                className="sm-button sm-button--primary"
-                disabled={pendingAction === 'writer-sync' || writerSync.phase === 'running'}
-                onClick={() => void syncWriterNow()}
-              >
-                {writerSync.phase === 'running' || pendingAction === 'writer-sync'
-                  ? '同步中...'
-                  : '立即同步'}
-              </button>
-            </div>
-            <div className={styles['sync-settings__session-sync']}>
-              <span>
-                状态：
-                {writerSync.phase === 'running'
-                  ? '同步中'
-                  : writerSync.phase === 'error'
-                    ? '失败'
-                    : '空闲'}
-                {' · '}最近同步：{formatIsoDateTime(writerSync.lastSyncAt)}
-              </span>
-              {writerSync.lastResult && (
-                <span>
-                  上次结果：↑{writerSync.lastResult.uploaded} 上行 · ↓
-                  {writerSync.lastResult.downloaded} 下行 · ✕
-                  {writerSync.lastResult.deletedLocal + writerSync.lastResult.deletedRemote} 删除 ·
-                  跳过 {writerSync.lastResult.skipped}
-                </span>
-              )}
-              {writerSync.lastError && (
-                <span className={styles['sync-settings__error']}>{writerSync.lastError}</span>
-              )}
-              {writerSync.lastResult && writerSync.lastResult.errors.length > 0 && (
-                <ul className={styles['sync-settings__session-errors']}>
-                  {writerSync.lastResult.errors.slice(0, 5).map((item, index) => (
-                    <li key={index}>
-                      {item.key}：{item.message}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </section>
-
-          <section
-            className={['sm-settings-page__section', styles['sync-settings__section']].join(' ')}
-          >
-            <div className="sm-settings-page__section-header">
-              <div>
-                <h3 className="sm-settings-page__section-title">知识库同步</h3>
-                <p className="sm-settings-page__section-description">
-                  知识库元数据与上传文件以端到端加密同步；向量索引在目标设备自动重建。每 60 秒一轮。
-                </p>
-              </div>
-              <button
-                className="sm-button sm-button--primary"
-                disabled={pendingAction === 'knowledge-sync' || knowledgeSync.phase === 'running'}
-                onClick={() => void syncKnowledgeNow()}
-              >
-                {knowledgeSync.phase === 'running' || pendingAction === 'knowledge-sync'
-                  ? '同步中...'
-                  : '立即同步'}
-              </button>
-            </div>
-            <div className={styles['sync-settings__session-sync']}>
-              <span>
-                状态：
-                {knowledgeSync.phase === 'running'
-                  ? '同步中'
-                  : knowledgeSync.phase === 'error'
-                    ? '失败'
-                    : '空闲'}
-                {' · '}最近同步：{formatIsoDateTime(knowledgeSync.lastSyncAt)}
-              </span>
-              {knowledgeSync.lastResult && (
-                <span>
-                  上次结果：↑{knowledgeSync.lastResult.uploaded} 上行 · ↓
-                  {knowledgeSync.lastResult.downloaded} 下行 · ⟳{knowledgeSync.lastResult.reindexed}{' '}
-                  重建索引 · ✕
-                  {knowledgeSync.lastResult.deletedLocal + knowledgeSync.lastResult.deletedRemote}{' '}
-                  删除 · 跳过 {knowledgeSync.lastResult.skipped}
-                </span>
-              )}
-              {knowledgeSync.lastError && (
-                <span className={styles['sync-settings__error']}>{knowledgeSync.lastError}</span>
-              )}
-              {knowledgeSync.lastResult && knowledgeSync.lastResult.errors.length > 0 && (
-                <ul className={styles['sync-settings__session-errors']}>
-                  {knowledgeSync.lastResult.errors.slice(0, 5).map((item, index) => (
-                    <li key={index}>
-                      {item.key}：{item.message}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </section>
-
-          <section
-            className={['sm-settings-page__section', styles['sync-settings__section']].join(' ')}
-          >
-            <div className="sm-settings-page__section-header">
-              <div>
-                <h3 className="sm-settings-page__section-title">论文同步</h3>
-                <p className="sm-settings-page__section-description">
-                  论文元数据与批注实时同步；PDF、页图等大文件在打开论文时按需下载。每 60 秒一轮。
-                </p>
-              </div>
-              <button
-                className="sm-button sm-button--primary"
-                disabled={pendingAction === 'paper-sync' || paperSync.phase === 'running'}
-                onClick={() => void syncPaperNow()}
-              >
-                {paperSync.phase === 'running' || pendingAction === 'paper-sync'
-                  ? '同步中...'
-                  : '立即同步'}
-              </button>
-            </div>
-            <div className={styles['sync-settings__session-sync']}>
-              <span>
-                状态：
-                {paperSync.phase === 'running'
-                  ? '同步中'
-                  : paperSync.phase === 'error'
-                    ? '失败'
-                    : '空闲'}
-                {' · '}最近同步：{formatIsoDateTime(paperSync.lastSyncAt)}
-              </span>
-              {paperSync.lastResult && (
-                <span>
-                  上次结果：↑{paperSync.lastResult.uploaded} 文件上行 · ↓
-                  {paperSync.lastResult.downloaded} 下行 · ⟁{paperSync.lastResult.blocksUploaded}{' '}
-                  块上行 · ⇊{paperSync.lastResult.blocksDownloaded} 块下行 · ✕
-                  {paperSync.lastResult.deletedLocal + paperSync.lastResult.deletedRemote} 删除 ·
-                  跳过 {paperSync.lastResult.skipped}
-                </span>
-              )}
-              {paperSync.lastError && (
-                <span className={styles['sync-settings__error']}>{paperSync.lastError}</span>
-              )}
-              {paperSync.lastResult && paperSync.lastResult.errors.length > 0 && (
-                <ul className={styles['sync-settings__session-errors']}>
-                  {paperSync.lastResult.errors.slice(0, 5).map((item, index) => (
-                    <li key={index}>
-                      {item.key}：{item.message}
-                    </li>
-                  ))}
-                </ul>
-              )}
+            <div className={styles['sync-settings__modules']}>
+              {SYNC_MODULES.map((mod) => {
+                const state = mod.state
+                const isError = state.phase === 'error'
+                const isRunning = state.phase === 'running'
+                return (
+                  <div key={mod.name} className={styles['sync-settings__module-row']}>
+                    <div className={styles['sync-settings__module-info']}>
+                      <span className={styles['sync-settings__module-name']}>
+                        <span
+                          className={[
+                            styles['sync-settings__module-dot'],
+                            isRunning
+                              ? styles['is-running']
+                              : isError
+                                ? styles['is-error']
+                                : styles['is-idle']
+                          ].join(' ')}
+                        />
+                        {mod.name}
+                      </span>
+                      <span className={styles['sync-settings__module-meta']}>
+                        {isRunning ? '同步中' : isError ? '失败' : '空闲'}
+                        {' · '}
+                        {formatIsoDateTime(state.lastSyncAt)}
+                      </span>
+                    </div>
+                    {state.lastResult && (
+                      <span className={styles['sync-settings__module-result']}>
+                        {mod.resultFormat(state.lastResult)}
+                      </span>
+                    )}
+                    {state.lastError && (
+                      <span className={styles['sync-settings__error']}>{state.lastError}</span>
+                    )}
+                    {state.lastResult && state.lastResult.errors.length > 0 && (
+                      <ul className={styles['sync-settings__session-errors']}>
+                        {state.lastResult.errors.slice(0, 5).map((item, index) => (
+                          <li key={index}>
+                            {item.sessionId ?? item.key ?? ''}
+                            {item.sessionId || item.key ? '：' : ''}
+                            {item.message}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )
+              })}
             </div>
           </section>
 

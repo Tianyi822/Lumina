@@ -213,3 +213,78 @@
   font-size: 12px;
   line-height: 1.6;
 }
+
+/* —— 统一数据同步区块 —— */
+
+.sync-settings__modules {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sm-space-3);
+}
+
+.sync-settings__module-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sm-space-1);
+  padding: var(--sm-space-2) var(--sm-space-3);
+  border-radius: var(--sm-radius-sm);
+  background: var(--sm-color-surface-2);
+}
+
+.sync-settings__module-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sm-space-2);
+}
+
+.sync-settings__module-name {
+  display: flex;
+  align-items: center;
+  gap: var(--sm-space-2);
+  color: var(--sm-color-text-primary);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.sync-settings__module-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.sync-settings__module-dot.is-idle {
+  background: var(--sm-color-text-tertiary);
+}
+
+.sync-settings__module-dot.is-running {
+  background: var(--sm-color-primary);
+  animation: sm-sync-pulse 1.2s ease-in-out infinite;
+}
+
+.sync-settings__module-dot.is-error {
+  background: var(--sm-color-status-danger);
+}
+
+.sync-settings__module-meta {
+  color: var(--sm-color-text-tertiary);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.sync-settings__module-result {
+  color: var(--sm-color-text-secondary);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+@keyframes sm-sync-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
