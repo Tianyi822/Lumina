@@ -7,7 +7,7 @@
  */
 import { readFile, stat } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
-import { join } from 'node:path'
+import { join, resolve, sep } from 'node:path'
 import { logger } from '@main/services/logger'
 import type { KnowledgeBase, FileItem } from '@shared/types/knowledge'
 import type { KnowledgeSyncResult, KnowledgeSyncState, SyncResult } from '@shared/types/sync'
@@ -233,6 +233,17 @@ export class KnowledgeSyncService {
     return join(this.knowledgeDir(), KNOWLEDGE_DATA_DIR_NAME, KNOWLEDGE_FILES_DIR_NAME)
   }
 
+  /**
+   * 解析 file.filePath 到存储目录内的绝对路径（防路径注入）：
+   * `..` 逃逸或指向目录外的绝对路径返回 null，调用方直接跳过该文件。
+   */
+  private resolveFileStoragePath(filePath: string): string | null {
+    const base = resolve(this.filesStoragePath())
+    const resolved = resolve(base, filePath)
+    if (resolved === base || !resolved.startsWith(base + sep)) return null
+    return resolved
+  }
+
   private async scanLocal(): Promise<Map<string, LocalFile>> {
     const files = new Map<string, LocalFile>()
 
@@ -252,11 +263,11 @@ export class KnowledgeSyncService {
       try {
         const fileItems = JSON.parse(fmBytes.toString('utf-8')) as FileItem[]
         this.scannedFileItems = Array.isArray(fileItems) ? fileItems : []
-        const storagePath = this.filesStoragePath()
         for (const file of this.scannedFileItems) {
           if (file.sourceKind !== 'uploaded') continue
-          const fullPath = join(storagePath, file.filePath)
-          if (!existsSync(fullPath)) continue
+          // 不合法 filePath（路径注入嫌疑）直接跳过
+          const fullPath = this.resolveFileStoragePath(file.filePath)
+          if (!fullPath || !existsSync(fullPath)) continue
           await this.addFile(files, fullPath, makeFileKey(file.id))
         }
       } catch {
@@ -501,7 +512,7 @@ export class KnowledgeSyncService {
           const metadata = this._deps.fileStorage.readFilesMetadataForSync()
           file = metadata.find((f) => f.id === parsed.fileId)
         }
-        if (file) path = join(this.filesStoragePath(), file.filePath)
+        if (file) path = this.resolveFileStoragePath(file.filePath)
         break
       }
     }
@@ -544,6 +555,8 @@ export class KnowledgeSyncService {
         return
       }
       // knowledge 元数据不做字段级合并，本地优先
+      // TODO(follow-up): metadata/bases key CAS 冲突时当前为本地盲覆盖远端，
+      // 窄窗口内远端并发变更会被丢弃；后续应拉取最新远端做字段级 merge 后再重试上行
       base = latest.data.version ?? base + 1
     }
     result.errors.push({ key, message: '版本冲突重试耗尽' })

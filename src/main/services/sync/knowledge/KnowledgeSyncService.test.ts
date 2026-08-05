@@ -3,7 +3,7 @@
  */
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { randomBytes } from 'node:crypto'
@@ -39,6 +39,8 @@ type KnowledgeManagerLike = {
 
 class FakeRelayClient {
   files = new Map<string, { bytes: Uint8Array; version: number }>()
+  /** 下一次 putSessionFile(key) 强制返回一次 stale，模拟对端抢先写入触发 CAS 冲突 */
+  private readonly forceStaleOnce = new Set<string>()
 
   async listSessionFiles(): Promise<SyncResult<{ sessions: SessionFileMeta[] }>> {
     return {
@@ -62,11 +64,19 @@ class FakeRelayClient {
     return { success: true, data: { bytes: file.bytes, version: file.version } }
   }
 
+  /** 标记下一次该 key 的 put 强制返回 stale_session_file */
+  forceStaleOnNextPut(key: string): void {
+    this.forceStaleOnce.add(key)
+  }
+
   async putSessionFile(
     key: string,
     baseVersion: number,
     bytes: Uint8Array
   ): Promise<SyncResult<{ version: number; size: number }>> {
+    if (this.forceStaleOnce.delete(key)) {
+      return { success: false, code: 'stale_session_file', error: '版本过期' }
+    }
     const current = this.files.get(key)?.version ?? 0
     if (current !== baseVersion)
       return { success: false, code: 'stale_session_file', error: '版本过期' }
@@ -122,6 +132,8 @@ interface Harness {
   tracker: KnowledgeSyncTracker
   dir: string
   reindexCalls: string[]
+  /** applySyncedFileDeletion 调用记录（断言远端→本地删除用） */
+  deletedFileIds: string[]
   cleanup: () => void
 }
 
@@ -133,6 +145,7 @@ function makeHarness(connected = true): Harness {
   let memKB: KnowledgeBase[] = []
   let memFiles: FileItem[] = []
   const reindexCalls: string[] = []
+  const deletedFileIds: string[] = []
 
   const knowledgeStorage: KnowledgeStorageLike = {
     readKnowledgeBasesForSync: async () => [...memKB],
@@ -149,6 +162,7 @@ function makeHarness(connected = true): Harness {
       return { success: true }
     },
     applySyncedFileDeletion: async (fileId) => {
+      deletedFileIds.push(fileId)
       memFiles = memFiles.filter((f) => f.id !== fileId)
       return { success: true }
     },
@@ -192,6 +206,7 @@ function makeHarness(connected = true): Harness {
     tracker,
     dir,
     reindexCalls,
+    deletedFileIds,
     cleanup: () => rmSync(dir, { recursive: true, force: true })
   }
 }
@@ -331,6 +346,99 @@ test('无变更时 skipped', async () => {
     const result = await h.engine.syncNow()
     assert.ok(result.data)
     assert.equal(result.data.skipped, 2) // bases + metadata
+  } finally {
+    h.cleanup()
+  }
+})
+
+test('上行 CAS 冲突（stale_session_file）→ 拉取最新版本 re-base 后重试成功', async () => {
+  const h = makeHarness()
+  try {
+    const file = makeFile('file-1', '123-abc.txt', join(h.dir, 'data', 'files', '123-abc.txt'))
+    writeFileSync(file.absolutePath, '原始内容')
+    writeFileSync(join(h.dir, 'knowledge-bases.json'), '[]')
+    writeFileSync(join(h.dir, 'files-metadata.json'), JSON.stringify([file], null, 2))
+    // 基线上行：file key 落到远端，tracker 记录 version=1
+    await h.engine.syncNow()
+
+    // 本地修改文件内容，dirty 待上行（远端 version 不变，避免下行覆盖本地修改）
+    writeFileSync(file.absolutePath, '本地修改内容')
+    // 下一次该 key 的 put 强制返回一次 stale_session_file，模拟对端在 list 与 put 之间抢先写入
+    h.relay.forceStaleOnNextPut(makeFileKey('file-1'))
+
+    const result = await h.engine.syncNow()
+    assert.ok(result.success)
+    assert.ok(result.data)
+    // 重试后上传成功，无错误
+    assert.equal(result.data.uploaded, 1)
+    assert.equal(result.data.errors.length, 0)
+    // 远端版本推进到 2
+    const put = h.relay.files.get(makeFileKey('file-1'))
+    assert.ok(put)
+    assert.equal(put.version, 2)
+    // tracker 已对齐到最新远端版本
+    const tracked = h.tracker.getData().keys[makeFileKey('file-1')]
+    assert.ok(tracked)
+    assert.equal(tracked.version, 2)
+  } finally {
+    h.cleanup()
+  }
+})
+
+test('tombstone 阻止远端复活：本地已删文件，远端同 key 不被重新下行', async () => {
+  const h = makeHarness()
+  try {
+    const file = makeFile('file-1', '123-abc.txt', join(h.dir, 'data', 'files', '123-abc.txt'))
+    writeFileSync(file.absolutePath, '原始内容')
+    writeFileSync(join(h.dir, 'knowledge-bases.json'), '[]')
+    writeFileSync(join(h.dir, 'files-metadata.json'), JSON.stringify([file], null, 2))
+    await h.engine.syncNow()
+
+    // 本地删除物理文件 → scanLocal 不再产出该 key → 上行删除 + 设 tombstone
+    rmSync(file.absolutePath)
+    const del = await h.engine.syncNow()
+    assert.ok(del.data)
+    assert.equal(del.data.deletedRemote, 1)
+    assert.ok(h.tracker.getTombstone(makeFileKey('file-1')))
+    assert.equal(h.relay.files.has(makeFileKey('file-1')), false)
+
+    // 远端同 key 以更高 version 复活
+    const ct = sealKnowledgeFile(DEK, new TextEncoder().encode('远端复活内容'))
+    h.relay.files.set(makeFileKey('file-1'), { bytes: ct, version: 5 })
+
+    const result = await h.engine.syncNow()
+    assert.ok(result.success)
+    assert.ok(result.data)
+    // 不应下载复活文件
+    assert.equal(result.data.downloaded, 0)
+    assert.ok(!existsSync(file.absolutePath), '本地文件不应被重新写入')
+    // tombstone 仍在
+    assert.ok(h.tracker.getTombstone(makeFileKey('file-1')))
+  } finally {
+    h.cleanup()
+  }
+})
+
+test('远端删除已 tracked 文件 → 下行删除本地（phase c）', async () => {
+  const h = makeHarness()
+  try {
+    const file = makeFile('file-1', '123-abc.txt', join(h.dir, 'data', 'files', '123-abc.txt'))
+    writeFileSync(file.absolutePath, '原始内容')
+    writeFileSync(join(h.dir, 'knowledge-bases.json'), '[]')
+    writeFileSync(join(h.dir, 'files-metadata.json'), JSON.stringify([file], null, 2))
+    await h.engine.syncNow()
+    assert.ok(h.tracker.getData().keys[makeFileKey('file-1')])
+
+    // 远端删除 file key（本地未修改，hash 与 tracked.contentHash 一致）
+    h.relay.files.delete(makeFileKey('file-1'))
+
+    const result = await h.engine.syncNow()
+    assert.ok(result.success)
+    assert.ok(result.data)
+    assert.equal(result.data.deletedLocal, 1)
+    // 调用了 applySyncedFileDeletion 删本地，tracker 移除该 key
+    assert.ok(h.deletedFileIds.includes('file-1'))
+    assert.equal(h.tracker.getData().keys[makeFileKey('file-1')], undefined)
   } finally {
     h.cleanup()
   }

@@ -1,6 +1,6 @@
 import { existsSync } from 'fs'
 import { readFile, writeFile, mkdir, unlink, rename } from 'fs/promises'
-import { join, extname, dirname } from 'path'
+import { join, extname, dirname, resolve, sep } from 'path'
 import { createHash } from 'crypto'
 import { logger } from '@main/services/logger'
 import { getVectorDBService } from '@main/services/vector'
@@ -40,6 +40,17 @@ function getFilesMetadataPath(): string {
  */
 export function getFilesStoragePath(): string {
   return getKnowledgeFilesStoragePath()
+}
+
+/**
+ * 防路径注入（防纵深）：解析同步来源的路径，要求必须落在 baseDir 内。
+ * 拒绝 `..` 逃逸与指向目录外的绝对路径；不合法返回 null。
+ */
+function resolveContainedPath(baseDir: string, targetPath: string): string | null {
+  const base = resolve(baseDir)
+  const resolved = resolve(base, targetPath)
+  if (resolved === base || !resolved.startsWith(base + sep)) return null
+  return resolved
 }
 
 /**
@@ -1322,10 +1333,16 @@ export class FileService {
       const file = this.files[index]
       // 删物理文件（仅 uploaded 类型有独立文件）
       if (file.sourceKind === 'uploaded' && file.absolutePath) {
-        try {
-          await unlink(file.absolutePath)
-        } catch {
-          // 文件不存在视为已删
+        // absolutePath 可能来自远端同步 metadata，存在路径注入风险：
+        // 仅对落在文件存储目录内的路径执行物理删除；目录外路径跳过 unlink、
+        // 继续走 metadata 移除（最小安全语义：宁可残留物理文件，也不删目录外内容）
+        const target = resolveContainedPath(getFilesStoragePath(), file.absolutePath)
+        if (target) {
+          try {
+            await unlink(target)
+          } catch {
+            // 文件不存在视为已删
+          }
         }
       }
       this.files.splice(index, 1)
@@ -1350,7 +1367,11 @@ export class FileService {
         return { success: false, error: '仅 uploaded 类型可写入内容' }
       }
       const storagePath = getFilesStoragePath()
-      const fullPath = join(storagePath, file.filePath)
+      // filePath 来自远端同步 metadata，写入前校验必须落在存储目录内（防 `..`/绝对路径注入）
+      const fullPath = resolveContainedPath(storagePath, file.filePath)
+      if (!fullPath) {
+        return { success: false, error: `非法文件路径（越出存储目录）：${file.filePath}` }
+      }
       await mkdir(dirname(fullPath), { recursive: true })
       await writeFile(fullPath, bytes)
       return { success: true }
