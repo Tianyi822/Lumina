@@ -27,6 +27,7 @@ import { writerService } from '@main/services/writer'
 import { handleWriterWindowClose } from '@main/services/writer/WriterFlushCoordinator'
 import { initializeConfigSyncService } from '@main/services/sync/config'
 import { initializeSessionSyncService } from '@main/services/sync/session'
+import { initializeWriterSyncService } from '@main/services/sync/writer'
 
 const appDisplayName = 'Lumina'
 const SHUTDOWN_TASK_TIMEOUT_MS = 5_000
@@ -212,6 +213,7 @@ export function initializeApp(): void {
       .finally(() => {
         initializeSessionSyncService()
         initializeConfigSyncService()
+        initializeWriterSyncService()
       })
 
     // 创建主窗口

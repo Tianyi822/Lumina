@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { mkdtempSync, rmSync, readFileSync, writeFileSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { WriterSyncTracker } from './writerSyncTracker'
+import { WriterSyncTracker, TOMBSTONE_TTL_MS } from './writerSyncTracker'
 
 function makeTmpTracker(): { tracker: WriterSyncTracker; dir: string; cleanup: () => void } {
   const dir = mkdtempSync(join(tmpdir(), 'lumina-writer-sync-tracker-'))
@@ -83,9 +83,12 @@ test('save 后文件存在且无 tmp 残留', () => {
 test('pruneTombstones 清理超期记录', () => {
   const { tracker, cleanup } = makeTmpTracker()
   try {
-    tracker.setTombstone('old-key', '2020-01-01T00:00:00.000Z') // 40+ 天前
-    tracker.setTombstone('new-key', new Date().toISOString())
-    tracker.pruneTombstones()
+    const now = Date.parse('2026-08-05T00:00:00.000Z')
+    // 超 TTL 1 秒 → 应被清理
+    tracker.setTombstone('old-key', new Date(now - TOMBSTONE_TTL_MS - 1000).toISOString())
+    // 当前时刻 → 保留
+    tracker.setTombstone('new-key', new Date(now).toISOString())
+    tracker.pruneTombstones(now)
     const data = tracker.getData()
     assert.equal(data.tombstones['old-key'], undefined)
     assert.ok(data.tombstones['new-key'])

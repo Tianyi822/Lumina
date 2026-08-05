@@ -10,7 +10,6 @@
 const INDEX_KEY = 'writer-index'
 const DOC_KEY_PREFIX = 'writer-doc-'
 const ASSET_KEY_PREFIX = 'writer-asset-'
-const WRITER_KEY_PREFIX = 'writer-'
 const ASSET_EXT_PATTERN = '(?:png|jpg|webp|gif)'
 const ASSET_FILE_PATTERN = `[a-z0-9]+\\.${ASSET_EXT_PATTERN}`
 const DOC_ID_PATTERN = 'writer-[a-z0-9-]+'
@@ -63,6 +62,3 @@ export function parseWriterKey(key: string): ParsedWriterKey | null {
 
   return null
 }
-
-/** 测试用：防止未预期导出（knip） */
-export const _WRITER_KEY_PREFIX = WRITER_KEY_PREFIX
