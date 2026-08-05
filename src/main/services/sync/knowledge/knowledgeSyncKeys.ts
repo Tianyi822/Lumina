@@ -10,7 +10,6 @@
 const BASES_KEY = 'knowledge-bases'
 const METADATA_KEY = 'knowledge-metadata'
 const FILE_KEY_PREFIX = 'knowledge-file-'
-const KNOWLEDGE_KEY_PREFIX = 'knowledge-'
 const FILE_ID_PATTERN = '[a-zA-Z0-9-]+'
 
 /** 生成 KB 列表 key */
@@ -30,11 +29,7 @@ export function makeFileKey(fileId: string): string {
 
 /** 判断 key 是否属于 knowledge 同步 */
 export function isKnowledgeKey(key: string): boolean {
-  return (
-    key === BASES_KEY ||
-    key === METADATA_KEY ||
-    key.startsWith(FILE_KEY_PREFIX)
-  )
+  return key === BASES_KEY || key === METADATA_KEY || key.startsWith(FILE_KEY_PREFIX)
 }
 
 export type ParsedKnowledgeKey =
@@ -57,6 +52,3 @@ export function parseKnowledgeKey(key: string): ParsedKnowledgeKey | null {
 
   return null
 }
-
-/** 测试用常量（防 knip 未使用告警） */
-export const _KNOWLEDGE_KEY_PREFIX = KNOWLEDGE_KEY_PREFIX

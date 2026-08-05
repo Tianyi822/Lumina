@@ -44,7 +44,10 @@ test('setKey/removeKey/setTombstone/getTombstone 正确读写', () => {
     const data = tracker.getData()
     assert.equal(data.keys['knowledge-bases']?.version, 2)
     assert.equal(data.tombstones['knowledge-file-file-del']?.deletedAt, '2026-08-05T00:00:00.000Z')
-    assert.equal(tracker.getTombstone('knowledge-file-file-del')?.deletedAt, '2026-08-05T00:00:00.000Z')
+    assert.equal(
+      tracker.getTombstone('knowledge-file-file-del')?.deletedAt,
+      '2026-08-05T00:00:00.000Z'
+    )
     tracker.removeKey('knowledge-bases')
     assert.equal(tracker.getData().keys['knowledge-bases'], undefined)
   } finally {
