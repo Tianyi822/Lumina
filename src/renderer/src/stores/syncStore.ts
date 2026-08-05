@@ -11,7 +11,9 @@ import type {
   SessionSyncState,
   SyncCodeResult,
   SyncResult,
-  SyncStatus
+  SyncStatus,
+  WriterSyncResult,
+  WriterSyncState
 } from '@shared/types/sync'
 
 type SyncConnectionState = 'disconnected' | 'connecting' | 'connected' | 'error'
@@ -40,6 +42,7 @@ interface SyncStoreState {
   eventConnected: boolean
   sessionSync: SessionSyncState
   configSync: ConfigSyncState
+  writerSync: WriterSyncState
   pendingAction: string | null
   error: string | null
 
@@ -58,6 +61,8 @@ interface SyncStoreState {
   bindSessionSyncState: () => void
   syncConfigNow: () => Promise<boolean>
   bindConfigSyncState: () => void
+  syncWriterNow: () => Promise<boolean>
+  bindWriterSyncState: () => void
   setupEventStream: () => void
   cleanupEventStream: () => void
   handleRelayEvent: (event: RelayEvent) => Promise<void>
@@ -89,6 +94,12 @@ const initialData = {
     lastResult: null,
     lastError: null
   } as ConfigSyncState,
+  writerSync: {
+    phase: 'idle',
+    lastSyncAt: null,
+    lastResult: null,
+    lastError: null
+  } as WriterSyncState,
   pendingAction: null,
   error: null
 }
@@ -103,6 +114,8 @@ let sessionSyncBound = false
 let sessionSyncUnsubscribe: (() => void) | null = null
 let configSyncBound = false
 let configSyncUnsubscribe: (() => void) | null = null
+let writerSyncBound = false
+let writerSyncUnsubscribe: (() => void) | null = null
 
 function patchFromStatus(status: SyncStatus): Partial<SyncStoreState> {
   return {
@@ -461,6 +474,40 @@ export const useSyncStore = create<SyncStoreState>()((set, get) => ({
     })
   },
 
+  syncWriterNow: async () => {
+    set({ pendingAction: 'writer-sync', error: null })
+    const result = await window.api.sync.writerSyncNow()
+    set({ pendingAction: null })
+    if (!result.success) {
+      const message = formatFailure(result, '写作同步失败')
+      set({ error: message })
+      notifyError('数据同步', message, { source: 'settings' })
+      return false
+    }
+    if (result.data) {
+      const syncResult: WriterSyncResult = result.data
+      set({
+        writerSync: {
+          phase: syncResult.errors.length > 0 ? 'error' : 'idle',
+          lastSyncAt: new Date().toISOString(),
+          lastResult: syncResult,
+          lastError:
+            syncResult.errors.length > 0 ? `${syncResult.errors.length} 篇写作同步失败` : null
+        }
+      })
+    }
+    return true
+  },
+
+  bindWriterSyncState: () => {
+    if (writerSyncBound) return
+    writerSyncBound = true
+    writerSyncUnsubscribe = window.api.sync.onWriterSyncState((state) => set({ writerSync: state }))
+    void window.api.sync.getWriterSyncState().then((result) => {
+      if (result.success && result.data) set({ writerSync: result.data })
+    })
+  },
+
   setupEventStream: () => {
     if (get().status !== 'connected') return
     shouldReconnect = true
@@ -539,6 +586,11 @@ export const useSyncStore = create<SyncStoreState>()((set, get) => ({
       configSyncUnsubscribe = null
     }
     configSyncBound = false
+    if (writerSyncUnsubscribe) {
+      writerSyncUnsubscribe()
+      writerSyncUnsubscribe = null
+    }
+    writerSyncBound = false
     set({ eventConnected: false })
   },
 
@@ -567,7 +619,11 @@ export const useSyncStore = create<SyncStoreState>()((set, get) => ({
         return
       case 'session_file_updated':
       case 'session_file_deleted':
-        window.api.sync.notifySessionFileEvent()
+        if (event.sessionId.startsWith('writer-')) {
+          window.api.sync.notifyWriterFileEvent()
+        } else {
+          window.api.sync.notifySessionFileEvent()
+        }
         await get().reconcile()
     }
   }
