@@ -385,14 +385,14 @@ export class WriterSyncService {
 
       const parsed = parseWriterKey(key)
       if (!parsed) continue
-      if (parsed.kind === 'document') {
-        const del = await this.storage.applySyncedDeletedDocument(parsed.documentId)
-        if (!del.success) {
-          result.errors.push({ key, message: `本地删除失败：${del.error ?? '未知'}` })
-          continue
-        }
+      // 仅处理文档删除；index 不删（永远存在），asset 由 collectGarbage 清理
+      if (parsed.kind !== 'document') continue
+
+      const del = await this.storage.applySyncedDeletedDocument(parsed.documentId)
+      if (!del.success) {
+        result.errors.push({ key, message: `本地删除失败：${del.error ?? '未知'}` })
+        continue
       }
-      // index 不删除；asset 随文档删除
       tracker.removeKey(key)
       localMap.delete(key)
       result.deletedLocal++
@@ -435,7 +435,8 @@ export class WriterSyncService {
         const localIndex = localResult.success && localResult.data ? localResult.data : emptyIndex()
         const merge = mergeWriterIndex({ local: localIndex, remote: remoteIndex })
         if (merge.changed) {
-          await this.storage.applySyncedIndex(merge.merged)
+          const applyResult = await this.storage.applySyncedIndex(merge.merged)
+          if (!applyResult.success) return 'ignored'
         }
         return 'downloaded'
       }
@@ -446,7 +447,8 @@ export class WriterSyncService {
         if (localDoc && remoteDoc.revision <= localDoc.revision) {
           return 'ignored' // 本地更新或相同
         }
-        await this.storage.applySyncedDocument(remoteDoc)
+        const applyResult = await this.storage.applySyncedDocument(remoteDoc)
+        if (!applyResult.success) return 'ignored'
         return 'downloaded'
       }
       case 'asset': {

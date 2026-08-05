@@ -36,6 +36,8 @@ type WriterAssetLike = {
 /** 内存假 RelayClient：实现 session-files 的 CAS 语义 */
 class FakeRelayClient {
   files = new Map<string, { bytes: Uint8Array; version: number }>()
+  /** 下一次 putSessionFile(key) 强制返回一次 stale，模拟对端抢先写入触发 CAS 冲突 */
+  private readonly forceStaleOnce = new Set<string>()
 
   async listSessionFiles(): Promise<SyncResult<{ sessions: SessionFileMeta[] }>> {
     return {
@@ -59,11 +61,19 @@ class FakeRelayClient {
     return { success: true, data: { bytes: file.bytes, version: file.version } }
   }
 
+  /** 标记下一次该 key 的 put 强制返回 stale_session_file */
+  forceStaleOnNextPut(key: string): void {
+    this.forceStaleOnce.add(key)
+  }
+
   async putSessionFile(
     key: string,
     baseVersion: number,
     bytes: Uint8Array
   ): Promise<SyncResult<{ version: number; size: number }>> {
+    if (this.forceStaleOnce.delete(key)) {
+      return { success: false, code: 'stale_session_file', error: '版本过期' }
+    }
     const current = this.files.get(key)?.version ?? 0
     if (current !== baseVersion) {
       return { success: false, code: 'stale_session_file', error: '版本过期' }
@@ -337,6 +347,82 @@ test('无变更时 skipped', async () => {
     assert.ok(result.data)
     assert.equal(result.data.skipped, 1)
     assert.equal(result.data.uploaded, 0)
+  } finally {
+    h.cleanup()
+  }
+})
+
+test('上行 CAS 冲突（stale_session_file）→ 拉取最新合并后重试成功', async () => {
+  const h = makeHarness()
+  try {
+    const doc = makeDoc('writer-abc12345', 1)
+    const docDir = join(h.dir, 'documents', 'writer-abc12345')
+    mkdirSync(docDir, { recursive: true })
+    writeFileSync(join(docDir, 'document.json'), JSON.stringify(doc, null, 2), 'utf-8')
+    // 先基线上行：doc 落到远端，tracker 记录 version=1
+    await h.engine.syncNow()
+
+    // 模拟对端已把远端 doc 推到 version=2（revision=2）
+    const remoteDoc = makeDoc('writer-abc12345', 2, '对端更新')
+    const remoteBytes = new TextEncoder().encode(JSON.stringify(remoteDoc, null, 2))
+    const ct = sealWriterFile(DEK, remoteBytes)
+    h.relay.files.set(makeDocKey('writer-abc12345'), { bytes: ct, version: 2 })
+
+    // 本地再做一次修改（revision=3），dirty 待上行；tracker.version 仍是 1
+    const localDoc = makeDoc('writer-abc12345', 3, '本地修改')
+    writeFileSync(join(docDir, 'document.json'), JSON.stringify(localDoc, null, 2), 'utf-8')
+
+    // 下一次该 key 的 put 强制返回一次 stale_session_file，触发 CAS 重试
+    h.relay.forceStaleOnNextPut(makeDocKey('writer-abc12345'))
+
+    const result = await h.engine.syncNow()
+    assert.ok(result.success)
+    assert.ok(result.data)
+    // 重试后上传成功，无错误
+    assert.equal(result.data.uploaded, 1)
+    assert.equal(result.data.errors.length, 0)
+    // 远端已被本地版本覆盖（version 推到 3，revision=3）
+    const put = h.relay.files.get(makeDocKey('writer-abc12345'))
+    assert.ok(put)
+    assert.equal(put.version, 3)
+    // tracker 已对齐到最新远端版本
+    const tracked = h.tracker.getData().keys[makeDocKey('writer-abc12345')]
+    assert.ok(tracked)
+    assert.equal(tracked.version, 3)
+  } finally {
+    h.cleanup()
+  }
+})
+
+test('tombstone 阻止远端复活：本地已删文档，远端同 key 不被重新下行', async () => {
+  const h = makeHarness()
+  try {
+    const doc = makeDoc('writer-abc12345', 1)
+    const docDir = join(h.dir, 'documents', 'writer-abc12345')
+    mkdirSync(docDir, { recursive: true })
+    writeFileSync(join(docDir, 'document.json'), JSON.stringify(doc, null, 2), 'utf-8')
+    await h.engine.syncNow()
+
+    // 本地删除 → 上行删除 + 设 tombstone
+    rmSync(docDir, { recursive: true, force: true })
+    await h.engine.syncNow()
+    assert.ok(h.tracker.getTombstone(makeDocKey('writer-abc12345')))
+    assert.equal(h.relay.files.has(makeDocKey('writer-abc12345')), false)
+
+    // 远端再次出现同 key（对端“复活”），version 高于本地任何已知值
+    const remoteDoc = makeDoc('writer-abc12345', 5, '远端复活')
+    const remoteBytes = new TextEncoder().encode(JSON.stringify(remoteDoc, null, 2))
+    const ct = sealWriterFile(DEK, remoteBytes)
+    h.relay.files.set(makeDocKey('writer-abc12345'), { bytes: ct, version: 5 })
+
+    const result = await h.engine.syncNow()
+    assert.ok(result.success)
+    assert.ok(result.data)
+    // 不应下载复活文档
+    assert.equal(result.data.downloaded, 0)
+    assert.ok(!existsSyncDoc(docDir), '本地文档不应被重新写入')
+    // tombstone 仍在
+    assert.ok(h.tracker.getTombstone(makeDocKey('writer-abc12345')))
   } finally {
     h.cleanup()
   }
