@@ -13,7 +13,9 @@ import type {
   SessionSyncState,
   SyncCodeResult,
   SyncResult,
-  SyncStatus
+  SyncStatus,
+  WriterSyncResult,
+  WriterSyncState
 } from '@shared/types/sync'
 import type { SyncApi } from '../types/sync'
 import { createIpcListener } from './base'
@@ -84,6 +86,18 @@ export const syncApi: SyncApi = {
   },
   notifyConfigManifestEvent: () => {
     ipcRenderer.send('sync:configManifestEvent')
+  },
+  writerSyncNow: () => {
+    return invoke<WriterSyncResult>('sync:writerSyncNow')
+  },
+  getWriterSyncState: () => {
+    return invoke<WriterSyncState>('sync:getWriterSyncState')
+  },
+  onWriterSyncState: (callback) => {
+    return createIpcListener<WriterSyncState>('sync:writerSyncState', callback)
+  },
+  notifyWriterFileEvent: () => {
+    ipcRenderer.send('sync:writerFileEvent')
   }
 }
 

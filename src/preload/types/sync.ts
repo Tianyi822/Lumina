@@ -12,7 +12,9 @@ import type {
   SessionSyncState,
   SyncCodeResult,
   SyncResult,
-  SyncStatus
+  SyncStatus,
+  WriterSyncResult,
+  WriterSyncState
 } from '@shared/types/sync'
 
 /**
@@ -66,4 +68,12 @@ export interface SyncApi {
   onConfigSyncState: (callback: (state: ConfigSyncState) => void) => () => void
   /** 转发 WebSocket 的 manifest_updated 事件给主进程配置同步引擎（去抖由引擎负责） */
   notifyConfigManifestEvent: () => void
+  /** 手动触发写作同步（等待完成） */
+  writerSyncNow: () => Promise<SyncResult<WriterSyncResult>>
+  /** 读取写作同步引擎状态 */
+  getWriterSyncState: () => Promise<SyncResult<WriterSyncState>>
+  /** 订阅写作同步状态推送；返回取消订阅函数 */
+  onWriterSyncState: (callback: (state: WriterSyncState) => void) => () => void
+  /** 转发 WebSocket 的 writer-* session_file 事件（去抖由引擎负责） */
+  notifyWriterFileEvent: () => void
 }

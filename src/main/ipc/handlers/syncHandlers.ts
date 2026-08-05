@@ -2,6 +2,7 @@ import { ipcMain } from 'electron'
 import { getSyncService } from '@main/services/sync'
 import { getConfigSyncService } from '@main/services/sync/config'
 import { getSessionSyncService } from '@main/services/sync/session'
+import { getWriterSyncService } from '@main/services/sync/writer'
 
 /**
  * 注册同步相关 IPC 处理程序。
@@ -21,6 +22,7 @@ export function registerSyncHandlers(): void {
       if (result.success) {
         getSessionSyncService().start()
         getConfigSyncService().start()
+        getWriterSyncService().start()
       }
       return result
     }
@@ -32,6 +34,7 @@ export function registerSyncHandlers(): void {
     if (result.success) {
       getSessionSyncService().start()
       getConfigSyncService().start()
+      getWriterSyncService().start()
     }
     return result
   })
@@ -41,10 +44,11 @@ export function registerSyncHandlers(): void {
     return { success: true, data: getSyncService().getStatus() }
   })
 
-  // 断开连接并清除本地身份；同时停止会话同步与配置同步定时器
+  // 断开连接并清除本地身份；同时停止会话同步、配置同步与写作同步定时器
   ipcMain.handle('sync:disconnect', () => {
     getSessionSyncService().stop()
     getConfigSyncService().stop()
+    getWriterSyncService().stop()
     return getSyncService().disconnect()
   })
 
@@ -64,6 +68,7 @@ export function registerSyncHandlers(): void {
     if (result.success) {
       getSessionSyncService().kickoff()
       getConfigSyncService().kickoff()
+      getWriterSyncService().kickoff()
     }
     return result
   })
@@ -121,5 +126,20 @@ export function registerSyncHandlers(): void {
   // 渲染进程 WebSocket 收到 manifest_updated 事件后转发触发（去抖在引擎内）
   ipcMain.on('sync:configManifestEvent', () => {
     getConfigSyncService().handleConfigManifestEvent()
+  })
+
+  // 手动触发写作同步（等待完成，返回结果摘要）
+  ipcMain.handle('sync:writerSyncNow', () => {
+    return getWriterSyncService().syncNow()
+  })
+
+  // 读取写作同步引擎状态
+  ipcMain.handle('sync:getWriterSyncState', () => {
+    return { success: true, data: getWriterSyncService().getState() }
+  })
+
+  // 渲染进程 WebSocket 收到 writer-* session_file 事件后转发触发（去抖在引擎内）
+  ipcMain.on('sync:writerFileEvent', () => {
+    getWriterSyncService().handleWriterFileEvent()
   })
 }

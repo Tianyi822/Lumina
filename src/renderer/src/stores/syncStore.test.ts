@@ -84,6 +84,23 @@ function createSyncApi(overrides: Partial<SyncApi> = {}): SyncApi {
     }),
     onConfigSyncState: () => () => {},
     notifyConfigManifestEvent: () => {},
+    writerSyncNow: async () => ({
+      success: true,
+      data: {
+        uploaded: 0,
+        downloaded: 0,
+        deletedLocal: 0,
+        deletedRemote: 0,
+        skipped: 1,
+        errors: []
+      }
+    }),
+    getWriterSyncState: async () => ({
+      success: true,
+      data: { phase: 'idle', lastSyncAt: null, lastResult: null, lastError: null }
+    }),
+    onWriterSyncState: () => () => {},
+    notifyWriterFileEvent: () => {},
     ...overrides
   }
 }
