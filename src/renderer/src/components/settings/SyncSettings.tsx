@@ -64,6 +64,7 @@ export default function SyncSettings() {
   const error = useSyncStore((state) => state.error)
   const sessionSync = useSyncStore((state) => state.sessionSync)
   const configSync = useSyncStore((state) => state.configSync)
+  const writerSync = useSyncStore((state) => state.writerSync)
 
   const discover = useSyncStore((state) => state.discover)
   const connect = useSyncStore((state) => state.connect)
@@ -79,6 +80,8 @@ export default function SyncSettings() {
   const syncSessionsNow = useSyncStore((state) => state.syncSessionsNow)
   const syncConfigNow = useSyncStore((state) => state.syncConfigNow)
   const bindConfigSyncState = useSyncStore((state) => state.bindConfigSyncState)
+  const syncWriterNow = useSyncStore((state) => state.syncWriterNow)
+  const bindWriterSyncState = useSyncStore((state) => state.bindWriterSyncState)
   const requestConfirm = useNotificationCenterStore((state) => state.requestConfirm)
 
   const [relayUrl, setRelayUrl] = useState(storedRelayUrl)
@@ -102,6 +105,10 @@ export default function SyncSettings() {
   useEffect(() => {
     bindConfigSyncState()
   }, [bindConfigSyncState])
+
+  useEffect(() => {
+    bindWriterSyncState()
+  }, [bindWriterSyncState])
 
   useEffect(() => {
     if (storedRelayUrl) setRelayUrl(storedRelayUrl)
@@ -536,6 +543,59 @@ export default function SyncSettings() {
                 <ul className={styles['sync-settings__session-errors']}>
                   {configSync.lastResult.errors.slice(0, 5).map((item, index) => (
                     <li key={index}>{item.message}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </section>
+
+          <section
+            className={['sm-settings-page__section', styles['sync-settings__section']].join(' ')}
+          >
+            <div className="sm-settings-page__section-header">
+              <div>
+                <h3 className="sm-settings-page__section-title">写作同步</h3>
+                <p className="sm-settings-page__section-description">
+                  写作文档以端到端加密同步，冲突按 revision 判定；每 60 秒自动一轮。
+                </p>
+              </div>
+              <button
+                className="sm-button sm-button--primary"
+                disabled={pendingAction === 'writer-sync' || writerSync.phase === 'running'}
+                onClick={() => void syncWriterNow()}
+              >
+                {writerSync.phase === 'running' || pendingAction === 'writer-sync'
+                  ? '同步中...'
+                  : '立即同步'}
+              </button>
+            </div>
+            <div className={styles['sync-settings__session-sync']}>
+              <span>
+                状态：
+                {writerSync.phase === 'running'
+                  ? '同步中'
+                  : writerSync.phase === 'error'
+                    ? '失败'
+                    : '空闲'}
+                {' · '}最近同步：{formatIsoDateTime(writerSync.lastSyncAt)}
+              </span>
+              {writerSync.lastResult && (
+                <span>
+                  上次结果：↑{writerSync.lastResult.uploaded} 上行 · ↓
+                  {writerSync.lastResult.downloaded} 下行 · ✕
+                  {writerSync.lastResult.deletedLocal + writerSync.lastResult.deletedRemote} 删除 ·
+                  跳过 {writerSync.lastResult.skipped}
+                </span>
+              )}
+              {writerSync.lastError && (
+                <span className={styles['sync-settings__error']}>{writerSync.lastError}</span>
+              )}
+              {writerSync.lastResult && writerSync.lastResult.errors.length > 0 && (
+                <ul className={styles['sync-settings__session-errors']}>
+                  {writerSync.lastResult.errors.slice(0, 5).map((item, index) => (
+                    <li key={index}>
+                      {item.key}：{item.message}
+                    </li>
                   ))}
                 </ul>
               )}
