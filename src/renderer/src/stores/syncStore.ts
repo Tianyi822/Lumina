@@ -5,6 +5,8 @@ import type {
   ConfigSyncResult,
   ConfigSyncState,
   DiscoveryInfo,
+  KnowledgeSyncResult,
+  KnowledgeSyncState,
   ReconcileSummary,
   RelayDevice,
   RelayEvent,
@@ -43,6 +45,7 @@ interface SyncStoreState {
   sessionSync: SessionSyncState
   configSync: ConfigSyncState
   writerSync: WriterSyncState
+  knowledgeSync: KnowledgeSyncState
   pendingAction: string | null
   error: string | null
 
@@ -63,6 +66,8 @@ interface SyncStoreState {
   bindConfigSyncState: () => void
   syncWriterNow: () => Promise<boolean>
   bindWriterSyncState: () => void
+  syncKnowledgeNow: () => Promise<boolean>
+  bindKnowledgeSyncState: () => void
   setupEventStream: () => void
   cleanupEventStream: () => void
   handleRelayEvent: (event: RelayEvent) => Promise<void>
@@ -100,6 +105,12 @@ const initialData = {
     lastResult: null,
     lastError: null
   } as WriterSyncState,
+  knowledgeSync: {
+    phase: 'idle',
+    lastSyncAt: null,
+    lastResult: null,
+    lastError: null
+  } as KnowledgeSyncState,
   pendingAction: null,
   error: null
 }
@@ -116,6 +127,8 @@ let configSyncBound = false
 let configSyncUnsubscribe: (() => void) | null = null
 let writerSyncBound = false
 let writerSyncUnsubscribe: (() => void) | null = null
+let knowledgeSyncBound = false
+let knowledgeSyncUnsubscribe: (() => void) | null = null
 
 function patchFromStatus(status: SyncStatus): Partial<SyncStoreState> {
   return {
@@ -508,6 +521,42 @@ export const useSyncStore = create<SyncStoreState>()((set, get) => ({
     })
   },
 
+  syncKnowledgeNow: async () => {
+    set({ pendingAction: 'knowledge-sync', error: null })
+    const result = await window.api.sync.knowledgeSyncNow()
+    set({ pendingAction: null })
+    if (!result.success) {
+      const message = formatFailure(result, '知识库同步失败')
+      set({ error: message })
+      notifyError('数据同步', message, { source: 'settings' })
+      return false
+    }
+    if (result.data) {
+      const syncResult: KnowledgeSyncResult = result.data
+      set({
+        knowledgeSync: {
+          phase: syncResult.errors.length > 0 ? 'error' : 'idle',
+          lastSyncAt: new Date().toISOString(),
+          lastResult: syncResult,
+          lastError:
+            syncResult.errors.length > 0 ? `${syncResult.errors.length} 项知识库同步失败` : null
+        }
+      })
+    }
+    return true
+  },
+
+  bindKnowledgeSyncState: () => {
+    if (knowledgeSyncBound) return
+    knowledgeSyncBound = true
+    knowledgeSyncUnsubscribe = window.api.sync.onKnowledgeSyncState((state) =>
+      set({ knowledgeSync: state })
+    )
+    void window.api.sync.getKnowledgeSyncState().then((result) => {
+      if (result.success && result.data) set({ knowledgeSync: result.data })
+    })
+  },
+
   setupEventStream: () => {
     if (get().status !== 'connected') return
     shouldReconnect = true
@@ -591,6 +640,11 @@ export const useSyncStore = create<SyncStoreState>()((set, get) => ({
       writerSyncUnsubscribe = null
     }
     writerSyncBound = false
+    if (knowledgeSyncUnsubscribe) {
+      knowledgeSyncUnsubscribe()
+      knowledgeSyncUnsubscribe = null
+    }
+    knowledgeSyncBound = false
     set({ eventConnected: false })
   },
 
@@ -619,7 +673,9 @@ export const useSyncStore = create<SyncStoreState>()((set, get) => ({
         return
       case 'session_file_updated':
       case 'session_file_deleted':
-        if (event.sessionId.startsWith('writer-')) {
+        if (event.sessionId.startsWith('knowledge-')) {
+          window.api.sync.notifyKnowledgeFileEvent()
+        } else if (event.sessionId.startsWith('writer-')) {
           window.api.sync.notifyWriterFileEvent()
         } else {
           window.api.sync.notifySessionFileEvent()
