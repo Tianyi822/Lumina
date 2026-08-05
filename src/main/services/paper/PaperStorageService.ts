@@ -777,7 +777,16 @@ export class PaperStorageService {
     meta: PaperDocument
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      const result = await this.saveMeta(paperId, meta)
+      // 确保论文目录存在（新设备首次下行时目录可能不存在，saveMetaCore 的 writeFile
+      // 不会自动建目录，否则会 ENOENT）
+      const paperDir = getPaperDirPath(paperId)
+      await mkdir(paperDir, { recursive: true })
+      // 归一化机器相关路径（filePath / pageAssets[].imagePath）——远端 meta 携带的
+      // 是远端机器路径，原样落盘会导致本地 re-scan 计算出的字节 hash 与 tracker
+      // 的 contentHash 不一致，触发虚假重传。复用 normalizeMetaPaths 使落盘字节与
+      // readMeta 归一化结果保持一致。
+      const normalized = this.normalizeMetaPaths(paperId, meta)
+      const result = await this.saveMeta(paperId, normalized.document)
       return result
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : String(error) }

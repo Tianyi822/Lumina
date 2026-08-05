@@ -151,6 +151,8 @@ export class PaperSyncService {
   private rateLimitedUntil = 0
   /** 待执行的 pack 下载请求（paperId 队列，drain 内串行处理） */
   private pendingDownloads = new Set<string>()
+  /** 本轮同步已下载的块数（runPackDownload 累加，runSync 返回时写入 result） */
+  private blocksDownloadedThisCycle = 0
 
   constructor(deps: PaperSyncServiceDeps) {
     this.deps = deps
@@ -368,6 +370,7 @@ export class PaperSyncService {
 
   private async runSync(): Promise<PaperSyncResult> {
     const result = emptyResult()
+    this.blocksDownloadedThisCycle = 0
     if (!this.isConnected()) return result
     const dek = this.deps.syncService.getDataKey()
     const client = this.deps.syncService.getClient() as unknown as RelayClientLike | null
@@ -611,6 +614,7 @@ export class PaperSyncService {
 
     tracker.setLastSyncAt(new Date().toISOString())
     tracker.save()
+    result.blocksDownloaded = this.blocksDownloadedThisCycle
     return result
   }
 
@@ -839,6 +843,7 @@ export class PaperSyncService {
           break
         }
         writeFileSync(stagingBlockPath, blockBytes)
+        this.blocksDownloadedThisCycle++
         blockBuffers.push(Buffer.from(blockBytes))
       }
       if (!allBlocksOk) continue
