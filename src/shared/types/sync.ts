@@ -344,3 +344,38 @@ export interface KnowledgeSyncErrorItem {
   key: string
   message: string
 }
+
+/** paper 同步错误项 */
+export interface PaperSyncErrorItem {
+  key: string
+  message: string
+}
+
+/** paper 同步单轮结果摘要 */
+export interface PaperSyncResult {
+  uploaded: number
+  downloaded: number
+  deletedLocal: number
+  deletedRemote: number
+  blocksUploaded: number
+  blocksDownloaded: number
+  skipped: number
+  errors: PaperSyncErrorItem[]
+}
+
+/** paper pack 懒下载进度 */
+export interface PaperPackDownloadProgress {
+  state: 'remote' | 'downloading' | 'local' | 'error'
+  doneBlocks: number
+  totalBlocks: number
+}
+
+/** paper 同步引擎状态（IPC 推送载荷） */
+export interface PaperSyncState {
+  phase: 'idle' | 'running' | 'error'
+  lastSyncAt: string | null
+  lastResult: PaperSyncResult | null
+  lastError: string | null
+  /** paperId → pack 下载进度（仅非 local 或有远端记录的论文） */
+  downloads: Record<string, PaperPackDownloadProgress>
+}

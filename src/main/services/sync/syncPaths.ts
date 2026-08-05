@@ -15,6 +15,7 @@ const SESSION_SYNC_FILE_NAME = 'session-sync.json'
 const CONFIG_SYNC_FILE_NAME = 'config-sync.json'
 const WRITER_SYNC_FILE_NAME = 'writer-sync.json'
 const KNOWLEDGE_SYNC_FILE_NAME = 'knowledge-sync.json'
+const PAPER_SYNC_FILE_NAME = 'paper-sync.json'
 
 /** 同步元数据目录 ~/.lumina/sync/ */
 export function getSyncDirPath(): string {
@@ -49,4 +50,9 @@ export function getWriterSyncTrackerFilePath(): string {
 /** knowledge 同步 tracker 文件 ~/.lumina/sync/knowledge-sync.json */
 export function getKnowledgeSyncTrackerFilePath(): string {
   return join(getSyncDirPath(), KNOWLEDGE_SYNC_FILE_NAME)
+}
+
+/** paper 同步 tracker 文件 ~/.lumina/sync/paper-sync.json */
+export function getPaperSyncTrackerFilePath(): string {
+  return join(getSyncDirPath(), PAPER_SYNC_FILE_NAME)
 }

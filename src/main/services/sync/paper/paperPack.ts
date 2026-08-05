@@ -54,7 +54,9 @@ export function resolveContainedPath(baseDir: string, targetPath: string): strin
 export function isValidPackRelPath(path: string): boolean {
   if (path.length === 0 || path.includes('\\')) return false
   if (path.startsWith('/') || /^[a-zA-Z]:/.test(path)) return false
-  return path.split('/').every((segment) => segment.length > 0 && segment !== '.' && segment !== '..')
+  return path
+    .split('/')
+    .every((segment) => segment.length > 0 && segment !== '.' && segment !== '..')
 }
 
 /** 解析并校验 manifest（JSON 字符串）；任何字段非法返回 null */
@@ -68,12 +70,18 @@ export function parsePaperPackManifest(json: string): PaperPackManifest | null {
     for (const entry of value.files) {
       if (!isRecord(entry)) return null
       if (typeof entry.path !== 'string' || !isValidPackRelPath(entry.path)) return null
-      if (!Number.isSafeInteger(entry.size) || entry.size < 0 || entry.size > MAX_PACK_FILE_BYTES) {
+      // isRecord 把 entry 收窄为 Record<string, unknown>，需用局部变量收窄 size 后再做比较
+      const size: unknown = entry.size
+      if (
+        !Number.isSafeInteger(size) ||
+        (size as number) < 0 ||
+        (size as number) > MAX_PACK_FILE_BYTES
+      ) {
         return null
       }
       if (typeof entry.sha256 !== 'string' || !HEX_64.test(entry.sha256)) return null
       if (!Array.isArray(entry.blockIds)) return null
-      if (entry.size > 0 && entry.blockIds.length === 0) return null
+      if ((size as number) > 0 && entry.blockIds.length === 0) return null
       for (const id of entry.blockIds) {
         if (typeof id !== 'string' || !HEX_64.test(id)) return null
       }
