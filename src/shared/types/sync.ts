@@ -294,3 +294,28 @@ export interface ConfigSyncState {
   lastResult: ConfigSyncResult | null
   lastError: string | null
 }
+
+/** writing 同步的错误条目 */
+export interface WriterSyncErrorItem {
+  key: string
+  message: string
+}
+
+/** writing 同步单轮结果摘要 */
+export interface WriterSyncResult {
+  uploaded: number
+  downloaded: number
+  deletedLocal: number
+  deletedRemote: number
+  skipped: number
+  errors: WriterSyncErrorItem[]
+}
+
+/** writing 同步引擎状态（IPC 推送载荷） */
+export interface WriterSyncState {
+  phase: 'idle' | 'running' | 'error'
+  /** 最近一轮完成时间（ISO 8601） */
+  lastSyncAt: string | null
+  lastResult: WriterSyncResult | null
+  lastError: string | null
+}
