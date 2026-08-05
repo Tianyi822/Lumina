@@ -65,6 +65,7 @@ export default function SyncSettings() {
   const sessionSync = useSyncStore((state) => state.sessionSync)
   const configSync = useSyncStore((state) => state.configSync)
   const writerSync = useSyncStore((state) => state.writerSync)
+  const knowledgeSync = useSyncStore((state) => state.knowledgeSync)
 
   const discover = useSyncStore((state) => state.discover)
   const connect = useSyncStore((state) => state.connect)
@@ -82,6 +83,8 @@ export default function SyncSettings() {
   const bindConfigSyncState = useSyncStore((state) => state.bindConfigSyncState)
   const syncWriterNow = useSyncStore((state) => state.syncWriterNow)
   const bindWriterSyncState = useSyncStore((state) => state.bindWriterSyncState)
+  const syncKnowledgeNow = useSyncStore((state) => state.syncKnowledgeNow)
+  const bindKnowledgeSyncState = useSyncStore((state) => state.bindKnowledgeSyncState)
   const requestConfirm = useNotificationCenterStore((state) => state.requestConfirm)
 
   const [relayUrl, setRelayUrl] = useState(storedRelayUrl)
@@ -109,6 +112,10 @@ export default function SyncSettings() {
   useEffect(() => {
     bindWriterSyncState()
   }, [bindWriterSyncState])
+
+  useEffect(() => {
+    bindKnowledgeSyncState()
+  }, [bindKnowledgeSyncState])
 
   useEffect(() => {
     if (storedRelayUrl) setRelayUrl(storedRelayUrl)
@@ -593,6 +600,60 @@ export default function SyncSettings() {
               {writerSync.lastResult && writerSync.lastResult.errors.length > 0 && (
                 <ul className={styles['sync-settings__session-errors']}>
                   {writerSync.lastResult.errors.slice(0, 5).map((item, index) => (
+                    <li key={index}>
+                      {item.key}：{item.message}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </section>
+
+          <section
+            className={['sm-settings-page__section', styles['sync-settings__section']].join(' ')}
+          >
+            <div className="sm-settings-page__section-header">
+              <div>
+                <h3 className="sm-settings-page__section-title">知识库同步</h3>
+                <p className="sm-settings-page__section-description">
+                  知识库元数据与上传文件以端到端加密同步；向量索引在目标设备自动重建。每 60 秒一轮。
+                </p>
+              </div>
+              <button
+                className="sm-button sm-button--primary"
+                disabled={pendingAction === 'knowledge-sync' || knowledgeSync.phase === 'running'}
+                onClick={() => void syncKnowledgeNow()}
+              >
+                {knowledgeSync.phase === 'running' || pendingAction === 'knowledge-sync'
+                  ? '同步中...'
+                  : '立即同步'}
+              </button>
+            </div>
+            <div className={styles['sync-settings__session-sync']}>
+              <span>
+                状态：
+                {knowledgeSync.phase === 'running'
+                  ? '同步中'
+                  : knowledgeSync.phase === 'error'
+                    ? '失败'
+                    : '空闲'}
+                {' · '}最近同步：{formatIsoDateTime(knowledgeSync.lastSyncAt)}
+              </span>
+              {knowledgeSync.lastResult && (
+                <span>
+                  上次结果：↑{knowledgeSync.lastResult.uploaded} 上行 · ↓
+                  {knowledgeSync.lastResult.downloaded} 下行 · ⟳{knowledgeSync.lastResult.reindexed}{' '}
+                  重建索引 · ✕
+                  {knowledgeSync.lastResult.deletedLocal + knowledgeSync.lastResult.deletedRemote}{' '}
+                  删除 · 跳过 {knowledgeSync.lastResult.skipped}
+                </span>
+              )}
+              {knowledgeSync.lastError && (
+                <span className={styles['sync-settings__error']}>{knowledgeSync.lastError}</span>
+              )}
+              {knowledgeSync.lastResult && knowledgeSync.lastResult.errors.length > 0 && (
+                <ul className={styles['sync-settings__session-errors']}>
+                  {knowledgeSync.lastResult.errors.slice(0, 5).map((item, index) => (
                     <li key={index}>
                       {item.key}：{item.message}
                     </li>
