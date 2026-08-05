@@ -26,6 +26,7 @@ import { startEventLoopMonitoring } from '@main/services/monitoring/eventLoopMon
 import { writerService } from '@main/services/writer'
 import { handleWriterWindowClose } from '@main/services/writer/WriterFlushCoordinator'
 import { initializeConfigSyncService } from '@main/services/sync/config'
+import { initializeKnowledgeSyncService } from '@main/services/sync/knowledge'
 import { initializeSessionSyncService } from '@main/services/sync/session'
 import { initializeWriterSyncService } from '@main/services/sync/writer'
 
@@ -214,6 +215,7 @@ export function initializeApp(): void {
         initializeSessionSyncService()
         initializeConfigSyncService()
         initializeWriterSyncService()
+        initializeKnowledgeSyncService()
       })
 
     // 创建主窗口
