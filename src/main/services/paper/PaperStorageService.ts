@@ -1,6 +1,6 @@
-import path from 'path'
+import path, { dirname } from 'path'
 import { existsSync } from 'fs'
-import { readFile, writeFile, rm, mkdir, copyFile, stat, readdir } from 'fs/promises'
+import { readFile, writeFile, rm, mkdir, copyFile, stat, readdir, rename } from 'fs/promises'
 import { createHash } from 'crypto'
 import { logger } from '@main/services/logger'
 import { WriteQueue } from './WriteQueue'
@@ -35,6 +35,7 @@ import {
   createLocalAssetReplacementMapFromDisk,
   localizePaperTranslationCacheAssets
 } from './paperAssetLocalizer'
+import { resolveContainedPath } from '@main/services/sync/paper/paperPack'
 
 const MAX_PAPER_PAGES = 200
 const MAX_PAPER_FILE_SIZE = 200 * 1024 * 1024
@@ -765,6 +766,55 @@ export class PaperStorageService {
       const errorMessage = error instanceof Error ? error.message : String(error)
       logger.error('获取归一化 OCR 结果列表失败', 'main', { paperId, error: errorMessage })
       return { success: false, error: errorMessage }
+    }
+  }
+
+  // ============ 同步引擎专用接口（走 writeQueue 串行化） ============
+
+  /** 同步下行 meta（复用 saveMeta 路径语义，走 writeQueue） */
+  async applySyncedMeta(
+    paperId: string,
+    meta: PaperDocument
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const result = await this.saveMeta(paperId, meta)
+      return result
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
+    }
+  }
+
+  /** 同步下行批注（复用 saveAnnotationStore 路径语义） */
+  async applySyncedAnnotations(
+    paperId: string,
+    store: PaperAnnotationStore
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const result = await this.saveAnnotationStore(paperId, store)
+      return result
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
+    }
+  }
+
+  /** 同步下行 pack 文件（containment 校验 → mkdir → rename） */
+  async applySyncedPackFile(
+    paperId: string,
+    relPath: string,
+    stagingFilePath: string
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const paperDir = getPaperDirPath(paperId)
+      const targetPath = resolveContainedPath(paperDir, relPath)
+      if (!targetPath) {
+        return { success: false, error: `路径越界：${relPath}` }
+      }
+      const targetDir = dirname(targetPath)
+      await mkdir(targetDir, { recursive: true })
+      await rename(stagingFilePath, targetPath)
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
     }
   }
 }

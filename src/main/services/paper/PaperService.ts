@@ -1256,4 +1256,9 @@ export class PaperService {
 
     return localization.pageResult
   }
+
+  /** 同步下行论文删除（复用现有 deletePaper 级联） */
+  async applySyncedPaperDeletion(paperId: string): Promise<{ success: boolean; error?: string }> {
+    return this.deletePaper(paperId)
+  }
 }
