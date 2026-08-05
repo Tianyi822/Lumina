@@ -319,3 +319,28 @@ export interface WriterSyncState {
   lastResult: WriterSyncResult | null
   lastError: string | null
 }
+
+/** knowledge 同步引擎状态 */
+export interface KnowledgeSyncState {
+  phase: 'idle' | 'running' | 'error'
+  lastSyncAt: string | null
+  lastResult: KnowledgeSyncResult | null
+  lastError: string | null
+}
+
+/** knowledge 同步单轮结果摘要 */
+export interface KnowledgeSyncResult {
+  uploaded: number
+  downloaded: number
+  deletedLocal: number
+  deletedRemote: number
+  reindexed: number
+  skipped: number
+  errors: KnowledgeSyncErrorItem[]
+}
+
+/** knowledge 同步错误项 */
+export interface KnowledgeSyncErrorItem {
+  key: string
+  message: string
+}
