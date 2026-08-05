@@ -535,7 +535,7 @@ export class PaperSyncService {
         }
         tracker.setKey(key, {
           version: dl.data.version ?? remoteVersion,
-          contentHash: sha256Hex(plainBytes)
+          contentHash: computeManifestFingerprint(parsed.paperId, manifest.files)
         })
         result.downloaded++
       }
@@ -716,6 +716,11 @@ export class PaperSyncService {
     // 清理 tracker 中已不存在的文件
     for (const trackedPath of Object.keys(trackedFiles)) {
       if (!localPackFiles.has(trackedPath)) delete trackedFiles[trackedPath]
+    }
+
+    // 懒下载场景：本地无 pack 文件但远端有 manifest 待下载 → 不上行空 manifest（防覆盖远端）
+    if (manifestFiles.length === 0 && pack.remoteManifest) {
+      return // 保留 remoteManifest，等待 requestPaperPackDownload 拉取
     }
 
     // 构建并上传 manifest
