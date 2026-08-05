@@ -14,6 +14,7 @@ const SECRETS_FILE_NAME = 'secrets.enc'
 const SESSION_SYNC_FILE_NAME = 'session-sync.json'
 const CONFIG_SYNC_FILE_NAME = 'config-sync.json'
 const WRITER_SYNC_FILE_NAME = 'writer-sync.json'
+const KNOWLEDGE_SYNC_FILE_NAME = 'knowledge-sync.json'
 
 /** 同步元数据目录 ~/.lumina/sync/ */
 export function getSyncDirPath(): string {
@@ -43,4 +44,9 @@ export function getConfigSyncTrackerFilePath(): string {
 /** writing 同步 tracker 文件 ~/.lumina/sync/writer-sync.json */
 export function getWriterSyncTrackerFilePath(): string {
   return join(getSyncDirPath(), WRITER_SYNC_FILE_NAME)
+}
+
+/** knowledge 同步 tracker 文件 ~/.lumina/sync/knowledge-sync.json */
+export function getKnowledgeSyncTrackerFilePath(): string {
+  return join(getSyncDirPath(), KNOWLEDGE_SYNC_FILE_NAME)
 }
