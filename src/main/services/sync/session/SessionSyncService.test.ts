@@ -1,10 +1,11 @@
 /**
  * SessionSyncService 引擎单测：内存假 RelayClient + tmpdir 真实存储层。
- * 覆盖：未连接跳过、上传新建、下行落盘、双端合并、删除双向、解密失败、4MiB 上限、409 CAS 重试。
+ * 覆盖：未连接跳过、上传新建、下行落盘、双端合并、删除双向、解密失败、4MiB 上限、409 CAS 重试、
+ * 本地 I/O 错误防误判删除、落盘失败收敛、远端 sessionId 错配拒写、限流窗口返回。
  */
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { randomBytes } from 'node:crypto'
@@ -27,12 +28,22 @@ class FakeRelayClient {
   upgradeOnNextPut: { sessionId: string; bytes: Uint8Array; version: number } | null = null
   /** 持续 409 的会话：PUT 永远返回 stale，且每次把存储版本 +1（GET 总能拿到更新版本） */
   alwaysStaleSessionIds = new Set<string>()
+  /** 模拟 429：listSessionFiles 返回限流并携带 retryAfterMs */
+  rateLimited = false
 
   async listSessionFiles(): Promise<
     SyncResult<{
       sessions: { sessionId: string; version: number; size: number; updatedAt: number }[]
     }>
   > {
+    if (this.rateLimited) {
+      return {
+        success: false,
+        code: 'rate_limited',
+        error: '请求被限流',
+        extra: { retryAfterMs: 60_000 }
+      }
+    }
     return {
       success: true,
       data: {
@@ -400,6 +411,123 @@ test('409 CAS 重试：持续 stale 至重试耗尽记 error', async () => {
     const error = result.data?.errors.find((e) => e.sessionId === 'session-901-kkk')
     assert.ok(error, '应记录该会话的错误')
     assert.ok(error.message.includes('版本冲突重试耗尽'), `message 应含重试耗尽：${error.message}`)
+  } finally {
+    h.cleanup()
+  }
+})
+
+test('本地文件读取失败（EACCES）：不触发远端删除并记 error', async () => {
+  const h = makeHarness()
+  const filePath = join(h.dir, 'session-902-lll.jsonl')
+  try {
+    await h.storage.initialize()
+    writeLocal(h.dir, 'session-902-lll', sessionFileText('session-902-lll', ['m1']))
+    await h.engine.syncNow() // 基线：远端 v1、tracker v1
+    chmodSync(filePath, 0o000)
+    const result = await h.engine.syncNow()
+    assert.equal(result.success, false)
+    assert.equal(result.data?.deletedRemote ?? 0, 0)
+    assert.equal(h.relay.files.has('session-902-lll'), true, '远端文件必须保留')
+    assert.ok(
+      result.data?.errors.some((e) => e.sessionId === 'session-902-lll'),
+      '应记录本地读取失败'
+    )
+  } finally {
+    try {
+      chmodSync(filePath, 0o600) // 恢复权限以便清理
+    } catch {
+      // 文件未创建成功时忽略
+    }
+    h.cleanup()
+  }
+})
+
+test('会话目录不可读：整轮中止，远端不受影响', async () => {
+  const h = makeHarness()
+  try {
+    await h.storage.initialize()
+    writeLocal(h.dir, 'session-903-mmm', sessionFileText('session-903-mmm', ['m1']))
+    await h.engine.syncNow()
+    chmodSync(h.dir, 0o000)
+    const result = await h.engine.syncNow()
+    assert.equal(result.success, false)
+    assert.equal(result.data?.deletedRemote ?? 0, 0)
+    assert.equal(h.relay.files.has('session-903-mmm'), true, '远端文件必须保留')
+  } finally {
+    try {
+      chmodSync(h.dir, 0o700) // 恢复权限以便清理
+    } catch {
+      // 目录未创建成功时忽略
+    }
+    h.cleanup()
+  }
+})
+
+test('下行落盘失败：记 error、不更新 tracker、不产生本地文件', async () => {
+  const h = makeHarness()
+  try {
+    await h.storage.initialize()
+    const text = sessionFileText('session-904-nnn', ['m1'])
+    h.relay.files.set('session-904-nnn', {
+      bytes: sealSessionSnapshot(DEK, 'session-904-nnn', new TextEncoder().encode(text)),
+      version: 1
+    })
+    h.storage.rewriteSession = async () => {
+      throw new Error('模拟磁盘写入失败')
+    }
+    const result = await h.engine.syncNow()
+    assert.equal(result.success, false)
+    const error = result.data?.errors.find((e) => e.sessionId === 'session-904-nnn')
+    assert.ok(error?.message.includes('落盘失败'), `应记录落盘失败：${error?.message}`)
+    assert.equal(h.tracker.getData().sessions['session-904-nnn'], undefined, 'tracker 不得确认版本')
+    assert.equal(readFileSyncSafe(join(h.dir, 'session-904-nnn.jsonl')), null, '不得产生本地文件')
+  } finally {
+    h.cleanup()
+  }
+})
+
+test('远端 meta.sessionId 与文件键不一致：记 error、不落盘、不删远端', async () => {
+  const h = makeHarness()
+  try {
+    await h.storage.initialize()
+    // 密文 AAD 绑定 session-905-ooo，但明文 meta.sessionId 是另一个合法 ID
+    const text = sessionFileText('session-906-ppp', ['m1'])
+    h.relay.files.set('session-905-ooo', {
+      bytes: sealSessionSnapshot(DEK, 'session-905-ooo', new TextEncoder().encode(text)),
+      version: 1
+    })
+    const r1 = await h.engine.syncNow()
+    assert.equal(r1.success, false)
+    assert.equal(r1.data?.downloaded ?? 0, 0)
+    assert.ok(
+      r1.data?.errors.some((e) => e.sessionId === 'session-905-ooo'),
+      '应记录错配 error'
+    )
+    assert.equal(readFileSyncSafe(join(h.dir, 'session-905-ooo.jsonl')), null)
+    assert.equal(
+      readFileSyncSafe(join(h.dir, 'session-906-ppp.jsonl')),
+      null,
+      '不得写入其他会话文件'
+    )
+    const r2 = await h.engine.syncNow()
+    assert.equal(r2.data?.deletedRemote ?? 0, 0)
+    assert.equal(h.relay.files.has('session-905-ooo'), true, '远端不得被删除')
+    assert.equal(h.tracker.getTombstone('session-905-ooo'), null, '不得产生 tombstone')
+  } finally {
+    h.cleanup()
+  }
+})
+
+test('限流窗口内 syncNow 返回 rate_limited 而非陈旧结果', async () => {
+  const h = makeHarness()
+  try {
+    await h.storage.initialize()
+    h.relay.rateLimited = true
+    const first = await h.engine.syncNow()
+    assert.equal(first.success, false, '首轮拉取列表 429，整轮失败')
+    const second = await h.engine.syncNow()
+    assert.equal(second.success, false)
+    assert.equal(second.code, 'rate_limited')
   } finally {
     h.cleanup()
   }

@@ -13,6 +13,7 @@ import {
   getSessionJsonlFileName,
   isValidSessionId
 } from '@main/services/session/sessionPaths'
+import type { SessionMessage, SessionMetaData } from '@shared/types/session'
 import type { SessionSyncResult, SessionSyncState, SyncResult } from '@shared/types/sync'
 import type { SyncService } from '../SyncService'
 import { sha256Hex } from '../crypto/hash'
@@ -148,6 +149,10 @@ export class SessionSyncService {
     if (!this.isConnected()) {
       return { success: false, code: 'not_connected', error: '尚未连接同步服务' }
     }
+    // 限流窗口内 kickoff 会被静默忽略；直接返回限流错误，避免拿上一轮结果冒充本次成功
+    if (Date.now() < this.rateLimitedUntil) {
+      return { success: false, code: 'rate_limited', error: '同步请求被限流，请稍后重试' }
+    }
     this.kickoff()
     if (this.chain) await this.chain
     const last = this.state.lastResult
@@ -218,6 +223,33 @@ export class SessionSyncService {
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') return { kind: 'missing' }
       return { kind: 'error', message: error instanceof Error ? error.message : String(error) }
     }
+  }
+
+  /**
+   * 落盘守卫：解密内容的 meta.sessionId 必须与文件键一致才允许重写。
+   * SessionStorageService 按 meta.sessionId 决定落盘路径，错配会写进其他会话文件，
+   * 并在下轮误判文件键已删除而连锁删除远端。错配/落盘异常均记 error 并返回 false。
+   */
+  private async rewriteOwnedSession(
+    sessionId: string,
+    meta: SessionMetaData,
+    messages: SessionMessage[],
+    result: SessionSyncResult
+  ): Promise<boolean> {
+    if (meta.sessionId !== sessionId) {
+      result.errors.push({ sessionId, message: '远端内容 sessionId 与文件键不一致，已拒绝落盘' })
+      return false
+    }
+    try {
+      await this.storage.rewriteSession({ ...meta, messages })
+    } catch (error) {
+      result.errors.push({
+        sessionId,
+        message: `落盘失败：${error instanceof Error ? error.message : String(error)}`
+      })
+      return false
+    }
+    return true
   }
 
   private async runSync(): Promise<SessionSyncResult> {
@@ -294,7 +326,15 @@ export class SessionSyncService {
       if (tracker.getTombstone(sessionId)) {
         // 本端已删除、对端复活 → 补删不下载
         const del = await client.deleteSessionFile(sessionId, remoteVersion)
-        if (del.success && del.data?.deleted) result.deletedRemote++
+        if (del.success && del.data?.deleted) {
+          result.deletedRemote++
+        } else if (!del.success && del.code !== 'session_file_not_found') {
+          // 补删失败不入 errors（下轮自动重试），留 warn 便于排查持续失败
+          logger.warn('tombstone 会话补删远端失败，下轮重试', 'main', {
+            sessionId,
+            error: del.error ?? del.code
+          })
+        }
         continue
       }
       const tracked = data.sessions[sessionId]
@@ -327,13 +367,7 @@ export class SessionSyncService {
           result.errors.push({ sessionId, message: '远端内容无法解析' })
           continue
         }
-        try {
-          await this.storage.rewriteSession({ ...parsed.meta, messages: parsed.messages })
-        } catch (error) {
-          result.errors.push({
-            sessionId,
-            message: `落盘失败：${error instanceof Error ? error.message : String(error)}`
-          })
+        if (!(await this.rewriteOwnedSession(sessionId, parsed.meta, parsed.messages, result))) {
           continue
         }
         const disk = await this.readLocal(dir, sessionId)
@@ -355,13 +389,7 @@ export class SessionSyncService {
         result.errors.push({ sessionId, message: '合并失败：meta 不可用' })
         continue
       }
-      try {
-        await this.storage.rewriteSession({ ...merged.meta, messages: merged.messages })
-      } catch (error) {
-        result.errors.push({
-          sessionId,
-          message: `落盘失败：${error instanceof Error ? error.message : String(error)}`
-        })
+      if (!(await this.rewriteOwnedSession(sessionId, merged.meta, merged.messages, result))) {
         continue
       }
       const disk = await this.readLocal(dir, sessionId)
@@ -488,13 +516,7 @@ export class SessionSyncService {
         result.errors.push({ sessionId, message: '冲突合并失败：meta 不可用' })
         return
       }
-      try {
-        await this.storage.rewriteSession({ ...merged.meta, messages: merged.messages })
-      } catch (error) {
-        result.errors.push({
-          sessionId,
-          message: `落盘失败：${error instanceof Error ? error.message : String(error)}`
-        })
+      if (!(await this.rewriteOwnedSession(sessionId, merged.meta, merged.messages, result))) {
         return
       }
       const disk = await this.readLocal(dir, sessionId)
