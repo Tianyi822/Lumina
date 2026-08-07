@@ -3,7 +3,15 @@
  */
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync, readdirSync } from 'node:fs'
+import {
+  mkdtempSync,
+  mkdirSync,
+  writeFileSync,
+  rmSync,
+  readFileSync,
+  readdirSync,
+  existsSync
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { randomBytes } from 'node:crypto'
@@ -14,7 +22,7 @@ import type { SyncService } from '../SyncService'
 import { sealWriterFile } from './writerSnapshotCrypto'
 import { WriterSyncTracker } from './writerSyncTracker'
 import { WriterSyncService } from './WriterSyncService'
-import { makeIndexKey, makeDocKey } from './writerSyncKeys'
+import { makeIndexKey, makeDocKey, makeAssetKey } from './writerSyncKeys'
 
 const DEK = new Uint8Array(randomBytes(32))
 
@@ -38,6 +46,8 @@ class FakeRelayClient {
   files = new Map<string, { bytes: Uint8Array; version: number }>()
   /** 下一次 putSessionFile(key) 强制返回一次 stale，模拟对端抢先写入触发 CAS 冲突 */
   private readonly forceStaleOnce = new Set<string>()
+  /** listSessionFiles 返回的 version 覆盖，模拟 list→put 并发窗口中的过期快照 */
+  readonly listVersionOverride = new Map<string, number>()
 
   async listSessionFiles(): Promise<SyncResult<{ sessions: SessionFileMeta[] }>> {
     return {
@@ -45,7 +55,7 @@ class FakeRelayClient {
       data: {
         sessions: [...this.files.entries()].map(([sessionId, f]) => ({
           sessionId,
-          version: f.version,
+          version: this.listVersionOverride.get(sessionId) ?? f.version,
           size: f.bytes.length,
           updatedAt: 0
         }))
@@ -119,6 +129,7 @@ interface Harness {
   relay: FakeRelayClient
   tracker: WriterSyncTracker
   storage: WriterStorageLike
+  asset: WriterAssetLike & { failImport: boolean }
   dir: string
   cleanup: () => void
 }
@@ -164,8 +175,10 @@ function makeHarness(connected = true): Harness {
     }
   }
 
-  const assetService: WriterAssetLike = {
+  const assetService: WriterAssetLike & { failImport: boolean } = {
+    failImport: false,
     importBytes: async (docId, input) => {
+      if (assetService.failImport) return { success: false, error: '模拟落盘失败' }
       const assetsDir = join(documentsDir, docId, 'assets')
       mkdirSync(assetsDir, { recursive: true })
       writeFileSync(join(assetsDir, input.fileName), input.bytes)
@@ -193,6 +206,7 @@ function makeHarness(connected = true): Harness {
     relay,
     tracker,
     storage,
+    asset: assetService,
     dir,
     cleanup: () => rmSync(dir, { recursive: true, force: true })
   }
@@ -423,6 +437,118 @@ test('tombstone 阻止远端复活：本地已删文档，远端同 key 不被�
     assert.ok(!existsSyncDoc(docDir), '本地文档不应被重新写入')
     // tombstone 仍在
     assert.ok(h.tracker.getTombstone(makeDocKey('writer-abc12345')))
+  } finally {
+    h.cleanup()
+  }
+})
+
+test('asset 下行落盘失败 → 不记 tracker 不删远端，恢复后可重试', async () => {
+  const h = makeHarness()
+  try {
+    const doc = makeDoc('writer-abc12345', 1)
+    const docDir = join(h.dir, 'documents', 'writer-abc12345')
+    mkdirSync(docDir, { recursive: true })
+    writeFileSync(join(docDir, 'document.json'), JSON.stringify(doc, null, 2), 'utf-8')
+    await h.engine.syncNow()
+
+    // 对端上传一个 asset（本地没有）
+    const assetBytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
+    const assetKey = makeAssetKey('writer-abc12345', 'a1b2c3d4.png')
+    h.relay.files.set(assetKey, { bytes: sealWriterFile(DEK, assetBytes), version: 1 })
+
+    // 第一轮：importBytes 失败 → 返回 ignored，tracker 不记录
+    h.asset.failImport = true
+    const r1 = await h.engine.syncNow()
+    assert.ok(r1.data)
+    assert.equal(r1.data.downloaded, 0)
+    assert.equal(h.tracker.getData().keys[assetKey], undefined)
+
+    // 第二轮（仍失败）：远端 asset 不应被当作本地删除而删掉，也不应立 tombstone
+    await h.engine.syncNow()
+    assert.equal(h.relay.files.has(assetKey), true)
+    assert.equal(h.tracker.getTombstone(assetKey), null)
+
+    // 恢复后可成功下行
+    h.asset.failImport = false
+    const r3 = await h.engine.syncNow()
+    assert.ok(r3.data)
+    assert.equal(r3.data.downloaded, 1)
+    assert.ok(existsSync(join(docDir, 'assets', 'a1b2c3d4.png')))
+  } finally {
+    h.cleanup()
+  }
+})
+
+test('远端 index JSON 损坏 → 按 key 记 error，不阻塞后续文档下行', async () => {
+  const h = makeHarness()
+  try {
+    await h.engine.syncNow() // 基线
+
+    // 注入合法密文、非法 JSON 的远端 index
+    h.relay.files.set(makeIndexKey(), {
+      bytes: sealWriterFile(DEK, new TextEncoder().encode('not-json{{{')),
+      version: 99
+    })
+    // 同轮还有一个待下行的新文档
+    const remoteDoc = makeDoc('writer-abc12345', 1, '远端文档')
+    h.relay.files.set(makeDocKey('writer-abc12345'), {
+      bytes: sealWriterFile(DEK, new TextEncoder().encode(JSON.stringify(remoteDoc, null, 2))),
+      version: 1
+    })
+
+    const result = await h.engine.syncNow()
+    assert.ok(result.data)
+    assert.ok(result.data.errors.some((e) => e.key === makeIndexKey()))
+    // 后续文档未被阻断，已正常落盘
+    const diskDoc = JSON.parse(
+      readFileSync(join(h.dir, 'documents', 'writer-abc12345', 'document.json'), 'utf-8')
+    )
+    assert.equal(diskDoc.title, '远端文档')
+  } finally {
+    h.cleanup()
+  }
+})
+
+test('CAS 冲突远端 revision 胜出 → 转下行落盘并对齐 tracker，不上行', async () => {
+  const h = makeHarness()
+  try {
+    const doc = makeDoc('writer-abc12345', 1)
+    const docDir = join(h.dir, 'documents', 'writer-abc12345')
+    mkdirSync(docDir, { recursive: true })
+    writeFileSync(join(docDir, 'document.json'), JSON.stringify(doc, null, 2), 'utf-8')
+    await h.engine.syncNow() // 基线：tracker version=1
+
+    // 对端已把远端推到 version=2（revision=5），但 list 快照仍是 version=1（模拟 list→put 并发窗口）
+    const remoteDoc = makeDoc('writer-abc12345', 5, '对端胜出')
+    h.relay.files.set(makeDocKey('writer-abc12345'), {
+      bytes: sealWriterFile(DEK, new TextEncoder().encode(JSON.stringify(remoteDoc, null, 2))),
+      version: 2
+    })
+    h.relay.listVersionOverride.set(makeDocKey('writer-abc12345'), 1)
+
+    // 本地修改（revision=2）→ dirty，tracker.version 仍为 1
+    const localDoc = makeDoc('writer-abc12345', 2, '本地修改')
+    writeFileSync(join(docDir, 'document.json'), JSON.stringify(localDoc, null, 2), 'utf-8')
+
+    const result = await h.engine.syncNow()
+    assert.ok(result.data)
+    assert.equal(result.data.errors.length, 0)
+    assert.equal(result.data.uploaded, 0, '远端胜出不应上行')
+    assert.equal(result.data.downloaded, 1)
+    // 本地已落远端版本
+    const diskDoc = JSON.parse(readFileSync(join(docDir, 'document.json'), 'utf-8'))
+    assert.equal(diskDoc.revision, 5)
+    assert.equal(diskDoc.title, '对端胜出')
+    // tracker 对齐远端 version=2，远端内容未被本地覆盖
+    assert.equal(h.tracker.getData().keys[makeDocKey('writer-abc12345')]?.version, 2)
+    assert.equal(h.relay.files.get(makeDocKey('writer-abc12345'))?.version, 2)
+
+    // 下一轮：无分叉（既不重复下行也不上行）
+    h.relay.listVersionOverride.clear()
+    const r2 = await h.engine.syncNow()
+    assert.ok(r2.data)
+    assert.equal(r2.data.downloaded, 0)
+    assert.equal(r2.data.uploaded, 0)
   } finally {
     h.cleanup()
   }

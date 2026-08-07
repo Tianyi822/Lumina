@@ -5,7 +5,7 @@
  * 原则：引擎是旁观者——下行只走 WriterStorageService.applySynced* / WriterAssetService.importBytes，
  * 不直接写业务文件。DEK/RelayClient 经 SyncService 主进程内部接口获取。
  */
-import { readdir, readFile, stat } from 'node:fs/promises'
+import { readdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { logger } from '@main/services/logger'
 import type { WriterDocument, WriterIndex } from '@shared/types/writer'
@@ -63,16 +63,10 @@ export interface WriterSyncServiceDeps {
 interface LocalFile {
   bytes: Uint8Array
   hash: string
-  mtime: string
 }
 
 function emptyResult(): WriterSyncResult {
   return { uploaded: 0, downloaded: 0, deletedLocal: 0, deletedRemote: 0, skipped: 0, errors: [] }
-}
-
-/** 空 index 兜底：本地索引读取失败时按空合并，避免阻塞远端下行 */
-function emptyIndex(): WriterIndex {
-  return { schemaVersion: 1, folders: [], documents: [], recentDocumentIds: [] }
 }
 
 /** asset 文件名正则（sha256 + 扩展名） */
@@ -176,7 +170,7 @@ export class WriterSyncService {
     if (this.state.phase === 'error') {
       return {
         success: false,
-        code: 'unknown_error',
+        code: Date.now() < this.rateLimitedUntil ? 'rate_limited' : 'unknown_error',
         error: this.state.lastError ?? '写作同步失败',
         data: last ?? undefined
       }
@@ -273,8 +267,7 @@ export class WriterSyncService {
   ): Promise<void> {
     try {
       const bytes = new Uint8Array(await readFile(fullPath))
-      const st = await stat(fullPath)
-      files.set(key, { bytes, hash: sha256Hex(bytes), mtime: st.mtime.toISOString() })
+      files.set(key, { bytes, hash: sha256Hex(bytes) })
     } catch {
       // 文件不存在跳过
     }
@@ -336,7 +329,6 @@ export class WriterSyncService {
     for (const [key, remoteVersion] of remoteMap) {
       if (tracker.getTombstone(key)) continue // 本端已删，跳过复活
       const tracked = trackedKeys[key]
-      const local = localMap.get(key)
       const remoteAhead = !tracked || remoteVersion > tracked.version
       if (!remoteAhead) continue
 
@@ -362,7 +354,18 @@ export class WriterSyncService {
         continue
       }
 
-      const downloadResult = await this.applyRemoteFile(parsed, plainBytes, local?.hash)
+      // JSON 解析失败按 key 隔离记 error，不阻断后续 key；
+      // 其余异常（如本地索引读取失败）上抛，整轮失败由 runOnce 统一记录
+      let downloadResult: 'downloaded' | 'ignored'
+      try {
+        downloadResult = await this.applyRemoteFile(parsed, plainBytes)
+      } catch (error) {
+        if (error instanceof SyntaxError) {
+          result.errors.push({ key, message: 'JSON 解析失败' })
+          continue
+        }
+        throw error
+      }
       if (downloadResult === 'downloaded') {
         // 读回真实字节算 hash
         const reread = await this.rereadLocalFile(parsed)
@@ -425,15 +428,17 @@ export class WriterSyncService {
   /** 按 key 类型分发下行落盘；返回 'downloaded' | 'ignored' */
   private async applyRemoteFile(
     parsed: ParsedWriterKey,
-    bytes: Uint8Array,
-    _localHash: string | undefined
+    bytes: Uint8Array
   ): Promise<'downloaded' | 'ignored'> {
     switch (parsed.kind) {
       case 'index': {
         const remoteIndex = JSON.parse(new TextDecoder().decode(bytes)) as WriterIndex
         const localResult = await this.storage.listDocuments()
-        const localIndex = localResult.success && localResult.data ? localResult.data : emptyIndex()
-        const merge = mergeWriterIndex({ local: localIndex, remote: remoteIndex })
+        if (!localResult.success || !localResult.data) {
+          // 本地索引不可读时无法安全合并，直接失败（不做空索引兜底，避免抹掉本地摘要）
+          throw new Error(`读取本地写作索引失败：${localResult.error ?? '未知错误'}`)
+        }
+        const merge = mergeWriterIndex({ local: localResult.data, remote: remoteIndex })
         if (merge.changed) {
           const applyResult = await this.storage.applySyncedIndex(merge.merged)
           if (!applyResult.success) return 'ignored'
@@ -454,11 +459,13 @@ export class WriterSyncService {
       case 'asset': {
         const ext = parsed.fileName.split('.').pop() ?? ''
         const mimeType = extToMime(ext)
-        await this.assetService.importBytes(parsed.documentId, {
+        const importResult = await this.assetService.importBytes(parsed.documentId, {
           fileName: parsed.fileName,
           declaredMimeType: mimeType,
           bytes
         })
+        // 落盘失败不记 tracker（与 index/document 分支一致），下轮 remoteAhead 仍成立会重试
+        if (!importResult.success) return 'ignored'
         return 'downloaded'
       }
     }
@@ -532,11 +539,36 @@ export class WriterSyncService {
       }
       // 合并
       if (parsed.kind === 'document') {
-        const remoteDoc = JSON.parse(new TextDecoder().decode(remoteBytes)) as WriterDocument
-        const localDoc = JSON.parse(new TextDecoder().decode(currentBytes)) as WriterDocument
-        currentBytes = new TextEncoder().encode(
-          JSON.stringify(localDoc.revision >= remoteDoc.revision ? localDoc : remoteDoc, null, 2)
-        )
+        let remoteDoc: WriterDocument
+        let localDoc: WriterDocument
+        try {
+          remoteDoc = JSON.parse(new TextDecoder().decode(remoteBytes)) as WriterDocument
+          localDoc = JSON.parse(new TextDecoder().decode(currentBytes)) as WriterDocument
+        } catch {
+          result.errors.push({ key, message: '冲突合并 JSON 解析失败' })
+          return
+        }
+        if (localDoc.revision >= remoteDoc.revision) {
+          // 本地胜出：用本地内容重试
+          currentBytes = new TextEncoder().encode(JSON.stringify(localDoc, null, 2))
+        } else {
+          // 远端 revision 更新：不上行，转下行落盘并对齐 tracker，避免双端分叉
+          const applyResult = await this.storage.applySyncedDocument(remoteDoc)
+          if (!applyResult.success) {
+            result.errors.push({
+              key,
+              message: `冲突后落盘远端版本失败：${applyResult.error ?? '未知'}`
+            })
+            return
+          }
+          const reread = await this.rereadLocalFile(parsed)
+          this.tracker.setKey(key, {
+            version: latest.data.version ?? base,
+            contentHash: reread ?? sha256Hex(remoteBytes)
+          })
+          result.downloaded++
+          return
+        }
       }
       // index/asset：内容寻址或本地优先，保留 currentBytes
       base = latest.data.version ?? base + 1
