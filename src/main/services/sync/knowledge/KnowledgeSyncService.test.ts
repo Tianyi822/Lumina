@@ -3,7 +3,7 @@
  */
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { randomBytes } from 'node:crypto'
@@ -11,7 +11,7 @@ import type { KnowledgeBase, FileItem } from '@shared/types/knowledge'
 import type { SyncResult, SessionFileMeta } from '@shared/types/sync'
 import type { RelayClient } from '../transport/RelayClient'
 import type { SyncService } from '../SyncService'
-import { sealKnowledgeFile } from './knowledgeSnapshotCrypto'
+import { sealKnowledgeFile, openKnowledgeFile } from './knowledgeSnapshotCrypto'
 import { KnowledgeSyncTracker } from './knowledgeSyncTracker'
 import { KnowledgeSyncService } from './KnowledgeSyncService'
 import { makeBasesKey, makeMetadataKey, makeFileKey } from './knowledgeSyncKeys'
@@ -141,33 +141,43 @@ function makeHarness(connected = true): Harness {
   const dir = mkdtempSync(join(tmpdir(), 'lumina-knowledge-sync-engine-'))
   const filesDir = join(dir, 'data', 'files')
   mkdirSync(filesDir, { recursive: true })
+  const kbPath = join(dir, 'knowledge-bases.json')
+  const metaPath = join(dir, 'files-metadata.json')
 
-  let memKB: KnowledgeBase[] = []
-  let memFiles: FileItem[] = []
   const reindexCalls: string[] = []
   const deletedFileIds: string[] = []
 
+  // 假 storage 与真实服务同语义：状态以磁盘 JSON 为准（真实实现均为落盘 + 内存一致）
+  const readJsonFile = <T>(p: string, fallback: T): T => {
+    try {
+      return JSON.parse(readFileSync(p, 'utf-8')) as T
+    } catch {
+      return fallback
+    }
+  }
+
   const knowledgeStorage: KnowledgeStorageLike = {
-    readKnowledgeBasesForSync: async () => [...memKB],
+    readKnowledgeBasesForSync: async () => readJsonFile<KnowledgeBase[]>(kbPath, []),
     applySyncedKnowledgeBases: async (merged) => {
-      memKB = merged
+      writeFileSync(kbPath, JSON.stringify(merged, null, 2))
       return { success: true }
     }
   }
 
   const fileStorage: FileStorageLike = {
-    readFilesMetadataForSync: () => [...memFiles],
+    readFilesMetadataForSync: () => readJsonFile<FileItem[]>(metaPath, []),
     applySyncedFilesMetadata: async (merged) => {
-      memFiles = merged
+      writeFileSync(metaPath, JSON.stringify(merged, null, 2))
       return { success: true }
     },
     applySyncedFileDeletion: async (fileId) => {
       deletedFileIds.push(fileId)
-      memFiles = memFiles.filter((f) => f.id !== fileId)
+      const remaining = readJsonFile<FileItem[]>(metaPath, []).filter((f) => f.id !== fileId)
+      writeFileSync(metaPath, JSON.stringify(remaining, null, 2))
       return { success: true }
     },
     applySyncedFileContent: async (fileId, bytes) => {
-      const file = memFiles.find((f) => f.id === fileId)
+      const file = readJsonFile<FileItem[]>(metaPath, []).find((f) => f.id === fileId)
       if (!file) return { success: false, error: 'not found' }
       writeFileSync(join(filesDir, file.filePath), bytes)
       return { success: true }
@@ -439,6 +449,132 @@ test('远端删除已 tracked 文件 → 下行删除本地（phase c）', async
     // 调用了 applySyncedFileDeletion 删本地，tracker 移除该 key
     assert.ok(h.deletedFileIds.includes('file-1'))
     assert.equal(h.tracker.getData().keys[makeFileKey('file-1')], undefined)
+  } finally {
+    h.cleanup()
+  }
+})
+
+test('首次同步双方各有数据：远端保持并集，不被本端合并前字节覆盖', async () => {
+  const h = makeHarness()
+  try {
+    // 本端只有 file-local
+    const localFile = makeFile('file-local', 'local.txt', join(h.dir, 'data', 'files', 'local.txt'))
+    writeFileSync(localFile.absolutePath, '本端文件内容')
+    writeFileSync(join(h.dir, 'knowledge-bases.json'), '[]')
+    writeFileSync(join(h.dir, 'files-metadata.json'), JSON.stringify([localFile], null, 2))
+
+    // 远端已有另一台设备的 metadata（含 file-remote）与对应文件内容
+    const remoteFile = makeFile('file-remote', 'remote.txt', '')
+    h.relay.files.set(makeMetadataKey(), {
+      bytes: sealKnowledgeFile(
+        DEK,
+        new TextEncoder().encode(JSON.stringify([remoteFile], null, 2))
+      ),
+      version: 1
+    })
+    h.relay.files.set(makeFileKey('file-remote'), {
+      bytes: sealKnowledgeFile(DEK, new TextEncoder().encode('远端文件内容')),
+      version: 1
+    })
+
+    const result = await h.engine.syncNow()
+    assert.ok(result.success, JSON.stringify(result.data?.errors))
+
+    // 远端 metadata 应为并集（本端下行合并后的产物上行，而非合并前扫描字节）
+    const metaEntry = h.relay.files.get(makeMetadataKey())
+    assert.ok(metaEntry)
+    const remoteMeta = JSON.parse(
+      new TextDecoder().decode(openKnowledgeFile(DEK, metaEntry.bytes))
+    ) as FileItem[]
+    assert.deepEqual(remoteMeta.map((f) => f.id).sort(), ['file-local', 'file-remote'])
+
+    // 第二轮收敛：本端 metadata 也是并集，且无重复上行
+    const second = await h.engine.syncNow()
+    assert.ok(second.success)
+    const localMeta = JSON.parse(
+      readFileSync(join(h.dir, 'files-metadata.json'), 'utf-8')
+    ) as FileItem[]
+    assert.deepEqual(localMeta.map((f) => f.id).sort(), ['file-local', 'file-remote'])
+    assert.equal(second.data?.uploaded, 0)
+  } finally {
+    h.cleanup()
+  }
+})
+
+test('毒 key（解密成功但内容非 JSON）只记错误，不阻塞整轮其他 key', async () => {
+  const h = makeHarness()
+  try {
+    writeFileSync(join(h.dir, 'knowledge-bases.json'), '[]')
+    writeFileSync(join(h.dir, 'files-metadata.json'), '[]')
+
+    // metadata key 内容损坏（合法密文、非法 JSON）；bases 正常更新
+    h.relay.files.set(makeMetadataKey(), {
+      bytes: sealKnowledgeFile(DEK, new TextEncoder().encode('{损坏的 json')),
+      version: 1
+    })
+    const remoteKB = makeKB('kb-remote')
+    h.relay.files.set(makeBasesKey(), {
+      bytes: sealKnowledgeFile(DEK, new TextEncoder().encode(JSON.stringify([remoteKB], null, 2))),
+      version: 1
+    })
+
+    const result = await h.engine.syncNow()
+    // 整轮存在部分错误 → success=false，但错误只落在毒 key 上
+    assert.equal(result.success, false)
+    assert.ok(result.data)
+    assert.ok(result.data.errors.some((e) => e.key === makeMetadataKey()))
+    // bases 已正常下行合并落盘
+    const bases = JSON.parse(
+      readFileSync(join(h.dir, 'knowledge-bases.json'), 'utf-8')
+    ) as KnowledgeBase[]
+    assert.ok(bases.some((kb) => kb.id === 'kb-remote'))
+    assert.equal(result.data.downloaded, 1)
+  } finally {
+    h.cleanup()
+  }
+})
+
+test('本地文件非 ENOENT 读错误（EISDIR）中止本轮，不触发远端删除', async () => {
+  const h = makeHarness()
+  try {
+    const file = makeFile('file-1', '123-abc.txt', join(h.dir, 'data', 'files', '123-abc.txt'))
+    writeFileSync(file.absolutePath, '原始内容')
+    writeFileSync(join(h.dir, 'knowledge-bases.json'), '[]')
+    writeFileSync(join(h.dir, 'files-metadata.json'), JSON.stringify([file], null, 2))
+    await h.engine.syncNow()
+    assert.ok(h.relay.files.has(makeFileKey('file-1')))
+
+    // 用同名目录替换物理文件：readFile 抛 EISDIR（非 ENOENT），应中止本轮而非误判缺失
+    rmSync(file.absolutePath)
+    mkdirSync(file.absolutePath)
+
+    const result = await h.engine.syncNow()
+    assert.equal(result.success, false)
+    // 远端 key 保留，未立 tombstone
+    assert.ok(h.relay.files.has(makeFileKey('file-1')))
+    assert.equal(h.tracker.getTombstone(makeFileKey('file-1')), null)
+  } finally {
+    h.cleanup()
+  }
+})
+
+test('files-metadata.json 损坏（非 JSON）中止本轮，不误删远端', async () => {
+  const h = makeHarness()
+  try {
+    const file = makeFile('file-1', '123-abc.txt', join(h.dir, 'data', 'files', '123-abc.txt'))
+    writeFileSync(file.absolutePath, '原始内容')
+    writeFileSync(join(h.dir, 'knowledge-bases.json'), '[]')
+    writeFileSync(join(h.dir, 'files-metadata.json'), JSON.stringify([file], null, 2))
+    await h.engine.syncNow()
+    assert.ok(h.relay.files.has(makeFileKey('file-1')))
+
+    // 损坏本地 metadata：若按"无文件"处理会把远端所有 file key 删掉
+    writeFileSync(join(h.dir, 'files-metadata.json'), '{损坏的 json')
+
+    const result = await h.engine.syncNow()
+    assert.equal(result.success, false)
+    assert.ok(h.relay.files.has(makeFileKey('file-1')))
+    assert.equal(h.tracker.getTombstone(makeFileKey('file-1')), null)
   } finally {
     h.cleanup()
   }

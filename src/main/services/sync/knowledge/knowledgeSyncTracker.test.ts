@@ -85,3 +85,17 @@ test('pruneTombstones 清理超期记录', () => {
     cleanup()
   }
 })
+
+test('pruneTombstones 保留 deletedAt 无法解析的记录（防复活不失效）', () => {
+  const { tracker, cleanup } = makeTmpTracker()
+  try {
+    tracker.setTombstone('broken-key', 'not-a-date')
+    tracker.setTombstone('old-key', new Date(Date.now() - TOMBSTONE_TTL_MS - 1000).toISOString())
+    tracker.pruneTombstones()
+    // 损坏记录保留，超期记录清理
+    assert.ok(tracker.getTombstone('broken-key'))
+    assert.equal(tracker.getTombstone('old-key'), null)
+  } finally {
+    cleanup()
+  }
+})

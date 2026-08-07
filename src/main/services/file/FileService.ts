@@ -1307,12 +1307,17 @@ export class FileService {
     return [...this.files]
   }
 
-  /** 同步下行文件元数据（原子写 files-metadata.json + 刷新 this.files 内存） */
+  /** 同步下行文件元数据（归一化 + 原子写 files-metadata.json + 刷新 this.files 内存） */
   async applySyncedFilesMetadata(
     merged: FileItem[]
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      this.files = merged
+      // 远端条目携带源机器的 absolutePath，必须按启动加载（loadFilesMetadata）同等归一化：
+      // uploaded 重算为本机存储路径，否则同步来的文件在本机会话内不可读、reindex 读内容失败，
+      // 且 applySyncedFileDeletion 的包含性检查会对合法跨设备删除失效
+      const knowledgeBases = await readKnowledgeBases()
+      const existingKBIds = new Set(knowledgeBases.map((kb) => kb.id))
+      this.files = merged.map((file) => this.normalizeStoredFile(file, existingKBIds).file)
       const filePath = getFilesMetadataPath()
       const tempPath = `${filePath}.tmp`
       await writeFile(tempPath, JSON.stringify(this.files, null, 2), 'utf-8')

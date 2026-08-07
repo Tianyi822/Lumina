@@ -98,7 +98,9 @@ export class KnowledgeSyncTracker {
     const tombstones = this.getData().tombstones
     for (const [key, entry] of Object.entries(tombstones)) {
       const deletedAtMs = Date.parse(entry.deletedAt)
-      if (Number.isNaN(deletedAtMs) || nowMs - deletedAtMs > TOMBSTONE_TTL_MS) {
+      // deletedAt 无法解析的损坏记录保留：删除会让远端同 key 复活失去拦截
+      if (Number.isNaN(deletedAtMs)) continue
+      if (nowMs - deletedAtMs > TOMBSTONE_TTL_MS) {
         delete tombstones[key]
       }
     }

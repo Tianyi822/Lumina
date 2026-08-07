@@ -6,9 +6,14 @@
  * 原则：引擎是旁观者——下行只走 KnowledgeServiceManager/FileService 的 applySynced* 方法。
  */
 import { readFile, stat } from 'node:fs/promises'
-import { existsSync } from 'node:fs'
 import { join, resolve, sep } from 'node:path'
 import { logger } from '@main/services/logger'
+import {
+  KNOWLEDGE_BASES_FILE_NAME,
+  FILES_METADATA_FILE_NAME,
+  KNOWLEDGE_DATA_DIR_NAME,
+  KNOWLEDGE_FILES_DIR_NAME
+} from '@main/services/knowledge/knowledgePaths'
 import type { KnowledgeBase, FileItem } from '@shared/types/knowledge'
 import type { KnowledgeSyncResult, KnowledgeSyncState, SyncResult } from '@shared/types/sync'
 import type { SyncService } from '../SyncService'
@@ -28,11 +33,6 @@ import {
 const DEFAULT_INTERVAL_MS = 60_000
 const DEFAULT_EVENT_DEBOUNCE_MS = 2_000
 const CAS_RETRY_LIMIT = 2
-
-const KNOWLEDGE_BASES_FILE_NAME = 'knowledge-bases.json'
-const FILES_METADATA_FILE_NAME = 'files-metadata.json'
-const KNOWLEDGE_DATA_DIR_NAME = 'data'
-const KNOWLEDGE_FILES_DIR_NAME = 'files'
 
 type SyncServiceLike = Pick<SyncService, 'getStatus' | 'getDataKey' | 'getClient'>
 type KnowledgeStorageLike = {
@@ -60,7 +60,8 @@ export interface KnowledgeSyncServiceDeps {
   knowledgeManager: KnowledgeManagerLike
   tracker: KnowledgeSyncTracker
   broadcast: (state: KnowledgeSyncState) => void
-  knowledgeDirProvider?: () => string
+  /** knowledge 数据目录（生产注入 configPaths.getKnowledgeDirPath，测试注入 tmpdir） */
+  knowledgeDirProvider: () => string
   intervalMs?: number
   eventDebounceMs?: number
 }
@@ -106,15 +107,9 @@ export class KnowledgeSyncService {
 
   constructor(deps: KnowledgeSyncServiceDeps) {
     this._deps = deps
-    this.knowledgeDir =
-      deps.knowledgeDirProvider ?? (() => join(this.getHomeDir(), '.lumina', 'knowledge'))
+    this.knowledgeDir = deps.knowledgeDirProvider
     this.intervalMs = deps.intervalMs ?? DEFAULT_INTERVAL_MS
     this.eventDebounceMs = deps.eventDebounceMs ?? DEFAULT_EVENT_DEBOUNCE_MS
-  }
-
-  private getHomeDir(): string {
-    // 简化：实际用 configPaths 的 getConfigDirPath
-    return process.env.HOME || process.env.USERPROFILE || ''
   }
 
   getState(): KnowledgeSyncState {
@@ -253,26 +248,32 @@ export class KnowledgeSyncService {
     await this.addFile(files, this.metadataPath(), makeMetadataKey())
 
     // data/files/ 仅 uploaded 类型
-    let fmBytes: Buffer | null = null
+    this.scannedFileItems = []
+    let fmBytes: Buffer
     try {
       fmBytes = await readFile(this.metadataPath())
-    } catch {
-      /* 无文件 */
+    } catch (error) {
+      // 无 metadata 文件视为没有任何数据文件；其他读错误中止本轮，
+      // 避免误判缺失导致 phase (a) 误删远端
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return files
+      throw error
     }
-    if (fmBytes) {
-      try {
-        const fileItems = JSON.parse(fmBytes.toString('utf-8')) as FileItem[]
-        this.scannedFileItems = Array.isArray(fileItems) ? fileItems : []
-        for (const file of this.scannedFileItems) {
-          if (file.sourceKind !== 'uploaded') continue
-          // 不合法 filePath（路径注入嫌疑）直接跳过
-          const fullPath = this.resolveFileStoragePath(file.filePath)
-          if (!fullPath || !existsSync(fullPath)) continue
-          await this.addFile(files, fullPath, makeFileKey(file.id))
-        }
-      } catch {
-        /* metadata 解析失败跳过 */
-      }
+    let fileItems: unknown
+    try {
+      fileItems = JSON.parse(fmBytes.toString('utf-8'))
+    } catch {
+      throw new Error('files-metadata.json 解析失败，中止本轮同步（避免误判文件缺失而删除远端）')
+    }
+    if (!Array.isArray(fileItems)) {
+      throw new Error('files-metadata.json 内容非法（非数组），中止本轮同步')
+    }
+    this.scannedFileItems = fileItems as FileItem[]
+    for (const file of this.scannedFileItems) {
+      if (file.sourceKind !== 'uploaded') continue
+      // 不合法 filePath（路径注入嫌疑）直接跳过
+      const fullPath = this.resolveFileStoragePath(file.filePath)
+      if (!fullPath) continue
+      await this.addFile(files, fullPath, makeFileKey(file.id))
     }
     return files
   }
@@ -286,8 +287,11 @@ export class KnowledgeSyncService {
       const bytes = new Uint8Array(await readFile(fullPath))
       const st = await stat(fullPath)
       files.set(key, { bytes, hash: sha256Hex(bytes), mtime: st.mtime.toISOString() })
-    } catch {
-      /* 文件不存在跳过 */
+    } catch (error) {
+      // 文件不存在视为缺失（正常：未创建或已删除）；
+      // 其他读错误（EACCES/EISDIR 等）中止本轮，避免误判缺失导致 phase (a) 删除远端
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return
+      throw error
     }
   }
 
@@ -371,15 +375,33 @@ export class KnowledgeSyncService {
         continue
       }
 
-      const downloadOutcome = await this.applyRemoteFile(parsed, plainBytes, reindexNeeded)
-      if (downloadOutcome === 'downloaded') {
-        const reread = await this.rereadLocalFile(parsed)
-        tracker.setKey(key, {
-          version: dl.data.version ?? remoteVersion,
-          contentHash: reread ?? sha256Hex(plainBytes)
+      // 单 key 内容非法（如 JSON 损坏）只记错误，不阻塞整轮其他 key
+      let downloadOutcome: 'downloaded' | 'ignored'
+      try {
+        downloadOutcome = await this.applyRemoteFile(parsed, plainBytes, reindexNeeded)
+      } catch (error) {
+        result.errors.push({
+          key,
+          message: `内容应用失败：${error instanceof Error ? error.message : String(error)}`
         })
-        result.downloaded++
+        continue
       }
+      if (downloadOutcome !== 'downloaded') continue
+
+      // tracker 记录远端版本的内容 hash（而非本地合并结果），
+      // 使 phase (d) 能识别"本地合并产物 ≠ 远端版本内容"并把并集上行
+      tracker.setKey(key, {
+        version: dl.data.version ?? remoteVersion,
+        contentHash: sha256Hex(plainBytes)
+      })
+      // 本地落盘内容已被下行改写，刷新扫描快照，避免 phase (d) 用合并前旧字节覆盖远端
+      const fresh = await this.readLocalEntry(parsed)
+      if (fresh) {
+        localMap.set(key, fresh)
+      } else {
+        localMap.delete(key)
+      }
+      result.downloaded++
     }
 
     // (c) 远端删除 → 本地删除
@@ -399,6 +421,9 @@ export class KnowledgeSyncService {
       tracker.removeKey(key)
       localMap.delete(key)
       result.deletedLocal++
+      // applySyncedFileDeletion 重写了 files-metadata.json，刷新扫描快照让本轮即可上行最新 metadata
+      const refreshedMeta = await this.readLocalEntry({ kind: 'metadata' })
+      if (refreshedMeta) localMap.set(makeMetadataKey(), refreshedMeta)
     }
 
     // (d) 上行 dirty
@@ -469,26 +494,14 @@ export class KnowledgeSyncService {
       }
       case 'file': {
         const fileId = parsed.fileId
-        // 优先用 scanLocal 解析出的 file 元数据（保证本轮 scan 看到的 file 一定可落盘），
-        // 否则回退到 storage 的实时读取（下行先于 metadata 的边缘场景）
+        // 优先用 scanLocal 解析出的 file 元数据；未命中回退 storage 实时读取
+        // （同一轮内 metadata 先于 file 下行时，scannedFileItems 是阶段 0 的旧快照）
         let fileItem = this.scannedFileItems.find((f) => f.id === fileId)
         if (!fileItem) {
           const metadata = this._deps.fileStorage.readFilesMetadataForSync()
           fileItem = metadata.find((f) => f.id === fileId)
         }
         if (!fileItem) return 'ignored' // metadata 未到，下轮重试
-
-        // 兜底：若 storage 内存尚未持有该 file（启动未从磁盘加载、或本端先上行未走 apply），
-        // 先把本轮扫描到的 metadata 通过 applySyncedFilesMetadata 回填，保证 applySyncedFileContent 可解析 filePath。
-        // 遵循旁观者原则：仅走 applySynced* 方法。
-        const storageFiles = this._deps.fileStorage.readFilesMetadataForSync()
-        if (!storageFiles.some((f) => f.id === fileId) && this.scannedFileItems.length > 0) {
-          const merge = mergeFileItems({ local: storageFiles, remote: this.scannedFileItems })
-          if (merge.changed) {
-            const meta = await this._deps.fileStorage.applySyncedFilesMetadata(merge.merged)
-            if (!meta.success) return 'ignored'
-          }
-        }
 
         const applyResult = await this._deps.fileStorage.applySyncedFileContent(fileId, bytes)
         if (!applyResult.success) return 'ignored'
@@ -497,29 +510,32 @@ export class KnowledgeSyncService {
     }
   }
 
-  private async rereadLocalFile(parsed: ParsedKnowledgeKey): Promise<string | null> {
-    let path: string | null = null
+  /** 解析 key 对应的本地磁盘路径（file 类查 metadata 得 filePath，含防注入校验） */
+  private resolveLocalPath(parsed: ParsedKnowledgeKey): string | null {
     switch (parsed.kind) {
       case 'bases':
-        path = this.basesPath()
-        break
+        return this.basesPath()
       case 'metadata':
-        path = this.metadataPath()
-        break
+        return this.metadataPath()
       case 'file': {
         let file = this.scannedFileItems.find((f) => f.id === parsed.fileId)
         if (!file) {
           const metadata = this._deps.fileStorage.readFilesMetadataForSync()
           file = metadata.find((f) => f.id === parsed.fileId)
         }
-        if (file) path = this.resolveFileStoragePath(file.filePath)
-        break
+        return file ? this.resolveFileStoragePath(file.filePath) : null
       }
     }
+  }
+
+  /** 重读 key 当前的本地磁盘内容（下行落盘后刷新扫描快照用）；读不到返回 null */
+  private async readLocalEntry(parsed: ParsedKnowledgeKey): Promise<LocalFile | null> {
+    const path = this.resolveLocalPath(parsed)
     if (!path) return null
     try {
-      const bytes = await readFile(path)
-      return sha256Hex(new Uint8Array(bytes))
+      const bytes = new Uint8Array(await readFile(path))
+      const st = await stat(path)
+      return { bytes, hash: sha256Hex(bytes), mtime: st.mtime.toISOString() }
     } catch {
       return null
     }
