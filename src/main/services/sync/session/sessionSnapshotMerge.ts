@@ -122,10 +122,11 @@ export function mergeSessionJsonl(local: string, remote: string): SessionMergeRe
     }
   }
 
+  // pickNewerMeta 判 'local' 以 local 非空为前提，此处无需再回退远端
   const meta =
-    (pickNewerMeta(localParsed.meta, remoteParsed.meta) === 'local'
+    pickNewerMeta(localParsed.meta, remoteParsed.meta) === 'local'
       ? localParsed.meta
-      : remoteParsed.meta) ?? remoteParsed.meta
+      : remoteParsed.meta
 
   // 消息 union：先放本地，再用远端覆盖同 id 不同内容者
   const messages: SessionMessage[] = [...localParsed.messages]

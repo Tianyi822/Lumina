@@ -55,7 +55,7 @@ function mergeMachineLocalMap<T>(
       result[key] = value
     }
   }
-  // 本机占有的 key 用本机版本覆盖；本机独有（远端无）的也并入
+  // 本机占有的 key 用本机版本覆盖（本机独有、远端无的也随此并入）
   if (localMap) {
     for (const [key, localValue] of Object.entries(localMap)) {
       if (localKeys.has(key)) {
@@ -67,8 +67,6 @@ function mergeMachineLocalMap<T>(
           }
         }
         result[key] = localValue // 本机优先覆盖
-      } else if (!(key in result)) {
-        result[key] = localValue // 本机独有，远端无 → 并入
       }
     }
   }

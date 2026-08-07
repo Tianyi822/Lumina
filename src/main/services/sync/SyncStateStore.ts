@@ -60,14 +60,6 @@ export class SyncStateStore {
     }
   }
 
-  /** 合并更新部分字段（仅在已有状态时生效） */
-  update(patch: Partial<SyncState>): SyncState | null {
-    const current = this.load()
-    if (!current) return null
-    const next = { ...current, ...patch }
-    return this.save(next) ? next : null
-  }
-
   /** 删除状态文件 */
   clear(): void {
     try {

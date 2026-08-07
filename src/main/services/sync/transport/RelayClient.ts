@@ -203,9 +203,8 @@ export class RelayClient {
     const result = await this.requestBinaryDownload('GET', `/session-files/${sessionId}`)
     if (!result.success || !result.data) return this.asError(result)
     const header = result.data.headers.get('X-Session-File-Version')
-    const parsedVersion = header ? Number(header) : null
-    const version =
-      Number.isSafeInteger(parsedVersion) && Number(parsedVersion) > 0 ? parsedVersion : null
+    const parsedVersion = header ? Number(header) : NaN
+    const version = Number.isSafeInteger(parsedVersion) && parsedVersion > 0 ? parsedVersion : null
     return { success: true, data: { bytes: result.data.bytes, version } }
   }
 
