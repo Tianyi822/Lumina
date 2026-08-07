@@ -453,7 +453,9 @@ export class ConfigSyncService {
         result.errors.push({ message: `manifest 上传失败：${put.error ?? put.code}` })
         return
       }
-      // stale_manifest：拉自己最新 head 重算 base
+      // stale_manifest：本设备 manifest 链的 base 过时。config 是「每设备一条 manifest 行」，
+      // 与对端 manifest 独立；本地 config 已在下行阶段（mergeConfig）合并为最新态，
+      // 故此处无需重新合并，拉自己最新 head 重算 base 重推即可。
       const selfList = await client.listManifests()
       if (selfList.success && selfList.data) {
         const selfHead = selfList.data.heads.find((h) => h.deviceId === deviceId)

@@ -48,8 +48,18 @@ class FakeRelayClient {
   private readonly forceStaleOnce = new Set<string>()
   /** listSessionFiles 返回的 version 覆盖，模拟 list→put 并发窗口中的过期快照 */
   readonly listVersionOverride = new Map<string, number>()
+  /** 模拟 429：listSessionFiles 返回限流并携带 retryAfterMs */
+  rateLimited = false
 
   async listSessionFiles(): Promise<SyncResult<{ sessions: SessionFileMeta[] }>> {
+    if (this.rateLimited) {
+      return {
+        success: false,
+        code: 'rate_limited',
+        error: '请求被限流',
+        extra: { retryAfterMs: 60_000 }
+      }
+    }
     return {
       success: true,
       data: {
@@ -456,11 +466,15 @@ test('asset 下行落盘失败 → 不记 tracker 不删远端，恢复后可重
     const assetKey = makeAssetKey('writer-abc12345', 'a1b2c3d4.png')
     h.relay.files.set(assetKey, { bytes: sealWriterFile(DEK, assetBytes), version: 1 })
 
-    // 第一轮：importBytes 失败 → 返回 ignored，tracker 不记录
+    // 第一轮：importBytes 失败 → 记 error（不再静默 ignored），tracker 不记录
     h.asset.failImport = true
     const r1 = await h.engine.syncNow()
     assert.ok(r1.data)
     assert.equal(r1.data.downloaded, 0)
+    assert.ok(
+      r1.data.errors.some((e) => e.key === assetKey && e.message.includes('asset 落盘失败')),
+      '落盘失败应记 error 让用户感知，不再静默 ignored'
+    )
     assert.equal(h.tracker.getData().keys[assetKey], undefined)
 
     // 第二轮（仍失败）：远端 asset 不应被当作本地删除而删掉，也不应立 tombstone
@@ -549,6 +563,29 @@ test('CAS 冲突远端 revision 胜出 → 转下行落盘并对齐 tracker，�
     assert.ok(r2.data)
     assert.equal(r2.data.downloaded, 0)
     assert.equal(r2.data.uploaded, 0)
+  } finally {
+    h.cleanup()
+  }
+})
+
+test('限流窗口内 syncNow 返回 rate_limited 而非陈旧成功结果', async () => {
+  const h = makeHarness()
+  try {
+    // 先正常跑一轮建立基线（确保 lastResult 是成功态）
+    await h.engine.syncNow()
+    assert.ok(h.engine['state'].lastResult, '首轮应有结果')
+
+    // 第二轮 listSessionFiles 返回限流 → 引擎记录 rateLimitedUntil
+    h.relay.rateLimited = true
+    const limited = await h.engine.syncNow()
+    assert.equal(limited.success, false, '限流期应失败')
+    assert.equal(limited.code, 'rate_limited', '限流期应返回 rate_limited 而非陈旧成功')
+
+    // 第三轮仍在限流窗口内 → syncNow 入口直接拦截（不触发 kickoff）
+    h.relay.rateLimited = false
+    const stillLimited = await h.engine.syncNow()
+    assert.equal(stillLimited.success, false)
+    assert.equal(stillLimited.code, 'rate_limited', '限流窗口内入口前置检查应拦截')
   } finally {
     h.cleanup()
   }

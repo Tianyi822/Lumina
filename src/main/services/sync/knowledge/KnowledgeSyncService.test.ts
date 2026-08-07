@@ -41,8 +41,18 @@ class FakeRelayClient {
   files = new Map<string, { bytes: Uint8Array; version: number }>()
   /** 下一次 putSessionFile(key) 强制返回一次 stale，模拟对端抢先写入触发 CAS 冲突 */
   private readonly forceStaleOnce = new Set<string>()
+  /** 模拟 429：listSessionFiles 返回限流并携带 retryAfterMs */
+  rateLimited = false
 
   async listSessionFiles(): Promise<SyncResult<{ sessions: SessionFileMeta[] }>> {
+    if (this.rateLimited) {
+      return {
+        success: false,
+        code: 'rate_limited',
+        error: '请求被限流',
+        extra: { retryAfterMs: 60_000 }
+      }
+    }
     return {
       success: true,
       data: {
@@ -395,6 +405,51 @@ test('上行 CAS 冲突（stale_session_file）→ 拉取最新版本 re-base �
   }
 })
 
+test('S1 回归：bases CAS 冲突时远端并发 KB 不被本地盲覆盖丢失', async () => {
+  const h = makeHarness()
+  try {
+    // 本地有 kb-1，基线上行
+    const localKb = makeKB('kb-1', '本地库')
+    writeFileSync(join(h.dir, 'knowledge-bases.json'), JSON.stringify([localKb], null, 2))
+    writeFileSync(join(h.dir, 'files-metadata.json'), '[]')
+    await h.engine.syncNow()
+
+    // 对端在冲突窗口内新增了 kb-2：把远端 bases key 的内容设为 [kb-1, kb-2]
+    const remoteKb2 = { ...makeKB('kb-2', '对端新增库'), updatedAt: '2026-08-06T00:00:00.000Z' }
+    const remoteBasesBytes = new TextEncoder().encode(JSON.stringify([localKb, remoteKb2], null, 2))
+    h.relay.files.set(makeBasesKey(), {
+      bytes: sealKnowledgeFile(DEK, remoteBasesBytes),
+      version: 2
+    })
+
+    // 本地仍只有 kb-1（dirty 触发上行：基线后无变化则不 dirty——需制造本地 dirty）
+    // 改本地 kb-1 的 name 使其 dirty 待上行
+    const modifiedLocalKb = { ...localKb, name: '本地库-改', updatedAt: '2026-08-07T00:00:00.000Z' }
+    writeFileSync(join(h.dir, 'knowledge-bases.json'), JSON.stringify([modifiedLocalKb], null, 2))
+
+    // 下一次 bases key 的 PUT 强制 stale → 触发 onConflict 合并
+    h.relay.forceStaleOnNextPut(makeBasesKey())
+
+    const result = await h.engine.syncNow()
+    assert.ok(result.success, '应成功')
+    assert.ok(result.data)
+    assert.equal(result.data.errors.length, 0, '不应有错误')
+
+    // 关键断言：远端最终落盘的 bases 应同时含 kb-1（本地改）和 kb-2（对端新增）
+    const finalFile = h.relay.files.get(makeBasesKey())
+    assert.ok(finalFile, '远端应有 bases key')
+    const finalBytes = openKnowledgeFile(DEK, finalFile.bytes)
+    const finalBases = JSON.parse(new TextDecoder().decode(finalBytes)) as KnowledgeBase[]
+    const ids = finalBases.map((b) => b.id).sort()
+    assert.deepEqual(ids, ['kb-1', 'kb-2'], '远端应保留对端的 kb-2，不被本地盲覆盖丢失')
+    // 本地 kb-1 的改动也在
+    const kb1 = finalBases.find((b) => b.id === 'kb-1')
+    assert.equal(kb1?.name, '本地库-改', '本地对 kb-1 的改动应上行')
+  } finally {
+    h.cleanup()
+  }
+})
+
 test('tombstone 阻止远端复活：本地已删文件，远端同 key 不被重新下行', async () => {
   const h = makeHarness()
   try {
@@ -575,6 +630,30 @@ test('files-metadata.json 损坏（非 JSON）中止本轮，不误删远端', a
     assert.equal(result.success, false)
     assert.ok(h.relay.files.has(makeFileKey('file-1')))
     assert.equal(h.tracker.getTombstone(makeFileKey('file-1')), null)
+  } finally {
+    h.cleanup()
+  }
+})
+
+test('限流窗口内 syncNow 返回 rate_limited 而非陈旧成功结果', async () => {
+  const h = makeHarness()
+  try {
+    // 先正常跑一轮建立基线
+    writeFileSync(join(h.dir, 'knowledge-bases.json'), '[]')
+    writeFileSync(join(h.dir, 'files-metadata.json'), '[]')
+    await h.engine.syncNow()
+
+    // 第二轮 listSessionFiles 返回限流 → 引擎记录 rateLimitedUntil
+    h.relay.rateLimited = true
+    const limited = await h.engine.syncNow()
+    assert.equal(limited.success, false, '限流期应失败')
+    assert.equal(limited.code, 'rate_limited', '限流期应返回 rate_limited 而非陈旧成功')
+
+    // 第三轮仍在限流窗口内 → syncNow 入口直接拦截
+    h.relay.rateLimited = false
+    const stillLimited = await h.engine.syncNow()
+    assert.equal(stillLimited.success, false)
+    assert.equal(stillLimited.code, 'rate_limited', '限流窗口内入口前置检查应拦截')
   } finally {
     h.cleanup()
   }

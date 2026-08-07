@@ -11,6 +11,7 @@ import { logger } from '@main/services/logger'
 import type { WriterDocument, WriterIndex } from '@shared/types/writer'
 import type { WriterSyncResult, WriterSyncState, SyncResult } from '@shared/types/sync'
 import type { SyncService } from '../SyncService'
+import { casPutWithMerge } from '../casRetry'
 import { sha256Hex } from '../crypto/hash'
 import { sealWriterFile, openWriterFile } from './writerSnapshotCrypto'
 import { WriterSyncTracker } from './writerSyncTracker'
@@ -32,7 +33,6 @@ import {
 
 const DEFAULT_INTERVAL_MS = 60_000
 const DEFAULT_EVENT_DEBOUNCE_MS = 2_000
-const CAS_RETRY_LIMIT = 2
 
 type SyncServiceLike = Pick<SyncService, 'getStatus' | 'getDataKey' | 'getClient'>
 type WriterStorageLike = {
@@ -163,6 +163,9 @@ export class WriterSyncService {
   async syncNow(): Promise<SyncResult<WriterSyncResult>> {
     if (!this.isConnected()) {
       return { success: false, code: 'not_connected', error: '尚未连接同步服务' }
+    }
+    if (Date.now() < this.rateLimitedUntil) {
+      return { success: false, code: 'rate_limited', error: '同步请求被限流，请稍后重试' }
     }
     this.kickoff()
     if (this.chain) await this.chain
@@ -356,7 +359,7 @@ export class WriterSyncService {
 
       // JSON 解析失败按 key 隔离记 error，不阻断后续 key；
       // 其余异常（如本地索引读取失败）上抛，整轮失败由 runOnce 统一记录
-      let downloadResult: 'downloaded' | 'ignored'
+      let downloadResult: Awaited<ReturnType<typeof this.applyRemoteFile>>
       try {
         downloadResult = await this.applyRemoteFile(parsed, plainBytes)
       } catch (error) {
@@ -376,6 +379,9 @@ export class WriterSyncService {
         result.downloaded++
       } else if (downloadResult === 'ignored') {
         // 本地更新，不更新 tracker.version（保留旧值），让上行阶段处理
+      } else if ('failed' in downloadResult) {
+        // 落盘失败：记 error 让用户感知，但不更新 tracker（下轮仍 remoteAhead 会重试）
+        result.errors.push({ key, message: downloadResult.failed })
       }
     }
 
@@ -425,11 +431,15 @@ export class WriterSyncService {
     return result
   }
 
-  /** 按 key 类型分发下行落盘；返回 'downloaded' | 'ignored' */
+  /**
+   * 按 key 类型分发下行落盘。
+   * 返回 'downloaded'（已落盘）、'ignored'（本地更新或相同，无需改动）、
+   * 或 { failed }（落盘失败，调用方记 error 但不更新 tracker，下轮仍会重试）。
+   */
   private async applyRemoteFile(
     parsed: ParsedWriterKey,
     bytes: Uint8Array
-  ): Promise<'downloaded' | 'ignored'> {
+  ): Promise<'downloaded' | 'ignored' | { failed: string }> {
     switch (parsed.kind) {
       case 'index': {
         const remoteIndex = JSON.parse(new TextDecoder().decode(bytes)) as WriterIndex
@@ -441,7 +451,9 @@ export class WriterSyncService {
         const merge = mergeWriterIndex({ local: localResult.data, remote: remoteIndex })
         if (merge.changed) {
           const applyResult = await this.storage.applySyncedIndex(merge.merged)
-          if (!applyResult.success) return 'ignored'
+          if (!applyResult.success) {
+            return { failed: `index 落盘失败：${applyResult.error ?? '未知'}` }
+          }
         }
         return 'downloaded'
       }
@@ -453,7 +465,9 @@ export class WriterSyncService {
           return 'ignored' // 本地更新或相同
         }
         const applyResult = await this.storage.applySyncedDocument(remoteDoc)
-        if (!applyResult.success) return 'ignored'
+        if (!applyResult.success) {
+          return { failed: `document 落盘失败：${applyResult.error ?? '未知'}` }
+        }
         return 'downloaded'
       }
       case 'asset': {
@@ -464,8 +478,9 @@ export class WriterSyncService {
           declaredMimeType: mimeType,
           bytes
         })
-        // 落盘失败不记 tracker（与 index/document 分支一致），下轮 remoteAhead 仍成立会重试
-        if (!importResult.success) return 'ignored'
+        if (!importResult.success) {
+          return { failed: `asset 落盘失败：${importResult.error ?? '未知'}` }
+        }
         return 'downloaded'
       }
     }
@@ -506,73 +521,76 @@ export class WriterSyncService {
     contentHash: string
   ): Promise<void> {
     let currentBytes = bytes
-    let base = baseVersion
-    for (let attempt = 0; attempt <= CAS_RETRY_LIMIT; attempt++) {
-      const ct = sealWriterFile(dek, currentBytes)
-      const put = await client.putSessionFile(key, base, ct)
-      if (put.success && put.data) {
-        this.tracker.setKey(key, { version: put.data.version, contentHash })
-        result.uploaded++
-        return
-      }
-      if (put.code !== 'stale_session_file') {
-        result.errors.push({ key, message: `上传失败：${put.error ?? put.code}` })
-        return
-      }
-      // 409：拉最新 → 按 key 类型合并 → 重试
-      const latest = await client.getSessionFile(key)
-      if (!latest.success || !latest.data) {
-        result.errors.push({ key, message: '冲突后拉取最新版本失败' })
-        return
-      }
-      let remoteBytes: Uint8Array
-      try {
-        remoteBytes = openWriterFile(dek, latest.data.bytes)
-      } catch {
-        result.errors.push({ key, message: '冲突合并解密失败' })
-        return
-      }
-      const parsed = parseWriterKey(key)
-      if (!parsed) {
-        result.errors.push({ key, message: '冲突合并 key 解析失败' })
-        return
-      }
-      // 合并
-      if (parsed.kind === 'document') {
-        let remoteDoc: WriterDocument
-        let localDoc: WriterDocument
-        try {
-          remoteDoc = JSON.parse(new TextDecoder().decode(remoteBytes)) as WriterDocument
-          localDoc = JSON.parse(new TextDecoder().decode(currentBytes)) as WriterDocument
-        } catch {
-          result.errors.push({ key, message: '冲突合并 JSON 解析失败' })
-          return
+
+    const outcome = await casPutWithMerge({
+      initialBytes: bytes,
+      initialBase: baseVersion,
+      putFn: async (b, base) => client.putSessionFile(key, base, sealWriterFile(dek, b)),
+      onConflict: async () => {
+        // 409：拉最新 → 按 key 类型合并 → 重试
+        const latest = await client.getSessionFile(key)
+        if (!latest.success || !latest.data) {
+          return { resolved: 'failed', error: '冲突后拉取最新版本失败' }
         }
-        if (localDoc.revision >= remoteDoc.revision) {
-          // 本地胜出：用本地内容重试
-          currentBytes = new TextEncoder().encode(JSON.stringify(localDoc, null, 2))
-        } else {
+        let remoteBytes: Uint8Array
+        try {
+          remoteBytes = openWriterFile(dek, latest.data.bytes)
+        } catch {
+          return { resolved: 'failed', error: '冲突合并解密失败' }
+        }
+        const parsed = parseWriterKey(key)
+        if (!parsed) {
+          return { resolved: 'failed', error: '冲突合并 key 解析失败' }
+        }
+        // 合并
+        if (parsed.kind === 'document') {
+          let remoteDoc: WriterDocument
+          let localDoc: WriterDocument
+          try {
+            remoteDoc = JSON.parse(new TextDecoder().decode(remoteBytes)) as WriterDocument
+            localDoc = JSON.parse(new TextDecoder().decode(currentBytes)) as WriterDocument
+          } catch {
+            return { resolved: 'failed', error: '冲突合并 JSON 解析失败' }
+          }
+          if (localDoc.revision >= remoteDoc.revision) {
+            // 本地胜出：用本地内容重试
+            currentBytes = new TextEncoder().encode(JSON.stringify(localDoc, null, 2))
+            return {
+              resolved: 'rebased',
+              bytes: currentBytes,
+              nextBase: latest.data.version ?? 0
+            }
+          }
           // 远端 revision 更新：不上行，转下行落盘并对齐 tracker，避免双端分叉
           const applyResult = await this.storage.applySyncedDocument(remoteDoc)
           if (!applyResult.success) {
-            result.errors.push({
-              key,
-              message: `冲突后落盘远端版本失败：${applyResult.error ?? '未知'}`
-            })
-            return
+            return {
+              resolved: 'failed',
+              error: `冲突后落盘远端版本失败：${applyResult.error ?? '未知'}`
+            }
           }
           const reread = await this.rereadLocalFile(parsed)
           this.tracker.setKey(key, {
-            version: latest.data.version ?? base,
+            version: latest.data.version ?? 0,
             contentHash: reread ?? sha256Hex(remoteBytes)
           })
           result.downloaded++
-          return
+          return { resolved: 'resolved', resolvedVersion: latest.data.version ?? 0 }
         }
+        // index/asset：内容寻址或本地优先，保留 currentBytes
+        return { resolved: 'rebased', bytes: currentBytes, nextBase: latest.data.version ?? 0 }
       }
-      // index/asset：内容寻址或本地优先，保留 currentBytes
-      base = latest.data.version ?? base + 1
+    })
+
+    if (outcome.ok) {
+      // resolved（远端 revision 胜出转下行）已在 onConflict 内对齐 tracker + downloaded++，
+      // 不再计 uploaded；仅 PUT 成功的路径才计 uploaded
+      if (outcome.via === 'put') {
+        this.tracker.setKey(key, { version: outcome.version, contentHash })
+        result.uploaded++
+      }
+    } else {
+      result.errors.push({ key, message: outcome.error })
     }
-    result.errors.push({ key, message: '版本冲突重试耗尽' })
   }
 }

@@ -17,6 +17,7 @@ import {
 import type { KnowledgeBase, FileItem } from '@shared/types/knowledge'
 import type { KnowledgeSyncResult, KnowledgeSyncState, SyncResult } from '@shared/types/sync'
 import type { SyncService } from '../SyncService'
+import { casPutWithMerge } from '../casRetry'
 import { sha256Hex } from '../crypto/hash'
 import { sealKnowledgeFile, openKnowledgeFile } from './knowledgeSnapshotCrypto'
 import { KnowledgeSyncTracker } from './knowledgeSyncTracker'
@@ -32,7 +33,6 @@ import {
 
 const DEFAULT_INTERVAL_MS = 60_000
 const DEFAULT_EVENT_DEBOUNCE_MS = 2_000
-const CAS_RETRY_LIMIT = 2
 
 type SyncServiceLike = Pick<SyncService, 'getStatus' | 'getDataKey' | 'getClient'>
 type KnowledgeStorageLike = {
@@ -152,13 +152,16 @@ export class KnowledgeSyncService {
   async syncNow(): Promise<SyncResult<KnowledgeSyncResult>> {
     if (!this.isConnected())
       return { success: false, code: 'not_connected', error: '尚未连接同步服务' }
+    if (Date.now() < this.rateLimitedUntil) {
+      return { success: false, code: 'rate_limited', error: '同步请求被限流，请稍后重试' }
+    }
     this.kickoff()
     if (this.chain) await this.chain
     const last = this.state.lastResult
     if (this.state.phase === 'error') {
       return {
         success: false,
-        code: 'unknown_error',
+        code: Date.now() < this.rateLimitedUntil ? 'rate_limited' : 'unknown_error',
         error: this.state.lastError ?? '知识库同步失败',
         data: last ?? undefined
       }
@@ -550,31 +553,89 @@ export class KnowledgeSyncService {
     result: KnowledgeSyncResult,
     contentHash: string
   ): Promise<void> {
-    const currentBytes = bytes
-    let base = baseVersion
-    for (let attempt = 0; attempt <= CAS_RETRY_LIMIT; attempt++) {
-      const ct = sealKnowledgeFile(dek, currentBytes)
-      const put = await client.putSessionFile(key, base, ct)
-      if (put.success && put.data) {
-        this._deps.tracker.setKey(key, { version: put.data.version, contentHash })
-        result.uploaded++
-        return
+    const parsed = parseKnowledgeKey(key)
+    let currentBytes = bytes
+
+    const outcome = await casPutWithMerge({
+      initialBytes: bytes,
+      initialBase: baseVersion,
+      putFn: async (b, base) => client.putSessionFile(key, base, sealKnowledgeFile(dek, b)),
+      onConflict: async () => {
+        // 409：拉最新 → 按 key 类型 merge → 落盘 → 重读
+        const latest = await client.getSessionFile(key)
+        if (!latest.success || !latest.data) {
+          return { resolved: 'failed', error: '冲突后拉取失败' }
+        }
+        const nextBase = latest.data.version ?? 0
+
+        // file 类型为二进制内容寻址，无字段级 merge，本地优先（保留 currentBytes）
+        if (!parsed || parsed.kind === 'file') {
+          return { resolved: 'rebased', bytes: currentBytes, nextBase }
+        }
+
+        // bases/metadata：解密远端 → 与本地 merge → 落盘 → 重读
+        let remoteBytes: Uint8Array
+        try {
+          remoteBytes = openKnowledgeFile(dek, latest.data.bytes)
+        } catch {
+          return { resolved: 'failed', error: '冲突合并解密失败' }
+        }
+        try {
+          if (parsed.kind === 'bases') {
+            const remoteBases = JSON.parse(new TextDecoder().decode(remoteBytes)) as KnowledgeBase[]
+            const localBases = await this._deps.knowledgeStorage.readKnowledgeBasesForSync()
+            const merge = mergeKnowledgeBases({ local: localBases, remote: remoteBases })
+            if (merge.changed) {
+              const applyResult = await this._deps.knowledgeStorage.applySyncedKnowledgeBases(
+                merge.merged
+              )
+              if (!applyResult.success) {
+                return { resolved: 'failed', error: '冲突合并落盘失败' }
+              }
+              for (const kb of merge.merged) {
+                if (
+                  kb.indexInvalidation?.needsReindex ||
+                  !this._deps.knowledgeManager.vectorDBExists(kb.id)
+                ) {
+                  this._deps.knowledgeManager.reindexKnowledgeBase(kb.id)
+                }
+              }
+            }
+          } else {
+            // metadata
+            const remoteFiles = JSON.parse(new TextDecoder().decode(remoteBytes)) as FileItem[]
+            const localFiles = this._deps.fileStorage.readFilesMetadataForSync()
+            const merge = mergeFileItems({ local: localFiles, remote: remoteFiles })
+            if (merge.changed) {
+              const applyResult = await this._deps.fileStorage.applySyncedFilesMetadata(
+                merge.merged
+              )
+              if (!applyResult.success) {
+                return { resolved: 'failed', error: '冲突合并落盘失败' }
+              }
+            }
+          }
+        } catch {
+          return { resolved: 'failed', error: '冲突合并 JSON 解析失败' }
+        }
+
+        // 重读本地合并后产物
+        const reread = await this.readLocalEntry(parsed)
+        if (!reread) {
+          return { resolved: 'failed', error: '冲突合并后重读本地失败' }
+        }
+        currentBytes = reread.bytes
+        return { resolved: 'rebased', bytes: reread.bytes, nextBase }
       }
-      if (put.code !== 'stale_session_file') {
-        result.errors.push({ key, message: `上传失败：${put.error ?? put.code}` })
-        return
-      }
-      // 409：拉最新重试
-      const latest = await client.getSessionFile(key)
-      if (!latest.success || !latest.data) {
-        result.errors.push({ key, message: '冲突后拉取失败' })
-        return
-      }
-      // knowledge 元数据不做字段级合并，本地优先
-      // TODO(follow-up): metadata/bases key CAS 冲突时当前为本地盲覆盖远端，
-      // 窄窗口内远端并发变更会被丢弃；后续应拉取最新远端做字段级 merge 后再重试上行
-      base = latest.data.version ?? base + 1
+    })
+
+    if (outcome.ok) {
+      // 合并后落盘字节可能变化（如路径归一化），用实际落盘 hash 校正 contentHash
+      const finalHash = parsed && parsed.kind !== 'file' ? sha256Hex(currentBytes) : contentHash
+      this._deps.tracker.setKey(key, { version: outcome.version, contentHash: finalHash })
+      result.uploaded++
+    } else {
+      result.errors.push({ key, message: outcome.error })
     }
-    result.errors.push({ key, message: '版本冲突重试耗尽' })
   }
 }

@@ -16,6 +16,7 @@ import {
 import type { SessionMessage, SessionMetaData } from '@shared/types/session'
 import type { SessionSyncResult, SessionSyncState, SyncResult } from '@shared/types/sync'
 import type { SyncService } from '../SyncService'
+import { casPutWithMerge } from '../casRetry'
 import { sha256Hex } from '../crypto/hash'
 import { mergeSessionJsonl, parseSessionJsonl } from './sessionSnapshotMerge'
 import { openSessionSnapshot, sealSessionSnapshot } from './sessionSnapshotCrypto'
@@ -25,8 +26,6 @@ import { SessionSyncTracker } from './sessionSyncTracker'
 const MAX_SESSION_FILE_BYTES = 4 * 1024 * 1024
 /** nonce24 + tag16 的密文开销 */
 const CIPHER_OVERHEAD_BYTES = 40
-/** CAS 冲突合并重试上限 */
-const CAS_RETRY_LIMIT = 2
 
 const DEFAULT_INTERVAL_MS = 60_000
 const DEFAULT_EVENT_DEBOUNCE_MS = 2_000
@@ -476,63 +475,56 @@ export class SessionSyncService {
     }
     if (initial.kind === 'missing') return
     let current: LocalSessionFile = initial
-    let base = baseVersion
-    for (let attempt = 0; attempt <= CAS_RETRY_LIMIT; attempt++) {
-      if (current.bytes.byteLength + CIPHER_OVERHEAD_BYTES > MAX_SESSION_FILE_BYTES) {
-        result.errors.push({ sessionId, message: '密文超过 4MiB 上限，已跳过' })
-        return
+
+    const outcome = await casPutWithMerge({
+      initialBytes: current.bytes,
+      initialBase: baseVersion,
+      putFn: async (bytes, base) => {
+        if (bytes.byteLength + CIPHER_OVERHEAD_BYTES > MAX_SESSION_FILE_BYTES) {
+          return { success: false, code: 'body_too_large', error: '密文超过 4MiB 上限，已跳过' }
+        }
+        return client.putSessionFile(sessionId, base, sealSessionSnapshot(dek, sessionId, bytes))
+      },
+      onConflict: async (_base) => {
+        // 409：拉最新 → 合并落盘 → 以最新版本重试
+        const latest = await client.getSessionFile(sessionId)
+        if (!latest.success || !latest.data) {
+          return { resolved: 'failed', error: '冲突后拉取最新版本失败' }
+        }
+        let remoteText: string
+        try {
+          remoteText = Buffer.from(openSessionSnapshot(dek, sessionId, latest.data.bytes)).toString(
+            'utf-8'
+          )
+        } catch {
+          return { resolved: 'failed', error: '冲突合并解密失败' }
+        }
+        const merged = mergeSessionJsonl(Buffer.from(current.bytes).toString('utf-8'), remoteText)
+        if (!merged.meta) {
+          return { resolved: 'failed', error: '冲突合并失败：meta 不可用' }
+        }
+        if (!(await this.rewriteOwnedSession(sessionId, merged.meta, merged.messages, result))) {
+          return { resolved: 'failed', error: '冲突合并落盘失败' }
+        }
+        const disk = await this.readLocal(dir, sessionId)
+        if (disk.kind === 'error') {
+          return { resolved: 'failed', error: `本地读取失败：${disk.message}` }
+        }
+        if (disk.kind === 'missing') {
+          return { resolved: 'failed', error: '合并落盘后读取失败' }
+        }
+        localMap.set(sessionId, disk)
+        current = disk
+        result.merged++
+        return { resolved: 'rebased', bytes: disk.bytes, nextBase: latest.data.version ?? 0 }
       }
-      const put = await client.putSessionFile(
-        sessionId,
-        base,
-        sealSessionSnapshot(dek, sessionId, current.bytes)
-      )
-      if (put.success && put.data) {
-        this.tracker.setSession(sessionId, { version: put.data.version, contentHash: current.hash })
-        result.uploaded++
-        return
-      }
-      if (put.code !== 'stale_session_file') {
-        result.errors.push({ sessionId, message: `上传失败：${put.error ?? put.code}` })
-        return
-      }
-      // 409：拉最新 → 合并落盘 → 以最新版本重试
-      const latest = await client.getSessionFile(sessionId)
-      if (!latest.success || !latest.data) {
-        result.errors.push({ sessionId, message: '冲突后拉取最新版本失败' })
-        return
-      }
-      let remoteText: string
-      try {
-        remoteText = Buffer.from(openSessionSnapshot(dek, sessionId, latest.data.bytes)).toString(
-          'utf-8'
-        )
-      } catch {
-        result.errors.push({ sessionId, message: '冲突合并解密失败' })
-        return
-      }
-      const merged = mergeSessionJsonl(Buffer.from(current.bytes).toString('utf-8'), remoteText)
-      if (!merged.meta) {
-        result.errors.push({ sessionId, message: '冲突合并失败：meta 不可用' })
-        return
-      }
-      if (!(await this.rewriteOwnedSession(sessionId, merged.meta, merged.messages, result))) {
-        return
-      }
-      const disk = await this.readLocal(dir, sessionId)
-      if (disk.kind === 'error') {
-        result.errors.push({ sessionId, message: `本地读取失败：${disk.message}` })
-        return
-      }
-      if (disk.kind === 'missing') {
-        result.errors.push({ sessionId, message: '合并落盘后读取失败' })
-        return
-      }
-      localMap.set(sessionId, disk)
-      current = disk
-      base = latest.data.version ?? base + 1
-      result.merged++
+    })
+
+    if (outcome.ok) {
+      this.tracker.setSession(sessionId, { version: outcome.version, contentHash: current.hash })
+      result.uploaded++
+    } else {
+      result.errors.push({ sessionId, message: outcome.error })
     }
-    result.errors.push({ sessionId, message: '版本冲突重试耗尽' })
   }
 }

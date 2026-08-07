@@ -12,6 +12,7 @@ import { logger } from '@main/services/logger'
 import type { PaperDocument, PaperAnnotationStore } from '@shared/types/paper'
 import type { PaperSyncResult, PaperSyncState, SyncResult } from '@shared/types/sync'
 import type { SyncService } from '../SyncService'
+import { casPutWithMerge } from '../casRetry'
 import { sha256Hex } from '../crypto/hash'
 import {
   sealPaperMeta,
@@ -43,6 +44,7 @@ import { getPapersDirPath } from '@main/services/paper/paperPaths'
 
 const DEFAULT_INTERVAL_MS = 60_000
 const DEFAULT_EVENT_DEBOUNCE_MS = 2_000
+/** pack manifest CAS 重试上限（meta/annotations 已改用 casPutWithMerge） */
 const CAS_RETRY_LIMIT = 2
 const MAX_SESSION_FILE_BYTES = 4 * 1024 * 1024
 
@@ -495,21 +497,24 @@ export class PaperSyncService {
         const localResult = await this.deps.paperStorage.readMeta(parsed.paperId)
         const localMeta = localResult.success ? (localResult.data ?? null) : null
         const merge = mergePaperMeta({ local: localMeta, remote: remoteMeta })
-        // 默认基线为远端明文 hash（本地更新未落盘时，下一轮据此判 dirty 上行本地）
-        let contentHash = sha256Hex(plainBytes)
-        if (merge.changed) {
-          const applyResult = await this.deps.paperStorage.applySyncedMeta(
-            parsed.paperId,
-            merge.merged
-          )
-          if (!applyResult.success) {
-            result.errors.push({ key, message: `落盘失败：${applyResult.error}` })
-            continue
-          }
-          // 已落盘则改用实际落盘字节 hash：路径归一化会改写 filePath 等机器相关字段，
-          // 若记远端明文 hash，下一轮扫描必判 dirty，两台机器间会无限互相重传
-          if (applyResult.data) contentHash = sha256Hex(applyResult.data)
+        if (!merge.changed) {
+          // 本地更新胜（updatedAt 更新）：不采纳远端、不更新 tracker，让上行阶段把本地 dirty 推上去。
+          // 若在此记远端版本/远端明文 hash，下一轮本地实际字节 ≠ tracked hash 会误判 dirty，
+          // 且本地 updatedAt >= 远端 → 对端也下行 → 两机 meta 无限乒乓
+          result.skipped++
+          continue
         }
+        const applyResult = await this.deps.paperStorage.applySyncedMeta(
+          parsed.paperId,
+          merge.merged
+        )
+        if (!applyResult.success) {
+          result.errors.push({ key, message: `落盘失败：${applyResult.error}` })
+          continue
+        }
+        // 已落盘则用实际落盘字节 hash：路径归一化会改写 filePath 等机器相关字段，
+        // 若记远端明文 hash，下一轮扫描必判 dirty
+        const contentHash = applyResult.data ? sha256Hex(applyResult.data) : sha256Hex(plainBytes)
         tracker.setKey(key, {
           version: dl.data.version ?? remoteVersion,
           contentHash
@@ -526,15 +531,18 @@ export class PaperSyncService {
         const localResult = await this.deps.paperStorage.readAnnotationStore(parsed.paperId)
         const localStore = localResult.success ? (localResult.data ?? null) : null
         const merge = mergePaperAnnotations({ local: localStore, remote: remoteStore })
-        if (merge.changed) {
-          const applyResult = await this.deps.paperStorage.applySyncedAnnotations(
-            parsed.paperId,
-            merge.merged
-          )
-          if (!applyResult.success) {
-            result.errors.push({ key, message: `落盘失败：${applyResult.error}` })
-            continue
-          }
+        if (!merge.changed) {
+          // 本地已含远端全部标注（并集无新增）：不采纳、不更新 tracker，避免记远端明文 hash 诱发乒乓
+          result.skipped++
+          continue
+        }
+        const applyResult = await this.deps.paperStorage.applySyncedAnnotations(
+          parsed.paperId,
+          merge.merged
+        )
+        if (!applyResult.success) {
+          result.errors.push({ key, message: `落盘失败：${applyResult.error}` })
+          continue
         }
         tracker.setKey(key, {
           version: dl.data.version ?? remoteVersion,
@@ -655,25 +663,83 @@ export class PaperSyncService {
       result.errors.push({ key, message: '密文超过 4MiB 上限' })
       return
     }
-    const seal = parsePaperKey(key)?.kind === 'meta' ? sealPaperMeta : sealPaperAnnotations
-    let base = baseVersion
-    for (let attempt = 0; attempt <= CAS_RETRY_LIMIT; attempt++) {
-      const ct = seal(dek, bytes)
-      const put = await client.putSessionFile(key, base, ct)
-      if (put.success && put.data) {
-        this.deps.tracker.setKey(key, { version: put.data.version, contentHash })
-        result.uploaded++
-        return
+    const parsed = parsePaperKey(key)
+    const seal = parsed?.kind === 'meta' ? sealPaperMeta : sealPaperAnnotations
+    const open = parsed?.kind === 'meta' ? openPaperMeta : openPaperAnnotations
+    let currentBytes = bytes
+
+    const outcome = await casPutWithMerge({
+      initialBytes: bytes,
+      initialBase: baseVersion,
+      putFn: async (b, base) => client.putSessionFile(key, base, seal(dek, b)),
+      onConflict: async () => {
+        // 409：拉最新 → 解密 → merge → 落盘 → 重读
+        const latest = await client.getSessionFile(key)
+        if (!latest.success || !latest.data) {
+          return { resolved: 'failed', error: '冲突后拉取失败' }
+        }
+        const nextBase = latest.data.version ?? 0
+        let remoteBytes: Uint8Array
+        try {
+          remoteBytes = open(dek, latest.data.bytes)
+        } catch {
+          return { resolved: 'failed', error: '冲突合并解密失败' }
+        }
+        if (!parsed) {
+          return { resolved: 'failed', error: '冲突合并 key 解析失败' }
+        }
+        try {
+          if (parsed.kind === 'meta') {
+            const remoteMeta = JSON.parse(new TextDecoder().decode(remoteBytes)) as PaperDocument
+            const localResult = await this.deps.paperStorage.readMeta(parsed.paperId)
+            const localMeta = localResult.success ? (localResult.data ?? null) : null
+            const merge = mergePaperMeta({ local: localMeta, remote: remoteMeta })
+            if (merge.changed) {
+              const applyResult = await this.deps.paperStorage.applySyncedMeta(
+                parsed.paperId,
+                merge.merged
+              )
+              if (!applyResult.success) {
+                return { resolved: 'failed', error: `冲突合并落盘失败：${applyResult.error}` }
+              }
+              if (applyResult.data) {
+                currentBytes = applyResult.data
+                return { resolved: 'rebased', bytes: applyResult.data, nextBase }
+              }
+            }
+          } else {
+            const remoteStore = JSON.parse(
+              new TextDecoder().decode(remoteBytes)
+            ) as PaperAnnotationStore
+            const localResult = await this.deps.paperStorage.readAnnotationStore(parsed.paperId)
+            const localStore = localResult.success ? (localResult.data ?? null) : null
+            const merge = mergePaperAnnotations({ local: localStore, remote: remoteStore })
+            if (merge.changed) {
+              const applyResult = await this.deps.paperStorage.applySyncedAnnotations(
+                parsed.paperId,
+                merge.merged
+              )
+              if (!applyResult.success) {
+                return { resolved: 'failed', error: `冲突合并落盘失败：${applyResult.error}` }
+              }
+            }
+          }
+        } catch {
+          return { resolved: 'failed', error: '冲突合并 JSON 解析失败' }
+        }
+        // merge.changed===false（本地已是最新或更优）：保留本地字节重试
+        return { resolved: 'rebased', bytes: currentBytes, nextBase }
       }
-      if (put.code !== 'stale_session_file') {
-        result.errors.push({ key, message: `上传失败：${put.error ?? put.code}` })
-        return
-      }
-      // TODO(follow-up): CAS 冲突时应重合并（当前盲覆盖，同 knowledge I3 取舍）
-      const latest = await client.getSessionFile(key)
-      base = latest.data?.version ?? base + 1
+    })
+
+    if (outcome.ok) {
+      // meta 合并后落盘字节可能因路径归一化变化，用实际字节 hash 校正
+      const finalHash = parsed?.kind === 'meta' ? sha256Hex(currentBytes) : contentHash
+      this.deps.tracker.setKey(key, { version: outcome.version, contentHash: finalHash })
+      result.uploaded++
+    } else {
+      result.errors.push({ key, message: outcome.error })
     }
-    result.errors.push({ key, message: '版本冲突重试耗尽' })
   }
 
   /** 上行 pack：diff → 切块 → putBlock → manifest CAS */
@@ -812,9 +878,11 @@ export class PaperSyncService {
         })
         return
       }
-      // TODO(follow-up): CAS 盲覆盖不重合并（同 knowledge I3）
+      // pack manifest 是内容指纹 CAS（manifest 内为 blockId 列表，block 内容寻址且 PUT 幂等），
+      // 冲突重推不会丢失对端数据：本设备 manifest 链只描述自己的文件→块映射，与对端 manifest 独立。
+      // 故此处无需字段级 merge，拉最新版本号 re-base 重推即可。
       const latest = await client.getSessionFile(key)
-      base = latest.data?.version ?? base + 1
+      base = latest.data?.version ?? 0
     }
     result.errors.push({ key, message: 'pack manifest 版本冲突重试耗尽' })
   }

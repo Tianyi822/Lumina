@@ -20,7 +20,7 @@ import type { PaperDocument, PaperAnnotationStore } from '@shared/types/paper'
 import type { SyncResult, SessionFileMeta } from '@shared/types/sync'
 import type { RelayClient } from '../transport/RelayClient'
 import type { SyncService } from '../SyncService'
-import { sealPaperMeta, sealPaperPack, sealPaperBlock } from './paperSnapshotCrypto'
+import { sealPaperMeta, openPaperMeta, sealPaperPack, sealPaperBlock } from './paperSnapshotCrypto'
 import { PaperSyncTracker } from './paperSyncTracker'
 import { PaperSyncService } from './PaperSyncService'
 import { makePaperMetaKey, makePaperAnnotationsKey, makePaperPackKey } from './paperSyncKeys'
@@ -372,6 +372,60 @@ test('远端 meta 更新 → 下行合并并落盘', async () => {
     ) as PaperDocument
     assert.equal(diskMeta.title, '新标题')
     assert.equal(diskMeta.filePath, join(h.papersDir, 'test-paper', 'source.pdf'))
+  } finally {
+    h.cleanup()
+  }
+})
+
+test('S2 回归：本地 meta 更新胜时下行不误判 dirty 导致乒乓', async () => {
+  const h = makeHarness()
+  try {
+    // 基线：本地旧 meta 上行
+    writeLocalPaper(h.papersDir, 'p1', {
+      meta: makeMeta('p1', '基线', '2026-01-01T00:00:00.000Z'),
+      withPdf: false
+    })
+    await h.engine.syncNow()
+    const baselineVersion = h.relay.files.get(makePaperMetaKey('p1'))?.version ?? 0
+
+    // 场景：远端仍是基线（旧），但本地已改为更新的 meta（updatedAt 更新）
+    // 远端 version 保持基线不变，制造"远端版本 >= tracked 但内容旧"的下行触发
+    const localNewMeta = makeMeta('p1', '本地最新', '2099-01-01T00:00:00.000Z')
+    writeFileSync(
+      join(h.papersDir, 'p1', 'meta.json'),
+      JSON.stringify(localNewMeta, null, 2),
+      'utf-8'
+    )
+
+    // 把远端 meta 版本推到比 tracked 新，触发下行分支
+    h.relay.files.set(makePaperMetaKey('p1'), {
+      bytes: sealPaperMeta(
+        DEK,
+        new TextEncoder().encode(JSON.stringify(makeMeta('p1', '基线'), null, 2))
+      ),
+      version: baselineVersion + 1
+    })
+
+    const r1 = await h.engine.syncNow()
+    assert.ok(r1.data)
+    // 关键断言 1：本地更新胜（updatedAt 2099 > 远端基线），下行应 skip 而非 downloaded
+    assert.equal(r1.data.downloaded, 0, '本地更新胜时下行应 skip，不记 downloaded')
+    assert.ok(r1.data.skipped >= 1, '应计 skipped')
+
+    // 关键断言 2：本地最新 meta 应上行覆盖远端（而非被远端旧内容覆盖）
+    assert.ok(r1.data.uploaded >= 1, '本地最新 meta 应上行')
+    const remoteBytes = h.relay.files.get(makePaperMetaKey('p1'))?.bytes
+    assert.ok(remoteBytes)
+    const remoteMeta = JSON.parse(
+      new TextDecoder().decode(openPaperMeta(DEK, remoteBytes))
+    ) as PaperDocument
+    assert.equal(remoteMeta.title, '本地最新', '远端应被本地最新覆盖')
+
+    // 关键断言 3：下一轮稳定，无乒乓（既不重复下行也不重复上行）
+    const r2 = await h.engine.syncNow()
+    assert.ok(r2.data)
+    assert.equal(r2.data.uploaded, 0, '第二轮不应重复上行（无乒乓）')
+    assert.equal(r2.data.downloaded, 0, '第二轮不应重复下行（无乒乓）')
   } finally {
     h.cleanup()
   }
