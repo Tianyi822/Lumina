@@ -11,6 +11,8 @@ import { logger } from '@main/services/logger'
 import type {
   Bootstrap,
   ConnectResult,
+  ConnectStartResponse,
+  ConnectionResult,
   DiscardResult,
   DiscoveryInfo,
   EventTicketResult,
@@ -205,6 +207,9 @@ export class SyncService {
         error: start.error ?? '开启连接失败'
       }
     }
+    if (!isValidConnectStart(start.data)) {
+      return { success: false, code: 'invalid_response', error: 'Relay 连接响应非法' }
+    }
     if (!isSupportedKdf(start.data.kdf)) {
       return { success: false, code: 'invalid_response', error: 'Relay 返回了不支持的密码派生参数' }
     }
@@ -217,9 +222,6 @@ export class SyncService {
       return { success: false, code: 'invalid_response', error: 'Relay 连接挑战格式非法' }
     }
     const attemptId = start.data.attemptId
-    if (attemptId.length === 0) {
-      return { success: false, code: 'invalid_response', error: 'Relay 连接尝试 ID 为空' }
-    }
 
     // 3. 密码派生
     let passwordRoot: Uint8Array
@@ -317,6 +319,9 @@ export class SyncService {
       }
     }
 
+    if (!isValidConnectionResult(complete.data)) {
+      return { success: false, code: 'invalid_response', error: 'Relay 连接结果非法' }
+    }
     const { session, bootstrap } = complete.data
 
     // 6. 登录分支解出 DEK
@@ -389,6 +394,9 @@ export class SyncService {
     const result = await this.client.sessions(challengeResult.data.attemptId, signature)
     if (!result.success || !result.data) {
       return this.handleFailure(result, '会话续期失败')
+    }
+    if (!isValidConnectionResult(result.data)) {
+      return { success: false, code: 'invalid_response', error: 'Relay 会话响应非法' }
     }
     const secretsSaved = this.saveSecrets(result.data.session.token)
     if (!secretsSaved && this.secretStore.isAvailable()) {
@@ -670,25 +678,61 @@ function deriveDeviceName(): string {
   return name
 }
 
-function isSupportedKdf(kdf: {
-  name: string
-  memoryKiB: number
-  iterations: number
-  parallelism: number
-  outputBytes: number
-}): boolean {
+/** `/connections/start` 响应 shape：网络响应经 `as T` 断言绕过类型系统，解引用前先验证存在性 */
+function isValidConnectStart(data: ConnectStartResponse): boolean {
   return (
-    kdf.name === 'argon2id' &&
-    kdf.memoryKiB === 65536 &&
-    kdf.iterations === 3 &&
-    kdf.parallelism === 1 &&
-    kdf.outputBytes === 32
+    typeof data.accountExists === 'boolean' &&
+    typeof data.attemptId === 'string' &&
+    data.attemptId.length > 0 &&
+    typeof data.challenge === 'string' &&
+    typeof data.authSalt === 'string'
+  )
+}
+
+/**
+ * `/connections/complete` 与 `/sessions` 响应 shape 校验。
+ * 只检查本服务会解引用的字段；信封内容合法性仍由 openDek 的 AEAD 校验兜底。
+ */
+function isValidConnectionResult(data: ConnectionResult): boolean {
+  const session: unknown = data.session
+  const bootstrap: unknown = data.bootstrap
+  if (typeof session !== 'object' || session === null) return false
+  if (typeof bootstrap !== 'object' || bootstrap === null) return false
+  const s = session as Record<string, unknown>
+  const b = bootstrap as Record<string, unknown>
+  return (
+    typeof s.token === 'string' &&
+    s.token.length > 0 &&
+    Number.isSafeInteger(s.expiresAt) &&
+    typeof b.accountId === 'string' &&
+    typeof b.deviceId === 'string' &&
+    typeof b.username === 'string' &&
+    typeof b.syncGroupId === 'string' &&
+    typeof b.dekEnvelope === 'string' &&
+    Number.isSafeInteger(b.groupRevision) &&
+    Number.isSafeInteger(b.cryptoStateRevision) &&
+    Number.isSafeInteger(b.dekEpoch) &&
+    typeof b.hasOtherSyncData === 'boolean'
+  )
+}
+
+function isSupportedKdf(kdf: unknown): boolean {
+  if (typeof kdf !== 'object' || kdf === null) return false
+  const params = kdf as Record<string, unknown>
+  return (
+    params.name === 'argon2id' &&
+    params.memoryKiB === 65536 &&
+    params.iterations === 3 &&
+    params.parallelism === 1 &&
+    params.outputBytes === 32
   )
 }
 
 function isValidDiscovery(discovery: DiscoveryInfo): boolean {
+  // 解引用 instanceId 前先确认字段存在且为字符串
   return (
     discovery.protocol === 'lumina-relay' &&
+    typeof discovery.instanceId === 'string' &&
     discovery.instanceId.length > 0 &&
     Number.isSafeInteger(discovery.serverTimeMs)
   )

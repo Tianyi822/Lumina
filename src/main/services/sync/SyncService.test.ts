@@ -3,6 +3,7 @@ import test from 'node:test'
 
 import type {
   Bootstrap,
+  ConnectStartResponse,
   ConnectionResult,
   DiscoveryInfo,
   RedeemResult,
@@ -199,7 +200,7 @@ class FakeRelayClient extends RelayClient {
     }
   }
 
-  override async getBootstrap() {
+  override async getBootstrap(): Promise<SyncResult<Bootstrap>> {
     this.bootstrapCalls += 1
     return { success: true, data: this.bootstrap }
   }
@@ -393,4 +394,142 @@ test('discardOtherGroups 使用由 DEK 派生的 account-auth key 签名', async
     true
   )
   assert.equal(client.bootstrapCalls, 2)
+})
+
+test('畸形 Relay 响应返回 invalid_response 而非抛出异常', async () => {
+  const connect = async (mutate: (client: FakeRelayClient) => void) => {
+    const client = new FakeRelayClient()
+    mutate(client)
+    const service = new SyncService({
+      createClient: () => client,
+      stateStore: new MemoryStateStore(),
+      secretStore: new MemorySecretStore()
+    })
+    // 若服务层抛出 TypeError，node:test 会直接判失败
+    return service.connect('https://relay.example', 'alice', PASSWORD)
+  }
+
+  // discovery 缺 instanceId
+  let result = await connect((client) => {
+    client.discover = async () => ({
+      success: true,
+      data: { protocol: 'lumina-relay' } as unknown as DiscoveryInfo
+    })
+  })
+  assert.equal(result.success, false)
+  assert.equal(result.code, 'invalid_response')
+
+  // start 缺 kdf
+  result = await connect((client) => {
+    client.connectionsStart = async () => ({
+      success: true,
+      data: {
+        accountExists: false,
+        attemptId: 'attempt-1',
+        challenge: encodeBase64Url(CHALLENGE),
+        authSalt: encodeBase64Url(AUTH_SALT),
+        expiresAt: 1_800_000_000
+      } as unknown as ConnectStartResponse
+    })
+  })
+  assert.equal(result.success, false)
+  assert.equal(result.code, 'invalid_response')
+
+  // start 缺 attemptId（kdf 合法）
+  result = await connect((client) => {
+    client.connectionsStart = async () => ({
+      success: true,
+      data: {
+        accountExists: false,
+        challenge: encodeBase64Url(CHALLENGE),
+        authSalt: encodeBase64Url(AUTH_SALT),
+        expiresAt: 1_800_000_000,
+        kdf: { name: 'argon2id', memoryKiB: 65536, iterations: 3, parallelism: 1, outputBytes: 32 }
+      } as unknown as ConnectStartResponse
+    })
+  })
+  assert.equal(result.success, false)
+  assert.equal(result.code, 'invalid_response')
+
+  // complete 缺 bootstrap
+  result = await connect((client) => {
+    client.connectionsComplete = async () => ({
+      success: true,
+      data: {
+        accountExists: false,
+        session: { token: 't', expiresAt: 1_800_000_000, proofBinding: 'b' }
+      } as unknown as ConnectionResult
+    })
+  })
+  assert.equal(result.success, false)
+  assert.equal(result.code, 'invalid_response')
+})
+
+test('device_revoked 失败自动断开并清理本地身份', async () => {
+  const client = new FakeRelayClient()
+  const identity = createStoredIdentity()
+  const stateStore = new MemoryStateStore(identity.state)
+  const secretStore = new MemorySecretStore(identity.secrets)
+  const service = new SyncService({ createClient: () => client, stateStore, secretStore })
+  service.restore()
+  assert.equal(service.getStatus().connected, true)
+
+  client.getBootstrap = async () => ({
+    success: false,
+    code: 'device_revoked',
+    error: '设备已被吊销'
+  })
+  const result = await service.refreshBootstrap()
+
+  assert.equal(result.success, false)
+  assert.equal(result.code, 'device_revoked')
+  assert.equal(service.getStatus().connected, false)
+  assert.equal(stateStore.value, null)
+  assert.equal(secretStore.value, null)
+})
+
+test('account_became_existing 抢注后自动按登录分支重试一次', async () => {
+  const client = new FakeRelayClient()
+  let startCalls = 0
+  const originalStart = client.connectionsStart.bind(client)
+  client.connectionsStart = async () => {
+    startCalls += 1
+    client.accountExists = startCalls > 1
+    return originalStart()
+  }
+  let completeCalls = 0
+  const originalComplete = client.connectionsComplete.bind(client)
+  client.connectionsComplete = async (body) => {
+    completeCalls += 1
+    if (completeCalls === 1) {
+      return { success: false, code: 'account_became_existing', error: '并发抢注' }
+    }
+    return originalComplete(body)
+  }
+  // 重试进入登录分支，需要可用密码解开的 DEK 信封
+  const dek = new Uint8Array(32).fill(6)
+  const envelopeKey = deriveEnvelopeKey(PASSWORD_ROOT)
+  const aad = buildDekEnvelopeAad({
+    instanceId: discovery.instanceId,
+    normalizedUsername: 'alice',
+    accountId: ACCOUNT_ID,
+    authSalt: AUTH_SALT
+  })
+  client.bootstrap = createBootstrap({
+    dekEnvelope: encodeBase64Url(sealDek(envelopeKey, dek, aad))
+  })
+  const secretStore = new MemorySecretStore()
+  const service = new SyncService({
+    createClient: () => client,
+    stateStore: new MemoryStateStore(),
+    secretStore
+  })
+
+  const result = await service.connect('https://relay.example', 'alice', PASSWORD)
+
+  assert.equal(result.success, true)
+  assert.equal(result.data?.accountExists, true)
+  assert.equal(startCalls, 2)
+  assert.equal(completeCalls, 2)
+  assert.deepEqual(decodeBase64Url(secretStore.value?.dekB64 ?? '', 32), dek)
 })
