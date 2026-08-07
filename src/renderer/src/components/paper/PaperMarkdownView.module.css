@@ -27,10 +27,7 @@
   right: 0;
   left: 0;
   z-index: 12;
-  height: var(
-    --sm-paper-reader-fade-height,
-    calc(var(--sm-titlebar-height) + var(--sm-space-6))
-  );
+  height: var(--sm-paper-reader-fade-height, calc(var(--sm-titlebar-height) + var(--sm-space-6)));
   pointer-events: none;
   /* 避免 overflow:hidden 在底部裁切 backdrop-filter，产生硬边 */
   overflow: visible;
@@ -141,8 +138,8 @@
   overflow-x: hidden;
   scrollbar-width: thin;
   scrollbar-color: var(--sm-color-border-strong) transparent;
-  padding: var(--sm-paper-reader-content-top-inset, 0px)
-    var(--sm-space-4) var(--sm-paper-reader-edge-inset, var(--sm-space-6));
+  padding: var(--sm-paper-reader-content-top-inset, 0px) var(--sm-space-4)
+    var(--sm-paper-reader-edge-inset, var(--sm-space-6));
   padding-right: var(--sm-workspace-page-padding, var(--sm-space-3));
   scroll-padding-top: var(
     --sm-paper-reader-scroll-anchor-top-inset,
