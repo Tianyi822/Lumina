@@ -4,6 +4,8 @@
  *
  * 原则：引擎是旁观者——下行只走 ConfigManager.saveConfig（不直接写 config.json），
  * 本地文件只读。DEK/RelayClient 经 SyncService 主进程内部接口获取。
+ * 收敛保证：内容一致的远端 head 记录为 appliedRemoteHead，未变整轮 skipped；
+ * 合并结果与远端/本地一致时不落盘、不上行，避免双设备交替推拉相同内容（ping-pong）。
  */
 import { readFile, stat } from 'node:fs/promises'
 import { logger } from '@main/services/logger'
@@ -121,10 +123,13 @@ export class ConfigSyncService {
     }, this.eventDebounceMs)
   }
 
-  /** 手动触发并等待完成 */
+  /** 手动触发并等待完成；限流期内直接返回 rate_limited（不拿上轮结果冒充成功） */
   async syncNow(): Promise<SyncResult<ConfigSyncResult>> {
     if (!this.isConnected()) {
       return { success: false, code: 'not_connected', error: '尚未连接同步服务' }
+    }
+    if (Date.now() < this.rateLimitedUntil) {
+      return { success: false, code: 'rate_limited', error: '同步限流中，请稍后重试' }
     }
     this.kickoff()
     if (this.chain) await this.chain
@@ -264,6 +269,24 @@ export class ConfigSyncService {
       return result
     }
 
+    // 远端 head 与上次应用的一致（已收敛）：本地干净 → 整轮 skipped（不再重复下载 manifest+块）；
+    // 本地在已应用状态之上有新改动 → 直接上行（远端快照未变，无需重新下载合并）
+    const applied = this.tracker.getData().appliedRemoteHead
+    if (
+      applied &&
+      applied.deviceId === latestHead.deviceId &&
+      applied.version === latestHead.currentVersion
+    ) {
+      if (!dirty) {
+        result.skipped++
+        this.finish(result)
+        return result
+      }
+      await this.upload(client, dek, deviceId, configPath, result)
+      this.finish(result)
+      return result
+    }
+
     // —— 阶段 3:下行(远端有新快照) ——
     const manifestResp = await client.getManifest(latestHead.deviceId, latestHead.currentVersion)
     if (!manifestResp.success || !manifestResp.data) {
@@ -315,17 +338,22 @@ export class ConfigSyncService {
     })
 
     if (merge.winner === 'remote') {
-      // 采纳远端
-      const save = this.configManager.saveConfig(merge.merged)
-      if (!save.success) {
-        result.errors.push({ message: `落盘失败：${save.error ?? '未知错误'}` })
-        this.finish(result)
-        return result
+      // 采纳远端：内容确与本地不同才落盘——相同字节重写会 bump mtime，诱发对端假性上行
+      if (merge.changed) {
+        const save = this.configManager.saveConfig(merge.merged)
+        if (!save.success) {
+          result.errors.push({ message: `落盘失败：${save.error ?? '未知错误'}` })
+          this.finish(result)
+          return result
+        }
+        result.downloaded++
+      } else {
+        result.skipped++
       }
-      // 读回真实字节重算 hash/mtime
-      const reread = await this.rereadConfig(configPath)
-      this.tracker.setSyncedConfig(reread.hash, reread.mtime)
-      result.downloaded++
+      // 读回真实字节重算 hash（saveConfig 可能刚格式化过，磁盘字节 ≠ 合并对象序列化）
+      const rereadHash = await this.rereadConfigHash(configPath)
+      this.tracker.setSyncedConfig(rereadHash)
+      this.tracker.setAppliedRemoteHead(latestHead.deviceId, latestHead.currentVersion)
       this.finish(result)
       return result // 采纳远端,不推 manifest
     }
@@ -340,16 +368,25 @@ export class ConfigSyncService {
       }
       if (merge.winner === 'merged') result.merged++
     }
+    // 合并结果与远端一致：组内状态已收敛，记录 appliedRemoteHead 后整轮 skipped，
+    // 不再上行相同内容（否则双设备会交替下载/上行，manifest 版本与孤儿块无限膨胀）
+    if (JSON.stringify(merge.merged) === JSON.stringify(remoteConfig)) {
+      const rereadHash = await this.rereadConfigHash(configPath)
+      this.tracker.setSyncedConfig(rereadHash)
+      this.tracker.setAppliedRemoteHead(latestHead.deviceId, latestHead.currentVersion)
+      result.skipped++
+      this.finish(result)
+      return result
+    }
     await this.upload(client, dek, deviceId, configPath, result)
     this.finish(result)
     return result
   }
 
-  /** 读回 config.json 真实字节与 mtime（落盘后调用，保证 tracker 与磁盘一致） */
-  private async rereadConfig(configPath: string): Promise<{ hash: string; mtime: string }> {
+  /** 读回 config.json 真实字节 hash（落盘后调用，保证 tracker 与磁盘一致） */
+  private async rereadConfigHash(configPath: string): Promise<string> {
     const bytes = await readFile(configPath)
-    const st = await stat(configPath)
-    return { hash: sha256Hex(new Uint8Array(bytes)), mtime: st.mtime.toISOString() }
+    return sha256Hex(new Uint8Array(bytes))
   }
 
   /** 阶段 4:上行（推 block + 新 manifest，CAS 重试） */
@@ -405,10 +442,10 @@ export class ConfigSyncService {
         manifestCt
       )
       if (put.success && put.data) {
-        this.tracker.setSelfManifest(put.data.version, sha256Hex(manifestCt))
+        this.tracker.setSelfManifest(put.data.version)
         // 读回 config.json 真实字节算 hash（saveConfig 可能刚格式化过，磁盘字节 ≠ plainBytes）
-        const reread = await this.rereadConfig(configPath)
-        this.tracker.setSyncedConfig(reread.hash, reread.mtime)
+        const rereadHash = await this.rereadConfigHash(configPath)
+        this.tracker.setSyncedConfig(rereadHash)
         result.uploaded++
         return
       }
@@ -420,7 +457,7 @@ export class ConfigSyncService {
       const selfList = await client.listManifests()
       if (selfList.success && selfList.data) {
         const selfHead = selfList.data.heads.find((h) => h.deviceId === deviceId)
-        this.tracker.setSelfManifest(selfHead?.currentVersion ?? 0, '')
+        this.tracker.setSelfManifest(selfHead?.currentVersion ?? 0)
       }
       // 继续重试
     }

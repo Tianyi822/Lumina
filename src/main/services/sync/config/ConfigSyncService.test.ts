@@ -1,10 +1,11 @@
 /**
  * ConfigSyncService 引擎单测：内存假 RelayClient + tmpdir 真实 config 文件。
- * 覆盖：未连接跳过、组内首次上行、远端更新下行、本机优先合并、CAS 重试、限流、saveConfig 失败。
+ * 覆盖：未连接跳过、组内首次上行、远端更新下行、本机优先合并、CAS 重试、
+ * 双设备稳态收敛（ping-pong 回归）、限流期 syncNow 拒绝。
  */
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync, utimesSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { randomBytes, createHash } from 'node:crypto'
@@ -38,8 +39,20 @@ class FakeRelayClient {
   alwaysStale = false
   /** 已知 listManifests 返回（用于注入多设备 head） */
   injectedHeads: ManifestHead[] | null = null
+  /** putSelfManifest 的"当前认证设备"（多设备测试时按调用方切换） */
+  activeDeviceId = DEVICE_ID
+  /** listManifests 恒返回 429（模拟限流） */
+  rateLimitList = false
 
   async listManifests(): Promise<SyncResult<ManifestListResult>> {
+    if (this.rateLimitList) {
+      return {
+        success: false,
+        code: 'rate_limited',
+        error: '请求过于频繁',
+        extra: { retryAfterMs: 60_000 }
+      }
+    }
     if (this.injectedHeads) {
       return { success: true, data: { groupRevision: 1, heads: this.injectedHeads } }
     }
@@ -66,24 +79,25 @@ class FakeRelayClient {
     baseVersion: number,
     ciphertext: Uint8Array
   ): Promise<SyncResult<{ version: number; idempotent: boolean }>> {
+    const selfId = this.activeDeviceId
     if (this.alwaysStale) {
-      const current = this.manifests.get(DEVICE_ID)
+      const current = this.manifests.get(selfId)
       const newVersion = (current?.version ?? 0) + 1
-      this.manifests.set(DEVICE_ID, {
+      this.manifests.set(selfId, {
         bytes: current?.bytes ?? ciphertext,
         version: newVersion,
         updatedAt: Date.now()
       })
       return { success: false, code: 'stale_manifest', error: '版本过期' }
     }
-    const current = this.manifests.get(DEVICE_ID)
+    const current = this.manifests.get(selfId)
     const currentVersion = current?.version ?? 0
     if (this.forceStaleNext || currentVersion !== baseVersion) {
       this.forceStaleNext = false
       return { success: false, code: 'stale_manifest', error: '版本过期' }
     }
     const version = currentVersion + 1
-    this.manifests.set(DEVICE_ID, {
+    this.manifests.set(selfId, {
       bytes: ciphertext,
       version,
       updatedAt: Date.now()
@@ -159,12 +173,15 @@ function makeConfigJson(overrides: Partial<Record<string, unknown>> = {}): strin
   )
 }
 
-function makeHarness(connected = true): Harness {
+function makeHarness(
+  connected = true,
+  deviceId: string = DEVICE_ID,
+  relay: FakeRelayClient = new FakeRelayClient()
+): Harness {
   const dir = mkdtempSync(join(tmpdir(), 'lumina-config-sync-engine-'))
   const configPath = join(dir, 'config.json')
   writeFileSync(configPath, makeConfigJson(), 'utf-8')
   const tracker = new ConfigSyncTracker(join(dir, 'config-sync.json'))
-  const relay = new FakeRelayClient()
   const saveCalls: AppConfig[] = []
   let currentConfig: AppConfig | null = JSON.parse(readFileSync(configPath, 'utf-8'))
   const configManager: ConfigManagerLike = {
@@ -181,7 +198,7 @@ function makeHarness(connected = true): Harness {
     getStatus: () =>
       ({
         connected,
-        deviceId: DEVICE_ID
+        deviceId
       }) as ReturnType<SyncService['getStatus']>,
     getDataKey: () => DEK,
     getClient: () => relay as unknown as RelayClient
@@ -255,6 +272,14 @@ test('远端 head updatedAt 更新 + 本地干净 → 下行采纳', async () =>
     // 落盘后 theme 变为远端
     const disk = JSON.parse(readFileSync(h.configPath, 'utf-8'))
     assert.equal(disk.theme.name, 'lumina-light')
+    // 记录已应用远端 head，下一轮整轮 skipped（不再重复下载）
+    assert.deepEqual(h.tracker.getData().appliedRemoteHead, {
+      deviceId: 'device-other',
+      version: 1
+    })
+    const again = await h.engine.syncNow()
+    assert.equal(again.data?.skipped, 1)
+    assert.equal(again.data?.downloaded, 0)
   } finally {
     h.cleanup()
   }
@@ -357,5 +382,64 @@ test('stale_manifest 重试耗尽 → errors', async () => {
     assert.ok(result.data.errors.length > 0)
   } finally {
     h.cleanup()
+  }
+})
+
+test('限流期内 syncNow 返回 rate_limited（不拿陈旧结果冒充成功）', async () => {
+  const h = makeHarness()
+  try {
+    h.relay.rateLimitList = true
+    // 首轮：listManifests 被 429 → 整轮失败并记录限流恢复时间
+    const first = await h.engine.syncNow()
+    assert.equal(first.success, false)
+    // 限流期内第二轮：直接返回 rate_limited
+    const second = await h.engine.syncNow()
+    assert.equal(second.success, false)
+    assert.equal(second.code, 'rate_limited')
+  } finally {
+    h.cleanup()
+  }
+})
+
+test('双设备收敛后进入稳态：后续轮次全 skipped，块数与 manifest 版本不膨胀', async () => {
+  const relay = new FakeRelayClient()
+  const a = makeHarness(true, 'device-A', relay)
+  const b = makeHarness(true, 'device-B', relay)
+  try {
+    // A 的 config 内容不同且 mtime 更新（后写）→ B 首轮 winner=remote 下行采纳
+    writeFileSync(a.configPath, makeConfigJson({ theme: { name: 'lumina-light' } }), 'utf-8')
+    utimesSync(b.configPath, new Date('2026-08-01T00:00:00Z'), new Date('2026-08-01T00:00:00Z'))
+
+    // A 首次上行
+    relay.activeDeviceId = 'device-A'
+    const a1 = await a.engine.syncNow()
+    assert.equal(a1.data?.uploaded, 1)
+
+    // B 首轮：远端更新 → 下行采纳，theme 变 light
+    relay.activeDeviceId = 'device-B'
+    const b1 = await b.engine.syncNow()
+    assert.equal(b1.data?.downloaded, 1)
+    assert.equal(JSON.parse(readFileSync(b.configPath, 'utf-8')).theme.name, 'lumina-light')
+
+    // 收敛后连跑数轮：不应再有上传/下载，块数与版本不增长（ping-pong 回归断言）
+    const blockCount = relay.blocks.size
+    for (let round = 0; round < 3; round++) {
+      relay.activeDeviceId = 'device-B'
+      const rb = await b.engine.syncNow()
+      assert.equal(rb.data?.uploaded, 0, `B 第 ${round + 2} 轮不应上行`)
+      assert.equal(rb.data?.downloaded, 0, `B 第 ${round + 2} 轮不应下行`)
+      assert.equal(rb.data?.skipped, 1)
+      relay.activeDeviceId = 'device-A'
+      const ra = await a.engine.syncNow()
+      assert.equal(ra.data?.uploaded, 0, `A 第 ${round + 2} 轮不应上行`)
+      assert.equal(ra.data?.downloaded, 0, `A 第 ${round + 2} 轮不应下行`)
+      assert.equal(ra.data?.skipped, 1)
+    }
+    assert.equal(relay.blocks.size, blockCount, '稳态不应产生新块')
+    assert.equal(relay.manifests.get('device-A')?.version, 1, 'A manifest 版本不应膨胀')
+    assert.equal(relay.manifests.has('device-B'), false, 'B 不应产生 manifest')
+  } finally {
+    a.cleanup()
+    b.cleanup()
   }
 })
