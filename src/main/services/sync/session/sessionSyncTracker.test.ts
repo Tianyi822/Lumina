@@ -75,6 +75,22 @@ test('tombstone 写入/读取/过期清理', () => {
   }
 })
 
+test('损坏 tombstone（deletedAt 不可解析）不被 prune 删除，防止远端复活', () => {
+  const { tracker, dir } = makeTracker()
+  try {
+    const now = Date.parse('2026-08-03T00:00:00.000Z')
+    tracker.setTombstone('session-corrupt', 'not-a-date')
+    tracker.pruneTombstones(now)
+    assert.notEqual(
+      tracker.getTombstone('session-corrupt'),
+      null,
+      '损坏 tombstone 应保留以拦截远端同 key 复活'
+    )
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
 test('removeSession 同时清除会话记录', () => {
   const { tracker, dir } = makeTracker()
   try {

@@ -97,12 +97,14 @@ export class SessionSyncTracker {
     return this.getData().tombstones[sessionId] ?? null
   }
 
-  /** 清理超过保留期的 tombstone */
+  /** 清理超过保留期的 tombstone；损坏（deletedAt 不可解析）的保留以防远端复活 */
   pruneTombstones(nowMs: number = Date.now()): void {
     const tombstones = this.getData().tombstones
     for (const [sessionId, entry] of Object.entries(tombstones)) {
       const deletedAtMs = Date.parse(entry.deletedAt)
-      if (Number.isNaN(deletedAtMs) || nowMs - deletedAtMs > TOMBSTONE_TTL_MS) {
+      // 解析失败时保留 tombstone：删除会让远端同 key 已删数据在下行阶段复活落盘
+      if (Number.isNaN(deletedAtMs)) continue
+      if (nowMs - deletedAtMs > TOMBSTONE_TTL_MS) {
         delete tombstones[sessionId]
       }
     }
