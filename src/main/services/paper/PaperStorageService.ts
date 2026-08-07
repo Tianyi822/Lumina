@@ -771,11 +771,11 @@ export class PaperStorageService {
 
   // ============ 同步引擎专用接口（走 writeQueue 串行化） ============
 
-  /** 同步下行 meta（复用 saveMeta 路径语义，走 writeQueue） */
+  /** 同步下行 meta（复用 saveMeta 路径语义，走 writeQueue）；data 为实际落盘字节 */
   async applySyncedMeta(
     paperId: string,
     meta: PaperDocument
-  ): Promise<{ success: boolean; error?: string }> {
+  ): Promise<{ success: boolean; error?: string; data?: Uint8Array }> {
     try {
       // 确保论文目录存在（新设备首次下行时目录可能不存在，saveMetaCore 的 writeFile
       // 不会自动建目录，否则会 ENOENT）
@@ -787,7 +787,13 @@ export class PaperStorageService {
       // readMeta 归一化结果保持一致。
       const normalized = this.normalizeMetaPaths(paperId, meta)
       const result = await this.saveMeta(paperId, normalized.document)
-      return result
+      if (!result.success) return result
+      // 返回实际落盘字节（序列化格式与 saveMetaCore 保持一致），同步引擎以其 hash
+      // 作为 tracker 基线——否则跨机路径差异会导致两台设备每轮互相重传 meta
+      return {
+        success: true,
+        data: new TextEncoder().encode(JSON.stringify(normalized.document, null, 2))
+      }
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : String(error) }
     }

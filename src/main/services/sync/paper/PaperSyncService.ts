@@ -29,7 +29,6 @@ import { mergePaperMeta, mergePaperAnnotations } from './paperMerge'
 import {
   chunkFile,
   parsePaperPackManifest,
-  resolveContainedPath,
   type PaperPackManifest,
   type PaperPackFileEntry
 } from './paperPack'
@@ -40,7 +39,7 @@ import {
   isPaperKey,
   parsePaperKey
 } from './paperSyncKeys'
-import { getPaperDirPath, getPapersDirPath } from '@main/services/paper/paperPaths'
+import { getPapersDirPath } from '@main/services/paper/paperPaths'
 
 const DEFAULT_INTERVAL_MS = 60_000
 const DEFAULT_EVENT_DEBOUNCE_MS = 2_000
@@ -53,10 +52,11 @@ const PACK_ALLOWLIST =
 
 type SyncServiceLike = Pick<SyncService, 'getStatus' | 'getDataKey' | 'getClient'>
 type PaperStorageLike = {
+  /** data 为实际落盘字节（路径归一化后），供引擎以其 hash 作为 tracker 基线 */
   applySyncedMeta(
     paperId: string,
     meta: PaperDocument
-  ): Promise<{ success: boolean; error?: string }>
+  ): Promise<{ success: boolean; error?: string; data?: Uint8Array }>
   applySyncedAnnotations(
     paperId: string,
     store: PaperAnnotationStore
@@ -151,8 +151,6 @@ export class PaperSyncService {
   private rateLimitedUntil = 0
   /** 待执行的 pack 下载请求（paperId 队列，drain 内串行处理） */
   private pendingDownloads = new Set<string>()
-  /** 本轮同步已下载的块数（runPackDownload 累加，runSync 返回时写入 result） */
-  private blocksDownloadedThisCycle = 0
 
   constructor(deps: PaperSyncServiceDeps) {
     this.deps = deps
@@ -201,6 +199,10 @@ export class PaperSyncService {
   async syncNow(): Promise<SyncResult<PaperSyncResult>> {
     if (!this.isConnected())
       return { success: false, code: 'not_connected', error: '尚未连接同步服务' }
+    // 限流窗口内明确返回 rate_limited，不拿上一轮陈旧结果冒充成功
+    if (Date.now() < this.rateLimitedUntil) {
+      return { success: false, code: 'rate_limited', error: '同步请求被限流，请稍后重试' }
+    }
     this.kickoff()
     if (this.chain) await this.chain
     const last = this.state.lastResult
@@ -231,6 +233,10 @@ export class PaperSyncService {
   }
 
   private async drain(): Promise<void> {
+    // 批次级下载块数汇总：下载在 runOnce 之后执行，且 syncNow/handlePaperEvent 的
+    // 额外 kickoff 可能让 drain 多跑一轮空闲 runOnce 覆盖 lastResult——故在 drain
+    // 结束时统一写回，保证 syncNow 拿到的 lastResult 含本批次全部下载块数
+    let blocksDownloaded = 0
     try {
       while (this.queued || this.pendingDownloads.size > 0) {
         this.queued = false
@@ -239,8 +245,12 @@ export class PaperSyncService {
         const toDownload = [...this.pendingDownloads]
         this.pendingDownloads.clear()
         for (const paperId of toDownload) {
-          await this.runPackDownload(paperId)
+          blocksDownloaded += await this.runPackDownload(paperId)
         }
+      }
+      if (blocksDownloaded > 0 && this.state.lastResult) {
+        this.state.lastResult.blocksDownloaded += blocksDownloaded
+        this.deps.broadcast(this.state)
       }
     } finally {
       this.chain = null
@@ -264,7 +274,6 @@ export class PaperSyncService {
         deletedLocal: result.deletedLocal,
         deletedRemote: result.deletedRemote,
         blocksUploaded: result.blocksUploaded,
-        blocksDownloaded: result.blocksDownloaded,
         skipped: result.skipped,
         errors: result.errors.length
       })
@@ -353,7 +362,6 @@ export class PaperSyncService {
       } else if (entry.isFile()) {
         const relPath = fullPath.slice(baseDir.length + 1).replace(/\\/g, '/')
         if (!PACK_ALLOWLIST.test(relPath)) continue
-        if (relPath.startsWith('ocr/raw/')) continue
         try {
           const st = await stat(fullPath)
           result.set(relPath, {
@@ -370,7 +378,6 @@ export class PaperSyncService {
 
   private async runSync(): Promise<PaperSyncResult> {
     const result = emptyResult()
-    this.blocksDownloadedThisCycle = 0
     if (!this.isConnected()) return result
     const dek = this.deps.syncService.getDataKey()
     const client = this.deps.syncService.getClient() as unknown as RelayClientLike | null
@@ -478,10 +485,18 @@ export class PaperSyncService {
       }
 
       if (parsed.kind === 'meta') {
-        const remoteMeta = JSON.parse(new TextDecoder().decode(plainBytes)) as PaperDocument
+        let remoteMeta: PaperDocument
+        try {
+          remoteMeta = JSON.parse(new TextDecoder().decode(plainBytes)) as PaperDocument
+        } catch {
+          result.errors.push({ key, message: 'meta JSON 解析失败' })
+          continue
+        }
         const localResult = await this.deps.paperStorage.readMeta(parsed.paperId)
         const localMeta = localResult.success ? (localResult.data ?? null) : null
         const merge = mergePaperMeta({ local: localMeta, remote: remoteMeta })
+        // 默认基线为远端明文 hash（本地更新未落盘时，下一轮据此判 dirty 上行本地）
+        let contentHash = sha256Hex(plainBytes)
         if (merge.changed) {
           const applyResult = await this.deps.paperStorage.applySyncedMeta(
             parsed.paperId,
@@ -491,14 +506,23 @@ export class PaperSyncService {
             result.errors.push({ key, message: `落盘失败：${applyResult.error}` })
             continue
           }
+          // 已落盘则改用实际落盘字节 hash：路径归一化会改写 filePath 等机器相关字段，
+          // 若记远端明文 hash，下一轮扫描必判 dirty，两台机器间会无限互相重传
+          if (applyResult.data) contentHash = sha256Hex(applyResult.data)
         }
         tracker.setKey(key, {
           version: dl.data.version ?? remoteVersion,
-          contentHash: sha256Hex(plainBytes)
+          contentHash
         })
         result.downloaded++
       } else if (parsed.kind === 'annotations') {
-        const remoteStore = JSON.parse(new TextDecoder().decode(plainBytes)) as PaperAnnotationStore
+        let remoteStore: PaperAnnotationStore
+        try {
+          remoteStore = JSON.parse(new TextDecoder().decode(plainBytes)) as PaperAnnotationStore
+        } catch {
+          result.errors.push({ key, message: 'annotations JSON 解析失败' })
+          continue
+        }
         const localResult = await this.deps.paperStorage.readAnnotationStore(parsed.paperId)
         const localStore = localResult.success ? (localResult.data ?? null) : null
         const merge = mergePaperAnnotations({ local: localStore, remote: remoteStore })
@@ -614,7 +638,6 @@ export class PaperSyncService {
 
     tracker.setLastSyncAt(new Date().toISOString())
     tracker.save()
-    result.blocksDownloaded = this.blocksDownloadedThisCycle
     return result
   }
 
@@ -672,6 +695,7 @@ export class PaperSyncService {
 
     // diff：size+mtime 快判 → 变了才重算 sha256
     const manifestFiles: PaperPackFileEntry[] = []
+    let hasChunkFailure = false
     for (const [relPath, localFile] of localPackFiles) {
       const tracked = trackedFiles[relPath]
       if (tracked && tracked.size === localFile.size && tracked.mtime === localFile.mtime) {
@@ -690,9 +714,17 @@ export class PaperSyncService {
         const chunkResult = await chunkFile(localFile.absPath, async (chunk) => {
           const { blockId, ciphertext } = sealPaperBlock(dek, chunk)
           const missing = await client.blocksMissing([blockId])
-          if (missing.success && missing.data?.missing.includes(blockId)) {
+          if (!missing.success || !missing.data) {
+            throw new Error(`查询块缺失失败：${missing.error ?? missing.code ?? '未知错误'}`)
+          }
+          if (missing.data.missing.includes(blockId)) {
             const putBlock = await client.putBlock(blockId, ciphertext)
-            if (putBlock.success && putBlock.data?.created) result.blocksUploaded++
+            // 失败必须抛错中止：否则 manifest 会引用 relay 上不存在的块，
+            // 对端下载永远失败，且本地基线已复用该块引用而无法自愈
+            if (!putBlock.success) {
+              throw new Error(`块上传失败：${putBlock.error ?? putBlock.code ?? '未知错误'}`)
+            }
+            if (putBlock.data?.created) result.blocksUploaded++
           }
           blockIds.push(blockId)
         })
@@ -710,6 +742,7 @@ export class PaperSyncService {
           blockIds
         }
       } catch (error) {
+        hasChunkFailure = true
         result.errors.push({
           key: makePaperPackKey(paperId),
           message: `文件切块失败 ${relPath}：${error instanceof Error ? error.message : String(error)}`
@@ -721,6 +754,10 @@ export class PaperSyncService {
     for (const trackedPath of Object.keys(trackedFiles)) {
       if (!localPackFiles.has(trackedPath)) delete trackedFiles[trackedPath]
     }
+
+    // 有文件切块/上传失败：本轮不上行 manifest（缺文件的 manifest 会让对端下载到
+    // 不完整内容）。已上传的块内容寻址可复用，失败文件下轮重试
+    if (hasChunkFailure) return
 
     // 懒下载场景：本地无 pack 文件但远端有 manifest 待下载 → 不上行空 manifest（防覆盖远端）
     if (manifestFiles.length === 0 && pack.remoteManifest) {
@@ -782,125 +819,141 @@ export class PaperSyncService {
     result.errors.push({ key, message: 'pack manifest 版本冲突重试耗尽' })
   }
 
-  /** 懒下载：拉缺失块 → 重组 → 校验 → 落盘 */
-  private async runPackDownload(paperId: string): Promise<void> {
+  /** 懒下载：拉缺失块 → 重组 → 校验 → 落盘；返回本轮下载的块数（供 drain 汇总） */
+  private async runPackDownload(paperId: string): Promise<number> {
     const tracker = this.deps.tracker
     const pack = tracker.getPack(paperId)
     if (!pack?.remoteManifest) {
       logger.warn('pack 下载无远端 manifest', 'main', { paperId })
-      return
+      return 0
     }
     const dek = this.deps.syncService.getDataKey()
     const client = this.deps.syncService.getClient() as unknown as RelayClientLike | null
-    if (!dek || !client) return
+    if (!dek || !client) return 0
 
     const remoteManifest = pack.remoteManifest
-    const totalFiles = remoteManifest.files.length
+    let blocksDownloaded = 0
+    try {
+      const totalFiles = remoteManifest.files.length
 
-    pack.downloadState = 'downloading'
-    tracker.setPack(paperId, pack)
-    this.updateDownloadProgress(paperId, 'downloading', 0, totalFiles)
+      pack.downloadState = 'downloading'
+      tracker.setPack(paperId, pack)
+      this.updateDownloadProgress(paperId, 'downloading', 0, totalFiles)
 
-    const paperDir = getPaperDirPath(paperId)
-    const stagingDir = join(paperDir, '.sync-staging')
-    mkdirSync(stagingDir, { recursive: true })
+      const paperDir = join(this.papersDir(), paperId)
+      const stagingDir = join(paperDir, '.sync-staging')
+      mkdirSync(stagingDir, { recursive: true })
 
-    let doneFiles = 0
-    let allOk = true
-    for (const fileEntry of remoteManifest.files) {
-      // containment 校验
-      const targetPath = resolveContainedPath(paperDir, fileEntry.path)
-      if (!targetPath) {
-        logger.error('pack 下载路径越界', 'main', { paperId, path: fileEntry.path })
-        allOk = false
-        continue
-      }
-      // 逐块拉取 → staging
-      const blockBuffers: Buffer[] = []
-      let allBlocksOk = true
-      for (const blockId of fileEntry.blockIds) {
-        const stagingBlockPath = join(stagingDir, blockId)
-        if (existsSync(stagingBlockPath)) {
-          blockBuffers.push(await readFile(stagingBlockPath))
-          continue
-        }
-        // 拉取（重试 1 次）
-        let blockBytes: Uint8Array | null = null
-        for (let retry = 0; retry < 2; retry++) {
-          const dl = await client.getBlock(blockId)
-          if (dl.success && dl.data) {
-            try {
-              blockBytes = openPaperBlock(dek, dl.data.bytes)
-              break
-            } catch {
-              /* 解密失败重试 */
+      let doneFiles = 0
+      let allOk = true
+      for (const fileEntry of remoteManifest.files) {
+        // 逐块拉取 → staging（路径安全性由 manifest 解析期校验与 applySyncedPackFile 保证）
+        const blockBuffers: Buffer[] = []
+        let allBlocksOk = true
+        for (const blockId of fileEntry.blockIds) {
+          const stagingBlockPath = join(stagingDir, blockId)
+          if (existsSync(stagingBlockPath)) {
+            blockBuffers.push(await readFile(stagingBlockPath))
+            continue
+          }
+          // 拉取（重试 1 次）
+          let blockBytes: Uint8Array | null = null
+          for (let retry = 0; retry < 2; retry++) {
+            const dl = await client.getBlock(blockId)
+            if (dl.success && dl.data) {
+              try {
+                blockBytes = openPaperBlock(dek, dl.data.bytes)
+                break
+              } catch {
+                /* 解密失败重试 */
+              }
             }
           }
+          if (!blockBytes) {
+            allBlocksOk = false
+            allOk = false
+            break
+          }
+          writeFileSync(stagingBlockPath, blockBytes)
+          blocksDownloaded++
+          blockBuffers.push(Buffer.from(blockBytes))
         }
-        if (!blockBytes) {
-          allBlocksOk = false
+        if (!allBlocksOk) continue
+
+        // 重组 + sha256 校验
+        const reassembled = Buffer.concat(blockBuffers)
+        const hash = createHash('sha256').update(reassembled).digest('hex')
+        if (hash !== fileEntry.sha256) {
+          logger.error('pack 下载 sha256 校验失败', 'main', { paperId, path: fileEntry.path })
+          // 清掉该文件的 staging 块（可能是上次崩溃残留的半截写入），下轮重新拉取
+          for (const blockId of fileEntry.blockIds) {
+            try {
+              rmSync(join(stagingDir, blockId), { force: true })
+            } catch {
+              /* 忽略清理失败 */
+            }
+          }
           allOk = false
-          break
+          continue
         }
-        writeFileSync(stagingBlockPath, blockBytes)
-        this.blocksDownloadedThisCycle++
-        blockBuffers.push(Buffer.from(blockBytes))
-      }
-      if (!allBlocksOk) continue
 
-      // 重组 + sha256 校验
-      const reassembled = Buffer.concat(blockBuffers)
-      const hash = createHash('sha256').update(reassembled).digest('hex')
-      if (hash !== fileEntry.sha256) {
-        logger.error('pack 下载 sha256 校验失败', 'main', { paperId, path: fileEntry.path })
-        allOk = false
-        continue
-      }
-
-      // 落盘（写 staging 文件 → applySyncedPackFile 原子 rename）
-      const stagingFilePath = join(stagingDir, `reassembled-${fileEntry.sha256}`)
-      writeFileSync(stagingFilePath, reassembled)
-      const applyResult = await this.deps.paperStorage.applySyncedPackFile(
-        paperId,
-        fileEntry.path,
-        stagingFilePath
-      )
-      if (!applyResult.success) {
-        allOk = false
-        continue
-      }
-
-      // 清该文件的 staging 块
-      for (const blockId of fileEntry.blockIds) {
-        try {
-          rmSync(join(stagingDir, blockId), { force: true })
-        } catch {
-          /* ignore */
+        // 落盘（写 staging 文件 → applySyncedPackFile 原子 rename）
+        const stagingFilePath = join(stagingDir, `reassembled-${fileEntry.sha256}`)
+        writeFileSync(stagingFilePath, reassembled)
+        const applyResult = await this.deps.paperStorage.applySyncedPackFile(
+          paperId,
+          fileEntry.path,
+          stagingFilePath
+        )
+        if (!applyResult.success) {
+          allOk = false
+          continue
         }
-      }
-      // 更新本地上行基线，避免下一轮把刚下行的文件再切一遍块
-      const newBaseline: TrackedPaperPackFile = {
-        size: fileEntry.size,
-        mtime: new Date().toISOString(),
-        sha256: fileEntry.sha256,
-        blockIds: fileEntry.blockIds
-      }
-      pack.files[fileEntry.path] = newBaseline
-      doneFiles++
-      this.updateDownloadProgress(paperId, 'downloading', doneFiles, totalFiles)
-    }
 
-    if (allOk) {
-      pack.downloadState = 'local'
-      pack.remoteManifest = null
-      rmSync(stagingDir, { recursive: true, force: true })
-      this.updateDownloadProgress(paperId, 'local', totalFiles, totalFiles)
-    } else {
+        // 清该文件的 staging 块
+        for (const blockId of fileEntry.blockIds) {
+          try {
+            rmSync(join(stagingDir, blockId), { force: true })
+          } catch {
+            /* ignore */
+          }
+        }
+        // 更新本地上行基线，避免下一轮把刚下行的文件再切一遍块
+        const newBaseline: TrackedPaperPackFile = {
+          size: fileEntry.size,
+          mtime: new Date().toISOString(),
+          sha256: fileEntry.sha256,
+          blockIds: fileEntry.blockIds
+        }
+        pack.files[fileEntry.path] = newBaseline
+        doneFiles++
+        this.updateDownloadProgress(paperId, 'downloading', doneFiles, totalFiles)
+      }
+
+      if (allOk) {
+        pack.downloadState = 'local'
+        pack.remoteManifest = null
+        rmSync(stagingDir, { recursive: true, force: true })
+        this.updateDownloadProgress(paperId, 'local', totalFiles, totalFiles)
+      } else {
+        pack.downloadState = 'error'
+        this.updateDownloadProgress(paperId, 'error', doneFiles, totalFiles)
+      }
+      tracker.setPack(paperId, pack)
+      tracker.save()
+      return blocksDownloaded
+    } catch (error) {
+      // 磁盘异常（ENOSPC/EACCES 等）不向上逃逸 drain：置 error 态，保留 staging 待重试
       pack.downloadState = 'error'
-      this.updateDownloadProgress(paperId, 'error', doneFiles, totalFiles)
+      tracker.setPack(paperId, pack)
+      tracker.save()
+      this.updateDownloadProgress(paperId, 'error', 0, remoteManifest.files.length)
+      logger.error('pack 下载异常', 'main', {
+        paperId,
+        error: error instanceof Error ? error.message : String(error)
+      })
+      return blocksDownloaded
     }
-    tracker.setPack(paperId, pack)
-    tracker.save()
   }
 
   private updateDownloadProgress(
