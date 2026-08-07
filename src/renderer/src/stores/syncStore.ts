@@ -63,15 +63,15 @@ interface SyncStoreState {
   revokeDevice: (deviceId: string) => Promise<boolean>
   discardOtherGroups: () => Promise<boolean>
   reconcile: () => Promise<void>
-  syncSessionsNow: () => Promise<boolean>
+  syncSessionsNow: (fromSyncAll?: boolean) => Promise<boolean>
   bindSessionSyncState: () => void
-  syncConfigNow: () => Promise<boolean>
+  syncConfigNow: (fromSyncAll?: boolean) => Promise<boolean>
   bindConfigSyncState: () => void
-  syncWriterNow: () => Promise<boolean>
+  syncWriterNow: (fromSyncAll?: boolean) => Promise<boolean>
   bindWriterSyncState: () => void
-  syncKnowledgeNow: () => Promise<boolean>
+  syncKnowledgeNow: (fromSyncAll?: boolean) => Promise<boolean>
   bindKnowledgeSyncState: () => void
-  syncPaperNow: () => Promise<boolean>
+  syncPaperNow: (fromSyncAll?: boolean) => Promise<boolean>
   bindPaperSyncState: () => void
   /** 统一同步：并行触发全部 5 个模块 */
   syncAllNow: () => Promise<boolean>
@@ -132,6 +132,7 @@ const initialData = {
 let eventSocket: WebSocket | null = null
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null
 let codeTimer: ReturnType<typeof setInterval> | null = null
+let reconcileTimer: ReturnType<typeof setTimeout> | null = null
 let reconnectAttempt = 0
 let shouldReconnect = false
 let eventTicketPending = false
@@ -199,6 +200,33 @@ function clearCodeTimer(): void {
   }
 }
 
+/** 事件驱动对账的合并窗口：事件密集时避免每条事件都触发一次全量 HTTP 对账 */
+const RECONCILE_DEBOUNCE_MS = 1_500
+
+function clearReconcileTimer(): void {
+  if (reconcileTimer) {
+    clearTimeout(reconcileTimer)
+    reconcileTimer = null
+  }
+}
+
+function scheduleReconcile(get: () => SyncStoreState): void {
+  if (reconcileTimer) return
+  reconcileTimer = setTimeout(() => {
+    reconcileTimer = null
+    void get().reconcile()
+  }, RECONCILE_DEBOUNCE_MS)
+}
+
+/** 订阅全部五个同步模块的状态推送（各 bind 幂等，可随连接态重复调用） */
+function bindAllSyncStates(get: () => SyncStoreState): void {
+  get().bindSessionSyncState()
+  get().bindConfigSyncState()
+  get().bindWriterSyncState()
+  get().bindKnowledgeSyncState()
+  get().bindPaperSyncState()
+}
+
 function closeSocket(): void {
   const socket = eventSocket
   eventSocket = null
@@ -235,6 +263,19 @@ function parseRelayEvent(data: unknown): RelayEvent | null {
       type !== 'session_file_deleted' &&
       type !== 'sync_group_merged' &&
       type !== 'device_revoked'
+    ) {
+      return null
+    }
+    // 下游会直接读取的字段在此校验，畸形事件（如缺 sessionId）整体丢弃
+    if (
+      (type === 'session_file_updated' || type === 'session_file_deleted') &&
+      typeof (parsed as { sessionId?: unknown }).sessionId !== 'string'
+    ) {
+      return null
+    }
+    if (
+      type === 'device_revoked' &&
+      typeof (parsed as { deviceId?: unknown }).deviceId !== 'string'
     ) {
       return null
     }
@@ -285,6 +326,7 @@ export const useSyncStore = create<SyncStoreState>()((set, get) => ({
         source: 'settings'
       })
     }
+    bindAllSyncStates(get)
     void get().listDevices()
     get().setupEventStream()
     return true
@@ -315,6 +357,7 @@ export const useSyncStore = create<SyncStoreState>()((set, get) => ({
       return false
     }
     set(patchFromStatus(result.data))
+    bindAllSyncStates(get)
     get().setupEventStream()
     return true
   },
@@ -327,7 +370,7 @@ export const useSyncStore = create<SyncStoreState>()((set, get) => ({
     }
     set(patchFromStatus(result.data))
     if (result.data.connected) {
-      get().bindSessionSyncState()
+      bindAllSyncStates(get)
       get().setupEventStream()
     } else {
       get().cleanupEventStream()
@@ -434,10 +477,11 @@ export const useSyncStore = create<SyncStoreState>()((set, get) => ({
     }
   },
 
-  syncSessionsNow: async () => {
-    set({ pendingAction: 'session-sync', error: null })
+  syncSessionsNow: async (fromSyncAll) => {
+    // 来自 syncAllNow 时全局 pending 由调用方统一管理，避免并行子任务互相覆盖
+    if (!fromSyncAll) set({ pendingAction: 'session-sync', error: null })
     const result = await window.api.sync.sessionSyncNow()
-    set({ pendingAction: null })
+    if (!fromSyncAll) set({ pendingAction: null })
     if (!result.success) {
       const message = formatFailure(result, '会话同步失败')
       set({ error: message })
@@ -469,10 +513,10 @@ export const useSyncStore = create<SyncStoreState>()((set, get) => ({
     })
   },
 
-  syncConfigNow: async () => {
-    set({ pendingAction: 'config-sync', error: null })
+  syncConfigNow: async (fromSyncAll) => {
+    if (!fromSyncAll) set({ pendingAction: 'config-sync', error: null })
     const result = await window.api.sync.configSyncNow()
-    set({ pendingAction: null })
+    if (!fromSyncAll) set({ pendingAction: null })
     if (!result.success) {
       const message = formatFailure(result, '配置同步失败')
       set({ error: message })
@@ -503,10 +547,10 @@ export const useSyncStore = create<SyncStoreState>()((set, get) => ({
     })
   },
 
-  syncWriterNow: async () => {
-    set({ pendingAction: 'writer-sync', error: null })
+  syncWriterNow: async (fromSyncAll) => {
+    if (!fromSyncAll) set({ pendingAction: 'writer-sync', error: null })
     const result = await window.api.sync.writerSyncNow()
-    set({ pendingAction: null })
+    if (!fromSyncAll) set({ pendingAction: null })
     if (!result.success) {
       const message = formatFailure(result, '写作同步失败')
       set({ error: message })
@@ -537,10 +581,10 @@ export const useSyncStore = create<SyncStoreState>()((set, get) => ({
     })
   },
 
-  syncKnowledgeNow: async () => {
-    set({ pendingAction: 'knowledge-sync', error: null })
+  syncKnowledgeNow: async (fromSyncAll) => {
+    if (!fromSyncAll) set({ pendingAction: 'knowledge-sync', error: null })
     const result = await window.api.sync.knowledgeSyncNow()
-    set({ pendingAction: null })
+    if (!fromSyncAll) set({ pendingAction: null })
     if (!result.success) {
       const message = formatFailure(result, '知识库同步失败')
       set({ error: message })
@@ -573,10 +617,10 @@ export const useSyncStore = create<SyncStoreState>()((set, get) => ({
     })
   },
 
-  syncPaperNow: async () => {
-    set({ pendingAction: 'paper-sync', error: null })
+  syncPaperNow: async (fromSyncAll) => {
+    if (!fromSyncAll) set({ pendingAction: 'paper-sync', error: null })
     const result = await window.api.sync.paperSyncNow()
-    set({ pendingAction: null })
+    if (!fromSyncAll) set({ pendingAction: null })
     if (!result.success) {
       const message = formatFailure(result, '论文同步失败')
       set({ error: message })
@@ -611,11 +655,11 @@ export const useSyncStore = create<SyncStoreState>()((set, get) => ({
   syncAllNow: async () => {
     set({ pendingAction: 'sync-all', error: null })
     const results = await Promise.all([
-      get().syncSessionsNow(),
-      get().syncConfigNow(),
-      get().syncWriterNow(),
-      get().syncKnowledgeNow(),
-      get().syncPaperNow()
+      get().syncSessionsNow(true),
+      get().syncConfigNow(true),
+      get().syncWriterNow(true),
+      get().syncKnowledgeNow(true),
+      get().syncPaperNow(true)
     ])
     set({ pendingAction: null })
     return results.every((ok) => ok)
@@ -639,6 +683,8 @@ export const useSyncStore = create<SyncStoreState>()((set, get) => ({
       const ticketResult = await window.api.sync.createEventTicket()
       eventTicketPending = false
       if (!ticketResult.success || !ticketResult.data || !shouldReconnect) {
+        // 主动断开/清理期间落地的在飞请求：静默丢弃，不误报为连接失败
+        if (!shouldReconnect) return
         set({ eventConnected: false, error: formatFailure(ticketResult, '事件连接票据获取失败') })
         scheduleReconnect(get)
         return
@@ -688,6 +734,7 @@ export const useSyncStore = create<SyncStoreState>()((set, get) => ({
     eventTicketPending = false
     reconnectAttempt = 0
     clearReconnectTimer()
+    clearReconcileTimer()
     closeSocket()
     if (sessionSyncUnsubscribe) {
       sessionSyncUnsubscribe()
@@ -738,7 +785,7 @@ export const useSyncStore = create<SyncStoreState>()((set, get) => ({
         return
       case 'manifest_updated':
         window.api.sync.notifyConfigManifestEvent()
-        await get().reconcile()
+        scheduleReconcile(get)
         return
       case 'session_file_updated':
       case 'session_file_deleted':
@@ -751,7 +798,8 @@ export const useSyncStore = create<SyncStoreState>()((set, get) => ({
         } else {
           window.api.sync.notifySessionFileEvent()
         }
-        await get().reconcile()
+        scheduleReconcile(get)
+        return
     }
   }
 }))

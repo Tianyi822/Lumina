@@ -149,6 +149,14 @@ export default function SyncSettings() {
 
   const connected = status === 'connected'
   const connecting = status === 'connecting'
+  /** 统一同步按钮的忙态：全局动作进行中或任一模块引擎运行中 */
+  const anyRunning =
+    pendingAction === 'sync-all' ||
+    sessionSync.phase === 'running' ||
+    configSync.phase === 'running' ||
+    writerSync.phase === 'running' ||
+    knowledgeSync.phase === 'running' ||
+    paperSync.phase === 'running'
   const connectionLabel = useMemo(() => {
     if (status === 'connecting') return '连接中'
     if (status === 'connected') return eventConnected ? '已连接 · 事件在线' : '已连接 · 事件重连中'
@@ -523,24 +531,10 @@ export default function SyncSettings() {
               </div>
               <button
                 className="sm-button sm-button--primary"
-                disabled={
-                  pendingAction === 'sync-all' ||
-                  sessionSync.phase === 'running' ||
-                  configSync.phase === 'running' ||
-                  writerSync.phase === 'running' ||
-                  knowledgeSync.phase === 'running' ||
-                  paperSync.phase === 'running'
-                }
+                disabled={anyRunning}
                 onClick={() => void syncAllNow()}
               >
-                {pendingAction === 'sync-all' ||
-                sessionSync.phase === 'running' ||
-                configSync.phase === 'running' ||
-                writerSync.phase === 'running' ||
-                knowledgeSync.phase === 'running' ||
-                paperSync.phase === 'running'
-                  ? '同步中...'
-                  : '立即同步'}
+                {anyRunning ? '同步中...' : '立即同步'}
               </button>
             </div>
             <div className={styles['sync-settings__modules']}>

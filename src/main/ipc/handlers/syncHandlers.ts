@@ -16,7 +16,7 @@ export function registerSyncHandlers(): void {
     return getSyncService().discover(relayUrl)
   })
 
-  // 连接（注册/登录自动分流）；成功后启动会话同步与配置同步
+  // 连接（注册/登录自动分流）；成功后启动全部五个模块的同步引擎
   ipcMain.handle(
     'sync:connect',
     async (_event, relayUrl: string, username: string, password: string) => {
@@ -32,7 +32,7 @@ export function registerSyncHandlers(): void {
     }
   )
 
-  // 会话续期（无需密码）；成功后启动会话同步与配置同步
+  // 会话续期（无需密码）；成功后启动全部五个模块的同步引擎
   ipcMain.handle('sync:renewSession', async () => {
     const result = await getSyncService().renewSession()
     if (result.success) {
@@ -50,7 +50,7 @@ export function registerSyncHandlers(): void {
     return { success: true, data: getSyncService().getStatus() }
   })
 
-  // 断开连接并清除本地身份；同时停止会话同步、配置同步、写作同步与知识库同步定时器
+  // 断开连接并清除本地身份；同时停止全部五个模块的同步定时器
   ipcMain.handle('sync:disconnect', () => {
     getSessionSyncService().stop()
     getConfigSyncService().stop()
@@ -70,7 +70,7 @@ export function registerSyncHandlers(): void {
     return getSyncService().generateSyncCode()
   })
 
-  // 兑换六位同步码；成功后立即全量对账同步一轮（会话与配置）
+  // 兑换六位同步码；成功后立即对全部五个模块触发一轮对账同步
   ipcMain.handle('sync:redeemSyncCode', async (_event, code: string) => {
     const result = await getSyncService().redeemSyncCode(code)
     if (result.success) {

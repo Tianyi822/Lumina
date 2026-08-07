@@ -30,6 +30,12 @@ import { initializeKnowledgeSyncService } from '@main/services/sync/knowledge'
 import { initializePaperSyncService } from '@main/services/sync/paper'
 import { initializeSessionSyncService } from '@main/services/sync/session'
 import { initializeWriterSyncService } from '@main/services/sync/writer'
+import { getSyncService } from '@main/services/sync'
+import { getConfigSyncService } from '@main/services/sync/config'
+import { getKnowledgeSyncService } from '@main/services/sync/knowledge'
+import { getPaperSyncService } from '@main/services/sync/paper'
+import { getSessionSyncService } from '@main/services/sync/session'
+import { getWriterSyncService } from '@main/services/sync/writer'
 
 const appDisplayName = 'Lumina'
 const SHUTDOWN_TASK_TIMEOUT_MS = 5_000
@@ -118,6 +124,16 @@ function requestShutdown(exitCode: number, reason: string): void {
       runShutdownTask('writer', async () => {
         await writerService.requestRendererFlush()
         await writerService.flushPendingSaves()
+      }),
+      runShutdownTask('sync', () => {
+        // 引擎定时器仅在已连接时才会启动（start 内部校验连接态）；
+        // 未连接直接返回，避免为退出触发懒加载单例的无谓构造
+        if (!getSyncService().getStatus().connected) return
+        getSessionSyncService().stop()
+        getConfigSyncService().stop()
+        getWriterSyncService().stop()
+        getKnowledgeSyncService().stop()
+        getPaperSyncService().stop()
       })
     ])
 
