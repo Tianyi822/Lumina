@@ -181,6 +181,10 @@ function formatFailure(result: SyncResult<unknown>, fallback: string): string {
       return '当前设备已被吊销，请重新登录'
     case 'relay_not_initialized':
       return 'Relay 服务尚未初始化'
+    case 'quota_exceeded':
+      return '账户存储配额不足，请清理远端数据或联系管理员扩容'
+    case 'body_too_large':
+      return '文件过大，超过同步单文件上限'
     default:
       return result.error || fallback
   }

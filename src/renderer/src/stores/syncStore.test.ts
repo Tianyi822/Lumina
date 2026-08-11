@@ -109,6 +109,8 @@ function createSyncApi(overrides: Partial<SyncApi> = {}): SyncApi {
         deletedLocal: 0,
         deletedRemote: 0,
         reindexed: 0,
+        blocksUploaded: 0,
+        blocksDownloaded: 0,
         skipped: 1,
         errors: []
       }

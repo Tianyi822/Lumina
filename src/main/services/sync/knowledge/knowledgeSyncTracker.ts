@@ -10,10 +10,20 @@ import { getKnowledgeSyncTrackerFilePath } from '../syncPaths'
 /** tombstone 保留时长：30 天 */
 export const TOMBSTONE_TTL_MS = 30 * 24 * 60 * 60 * 1000
 
+/** file-manifest key 的块基线（size+mtime 未变时复用 blockIds，避免每轮重切块） */
+interface TrackedKnowledgeFileBlocks {
+  size: number
+  mtime: string
+  sha256: string
+  blockIds: string[]
+}
+
 /** 单 key 的远端确认状态 */
 export interface TrackedKnowledgeKeyEntry {
   version: number
   contentHash: string
+  /** file-manifest key 专属：文件块基线（bases/metadata/旧 file key 无此字段） */
+  fileBlocks?: TrackedKnowledgeFileBlocks
 }
 
 /** 删除 tombstone */
@@ -37,6 +47,17 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
+function isFileBlocks(value: unknown): value is TrackedKnowledgeFileBlocks {
+  if (!isRecord(value)) return false
+  if (!Number.isSafeInteger(value.size)) return false
+  if (typeof value.mtime !== 'string') return false
+  if (typeof value.sha256 !== 'string') return false
+  if (!Array.isArray(value.blockIds) || !value.blockIds.every((b) => typeof b === 'string')) {
+    return false
+  }
+  return true
+}
+
 function isTrackerData(value: unknown): value is KnowledgeSyncTrackerData {
   if (!isRecord(value)) return false
   if (value.schemaVersion !== 1) return false
@@ -45,6 +66,8 @@ function isTrackerData(value: unknown): value is KnowledgeSyncTrackerData {
   for (const entry of Object.values(value.keys)) {
     if (!isRecord(entry)) return false
     if (!Number.isSafeInteger(entry.version) || typeof entry.contentHash !== 'string') return false
+    // fileBlocks 可选；存在时必须结构合法
+    if (entry.fileBlocks !== undefined && !isFileBlocks(entry.fileBlocks)) return false
   }
   for (const entry of Object.values(value.tombstones)) {
     if (!isRecord(entry) || typeof entry.deletedAt !== 'string') return false

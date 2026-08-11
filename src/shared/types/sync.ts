@@ -335,6 +335,10 @@ export interface KnowledgeSyncResult {
   deletedLocal: number
   deletedRemote: number
   reindexed: number
+  /** 文件切块上行成功数（走 blocks 通道，参照 PaperSyncResult.blocksUploaded） */
+  blocksUploaded: number
+  /** 文件切块下行成功数（走 blocks 通道，参照 PaperSyncResult.blocksDownloaded） */
+  blocksDownloaded: number
   skipped: number
   errors: KnowledgeSyncErrorItem[]
 }
@@ -343,6 +347,19 @@ export interface KnowledgeSyncResult {
 export interface KnowledgeSyncErrorItem {
   key: string
   message: string
+}
+
+/** knowledge 文件块清单（每文件一个 manifest，引用该文件的所有块） */
+export interface KnowledgeFileManifest {
+  schemaVersion: 1
+  fileId: string
+  updatedAt: string
+  /** 文件明文大小（字节） */
+  size: number
+  /** 文件明文 sha256（重组校验） */
+  sha256: string
+  /** 每块 blockId = sha256(密文块)；有序，下载时按序拼接 */
+  blockIds: string[]
 }
 
 /** paper 同步错误项 */

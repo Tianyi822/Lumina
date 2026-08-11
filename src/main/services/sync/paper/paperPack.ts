@@ -1,17 +1,14 @@
 /**
- * paper pack manifest 构建/解析/校验与流式切块（纯函数 + fs 工具）。
+ * paper pack manifest 构建/解析/校验（纯函数 + fs 工具）。
  *
  * manifest 描述一篇论文的大二进制文件集（source.pdf/pages/assets/ocr-normalized/
- * translation/merged.md），每文件切为 ≤ PACK_CHUNK_BYTES 的明文块，块加密后经
- * relay blocks 通道传输（blockId = sha256(密文)）。
+ * translation/merged.md），每文件切为 ≤ CHUNK_BYTES 的明文块，块加密后经
+ * relay blocks 通道传输（blockId = sha256(密文)）。切块逻辑由 shared/chunkFile 提供，
+ * paper pack 与 knowledge file 复用。
  */
-import { createReadStream } from 'node:fs'
-import { stat } from 'node:fs/promises'
-import { createHash } from 'node:crypto'
 import { resolve, sep } from 'node:path'
-
-/** 明文块上限：1MiB - 64B（预留 AEAD nonce24+tag16 开销，保证密文 ≤ relay maxBlockBytes=1MiB） */
-export const PACK_CHUNK_BYTES = 1024 * 1024 - 64
+// 重新导出共享切块工具供 paper 内部与测试引用（paper pack / knowledge file 复用）
+export { chunkFile } from '../shared/chunkFile'
 
 /** pack 单文件大小硬上限（对齐 createPaper 的 200MB 限制） */
 const MAX_PACK_FILE_BYTES = 200 * 1024 * 1024
@@ -90,37 +87,4 @@ export function parsePaperPackManifest(json: string): PaperPackManifest | null {
   } catch {
     return null
   }
-}
-
-/**
- * 流式读取文件并按 PACK_CHUNK_BYTES 切块，逐块回调明文（供加密上传）。
- * 返回总块数、文件 sha256 与大小；超过 200MB 抛异常。
- */
-export async function chunkFile(
-  filePath: string,
-  onChunk: (chunk: Uint8Array, index: number) => Promise<void>
-): Promise<{ chunks: number; sha256: string; size: number }> {
-  const st = await stat(filePath)
-  if (st.size > MAX_PACK_FILE_BYTES) {
-    throw new Error(`pack 文件超过 200MB 上限：${filePath}`)
-  }
-  const hash = createHash('sha256')
-  let chunks = 0
-  let buffer: Buffer = Buffer.alloc(0)
-  for await (const data of createReadStream(filePath)) {
-    buffer = Buffer.concat([buffer, data as Buffer])
-    while (buffer.length >= PACK_CHUNK_BYTES) {
-      const chunk = buffer.subarray(0, PACK_CHUNK_BYTES)
-      buffer = buffer.subarray(PACK_CHUNK_BYTES)
-      hash.update(chunk)
-      await onChunk(new Uint8Array(chunk), chunks)
-      chunks++
-    }
-  }
-  if (buffer.length > 0) {
-    hash.update(buffer)
-    await onChunk(new Uint8Array(buffer), chunks)
-    chunks++
-  }
-  return { chunks, sha256: hash.digest('hex'), size: st.size }
 }

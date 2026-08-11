@@ -99,3 +99,103 @@ test('pruneTombstones 保留 deletedAt 无法解析的记录（防复活不失�
     cleanup()
   }
 })
+
+// === file-manifest 块基线追踪（避免每轮重切块）===
+
+test('setKey 带 fileBlocks 可正确读取', () => {
+  const { tracker, cleanup } = makeTmpTracker()
+  try {
+    tracker.setKey('knowledge-file-manifest-file-abc', {
+      version: 3,
+      contentHash: 'manifest-hash',
+      fileBlocks: {
+        size: 1024,
+        mtime: '2026-08-10T00:00:00.000Z',
+        sha256: 'file-sha',
+        blockIds: ['block-1', 'block-2']
+      }
+    })
+    const entry = tracker.getData().keys['knowledge-file-manifest-file-abc']
+    assert.equal(entry.version, 3)
+    assert.equal(entry.fileBlocks?.blockIds.length, 2)
+    assert.equal(entry.fileBlocks?.sha256, 'file-sha')
+  } finally {
+    cleanup()
+  }
+})
+
+test('fileBlocks 持久化后重新加载保持完整', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'lumina-knowledge-sync-tracker-'))
+  const filePath = join(dir, 'knowledge-sync.json')
+  try {
+    const tracker = new KnowledgeSyncTracker(filePath)
+    tracker.setKey('knowledge-file-manifest-file-xyz', {
+      version: 5,
+      contentHash: 'h',
+      fileBlocks: {
+        size: 2048,
+        mtime: '2026-08-11T12:00:00.000Z',
+        sha256: 'sha-xyz',
+        blockIds: ['b1', 'b2', 'b3']
+      }
+    })
+    tracker.save()
+    // 新实例重新加载
+    const reloaded = new KnowledgeSyncTracker(filePath)
+    const entry = reloaded.getData().keys['knowledge-file-manifest-file-xyz']
+    assert.equal(entry.fileBlocks?.size, 2048)
+    assert.deepEqual(entry.fileBlocks?.blockIds, ['b1', 'b2', 'b3'])
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('isTrackerData 接受无 fileBlocks 的旧条目（向后兼容）', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'lumina-knowledge-sync-tracker-'))
+  const filePath = join(dir, 'knowledge-sync.json')
+  const oldData = {
+    schemaVersion: 1,
+    keys: {
+      'knowledge-bases': { version: 1, contentHash: 'h' },
+      'knowledge-file-manifest-file-1': { version: 2, contentHash: 'mh' }
+    },
+    tombstones: {},
+    lastSyncAt: null
+  }
+  writeFileSync(filePath, JSON.stringify(oldData), 'utf-8')
+  try {
+    const tracker = new KnowledgeSyncTracker(filePath)
+    // 旧数据无 fileBlocks 字段，应正常加载而非重置
+    const data = tracker.getData()
+    assert.equal(data.keys['knowledge-bases']?.version, 1)
+    assert.equal(data.keys['knowledge-file-manifest-file-1']?.version, 2)
+    assert.equal(data.keys['knowledge-file-manifest-file-1']?.fileBlocks, undefined)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('isTrackerData 拒绝 fileBlocks 字段类型非法的数据', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'lumina-knowledge-sync-tracker-'))
+  const filePath = join(dir, 'knowledge-sync.json')
+  const badData = {
+    schemaVersion: 1,
+    keys: {
+      'knowledge-file-manifest-file-1': {
+        version: 2,
+        contentHash: 'h',
+        fileBlocks: { size: 'not-a-number', mtime: 'x', sha256: 's', blockIds: [] }
+      }
+    },
+    tombstones: {},
+    lastSyncAt: null
+  }
+  writeFileSync(filePath, JSON.stringify(badData), 'utf-8')
+  try {
+    const tracker = new KnowledgeSyncTracker(filePath)
+    // fileBlocks 字段非法 → 整个 tracker 重置
+    assert.deepEqual(tracker.getData().keys, {})
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
