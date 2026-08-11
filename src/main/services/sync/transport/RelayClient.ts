@@ -17,6 +17,7 @@ import type {
   SyncCodeResult,
   SyncResult
 } from '@shared/types/sync'
+import { logger } from '@main/services/logger'
 import { encodeBase64Url, utf8ToBytes } from '../crypto/base64url'
 import { sha256Hex } from '../crypto/hash'
 import { sign as ed25519Sign } from '../crypto/keys'
@@ -324,6 +325,19 @@ hex(sha256(bodyBytes))
       })
     } catch (err) {
       return { success: false, code: 'network_error', error: normalizeError(err) }
+    }
+    // 上传失败时记录字节级证据，用于定位 413/invalid_session_id 的根因
+    // （前端切块尺寸是否超限、sessionId 是否被拒）
+    if (!response.ok) {
+      const errResult = await this.parseJsonResponse<T>(response)
+      logger.warn('上传请求被服务端拒绝', 'main', {
+        endpoint: path,
+        status: response.status,
+        bodyBytes: bodyBytes.length,
+        code: errResult.code,
+        error: errResult.error
+      })
+      return errResult
     }
     return this.parseJsonResponse<T>(response)
   }
