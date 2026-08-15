@@ -47,6 +47,9 @@
     "src/shared/types/session.ts": ["types"],
     // SessionSyncErrorItem 仅在文件内被 SessionSyncResult.errors 引用，外部消费方
     // （引擎/preload/renderer）均经结构推断使用，无显式具名导入，knip 误报 unused
-    "src/shared/types/sync.ts": ["types"]
+    "src/shared/types/sync.ts": ["types"],
+    // resetTrackerIfAccountChanged 供五领域 XxxSyncService 的 runSync 调用
+    //（按任务序列逐领域接入，接入完成后可移除本条），当前暂未被引用
+    "src/main/services/sync/shared/trackerAccountScope.ts": ["exports"]
   }
 }
