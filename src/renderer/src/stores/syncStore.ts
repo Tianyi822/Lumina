@@ -62,7 +62,7 @@ interface SyncStoreState {
   listDevices: () => Promise<void>
   revokeDevice: (deviceId: string) => Promise<boolean>
   discardOtherGroups: () => Promise<boolean>
-  reconcile: () => Promise<void>
+  reconcile: (manual?: boolean) => Promise<void>
   syncSessionsNow: (fromSyncAll?: boolean) => Promise<boolean>
   bindSessionSyncState: () => void
   syncConfigNow: (fromSyncAll?: boolean) => Promise<boolean>
@@ -363,6 +363,7 @@ export const useSyncStore = create<SyncStoreState>()((set, get) => ({
     set(patchFromStatus(result.data))
     bindAllSyncStates(get)
     get().setupEventStream()
+    notifySuccess('数据同步', '会话已续期', { source: 'settings' })
     return true
   },
 
@@ -426,12 +427,16 @@ export const useSyncStore = create<SyncStoreState>()((set, get) => ({
   },
 
   listDevices: async () => {
+    set({ pendingAction: 'list-devices' })
     const result = await window.api.sync.listDevices()
+    set({ pendingAction: null })
     if (result.success && result.data) {
       set({ devices: result.data })
       return
     }
-    set({ error: formatFailure(result, '读取设备列表失败') })
+    const message = formatFailure(result, '读取设备列表失败')
+    set({ error: message })
+    notifyError('数据同步', message, { source: 'settings' })
   },
 
   revokeDevice: async (deviceId) => {
@@ -470,14 +475,24 @@ export const useSyncStore = create<SyncStoreState>()((set, get) => ({
     return true
   },
 
-  reconcile: async () => {
+  reconcile: async (manual) => {
+    // 自动对账（事件流/兑换后）不置 pendingAction、不发通知，避免按钮频繁自转与提示噪音
+    if (manual) set({ pendingAction: 'reconcile', error: null })
     const result = await window.api.sync.reconcile()
+    if (manual) set({ pendingAction: null })
     if (result.success && result.data) {
       set({ lastReconcile: result.data, groupRevision: result.data.groupRevision })
+      if (manual) notifySuccess('数据同步', '对账完成', { source: 'settings' })
       return
     }
     if (result.code === 'device_revoked') {
       await get().disconnect()
+      return
+    }
+    if (manual) {
+      const message = formatFailure(result, '对账失败')
+      set({ error: message })
+      notifyError('数据同步', message, { source: 'settings' })
     }
   },
 
@@ -666,6 +681,14 @@ export const useSyncStore = create<SyncStoreState>()((set, get) => ({
       get().syncPaperNow(true)
     ])
     set({ pendingAction: null })
+    const failed = results.filter((ok) => !ok).length
+    if (failed === 0) {
+      notifySuccess('数据同步', '全部领域同步完成', { source: 'settings' })
+    } else {
+      notifyWarning('数据同步', `同步完成，${failed} 个领域失败，详见各模块状态`, {
+        source: 'settings'
+      })
+    }
     return results.every((ok) => ok)
   },
 

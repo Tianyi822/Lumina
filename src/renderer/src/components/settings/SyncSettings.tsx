@@ -331,7 +331,7 @@ export default function SyncSettings() {
                 disabled={pendingAction === 'renew'}
                 onClick={() => void renewSession()}
               >
-                续期会话
+                {pendingAction === 'renew' ? '续期中...' : '续期会话'}
               </button>
               <button
                 className="sm-button sm-button--danger"
@@ -455,8 +455,12 @@ export default function SyncSettings() {
                 <h3 className="sm-settings-page__section-title">设备管理</h3>
                 <p className="sm-settings-page__section-description">管理当前同步组中的设备。</p>
               </div>
-              <button className="sm-button" onClick={() => void listDevices()}>
-                刷新
+              <button
+                className="sm-button"
+                disabled={pendingAction === 'list-devices'}
+                onClick={() => void listDevices()}
+              >
+                {pendingAction === 'list-devices' ? '刷新中...' : '刷新'}
               </button>
             </div>
             {devices.length === 0 ? (
@@ -501,8 +505,12 @@ export default function SyncSettings() {
                   WebSocket 事件仅作通知；断线后以 HTTP 全量对账结果为准。
                 </p>
               </div>
-              <button className="sm-button" onClick={() => void reconcile()}>
-                立即对账
+              <button
+                className="sm-button"
+                disabled={pendingAction === 'reconcile'}
+                onClick={() => void reconcile(true)}
+              >
+                {pendingAction === 'reconcile' ? '对账中...' : '立即对账'}
               </button>
             </div>
             <div className={styles['sync-settings__event-status']}>
