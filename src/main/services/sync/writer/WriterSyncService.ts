@@ -13,6 +13,7 @@ import type { WriterSyncResult, WriterSyncState, SyncResult } from '@shared/type
 import type { SyncService } from '../SyncService'
 import { casPutWithMerge } from '../casRetry'
 import { sha256Hex } from '../crypto/hash'
+import { resetTrackerIfAccountChanged } from '../shared/trackerAccountScope'
 import { sealWriterFile, openWriterFile } from './writerSnapshotCrypto'
 import { WriterSyncTracker } from './writerSyncTracker'
 import { mergeWriterIndex } from './writerMerge'
@@ -284,6 +285,7 @@ export class WriterSyncService {
     if (!dek || !client) return result
 
     const tracker = this.tracker
+    resetTrackerIfAccountChanged('写作', tracker, this.syncService.getStatus().accountId)
     tracker.pruneTombstones()
     const trackedKeys = tracker.getData().keys
 
