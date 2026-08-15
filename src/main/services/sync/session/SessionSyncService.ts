@@ -18,6 +18,7 @@ import type { SessionSyncResult, SessionSyncState, SyncResult } from '@shared/ty
 import type { SyncService } from '../SyncService'
 import { casPutWithMerge } from '../casRetry'
 import { sha256Hex } from '../crypto/hash'
+import { resetTrackerIfAccountChanged } from '../shared/trackerAccountScope'
 import { mergeSessionJsonl, parseSessionJsonl } from './sessionSnapshotMerge'
 import { openSessionSnapshot, sealSessionSnapshot } from './sessionSnapshotCrypto'
 import { isSessionSyncKey } from './sessionSyncKeys'
@@ -260,6 +261,7 @@ export class SessionSyncService {
     if (!dek || !client) return result
 
     const tracker = this.tracker
+    resetTrackerIfAccountChanged('会话', tracker, this.syncService.getStatus().accountId)
     tracker.pruneTombstones()
     const data = tracker.getData()
 

@@ -10,6 +10,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { randomBytes } from 'node:crypto'
 import type { SyncResult } from '@shared/types/sync'
+import { sha256Hex } from '../crypto/hash'
 import type { RelayClient } from '../transport/RelayClient'
 import type { SyncService } from '../SyncService'
 import { SessionStorageService } from '@main/services/session/SessionStorageService'
@@ -128,14 +129,14 @@ interface Harness {
   cleanup: () => void
 }
 
-function makeHarness(connected = true): Harness {
+function makeHarness(connected = true, accountId: string | null = null): Harness {
   const dir = mkdtempSync(join(tmpdir(), 'lumina-sync-engine-test-'))
   const storage = new SessionStorageService(() => dir)
   const tracker = new SessionSyncTracker(join(dir, 'tracker.json'))
   const relay = new FakeRelayClient()
   const noopBroadcast = (): void => {}
   const syncService: SyncServiceLike = {
-    getStatus: () => ({ connected }) as ReturnType<SyncService['getStatus']>,
+    getStatus: () => ({ connected, accountId }) as ReturnType<SyncService['getStatus']>,
     getDataKey: () => DEK,
     getClient: () => relay as unknown as RelayClient
   }
@@ -550,6 +551,30 @@ test('远端列表中的其他领域 key 不产生解密失败误报', async () 
     assert.deepEqual(result.data?.errors, [])
     assert.equal(result.data?.uploaded, 1)
     assert.equal(result.data?.downloaded, 0)
+  } finally {
+    h.cleanup()
+  }
+})
+
+test('换账号重连：stale tracker 不再把空远端误判为对端删除', async () => {
+  const h = makeHarness(true, 'account-b')
+  try {
+    await h.storage.initialize()
+    const text = sessionFileText('session-100-aaa', ['m1'])
+    writeLocal(h.dir, 'session-100-aaa', text)
+    // 事故现场复刻：tracker 属于 account-a（stale），当前连接的是 account-b（空远端）；
+    // contentHash 与本地一致（已同步且未变更），才会走进 phase 3 的误删路径
+    h.tracker.getData().sessions['session-100-aaa'] = {
+      version: 3,
+      contentHash: sha256Hex(new TextEncoder().encode(text))
+    }
+    h.tracker.getData().ownerAccountId = 'account-a'
+    const result = await h.engine.syncNow()
+    assert.equal(result.success, true)
+    assert.equal(result.data?.deletedLocal, 0)
+    assert.equal(result.data?.uploaded, 1) // 重新上传到新账号
+    assert.notEqual(readFileSyncSafe(join(h.dir, 'session-100-aaa.jsonl')), null) // 本地未删
+    assert.equal(h.tracker.getData().ownerAccountId, 'account-b')
   } finally {
     h.cleanup()
   }
