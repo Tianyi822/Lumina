@@ -141,7 +141,9 @@
   gap: var(--sm-space-3);
   overflow: auto;
   scrollbar-gutter: stable;
-  padding: var(--sm-space-5);
+  /* 底部间距不放容器 padding：Chromium 不把 flex 滚动容器的 padding-bottom
+     计入滚动区域，滚到底时内容会贴住容器底边；改由最后一个页面携带 */
+  padding: var(--sm-space-5) var(--sm-space-5) 0;
 }
 
 .sm-settings-page {
@@ -150,8 +152,22 @@
   gap: var(--sm-space-3);
 }
 
+.sm-settings-panel__body > .sm-settings-page {
+  /* 显式 min-height 会覆盖 flex 项的自动最小尺寸，页面盒会被压回一屏高、
+     区块溢出到盒外；禁止压缩让页面盒完整进入滚动区域 */
+  flex-shrink: 0;
+}
+
 .sm-settings-panel__body > .sm-settings-page:only-child {
   min-height: 100%;
+}
+
+.sm-settings-panel__body > .sm-settings-page:last-child {
+  padding-bottom: var(--sm-space-5);
+}
+
+.sm-settings-panel__body > .sm-settings-empty:only-child {
+  margin-bottom: var(--sm-space-5);
 }
 
 .sm-settings-page__header {
