@@ -93,3 +93,44 @@ test('schemaVersion 不符自愈', () => {
     cleanup()
   }
 })
+
+test('resetIfOwnerChanged：账号变更重置并认领，未绑定只认领', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'lumina-paper-tracker-reset-'))
+  const file = join(dir, 'paper-sync.json')
+  try {
+    writeFileSync(
+      file,
+      JSON.stringify({
+        schemaVersion: 1,
+        ownerAccountId: 'account-a',
+        keys: { 'paper-meta-abc': { version: 1, contentHash: 'abc' } },
+        tombstones: {},
+        packs: {},
+        lastSyncAt: null
+      }),
+      'utf-8'
+    )
+    const tracker = new PaperSyncTracker(file)
+    assert.equal(tracker.resetIfOwnerChanged('account-b'), true)
+    assert.deepEqual(tracker.getData().keys, {})
+    assert.equal(tracker.getData().ownerAccountId, 'account-b')
+
+    writeFileSync(
+      file,
+      JSON.stringify({
+        schemaVersion: 1,
+        keys: { 'paper-meta-abc': { version: 1, contentHash: 'abc' } },
+        tombstones: {},
+        packs: {},
+        lastSyncAt: null
+      }),
+      'utf-8'
+    )
+    const legacy = new PaperSyncTracker(file)
+    assert.equal(legacy.resetIfOwnerChanged('account-c'), false)
+    assert.equal(legacy.getData().keys['paper-meta-abc']?.version, 1)
+    assert.equal(legacy.getData().ownerAccountId, 'account-c')
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})

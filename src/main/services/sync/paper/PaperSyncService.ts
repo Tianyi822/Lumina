@@ -14,6 +14,7 @@ import type { PaperSyncResult, PaperSyncState, SyncResult } from '@shared/types/
 import type { SyncService } from '../SyncService'
 import { casPutWithMerge } from '../casRetry'
 import { sha256Hex } from '../crypto/hash'
+import { resetTrackerIfAccountChanged } from '../shared/trackerAccountScope'
 import {
   sealPaperMeta,
   openPaperMeta,
@@ -386,6 +387,7 @@ export class PaperSyncService {
     if (!dek || !client) return result
 
     const tracker = this.deps.tracker
+    resetTrackerIfAccountChanged('论文', tracker, this.deps.syncService.getStatus().accountId)
     tracker.pruneTombstones()
     const trackedKeys = tracker.getData().keys
 

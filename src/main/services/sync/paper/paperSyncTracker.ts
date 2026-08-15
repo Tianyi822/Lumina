@@ -6,6 +6,7 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { logger } from '@main/services/logger'
+import { resetTrackerDataIfOwnerChanged } from '../shared/trackerAccountScope'
 import { getPaperSyncTrackerFilePath } from '../syncPaths'
 import type { PaperPackManifest } from './paperPack'
 
@@ -45,6 +46,8 @@ export interface TrackedPaperPack {
 /** tracker 文件结构 */
 export interface PaperSyncTrackerData {
   schemaVersion: 1
+  /** 该 tracker 数据所属的同步账号；缺省/null 表示未绑定（首次同步时认领） */
+  ownerAccountId?: string | null
   keys: Record<string, TrackedPaperKeyEntry>
   tombstones: Record<string, PaperTombstoneEntry>
   packs: Record<string, TrackedPaperPack>
@@ -52,7 +55,14 @@ export interface PaperSyncTrackerData {
 }
 
 function emptyData(): PaperSyncTrackerData {
-  return { schemaVersion: 1, keys: {}, tombstones: {}, packs: {}, lastSyncAt: null }
+  return {
+    schemaVersion: 1,
+    ownerAccountId: null,
+    keys: {},
+    tombstones: {},
+    packs: {},
+    lastSyncAt: null
+  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -64,6 +74,12 @@ const DOWNLOAD_STATES = new Set(['remote', 'downloading', 'local', 'error'])
 function isTrackerData(value: unknown): value is PaperSyncTrackerData {
   if (!isRecord(value)) return false
   if (value.schemaVersion !== 1) return false
+  if (
+    value.ownerAccountId !== undefined &&
+    !(value.ownerAccountId === null || typeof value.ownerAccountId === 'string')
+  ) {
+    return false
+  }
   if (!(value.lastSyncAt === null || typeof value.lastSyncAt === 'string')) return false
   if (!isRecord(value.keys) || !isRecord(value.tombstones) || !isRecord(value.packs)) return false
   for (const entry of Object.values(value.keys)) {
@@ -157,6 +173,14 @@ export class PaperSyncTracker {
 
   setLastSyncAt(iso: string): void {
     this.getData().lastSyncAt = iso
+  }
+
+  /** 账号变更时整体重置（返回 true 表示已重置并持久化）；未绑定时认领当前账号 */
+  resetIfOwnerChanged(accountId: string | null): boolean {
+    const outcome = resetTrackerDataIfOwnerChanged(this.getData(), accountId, emptyData)
+    this.data = outcome.data
+    if (outcome.reset) this.save()
+    return outcome.reset
   }
 
   save(): boolean {
