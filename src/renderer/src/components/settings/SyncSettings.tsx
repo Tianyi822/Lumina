@@ -105,7 +105,7 @@ export default function SyncSettings() {
       state: sessionSync,
       resultFormat: (r) => {
         const d = r as Record<string, number>
-        return `↑${d.uploaded} 上行 · ↓${d.downloaded} 下行 · ⇄${d.merged} 合并 · ✕${d.deletedLocal + d.deletedRemote} 删除 · 跳过 ${d.skipped}`
+        return `↑${d.uploaded} 上行 · ↓${d.downloaded} 下行 · ⇄${d.merged} 合并 · ✕${d.deletedLocal + d.deletedRemote} 删除 · 已同步 ${d.skipped}`
       }
     },
     {
@@ -113,7 +113,7 @@ export default function SyncSettings() {
       state: configSync,
       resultFormat: (r) => {
         const d = r as Record<string, number>
-        return `↑${d.uploaded} 上行 · ↓${d.downloaded} 下行 · ⇄${d.merged} 合并 · 跳过 ${d.skipped}`
+        return `↑${d.uploaded} 上行 · ↓${d.downloaded} 下行 · ⇄${d.merged} 合并 · 已同步 ${d.skipped}`
       }
     },
     {
@@ -121,7 +121,7 @@ export default function SyncSettings() {
       state: writerSync,
       resultFormat: (r) => {
         const d = r as Record<string, number>
-        return `↑${d.uploaded} 上行 · ↓${d.downloaded} 下行 · ✕${d.deletedLocal + d.deletedRemote} 删除 · 跳过 ${d.skipped}`
+        return `↑${d.uploaded} 上行 · ↓${d.downloaded} 下行 · ✕${d.deletedLocal + d.deletedRemote} 删除 · 已同步 ${d.skipped}`
       }
     },
     {
@@ -129,7 +129,7 @@ export default function SyncSettings() {
       state: knowledgeSync,
       resultFormat: (r) => {
         const d = r as Record<string, number>
-        return `↑${d.uploaded} 上行 · ↓${d.downloaded} 下行 · ⟳${d.reindexed} 重建索引 · ✕${d.deletedLocal + d.deletedRemote} 删除 · 跳过 ${d.skipped}`
+        return `↑${d.uploaded} 上行 · ↓${d.downloaded} 下行 · ⟳${d.reindexed} 重建索引 · ✕${d.deletedLocal + d.deletedRemote} 删除 · 已同步 ${d.skipped}`
       }
     },
     {
@@ -137,7 +137,7 @@ export default function SyncSettings() {
       state: paperSync,
       resultFormat: (r) => {
         const d = r as Record<string, number>
-        return `↑${d.uploaded} 文件上行 · ↓${d.downloaded} 下行 · ⟁${d.blocksUploaded} 块上行 · ⇊${d.blocksDownloaded} 块下行 · ✕${d.deletedLocal + d.deletedRemote} 删除 · 跳过 ${d.skipped}`
+        return `↑${d.uploaded} 文件上行 · ↓${d.downloaded} 下行 · ⟁${d.blocksUploaded} 块上行 · ⇊${d.blocksDownloaded} 块下行 · ✕${d.deletedLocal + d.deletedRemote} 删除 · 已同步 ${d.skipped}`
       }
     }
   ]
