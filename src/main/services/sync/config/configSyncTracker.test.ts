@@ -138,3 +138,38 @@ test('旧版文件含已删除的多余字段仍能加载（额外字段宽容�
     rmSync(dir, { recursive: true, force: true })
   }
 })
+
+test('resetIfOwnerChanged：账号变更重置并认领，未绑定只认领', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'lumina-config-tracker-reset-'))
+  const file = join(dir, 'config-sync.json')
+  const writeState = (ownerAccountId?: string): void => {
+    writeFileSync(
+      file,
+      JSON.stringify({
+        schemaVersion: 1,
+        ...(ownerAccountId !== undefined ? { ownerAccountId } : {}),
+        selfManifestVersion: 3,
+        syncedConfigHash: 'abc',
+        appliedRemoteHead: null,
+        lastSyncAt: null
+      }),
+      'utf-8'
+    )
+  }
+  try {
+    writeState('account-a')
+    const tracker = new ConfigSyncTracker(file)
+    assert.equal(tracker.resetIfOwnerChanged('account-b'), true)
+    assert.equal(tracker.getData().selfManifestVersion, 0)
+    assert.equal(tracker.getData().syncedConfigHash, '')
+    assert.equal(tracker.getData().ownerAccountId, 'account-b')
+
+    writeState(undefined)
+    const legacy = new ConfigSyncTracker(file)
+    assert.equal(legacy.resetIfOwnerChanged('account-c'), false)
+    assert.equal(legacy.getData().selfManifestVersion, 3)
+    assert.equal(legacy.getData().ownerAccountId, 'account-c')
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})

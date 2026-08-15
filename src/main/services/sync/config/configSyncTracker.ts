@@ -6,6 +6,7 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { logger } from '@main/services/logger'
+import { resetTrackerDataIfOwnerChanged } from '../shared/trackerAccountScope'
 import { getConfigSyncTrackerFilePath } from '../syncPaths'
 
 /** 已应用的远端 manifest head（下载/合并确认后记录，未变则整轮跳过） */
@@ -17,6 +18,8 @@ interface AppliedRemoteHead {
 /** tracker 文件结构 */
 export interface ConfigSyncTrackerData {
   schemaVersion: 1
+  /** 该 tracker 数据所属的同步账号；缺省/null 表示未绑定（首次同步时认领） */
+  ownerAccountId?: string | null
   /** putSelfManifest 返回的 version（本设备 manifest 链 CAS base） */
   selfManifestVersion: number
   /** sha256(本地 config.json 明文) hex（上次同步确认值） */
@@ -29,6 +32,7 @@ export interface ConfigSyncTrackerData {
 function emptyData(): ConfigSyncTrackerData {
   return {
     schemaVersion: 1,
+    ownerAccountId: null,
     selfManifestVersion: 0,
     syncedConfigHash: '',
     appliedRemoteHead: null,
@@ -48,6 +52,12 @@ function isAppliedRemoteHead(value: unknown): value is AppliedRemoteHead {
 function isTrackerData(value: unknown): value is ConfigSyncTrackerData {
   if (!isRecord(value)) return false
   if (value.schemaVersion !== 1) return false
+  if (
+    value.ownerAccountId !== undefined &&
+    !(value.ownerAccountId === null || typeof value.ownerAccountId === 'string')
+  ) {
+    return false
+  }
   if (!Number.isSafeInteger(value.selfManifestVersion)) return false
   if (typeof value.syncedConfigHash !== 'string') return false
   if (!(value.appliedRemoteHead === null || isAppliedRemoteHead(value.appliedRemoteHead))) {
@@ -98,6 +108,14 @@ export class ConfigSyncTracker {
 
   setLastSyncAt(iso: string): void {
     this.getData().lastSyncAt = iso
+  }
+
+  /** 账号变更时整体重置（返回 true 表示已重置并持久化）；未绑定时认领当前账号 */
+  resetIfOwnerChanged(accountId: string | null): boolean {
+    const outcome = resetTrackerDataIfOwnerChanged(this.getData(), accountId, emptyData)
+    this.data = outcome.data
+    if (outcome.reset) this.save()
+    return outcome.reset
   }
 
   /** 原子写（tmp → rename），0600 */

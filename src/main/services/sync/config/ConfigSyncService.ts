@@ -13,6 +13,7 @@ import type { AppConfig } from '@shared/types/config'
 import type { ConfigSyncResult, ConfigSyncState, SyncResult } from '@shared/types/sync'
 import type { SyncService } from '../SyncService'
 import { sha256Hex } from '../crypto/hash'
+import { resetTrackerIfAccountChanged } from '../shared/trackerAccountScope'
 import { mergeConfig, collectMachineLocalKeys } from './configMerge'
 import { serializeManifest, parseManifest, createConfigManifestEntry } from './configManifest'
 import {
@@ -200,6 +201,8 @@ export class ConfigSyncService {
     const dek = this.syncService.getDataKey()
     const client = this.syncService.getClient()
     if (!dek || !client) return result
+
+    resetTrackerIfAccountChanged('配置', this.tracker, this.syncService.getStatus().accountId)
 
     const configPath = this.configPath()
     const deviceId = this.getDeviceId()
