@@ -5,6 +5,7 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { logger } from '@main/services/logger'
+import { resetTrackerDataIfOwnerChanged } from '../shared/trackerAccountScope'
 import { getKnowledgeSyncTrackerFilePath } from '../syncPaths'
 
 /** tombstone 保留时长：30 天 */
@@ -34,13 +35,15 @@ export interface KnowledgeTombstoneEntry {
 /** tracker 文件结构 */
 export interface KnowledgeSyncTrackerData {
   schemaVersion: 1
+  /** 该 tracker 数据所属的同步账号；缺省/null 表示未绑定（首次同步时认领） */
+  ownerAccountId?: string | null
   keys: Record<string, TrackedKnowledgeKeyEntry>
   tombstones: Record<string, KnowledgeTombstoneEntry>
   lastSyncAt: string | null
 }
 
 function emptyData(): KnowledgeSyncTrackerData {
-  return { schemaVersion: 1, keys: {}, tombstones: {}, lastSyncAt: null }
+  return { schemaVersion: 1, ownerAccountId: null, keys: {}, tombstones: {}, lastSyncAt: null }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -61,6 +64,12 @@ function isFileBlocks(value: unknown): value is TrackedKnowledgeFileBlocks {
 function isTrackerData(value: unknown): value is KnowledgeSyncTrackerData {
   if (!isRecord(value)) return false
   if (value.schemaVersion !== 1) return false
+  if (
+    value.ownerAccountId !== undefined &&
+    !(value.ownerAccountId === null || typeof value.ownerAccountId === 'string')
+  ) {
+    return false
+  }
   if (!(value.lastSyncAt === null || typeof value.lastSyncAt === 'string')) return false
   if (!isRecord(value.keys) || !isRecord(value.tombstones)) return false
   for (const entry of Object.values(value.keys)) {
@@ -131,6 +140,14 @@ export class KnowledgeSyncTracker {
 
   setLastSyncAt(iso: string): void {
     this.getData().lastSyncAt = iso
+  }
+
+  /** 账号变更时整体重置（返回 true 表示已重置并持久化）；未绑定时认领当前账号 */
+  resetIfOwnerChanged(accountId: string | null): boolean {
+    const outcome = resetTrackerDataIfOwnerChanged(this.getData(), accountId, emptyData)
+    this.data = outcome.data
+    if (outcome.reset) this.save()
+    return outcome.reset
   }
 
   save(): boolean {

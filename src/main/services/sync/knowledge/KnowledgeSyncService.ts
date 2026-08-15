@@ -31,6 +31,7 @@ import type { SyncService } from '../SyncService'
 import { casPutWithMerge } from '../casRetry'
 import { sha256Hex } from '../crypto/hash'
 import { chunkFile } from '../shared/chunkFile'
+import { resetTrackerIfAccountChanged } from '../shared/trackerAccountScope'
 import {
   sealKnowledgeFile,
   openKnowledgeFile,
@@ -365,6 +366,7 @@ export class KnowledgeSyncService {
     if (!dek || !client) return result
 
     const tracker = this._deps.tracker
+    resetTrackerIfAccountChanged('知识库', tracker, this._deps.syncService.getStatus().accountId)
     tracker.pruneTombstones()
     const trackedKeys = tracker.getData().keys
 

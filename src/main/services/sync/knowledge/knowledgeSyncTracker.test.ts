@@ -199,3 +199,42 @@ test('isTrackerData 拒绝 fileBlocks 字段类型非法的数据', () => {
     rmSync(dir, { recursive: true, force: true })
   }
 })
+
+test('resetIfOwnerChanged：账号变更重置并认领，未绑定只认领', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'lumina-knowledge-tracker-reset-'))
+  const file = join(dir, 'knowledge-sync.json')
+  try {
+    writeFileSync(
+      file,
+      JSON.stringify({
+        schemaVersion: 1,
+        ownerAccountId: 'account-a',
+        keys: { 'knowledge-bases': { version: 2, contentHash: 'abc' } },
+        tombstones: {},
+        lastSyncAt: null
+      }),
+      'utf-8'
+    )
+    const tracker = new KnowledgeSyncTracker(file)
+    assert.equal(tracker.resetIfOwnerChanged('account-b'), true)
+    assert.deepEqual(tracker.getData().keys, {})
+    assert.equal(tracker.getData().ownerAccountId, 'account-b')
+
+    writeFileSync(
+      file,
+      JSON.stringify({
+        schemaVersion: 1,
+        keys: { 'knowledge-bases': { version: 2, contentHash: 'abc' } },
+        tombstones: {},
+        lastSyncAt: null
+      }),
+      'utf-8'
+    )
+    const legacy = new KnowledgeSyncTracker(file)
+    assert.equal(legacy.resetIfOwnerChanged('account-c'), false)
+    assert.equal(legacy.getData().keys['knowledge-bases']?.version, 2)
+    assert.equal(legacy.getData().ownerAccountId, 'account-c')
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
