@@ -6,6 +6,10 @@
  * 触发批量删除本地数据（曾误删 24 个本地会话）。tracker 记录 ownerAccountId 后，
  * 每轮同步前发现明确属于其他账号即整体重置——空 tracker 不会删任何本地数据，
  * 只会重新上传/下载；未绑定（旧格式文件缺字段）时静默认领当前账号，不重置。
+ *
+ * 残留风险窗口：升级前就携带"未绑定 + 有数据"的旧 tracker，且在升级后首次成功
+ * 同步（认领落盘）前就切换账号的场景，认领语义无法防护批量误删（计划已接受此
+ * 一次性迁移风险）。
  */
 import { logger } from '@main/services/logger'
 
@@ -34,7 +38,8 @@ export function resetTrackerDataIfOwnerChanged<T extends AccountScopedTrackerDat
 ): { data: T; reset: boolean } {
   const owner = current.ownerAccountId ?? null
   if (!trackerNeedsResetForAccount(owner, accountId)) {
-    // 未绑定时认领当前账号（不动数据）；accountId 未知则完全不动作
+    // 未绑定时认领当前账号（不动数据）；accountId 未知则完全不动作。
+    // 认领仅在内存生效，落盘依赖本轮同步结束时的 save()；进程中断后下次启动会重新幂等认领
     if (accountId !== null && owner === null) current.ownerAccountId = accountId
     return { data: current, reset: false }
   }

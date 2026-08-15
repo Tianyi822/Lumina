@@ -276,7 +276,8 @@ export class SessionSyncService {
       }
       throw new Error(`拉取会话列表失败：${remoteList.error ?? remoteList.code ?? '未知错误'}`)
     }
-    // session-files 命名空间五领域共用：只保留真会话 key，其他领域 key 交给各自领域同步
+    // session-files 命名空间四领域共用（session/knowledge/paper/writer；config 走 manifests 通道）：
+    // 只保留真会话 key，其他领域 key 交给各自领域同步
     const remote = new Map(
       remoteList.data.sessions
         .filter((s) => isSessionSyncKey(s.sessionId))

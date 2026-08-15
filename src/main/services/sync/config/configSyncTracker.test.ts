@@ -163,6 +163,7 @@ test('resetIfOwnerChanged：账号变更重置并认领，未绑定只认领', (
     assert.equal(tracker.getData().selfManifestVersion, 0)
     assert.equal(tracker.getData().syncedConfigHash, '')
     assert.equal(tracker.getData().ownerAccountId, 'account-b')
+    assert.equal(JSON.parse(readFileSync(file, 'utf-8')).ownerAccountId, 'account-b')
 
     writeState(undefined)
     const legacy = new ConfigSyncTracker(file)

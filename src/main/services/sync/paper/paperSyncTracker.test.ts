@@ -3,7 +3,7 @@
  */
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { PaperSyncTracker, TOMBSTONE_TTL_MS } from './paperSyncTracker'
@@ -114,6 +114,7 @@ test('resetIfOwnerChanged：账号变更重置并认领，未绑定只认领', (
     assert.equal(tracker.resetIfOwnerChanged('account-b'), true)
     assert.deepEqual(tracker.getData().keys, {})
     assert.equal(tracker.getData().ownerAccountId, 'account-b')
+    assert.equal(JSON.parse(readFileSync(file, 'utf-8')).ownerAccountId, 'account-b')
 
     writeFileSync(
       file,
