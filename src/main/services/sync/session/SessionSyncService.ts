@@ -20,6 +20,7 @@ import { casPutWithMerge } from '../casRetry'
 import { sha256Hex } from '../crypto/hash'
 import { mergeSessionJsonl, parseSessionJsonl } from './sessionSnapshotMerge'
 import { openSessionSnapshot, sealSessionSnapshot } from './sessionSnapshotCrypto'
+import { isSessionSyncKey } from './sessionSyncKeys'
 import { SessionSyncTracker } from './sessionSyncTracker'
 
 /** Relay 会话快照密文上限（FRONTEND_INTEGRATION.md maxSessionFileBytes） */
@@ -273,7 +274,12 @@ export class SessionSyncService {
       }
       throw new Error(`拉取会话列表失败：${remoteList.error ?? remoteList.code ?? '未知错误'}`)
     }
-    const remote = new Map(remoteList.data.sessions.map((s) => [s.sessionId, s.version]))
+    // session-files 命名空间五领域共用：只保留真会话 key，其他领域 key 交给各自领域同步
+    const remote = new Map(
+      remoteList.data.sessions
+        .filter((s) => isSessionSyncKey(s.sessionId))
+        .map((s) => [s.sessionId, s.version])
+    )
 
     // 扫描本地会话文件（忽略非 .jsonl 与非法命名）
     const dir = this.sessionsDirProvider()

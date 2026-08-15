@@ -532,3 +532,25 @@ test('限流窗口内 syncNow 返回 rate_limited 而非陈旧结果', async () 
     h.cleanup()
   }
 })
+
+test('远端列表中的其他领域 key 不产生解密失败误报', async () => {
+  const h = makeHarness()
+  try {
+    await h.storage.initialize()
+    writeLocal(h.dir, 'session-100-aaa', sessionFileText('session-100-aaa', ['m1']))
+    // 事故现场复刻：其他领域的密文（AAD 不同，必然解密失败）混入 session-files 列表
+    h.relay.files.set('knowledge-bases', { bytes: new Uint8Array([1, 2, 3]), version: 2 })
+    h.relay.files.set('paper-annotations-0154b2ab-cf67-460e-88c3-0c995f175863', {
+      bytes: new Uint8Array([4, 5, 6]),
+      version: 5
+    })
+    h.relay.files.set('writer-index', { bytes: new Uint8Array([7, 8]), version: 1 })
+    const result = await h.engine.syncNow()
+    assert.equal(result.success, true)
+    assert.deepEqual(result.data?.errors, [])
+    assert.equal(result.data?.uploaded, 1)
+    assert.equal(result.data?.downloaded, 0)
+  } finally {
+    h.cleanup()
+  }
+})
