@@ -5,6 +5,7 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { logger } from '@main/services/logger'
+import { resetTrackerDataIfOwnerChanged } from '../shared/trackerAccountScope'
 import { getSessionSyncTrackerFilePath } from '../syncPaths'
 
 /** tombstone 保留时长：30 天 */
@@ -26,13 +27,21 @@ export interface SessionTombstoneEntry {
 /** tracker 文件结构 */
 export interface SessionSyncTrackerData {
   schemaVersion: 1
+  /** 该 tracker 数据所属的同步账号；缺省/null 表示未绑定（首次同步时认领） */
+  ownerAccountId?: string | null
   lastSyncAt: string | null
   sessions: Record<string, TrackedSessionEntry>
   tombstones: Record<string, SessionTombstoneEntry>
 }
 
 function emptyData(): SessionSyncTrackerData {
-  return { schemaVersion: 1, lastSyncAt: null, sessions: {}, tombstones: {} }
+  return {
+    schemaVersion: 1,
+    ownerAccountId: null,
+    lastSyncAt: null,
+    sessions: {},
+    tombstones: {}
+  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -42,6 +51,12 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function isTrackerData(value: unknown): value is SessionSyncTrackerData {
   if (!isRecord(value)) return false
   if (value.schemaVersion !== 1) return false
+  if (
+    value.ownerAccountId !== undefined &&
+    !(value.ownerAccountId === null || typeof value.ownerAccountId === 'string')
+  ) {
+    return false
+  }
   if (!(value.lastSyncAt === null || typeof value.lastSyncAt === 'string')) return false
   if (!isRecord(value.sessions) || !isRecord(value.tombstones)) return false
   for (const entry of Object.values(value.sessions)) {
@@ -112,6 +127,14 @@ export class SessionSyncTracker {
 
   setLastSyncAt(iso: string): void {
     this.getData().lastSyncAt = iso
+  }
+
+  /** 账号变更时整体重置（返回 true 表示已重置并持久化）；未绑定时认领当前账号 */
+  resetIfOwnerChanged(accountId: string | null): boolean {
+    const outcome = resetTrackerDataIfOwnerChanged(this.getData(), accountId, emptyData)
+    this.data = outcome.data
+    if (outcome.reset) this.save()
+    return outcome.reset
   }
 
   /** 原子写（tmp → rename），0600 */

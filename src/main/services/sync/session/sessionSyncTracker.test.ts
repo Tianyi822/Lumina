@@ -3,7 +3,7 @@
  */
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { SessionSyncTracker, TOMBSTONE_TTL_MS } from './sessionSyncTracker'
@@ -97,6 +97,58 @@ test('removeSession 同时清除会话记录', () => {
     tracker.setSession('session-1-abc', { version: 1, contentHash: 'x' })
     tracker.removeSession('session-1-abc')
     assert.deepEqual(tracker.getData().sessions, {})
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('resetIfOwnerChanged：账号变更重置并持久化，同账号/未绑定不重置', () => {
+  const { dir, file } = makeTracker()
+  try {
+    // 属于 account-a 的 stale tracker
+    writeFileSync(
+      file,
+      JSON.stringify({
+        schemaVersion: 1,
+        ownerAccountId: 'account-a',
+        lastSyncAt: null,
+        sessions: { 'session-1-abc': { version: 3, contentHash: 'deadbeef' } },
+        tombstones: {}
+      }),
+      'utf-8'
+    )
+    const tracker = new SessionSyncTracker(file)
+    assert.equal(tracker.resetIfOwnerChanged('account-b'), true)
+    assert.deepEqual(tracker.getData().sessions, {})
+    assert.equal(tracker.getData().ownerAccountId, 'account-b')
+    assert.equal(JSON.parse(readFileSync(file, 'utf-8')).ownerAccountId, 'account-b')
+
+    // 同账号：不动作
+    const same = new SessionSyncTracker(file)
+    same.setSession('session-2-xyz', { version: 1, contentHash: 'abc' })
+    same.save()
+    assert.equal(same.resetIfOwnerChanged('account-b'), false)
+    assert.equal(same.getData().sessions['session-2-xyz']?.version, 1)
+
+    // 未绑定（旧格式文件缺字段）：认领不重置
+    writeFileSync(
+      file,
+      JSON.stringify({
+        schemaVersion: 1,
+        lastSyncAt: null,
+        sessions: { 'session-1-abc': { version: 3, contentHash: 'deadbeef' } },
+        tombstones: {}
+      }),
+      'utf-8'
+    )
+    const legacy = new SessionSyncTracker(file)
+    assert.equal(legacy.resetIfOwnerChanged('account-c'), false)
+    assert.equal(legacy.getData().sessions['session-1-abc']?.version, 3)
+    assert.equal(legacy.getData().ownerAccountId, 'account-c')
+
+    // accountId 未知：完全不动作
+    assert.equal(legacy.resetIfOwnerChanged(null), false)
+    assert.equal(legacy.getData().ownerAccountId, 'account-c')
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
