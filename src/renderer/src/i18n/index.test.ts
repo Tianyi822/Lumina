@@ -33,6 +33,8 @@ interface WindowStub {
   config: { language?: unknown } | null
   updateConfigCalls: Array<{ language?: unknown }>
   updateConfigError?: Error
+  updateConfigResult?: { success: boolean; error?: string }
+  warnCalls: Array<{ message: string; context?: unknown }>
 }
 
 function installGlobals(options: Partial<WindowStub> = {}): WindowStub {
@@ -40,7 +42,9 @@ function installGlobals(options: Partial<WindowStub> = {}): WindowStub {
     stored: options.stored ?? createLocalStorageStub(),
     config: options.config ?? null,
     updateConfigCalls: [],
-    updateConfigError: options.updateConfigError
+    updateConfigError: options.updateConfigError,
+    updateConfigResult: options.updateConfigResult,
+    warnCalls: []
   }
   Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: stub.stored })
   Object.defineProperty(globalThis, 'window', {
@@ -51,13 +55,17 @@ function installGlobals(options: Partial<WindowStub> = {}): WindowStub {
           getConfig: async () => stub.config,
           updateConfig: async (partial: { language?: unknown }) => {
             if (stub.updateConfigError) throw stub.updateConfigError
+            if (stub.updateConfigResult) return stub.updateConfigResult
             stub.updateConfigCalls.push(partial)
             return { success: true }
           }
         },
         logger: {
           info: async () => ({ success: true }),
-          warn: async () => ({ success: true }),
+          warn: async (message: string, context?: unknown) => {
+            stub.warnCalls.push({ message, context })
+            return { success: true }
+          },
           error: async () => ({ success: true })
         }
       }
@@ -105,6 +113,15 @@ test('changeAppLanguage：config 镜像写失败不抛错、本地切换仍生�
   await changeAppLanguage('en')
   assert.equal(i18n.language, 'en')
   assert.equal(stub.stored.getItem(LANGUAGE_STORAGE_KEY), 'en')
+})
+
+test('changeAppLanguage：config 镜像返回逻辑失败时记日志、本地切换仍生效', async () => {
+  const stub = installGlobals({ updateConfigResult: { success: false, error: 'no config loaded' } })
+  await initI18n()
+  await changeAppLanguage('en')
+  assert.equal(i18n.language, 'en')
+  assert.equal(stub.stored.getItem(LANGUAGE_STORAGE_KEY), 'en')
+  assert.equal(stub.warnCalls.length, 1)
 })
 
 test('reconcileLanguageFromConfig：config 语言不同则以 config 为准切换', async () => {

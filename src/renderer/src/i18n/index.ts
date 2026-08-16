@@ -60,7 +60,11 @@ export async function changeAppLanguage(language: AppLanguage): Promise<void> {
   await i18n.changeLanguage(language)
   writeStoredLanguage(language)
   try {
-    await window.api.config.updateConfig({ language })
+    // config:update 为 Result 模式：逻辑失败返回 { success: false } 而非抛异常，两者都记日志
+    const result = await window.api.config.updateConfig({ language })
+    if (!result.success) {
+      window.api.logger?.warn('[i18n] 语言配置镜像写入失败', { error: result.error })
+    }
   } catch (error) {
     window.api.logger?.warn('[i18n] 语言配置镜像写入失败', {
       error: error instanceof Error ? error.message : String(error)
