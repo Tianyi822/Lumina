@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import App from './App'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { shouldIgnoreGlobalErrorMessage } from './utils/benignBrowserErrors'
+import { initI18n } from './i18n'
 
 async function loadPlatformStyles(): Promise<void> {
   if (window.electron?.process?.platform === 'win32') {
@@ -13,6 +14,9 @@ async function loadPlatformStyles(): Promise<void> {
 async function bootstrap(): Promise<void> {
   await loadPlatformStyles()
   // Pinia 已完全迁移为 Zustand，不再需要 setActivePinia
+
+  // i18n 资源同步内嵌，await 保证首帧即为正确语言
+  await initI18n()
 
   const rootEl = document.getElementById('root')
   if (!rootEl) {
