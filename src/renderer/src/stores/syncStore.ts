@@ -355,7 +355,7 @@ export const useSyncStore = create<SyncStoreState>()((set, get) => ({
     const result = await window.api.sync.renewSession()
     set({ pendingAction: null })
     if (!result.success || !result.data) {
-      const message = formatFailure(result, '会话续期失败')
+      const message = formatFailure(result, '延长登录有效期失败')
       set({ error: message, status: result.code === 'device_revoked' ? 'disconnected' : 'error' })
       notifyError('数据同步', message, { source: 'settings' })
       return false
@@ -363,7 +363,7 @@ export const useSyncStore = create<SyncStoreState>()((set, get) => ({
     set(patchFromStatus(result.data))
     bindAllSyncStates(get)
     get().setupEventStream()
-    notifySuccess('数据同步', '会话已续期', { source: 'settings' })
+    notifySuccess('数据同步', '登录有效期已延长', { source: 'settings' })
     return true
   },
 

@@ -331,7 +331,7 @@ export default function SyncSettings() {
                 disabled={pendingAction === 'renew'}
                 onClick={() => void renewSession()}
               >
-                {pendingAction === 'renew' ? '续期中...' : '续期会话'}
+                {pendingAction === 'renew' ? '延长中...' : '延长登录有效期'}
               </button>
               <button
                 className="sm-button sm-button--danger"
@@ -380,10 +380,13 @@ export default function SyncSettings() {
                 <dd>{groupRevision ?? '未知'}</dd>
               </div>
               <div>
-                <dt>会话到期</dt>
+                <dt>登录到期</dt>
                 <dd>{formatTimestamp(deviceInfo.sessionExpiresAt)}</dd>
               </div>
             </dl>
+            <p className={styles['sync-settings__auto-renew-note']}>
+              到期前会自动延长登录，无需手动操作。
+            </p>
             {!deviceInfo.secureStorageAvailable && (
               <div className="sm-settings-banner sm-settings-banner--warning">
                 系统安全存储不可用：身份仅在本次会话内存中保留，退出应用后需要重新登录。
