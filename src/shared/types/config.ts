@@ -60,6 +60,9 @@ export interface ThemeConfig {
   mode?: ThemeMode
 }
 
+/** 界面语言（国际化）：zh=中文，en=English */
+export type AppLanguage = 'zh' | 'en'
+
 // MCP 相关类型已移至 @shared/types/mcp.ts，避免重复定义
 import type { MCPServerConfig } from './mcp'
 
@@ -144,6 +147,8 @@ interface MCPServers {
  */
 export interface AppConfig {
   theme: ThemeConfig
+  /** 界面语言（缺省视为中文 'zh'） */
+  language?: AppLanguage
   llm_config: LLMConfigObject
   mcpServers: MCPServers
   /** 知识库使用的嵌入模型配置集合 */
