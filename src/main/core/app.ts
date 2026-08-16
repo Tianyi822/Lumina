@@ -129,6 +129,7 @@ function requestShutdown(exitCode: number, reason: string): void {
         // 引擎定时器仅在已连接时才会启动（start 内部校验连接态）；
         // 未连接直接返回，避免为退出触发懒加载单例的无谓构造
         if (!getSyncService().getStatus().connected) return
+        getSyncService().stopAutoRenew()
         getSessionSyncService().stop()
         getConfigSyncService().stop()
         getWriterSyncService().stop()

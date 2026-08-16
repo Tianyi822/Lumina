@@ -243,6 +243,15 @@ function createStoredIdentity(dek = new Uint8Array(32).fill(8)): {
   }
 }
 
+/** 轮询等待条件成立（定时器类断言用） */
+async function waitFor(condition: () => boolean, message: string): Promise<void> {
+  const deadline = Date.now() + 2_000
+  while (!condition()) {
+    if (Date.now() > deadline) throw new Error(`等待超时：${message}`)
+    await new Promise((resolve) => setTimeout(resolve, 5))
+  }
+}
+
 test('connect 新账号走注册分支并只把机密写入安全存储', async () => {
   const client = new FakeRelayClient()
   const stateStore = new MemoryStateStore()
@@ -335,6 +344,48 @@ test('restore 后可无密码续期会话并更新安全 Token', async () => {
   assert.equal(result.success, true)
   assert.equal(result.data?.sessionExpiresAt, 1_900_000_000)
   assert.equal(secretStore.value?.sessionToken, 'renewed-token')
+})
+
+test('restore 后登录临近到期，自动续期定时器触发续期', async () => {
+  const client = new FakeRelayClient()
+  const identity = createStoredIdentity()
+  identity.state.sessionExpiresAt = Math.floor(Date.now() / 1000) + 60
+  const secretStore = new MemorySecretStore(identity.secrets)
+  const service = new SyncService({
+    createClient: () => client,
+    stateStore: new MemoryStateStore(identity.state),
+    secretStore,
+    autoRenewCheckIntervalMs: 20,
+    autoRenewAheadMs: 3_600_000
+  })
+  service.restore()
+  try {
+    await waitFor(
+      () => secretStore.value?.sessionToken === 'renewed-token',
+      '自动续期未在预期时间内发生'
+    )
+  } finally {
+    service.stopAutoRenew()
+  }
+  assert.equal(secretStore.value?.sessionToken, 'renewed-token')
+})
+
+test('restore 后登录有效期充足，自动续期定时器不动作', async () => {
+  const client = new FakeRelayClient()
+  const identity = createStoredIdentity()
+  identity.state.sessionExpiresAt = Math.floor(Date.now() / 1000) + 24 * 3_600
+  const secretStore = new MemorySecretStore(identity.secrets)
+  const service = new SyncService({
+    createClient: () => client,
+    stateStore: new MemoryStateStore(identity.state),
+    secretStore,
+    autoRenewCheckIntervalMs: 20,
+    autoRenewAheadMs: 3_600_000
+  })
+  service.restore()
+  await new Promise((resolve) => setTimeout(resolve, 100))
+  service.stopAutoRenew()
+  assert.equal(secretStore.value?.sessionToken, 'stored-token')
 })
 
 test('already_joined 视为成功并刷新 bootstrap', async () => {

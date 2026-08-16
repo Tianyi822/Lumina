@@ -51,11 +51,18 @@ const USERNAME_PATTERN = /^[a-z0-9._-]{3,64}$/
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
 const SYNC_CODE_PATTERN = /^\d{6}$/
 
+/** 会话自动续期：每小时检查一次，距到期不足 6 小时即后台续签 */
+const AUTO_RENEW_CHECK_INTERVAL_MS = 60 * 60 * 1000
+const AUTO_RENEW_AHEAD_MS = 6 * 60 * 60 * 1000
+
 /** 可注入依赖（用于单测） */
 export interface SyncServiceDeps {
   createClient?: (baseUrl: string) => RelayClient
   stateStore?: SyncStateStore
   secretStore?: SyncSecretStore
+  /** 自动续期检查间隔与提前量（毫秒），测试可注入缩短 */
+  autoRenewCheckIntervalMs?: number
+  autoRenewAheadMs?: number
 }
 
 export class SyncService {
@@ -67,11 +74,17 @@ export class SyncService {
   private state: SyncState | null = null
   private deviceSeed: Uint8Array | null = null
   private dek: Uint8Array | null = null
+  private autoRenewTimer: ReturnType<typeof setInterval> | null = null
+  private autoRenewInFlight = false
+  private readonly autoRenewCheckIntervalMs: number
+  private readonly autoRenewAheadMs: number
 
   constructor(deps: SyncServiceDeps = {}) {
     this.createClient = deps.createClient ?? ((baseUrl) => new RelayClient(baseUrl))
     this.stateStore = deps.stateStore ?? new SyncStateStore()
     this.secretStore = deps.secretStore ?? new SyncSecretStore()
+    this.autoRenewCheckIntervalMs = deps.autoRenewCheckIntervalMs ?? AUTO_RENEW_CHECK_INTERVAL_MS
+    this.autoRenewAheadMs = deps.autoRenewAheadMs ?? AUTO_RENEW_AHEAD_MS
   }
 
   /** 从本地恢复身份（应用启动时调用）。不主动续期，由调用方决定 */
@@ -92,6 +105,7 @@ export class SyncService {
       this.deviceSeed = deviceSeed
       this.dek = dek
       this.client = client
+      this.startAutoRenew()
     } catch (error) {
       logger.warn('恢复同步身份失败，已忽略本地身份', 'main', {
         error: error instanceof Error ? error.message : String(error)
@@ -363,6 +377,7 @@ export class SyncService {
       accountExists: complete.data.accountExists,
       hasOtherSyncData: bootstrap.hasOtherSyncData
     })
+    this.startAutoRenew()
     return {
       success: true,
       data: { accountExists: complete.data.accountExists, status: this.getStatus() }
@@ -407,7 +422,50 @@ export class SyncService {
     if (!this.applyBootstrap(result.data.bootstrap)) {
       return { success: false, code: 'storage_error', error: '同步状态持久化失败' }
     }
+    this.startAutoRenew()
     return { success: true, data: this.getStatus() }
+  }
+
+  /** 启动会话自动续期定时器（幂等；身份恢复/连接/续期成功后调用） */
+  startAutoRenew(): void {
+    if (this.autoRenewTimer) return
+    this.autoRenewTimer = setInterval(() => {
+      void this.checkAutoRenew()
+    }, this.autoRenewCheckIntervalMs)
+    // 后台保养型定时器不应阻止进程退出（应用关停/测试进程收尾）
+    this.autoRenewTimer.unref()
+  }
+
+  /** 停止会话自动续期定时器（断开连接/应用退出时调用） */
+  stopAutoRenew(): void {
+    if (this.autoRenewTimer) {
+      clearInterval(this.autoRenewTimer)
+      this.autoRenewTimer = null
+    }
+  }
+
+  /**
+   * 距到期不足提前量时后台续签。失败仅记日志、下个周期重试；
+   * 设备被吊销由 renewSession 的 handleFailure 走断开流程（会连带停掉本定时器）。
+   */
+  private async checkAutoRenew(): Promise<void> {
+    if (this.autoRenewInFlight) return
+    if (!this.state || !this.deviceSeed) return
+    const remainingMs = this.state.sessionExpiresAt * 1000 - Date.now()
+    if (remainingMs > this.autoRenewAheadMs) return
+    this.autoRenewInFlight = true
+    try {
+      const result = await this.renewSession()
+      if (result.success) {
+        logger.info('会话已自动续期', 'main', {
+          sessionExpiresAt: result.data?.sessionExpiresAt
+        })
+      } else {
+        logger.warn('会话自动续期失败', 'main', { code: result.code, error: result.error })
+      }
+    } finally {
+      this.autoRenewInFlight = false
+    }
   }
 
   /** 刷新 bootstrap 根状态 */
@@ -576,6 +634,7 @@ export class SyncService {
 
   /** 断开连接并清除本地身份 */
   disconnect(): SyncResult {
+    this.stopAutoRenew()
     this.stateStore.clear()
     this.secretStore.clear()
     this.state = null
