@@ -55,6 +55,23 @@ const zh = {
         descDark: '深色基准主题，统一整个应用的深色、平面和受控交互基线',
         descLight: '浅色主题，清新明亮的界面风格'
       }
+    },
+    model: {
+      title: '对话模型配置',
+      description: '管理对话模型列表和默认模型。修改字段后会自动同步到本地配置。',
+      listTitle: '模型列表',
+      defaultChip: '默认模型: {{name}}',
+      noDefault: '未设置',
+      nthModel: '第 {{index}} 个模型',
+      unnamed: '未命名模型',
+      defaultBadge: '默认',
+      setDefault: '设为默认',
+      modelNameLabel: '模型名称',
+      empty: '暂无模型配置',
+      newFormTitle: '添加新模型配置',
+      addModel: '添加模型配置',
+      apiKeyShow: '显示 API Key',
+      apiKeyHide: '隐藏 API Key'
     }
   }
 }

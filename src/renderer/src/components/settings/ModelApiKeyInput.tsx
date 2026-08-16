@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import SvgIcon from '@renderer/components/icons/SvgIcon'
 import styles from './ModelApiKeyInput.module.css'
 
@@ -17,6 +18,7 @@ export default function ModelApiKeyInput({
   onChange
 }: ModelApiKeyInputProps) {
   const [visible, setVisible] = useState(false)
+  const { t } = useTranslation()
 
   const toggleVisible = useCallback(() => {
     setVisible((prev) => !prev)
@@ -35,7 +37,7 @@ export default function ModelApiKeyInput({
       <button
         type="button"
         className={styles['api-key-input__toggle']}
-        aria-label={visible ? '隐藏 API Key' : '显示 API Key'}
+        aria-label={visible ? t('settings.model.apiKeyHide') : t('settings.model.apiKeyShow')}
         aria-pressed={visible}
         onClick={toggleVisible}
       >

@@ -60,6 +60,24 @@ const en: Resources = {
         descDark: 'Baseline dark theme unifying the dark, flat, controlled interaction style',
         descLight: 'A fresh, bright light theme'
       }
+    },
+    model: {
+      title: 'Chat Models',
+      description:
+        'Manage chat models and the default model. Changes sync to local config automatically.',
+      listTitle: 'Model List',
+      defaultChip: 'Default: {{name}}',
+      noDefault: 'Not set',
+      nthModel: 'Model {{index}}',
+      unnamed: 'Unnamed model',
+      defaultBadge: 'Default',
+      setDefault: 'Set as Default',
+      modelNameLabel: 'Model Name',
+      empty: 'No models configured',
+      newFormTitle: 'Add New Model',
+      addModel: 'Add Model',
+      apiKeyShow: 'Show API Key',
+      apiKeyHide: 'Hide API Key'
     }
   }
 }

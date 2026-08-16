@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useConfigStore } from '@renderer/stores/configStore'
 import { useUIStateStore } from '@renderer/stores/uiStateStore'
 import { notifySuccess, notifyError, notifyWarning } from '@renderer/composables/notificationCore'
@@ -23,6 +24,7 @@ export default function ModelSettings() {
   const updateLLMConfigs = useConfigStore((s) => s.updateLLMConfigs)
   const updateDefaultModel = useConfigStore((s) => s.updateDefaultModel)
   const notifyConfigUpdate = useUIStateStore((s) => s.notifyConfigUpdate)
+  const { t } = useTranslation()
 
   // UI 状态：展开的模型索引集合、新增表单、测试中的索引
   const [expandedModels, setExpandedModels] = useState<Set<number>>(new Set())
@@ -36,9 +38,12 @@ export default function ModelSettings() {
   const autoSaveRunning = useRef(false)
 
   // 辅助函数
-  const getModelItemName = useCallback((config: LLMConfig, index: number): string => {
-    return config.model_name.trim() || `第 ${index + 1} 个模型`
-  }, [])
+  const getModelItemName = useCallback(
+    (config: LLMConfig, index: number): string => {
+      return config.model_name.trim() || t('settings.model.nthModel', { index: index + 1 })
+    },
+    [t]
+  )
 
   const validateModelConfig = useCallback(
     (config: LLMConfig, index: number): string => {
@@ -270,22 +275,22 @@ export default function ModelSettings() {
   return (
     <div className={['sm-settings-page', 'tab-content'].join(' ')}>
       <header className="sm-settings-page__header">
-        <h2 className="sm-settings-page__title">对话模型配置</h2>
-        <p className="sm-settings-page__description">
-          管理对话模型列表和默认模型。修改字段后会自动同步到本地配置。
-        </p>
+        <h2 className="sm-settings-page__title">{t('settings.model.title')}</h2>
+        <p className="sm-settings-page__description">{t('settings.model.description')}</p>
       </header>
 
       <section className="sm-settings-page__section">
         <div className="sm-settings-page__section-header">
           <div className="sm-settings-page__section-title-row">
-            <h3 className="sm-settings-page__section-title">模型列表</h3>
+            <h3 className="sm-settings-page__section-title">{t('settings.model.listTitle')}</h3>
             <span
               className={['sm-settings-chip', llmConfigs.length > 0 && 'sm-settings-chip--accent']
                 .filter(Boolean)
                 .join(' ')}
             >
-              默认模型: {defaultModel || '未设置'}
+              {t('settings.model.defaultChip', {
+                name: defaultModel || t('settings.model.noDefault')
+              })}
             </span>
           </div>
 
@@ -294,7 +299,7 @@ export default function ModelSettings() {
             disabled={saving}
             onClick={() => void handleSave()}
           >
-            {saving ? '保存中...' : '保存配置'}
+            {saving ? t('common.saving') : t('common.saveConfig')}
           </button>
         </div>
 
@@ -302,12 +307,16 @@ export default function ModelSettings() {
           {llmConfigs.map((config, index) => (
             <div key={index} className={styles['model-item']}>
               <div className={styles['model-header']} onClick={() => toggleModelExpand(index)}>
-                <span className={styles['model-name']}>{config.model_name || '未命名模型'}</span>
+                <span className={styles['model-name']}>
+                  {config.model_name || t('settings.model.unnamed')}
+                </span>
                 {defaultModel === config.model_name && (
-                  <span className={styles['default-badge']}>默认</span>
+                  <span className={styles['default-badge']}>
+                    {t('settings.model.defaultBadge')}
+                  </span>
                 )}
                 <span className={styles['expand-state']}>
-                  {expandedModels.has(index) ? '收起' : '展开'}
+                  {expandedModels.has(index) ? t('common.collapse') : t('common.expand')}
                 </span>
                 <div className={styles['model-actions']}>
                   <button
@@ -318,7 +327,7 @@ export default function ModelSettings() {
                       void testModelConnection(index)
                     }}
                   >
-                    {testingModelIndex === index ? '测试中...' : '测试'}
+                    {testingModelIndex === index ? t('common.testing') : t('common.test')}
                   </button>
                   {defaultModel !== config.model_name && (
                     <button
@@ -328,7 +337,7 @@ export default function ModelSettings() {
                         setDefaultModel(config.model_name)
                       }}
                     >
-                      设为默认
+                      {t('settings.model.setDefault')}
                     </button>
                   )}
                   <button
@@ -343,7 +352,7 @@ export default function ModelSettings() {
                       deleteModel(index)
                     }}
                   >
-                    删除
+                    {t('common.delete')}
                   </button>
                 </div>
               </div>
@@ -367,7 +376,7 @@ export default function ModelSettings() {
                     />
                   </div>
                   <div className={styles['form-group']}>
-                    <label>模型名称</label>
+                    <label>{t('settings.model.modelNameLabel')}</label>
                     <input
                       value={config.model_name}
                       type="text"
@@ -383,14 +392,14 @@ export default function ModelSettings() {
 
           {llmConfigs.length === 0 && !showNewModelForm && (
             <div className="sm-settings-empty">
-              <p>暂无模型配置</p>
+              <p>{t('settings.model.empty')}</p>
             </div>
           )}
         </div>
 
         {showNewModelForm && (
           <div className={styles['new-model-form']}>
-            <h3 className={styles['form-section-title']}>添加新模型配置</h3>
+            <h3 className={styles['form-section-title']}>{t('settings.model.newFormTitle')}</h3>
             <div className={styles['form-group']}>
               <label>
                 API Base URL <span className={styles.required}>*</span>
@@ -416,7 +425,7 @@ export default function ModelSettings() {
             </div>
             <div className={styles['form-group']}>
               <label>
-                模型名称 <span className={styles.required}>*</span>
+                {t('settings.model.modelNameLabel')} <span className={styles.required}>*</span>
               </label>
               <input
                 type="text"
@@ -436,17 +445,17 @@ export default function ModelSettings() {
                   setNewModelConfig({ ...EMPTY_NEW_MODEL })
                 }}
               >
-                取消
+                {t('common.cancel')}
               </button>
               <button
                 className="sm-button sm-button--secondary"
                 disabled={testingNewModel}
                 onClick={() => void testNewModelConnection()}
               >
-                {testingNewModel ? '测试中...' : '测试连接'}
+                {testingNewModel ? t('common.testing') : t('common.testConnection')}
               </button>
               <button className="sm-button sm-button--primary" onClick={addNewModel}>
-                添加
+                {t('common.add')}
               </button>
             </div>
           </div>
@@ -457,7 +466,7 @@ export default function ModelSettings() {
             className={['sm-button', styles['add-model-btn']].join(' ')}
             onClick={() => setShowNewModelForm(true)}
           >
-            添加模型配置
+            {t('settings.model.addModel')}
           </button>
         )}
       </section>
