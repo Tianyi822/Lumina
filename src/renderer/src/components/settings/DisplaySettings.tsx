@@ -1,15 +1,24 @@
 import { useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useUIStateStore, AVAILABLE_THEMES } from '@renderer/stores/uiStateStore'
 import type { ThemeConfig, ThemeMode } from '@shared/types/config'
-import styles from './ThemeSettings.module.css'
+import LanguageSettings from './LanguageSettings'
+import styles from './DisplaySettings.module.css'
 
-/** 主题设置页面：手动主题选择、跟随系统主题切换 */
-interface ThemeSettingsProps {
+/** 主题卡片描述文案的翻译 key（按主题 id 映射；未知主题回退自带描述） */
+const THEME_DESC_KEYS: Record<string, string> = {
+  'lumina-dark': 'settings.display.theme.descDark',
+  'lumina-light': 'settings.display.theme.descLight'
+}
+
+/** 显示设置页面：语言选择、手动主题选择、跟随系统主题切换 */
+interface DisplaySettingsProps {
   value: ThemeConfig
   onThemeChange: (themeId: string) => void
 }
 
-export default function ThemeSettings({ onThemeChange }: ThemeSettingsProps) {
+export default function DisplaySettings({ onThemeChange }: DisplaySettingsProps) {
+  const { t } = useTranslation()
   const currentTheme = useUIStateStore((s) => s.currentTheme)
   const selectedTheme = useUIStateStore((s) => s.selectedTheme)
   const themeMode = useUIStateStore((s) => s.themeMode)
@@ -18,7 +27,10 @@ export default function ThemeSettings({ onThemeChange }: ThemeSettingsProps) {
   const setThemeMode = useUIStateStore((s) => s.setThemeMode)
 
   const isAutoMode = themeMode === 'system'
-  const systemThemeLabel = systemTheme === 'dark' ? '深色' : '浅色'
+  const systemThemeLabel =
+    systemTheme === 'dark'
+      ? t('settings.display.theme.systemDark')
+      : t('settings.display.theme.systemLight')
 
   const handleSelectTheme = useCallback(
     (themeId: string) => {
@@ -40,13 +52,13 @@ export default function ThemeSettings({ onThemeChange }: ThemeSettingsProps) {
   }
 
   return (
-    <div className={['sm-settings-page', styles['theme-settings']].join(' ')}>
+    <div className={['sm-settings-page', styles['display-settings']].join(' ')}>
       <header className="sm-settings-page__header">
-        <h2 className="sm-settings-page__title">主题设置</h2>
-        <p className="sm-settings-page__description">
-          选择适合你的界面风格，主题切换即时生效并会同步系统原生 UI。
-        </p>
+        <h2 className="sm-settings-page__title">{t('settings.display.title')}</h2>
+        <p className="sm-settings-page__description">{t('settings.display.description')}</p>
       </header>
+
+      <LanguageSettings />
 
       <button
         type="button"
@@ -55,10 +67,13 @@ export default function ThemeSettings({ onThemeChange }: ThemeSettingsProps) {
         onClick={handleToggleAutoTheme}
       >
         <span className={styles['auto-theme-toggle__copy']}>
-          <span className={styles['auto-theme-toggle__title']}>跟随系统主题</span>
+          <span className={styles['auto-theme-toggle__title']}>
+            {t('settings.display.theme.followSystem')}
+          </span>
           <span className={styles['auto-theme-toggle__desc']}>
-            当前检测到系统为{systemThemeLabel}模式，
-            {isAutoMode ? '应用会自动同步' : '你可以手动切换主题'}。
+            {isAutoMode
+              ? t('settings.display.theme.followSystemAuto', { mode: systemThemeLabel })
+              : t('settings.display.theme.followSystemManual', { mode: systemThemeLabel })}
           </span>
         </span>
 
@@ -72,17 +87,21 @@ export default function ThemeSettings({ onThemeChange }: ThemeSettingsProps) {
       <section className="sm-settings-page__section">
         <div className="sm-settings-page__section-header">
           <div>
-            <h3 className="sm-settings-page__section-title">可用主题</h3>
+            <h3 className="sm-settings-page__section-title">
+              {t('settings.display.theme.available')}
+            </h3>
             <p className="sm-settings-page__section-description">
               {isAutoMode
-                ? '已启用跟随系统，主题卡片仅作当前映射预览。关闭自动切换后可手动选择。'
-                : '选择一个主题作为全局外观，所有界面元素将自动适配。'}
+                ? t('settings.display.theme.availableDescAuto')
+                : t('settings.display.theme.availableDescManual')}
             </p>
           </div>
 
           <span className="sm-settings-chip sm-settings-chip--accent">
-            当前主题:
-            {AVAILABLE_THEMES.find((t) => t.id === currentTheme)?.name || currentTheme}
+            {t('settings.display.theme.currentChip', {
+              name:
+                AVAILABLE_THEMES.find((theme) => theme.id === currentTheme)?.name || currentTheme
+            })}
           </span>
         </div>
 
@@ -98,7 +117,7 @@ export default function ThemeSettings({ onThemeChange }: ThemeSettingsProps) {
               ]
                 .filter(Boolean)
                 .join(' ')}
-              aria-label={`应用主题 ${theme.name}`}
+              aria-label={t('settings.display.theme.applyTheme', { name: theme.name })}
               aria-pressed={!isAutoMode && isSelected(theme.id)}
               disabled={isAutoMode}
               onClick={() => handleSelectTheme(theme.id)}
@@ -136,9 +155,9 @@ export default function ThemeSettings({ onThemeChange }: ThemeSettingsProps) {
 
               <div className={styles['theme-info']}>
                 <span className={styles['theme-name']}>{theme.name}</span>
-                {theme.description && (
-                  <span className={styles['theme-desc']}>{theme.description}</span>
-                )}
+                <span className={styles['theme-desc']}>
+                  {THEME_DESC_KEYS[theme.id] ? t(THEME_DESC_KEYS[theme.id]) : theme.description}
+                </span>
               </div>
             </button>
           ))}

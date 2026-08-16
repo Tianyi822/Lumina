@@ -35,6 +35,31 @@ const en: Resources = {
       display: 'Display',
       sync: 'Data Sync',
       update: 'Updates'
+    },
+    display: {
+      title: 'Display',
+      description:
+        'Choose your interface language and appearance. Changes apply instantly and sync with the native UI.',
+      language: {
+        title: 'Language',
+        description: 'Choose the interface language. The switch takes effect immediately.'
+      },
+      theme: {
+        followSystem: 'Follow System Theme',
+        followSystemAuto: 'Your system is in {{mode}} mode and the app follows it automatically.',
+        followSystemManual: 'Your system is in {{mode}} mode. You can pick a theme manually.',
+        systemDark: 'dark',
+        systemLight: 'light',
+        available: 'Available Themes',
+        availableDescAuto:
+          'Following the system theme. Cards preview the current mapping; turn off auto mode to pick manually.',
+        availableDescManual:
+          'Pick a theme as the global appearance. All interface elements adapt automatically.',
+        currentChip: 'Current: {{name}}',
+        applyTheme: 'Apply theme {{name}}',
+        descDark: 'Baseline dark theme unifying the dark, flat, controlled interaction style',
+        descLight: 'A fresh, bright light theme'
+      }
     }
   }
 }
