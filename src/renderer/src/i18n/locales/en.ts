@@ -78,6 +78,35 @@ const en: Resources = {
       addModel: 'Add Model',
       apiKeyShow: 'Show API Key',
       apiKeyHide: 'Hide API Key'
+    },
+    embedding: {
+      title: 'Embedding Models',
+      description:
+        'Embedding models determine knowledge base retrieval quality. Manage models, test connections, and create configurations here.',
+      listTitle: 'Model List',
+      empty: 'No embedding models configured',
+      addModel: 'Add Embedding Model',
+      dimensions: '{{value}} dim',
+      modelLabel: 'Model:',
+      formTitleAdd: 'Add Embedding Model',
+      formTitleEdit: 'Edit Embedding Model',
+      displayName: 'Display Name',
+      nameConflict: 'This name is already in use',
+      baseUrlLabel: 'API Base URL',
+      baseUrlPlaceholder: 'http://127.0.0.1:1234/v1 (up to /v1, without /embeddings)',
+      apiKeyLabel: 'API Key',
+      modelNameLabel: 'Model Name',
+      dimensionsLabel: 'Dimensions',
+      validation: {
+        nameRequired: 'Please enter a display name',
+        baseUrlRequired: 'Please enter the API base URL',
+        apiKeyRequired: 'Please enter the API key',
+        modelRequired: 'Please enter the model name',
+        dimensionRequired: 'Please enter the dimensions',
+        dimensionInvalid: 'Please enter a valid number',
+        dimensionInteger: 'Dimensions must be an integer',
+        dimensionPositive: 'Dimensions must be greater than 0'
+      }
     }
   }
 }

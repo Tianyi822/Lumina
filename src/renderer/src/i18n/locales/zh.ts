@@ -72,6 +72,34 @@ const zh = {
       addModel: '添加模型配置',
       apiKeyShow: '显示 API Key',
       apiKeyHide: '隐藏 API Key'
+    },
+    embedding: {
+      title: '嵌入模型配置',
+      description: '向量模型决定知识库检索质量。这里统一管理嵌入模型、测试连接和新建配置入口。',
+      listTitle: '模型列表',
+      empty: '暂无嵌入模型配置',
+      addModel: '添加嵌入模型',
+      dimensions: '{{value}}维',
+      modelLabel: '模型:',
+      formTitleAdd: '添加嵌入模型',
+      formTitleEdit: '编辑嵌入模型',
+      displayName: '显示名称',
+      nameConflict: '该名称已被使用，请更换',
+      baseUrlLabel: 'API 基础URL',
+      baseUrlPlaceholder: 'http://127.0.0.1:1234/v1（填到 /v1，不要含 /embeddings）',
+      apiKeyLabel: 'API 密钥',
+      modelNameLabel: '模型名称',
+      dimensionsLabel: '向量维度',
+      validation: {
+        nameRequired: '请输入显示名称',
+        baseUrlRequired: '请输入API基础URL',
+        apiKeyRequired: '请输入API密钥',
+        modelRequired: '请输入模型名称',
+        dimensionRequired: '请输入向量维度',
+        dimensionInvalid: '请输入有效的数字',
+        dimensionInteger: '向量维度必须是整数',
+        dimensionPositive: '向量维度必须大于0'
+      }
     }
   }
 }
