@@ -4,12 +4,12 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { WriterStorageService } from './WriterStorageService'
-import {
-  getWriterDocumentDir,
-  getWriterDocumentPath
-} from './writerPaths'
+import { getWriterDocumentDir, getWriterDocumentPath } from './writerPaths'
 
-function createService(t: test.TestContext, prefix: string): {
+function createService(
+  t: test.TestContext,
+  prefix: string
+): {
   rootPath: string
   service: WriterStorageService
 } {
@@ -59,10 +59,10 @@ test('并发保存同一修订时只允许一个请求写入', async (t) => {
     })
   ])
 
-  assert.deepEqual(
-    [first, second].map((result) => result.code ?? 'saved').sort(),
-    ['revision_conflict', 'saved']
-  )
+  assert.deepEqual([first, second].map((result) => result.code ?? 'saved').sort(), [
+    'revision_conflict',
+    'saved'
+  ])
   assert.equal((await service.getDocument(created.id)).data?.revision, 1)
 })
 
@@ -83,7 +83,9 @@ test('初始化只恢复无正式文件的有效临时文档', async (t) => {
     title: '异常恢复',
     revision: 3
   }
-  await import('node:fs/promises').then(({ mkdir }) => mkdir(getWriterDocumentDir(orphanId, rootPath)))
+  await import('node:fs/promises').then(({ mkdir }) =>
+    mkdir(getWriterDocumentDir(orphanId, rootPath))
+  )
   writeFileSync(`${orphanPath}.tmp`, JSON.stringify(orphanDocument))
 
   const restarted = new WriterStorageService({ rootPath })
@@ -133,7 +135,10 @@ test('索引损坏后从文档目录重建', async (t) => {
   const result = await restarted.initialize()
 
   assert.equal(result.success, true)
-  assert.deepEqual(result.data?.documents.map((document) => document.id), [created.id])
+  assert.deepEqual(
+    result.data?.documents.map((document) => document.id),
+    [created.id]
+  )
 })
 
 test('初始化将旧 Schema 文档迁移并写回磁盘', async (t) => {
@@ -146,7 +151,9 @@ test('初始化将旧 Schema 文档迁移并写回磁盘', async (t) => {
   const restarted = new WriterStorageService({ rootPath })
   await restarted.initialize()
 
-  const stored = JSON.parse(await import('node:fs/promises').then(({ readFile }) => readFile(documentPath, 'utf-8')))
+  const stored = JSON.parse(
+    await import('node:fs/promises').then(({ readFile }) => readFile(documentPath, 'utf-8'))
+  )
   assert.equal(stored.schemaVersion, 1)
 })
 
@@ -206,7 +213,10 @@ test('收藏文档排在未收藏文档之前', async (t) => {
 
   const index = await service.listDocuments()
 
-  assert.deepEqual(index.data?.documents.map((document) => document.id), [favorite.id, ordinary.id])
+  assert.deepEqual(
+    index.data?.documents.map((document) => document.id),
+    [favorite.id, ordinary.id]
+  )
 })
 
 test('最近打开文档最多保留 50 项并将最新文档置顶', async (t) => {

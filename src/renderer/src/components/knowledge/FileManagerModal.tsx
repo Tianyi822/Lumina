@@ -76,25 +76,25 @@ function FileManagerModal({ onClose, onPreviewFile }: FileManagerModalProps) {
           className={`sm-modal__surface ${styles['file-manager-container']}`}
           onClick={(e) => e.stopPropagation()}
         >
-        <FileManagerHeader onClose={onClose} />
+          <FileManagerHeader onClose={onClose} />
 
-        <FileManagerToolbar />
+          <FileManagerToolbar />
 
-        <div className={styles['drop-zone-wrapper']}>
-          <FileUploadZone onUploadComplete={handleUploadComplete} />
-        </div>
+          <div className={styles['drop-zone-wrapper']}>
+            <FileUploadZone onUploadComplete={handleUploadComplete} />
+          </div>
 
-        <FileListState>
-          {filteredFiles.map((file) => (
-            <FileCard
-              key={file.id}
-              file={file}
-              isDeleting={deletingFileId === file.id}
-              onDelete={handleDeleteClick}
-              onPreview={handlePreview}
-            />
-          ))}
-        </FileListState>
+          <FileListState>
+            {filteredFiles.map((file) => (
+              <FileCard
+                key={file.id}
+                file={file}
+                isDeleting={deletingFileId === file.id}
+                onDelete={handleDeleteClick}
+                onPreview={handlePreview}
+              />
+            ))}
+          </FileListState>
         </div>
       </ModalPortal>
 

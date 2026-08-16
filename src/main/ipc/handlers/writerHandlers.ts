@@ -238,11 +238,7 @@ export function registerWriterHandlers(): void {
 
   ipcMain.handle(
     'writer:exportDocument',
-    (
-      _event,
-      documentId: unknown,
-      format: unknown
-    ): Promise<WriterResult<WriterExportOutcome>> => {
+    (_event, documentId: unknown, format: unknown): Promise<WriterResult<WriterExportOutcome>> => {
       const documentIdError = validateDeleteWriterPayload(documentId)
       if (documentIdError) {
         return Promise.resolve(invalidInput(documentIdError))

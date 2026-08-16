@@ -49,10 +49,17 @@ describe('ToolResultMerger', () => {
     })
 
     it('高度重复内容去重', () => {
-      const sharedContent = '这是共享的内容，描述了注意力机制在深度学习中的应用。包括自注意力、多头注意力等。'
+      const sharedContent =
+        '这是共享的内容，描述了注意力机制在深度学习中的应用。包括自注意力、多头注意力等。'
       const results = [
         makeEnrichedResult('paper__search_context', sharedContent, 'paper', 'high', 0.9),
-        makeEnrichedResult('knowledge__search', sharedContent + ' 额外补充', 'knowledge', 'medium', 0.6)
+        makeEnrichedResult(
+          'knowledge__search',
+          sharedContent + ' 额外补充',
+          'knowledge',
+          'medium',
+          0.6
+        )
       ]
       const merged = merger.merge(results, 'smart_merge')
       // 去重后结果数应 <= 原始数

@@ -16,6 +16,7 @@ import { registerPaperWebSearchHandlers } from './handlers/paperWebSearchHandler
 import { registerCapabilityHandlers } from './handlers/capabilityHandlers'
 import { registerUpdateHandlers } from './handlers/updateHandlers'
 import { registerWriterHandlers } from './handlers/writerHandlers'
+import { registerSyncHandlers } from './handlers/syncHandlers'
 
 export { initializeConfig } from './handlers/configHandlers'
 export { initializeLogger } from './handlers/loggerHandlers'
@@ -26,6 +27,7 @@ export { initializeEmbeddingModels } from './handlers/embeddingModelHandlers'
 export { initializeFileService } from './handlers/fileHandlers'
 export { initializeWriterService } from '@main/services/writer'
 export { initializeSessionService } from '@main/services/session'
+export { initializeSyncService } from '@main/services/sync'
 
 /**
  * 注册所有 IPC 处理程序
@@ -84,4 +86,7 @@ export function registerAllIpcHandlers(): void {
 
   // 注册写作工作区相关处理程序
   registerWriterHandlers()
+
+  // 注册数据同步相关处理程序
+  registerSyncHandlers()
 }

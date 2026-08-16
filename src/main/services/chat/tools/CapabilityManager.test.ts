@@ -2,7 +2,11 @@ import { describe, it, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
 import { CapabilityManager } from './CapabilityManager'
 import { presetRegistry } from './presets/PresetRegistry'
-import { CHAT_PAPER_PRESET, CHAT_DEFAULT_PRESET, CHAT_WRITER_PRESET } from './presets/builtinPresets'
+import {
+  CHAT_PAPER_PRESET,
+  CHAT_DEFAULT_PRESET,
+  CHAT_WRITER_PRESET
+} from './presets/builtinPresets'
 
 describe('CapabilityManager', () => {
   let manager: CapabilityManager

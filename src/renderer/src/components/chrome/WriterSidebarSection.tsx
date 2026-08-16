@@ -97,6 +97,7 @@ const WriterSidebarSection = memo(function WriterSidebarSection() {
 
   const filteredDocuments = useMemo(
     () => visibleDocuments(),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- visibleDocuments 为 store 恒定引用，需靠 activeCollection/documents/searchQuery 触发重算
     [activeCollection, documents, searchQuery, visibleDocuments]
   )
   const documentRenderPlan = useMemo(

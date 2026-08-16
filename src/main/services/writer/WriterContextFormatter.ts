@@ -1,4 +1,8 @@
-import type { WriterAiContextBlock, WriterAiRequestContext, WriterAiScope } from '@shared/types/writer'
+import type {
+  WriterAiContextBlock,
+  WriterAiRequestContext,
+  WriterAiScope
+} from '@shared/types/writer'
 
 /** 估算上下文字符上限（粗略 token 预算，约 8k token ≈ 24k 字符） */
 export const WRITER_CONTEXT_CHAR_BUDGET = 24000

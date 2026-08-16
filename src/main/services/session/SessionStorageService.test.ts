@@ -169,7 +169,10 @@ test('SessionStorageService', async (t) => {
     const storage = new SessionStorageService(() => root)
     await storage.initialize()
     await storage.rewriteSession(makeSession('aaa007'))
-    await storage.rewriteSession({ ...makeSession('aaa008'), createdAt: '2026-07-30T00:00:00.000Z' })
+    await storage.rewriteSession({
+      ...makeSession('aaa008'),
+      createdAt: '2026-07-30T00:00:00.000Z'
+    })
     let list = await storage.listSessions()
     assert.equal(list.length, 2)
     assert.equal(list[0].sessionId, makeSessionId('aaa008')) // createdAt 倒序

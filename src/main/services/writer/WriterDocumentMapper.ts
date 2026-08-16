@@ -81,10 +81,7 @@ export class WriterDocumentMapper {
     }
   }
 
-  private mapBlock(
-    node: WriterJsonNode,
-    ctx: MapContext
-  ): WriterExportNode[] {
+  private mapBlock(node: WriterJsonNode, ctx: MapContext): WriterExportNode[] {
     switch (node.type) {
       case 'paragraph':
         return [{ kind: 'paragraph', runs: this.mapInline(node, ctx) }]
@@ -159,7 +156,7 @@ export class WriterDocumentMapper {
       return []
     }
 
-      const exportName = basename(relativePath)
+    const exportName = basename(relativePath)
     if (!ctx.assetNames.has(exportName)) {
       ctx.assetNames.add(exportName)
       const documentDir =

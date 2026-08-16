@@ -19,30 +19,30 @@ describe('getTranslationBlockDisplay', () => {
   })
 
   it('译文 HTML 就绪时显示正文', () => {
-  assert.equal(
-    getTranslationBlockDisplay({
-      htmlStatus: 'ready',
-      originalHtml: '<p>原文</p>',
-      translationHtml: '<p>译文</p>',
-      translationStatus: 'completed'
-    }),
-    'content'
-  )
-})
+    assert.equal(
+      getTranslationBlockDisplay({
+        htmlStatus: 'ready',
+        originalHtml: '<p>原文</p>',
+        translationHtml: '<p>译文</p>',
+        translationStatus: 'completed'
+      }),
+      'content'
+    )
+  })
 
-it('段落重渲染 pending 但已有译文 HTML 时继续显示正文', () => {
-  assert.equal(
-    getTranslationBlockDisplay({
-      htmlStatus: 'pending',
-      originalHtml: '<p>原文</p>',
-      translationHtml: '<p>旧译文</p>',
-      translationStatus: 'completed'
-    }),
-    'content'
-  )
-})
+  it('段落重渲染 pending 但已有译文 HTML 时继续显示正文', () => {
+    assert.equal(
+      getTranslationBlockDisplay({
+        htmlStatus: 'pending',
+        originalHtml: '<p>原文</p>',
+        translationHtml: '<p>旧译文</p>',
+        translationStatus: 'completed'
+      }),
+      'content'
+    )
+  })
 
-it('API 翻译进行中时显示正在翻译', () => {
+  it('API 翻译进行中时显示正在翻译', () => {
     assert.equal(
       getTranslationBlockDisplay({
         htmlStatus: 'pending',

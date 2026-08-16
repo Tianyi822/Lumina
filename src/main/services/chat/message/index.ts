@@ -1,6 +1,4 @@
-export {
-  formatMessagesWithKnowledge
-} from './MessageFormatter'
+export { formatMessagesWithKnowledge } from './MessageFormatter'
 export {
   createThinkParserState,
   flushThinkParserState,

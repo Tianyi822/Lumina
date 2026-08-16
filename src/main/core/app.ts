@@ -13,7 +13,8 @@ import {
   initializeEmbeddingModels,
   initializeFileService,
   initializeWriterService,
-  initializeSessionService
+  initializeSessionService,
+  initializeSyncService
 } from '@main/ipc'
 import { mcpService } from '@main/services/mcp'
 import { getKnowledgeMCPServerService } from '@main/services/knowledge/KnowledgeMCPServerService'
@@ -24,6 +25,17 @@ import { paperTranslationService } from '@main/services/paper'
 import { startEventLoopMonitoring } from '@main/services/monitoring/eventLoopMonitor'
 import { writerService } from '@main/services/writer'
 import { handleWriterWindowClose } from '@main/services/writer/WriterFlushCoordinator'
+import { initializeConfigSyncService } from '@main/services/sync/config'
+import { initializeKnowledgeSyncService } from '@main/services/sync/knowledge'
+import { initializePaperSyncService } from '@main/services/sync/paper'
+import { initializeSessionSyncService } from '@main/services/sync/session'
+import { initializeWriterSyncService } from '@main/services/sync/writer'
+import { getSyncService } from '@main/services/sync'
+import { getConfigSyncService } from '@main/services/sync/config'
+import { getKnowledgeSyncService } from '@main/services/sync/knowledge'
+import { getPaperSyncService } from '@main/services/sync/paper'
+import { getSessionSyncService } from '@main/services/sync/session'
+import { getWriterSyncService } from '@main/services/sync/writer'
 
 const appDisplayName = 'Lumina'
 const SHUTDOWN_TASK_TIMEOUT_MS = 5_000
@@ -112,6 +124,17 @@ function requestShutdown(exitCode: number, reason: string): void {
       runShutdownTask('writer', async () => {
         await writerService.requestRendererFlush()
         await writerService.flushPendingSaves()
+      }),
+      runShutdownTask('sync', () => {
+        // 引擎定时器仅在已连接时才会启动（start 内部校验连接态）；
+        // 未连接直接返回，避免为退出触发懒加载单例的无谓构造
+        if (!getSyncService().getStatus().connected) return
+        getSyncService().stopAutoRenew()
+        getSessionSyncService().stop()
+        getConfigSyncService().stop()
+        getWriterSyncService().stop()
+        getKnowledgeSyncService().stop()
+        getPaperSyncService().stop()
       })
     ])
 
@@ -198,6 +221,21 @@ export function initializeApp(): void {
 
     // 初始化写作服务（依赖通用文件服务已完成启动）
     await initializeWriterService()
+
+    // 初始化数据同步服务：恢复本地身份并后台续期，失败不阻止应用启动
+    initializeSyncService()
+      .catch((error) => {
+        logger.warn('同步服务初始化失败', 'main', {
+          error: error instanceof Error ? error.message : String(error)
+        })
+      })
+      .finally(() => {
+        initializeSessionSyncService()
+        initializeConfigSyncService()
+        initializeWriterSyncService()
+        initializeKnowledgeSyncService()
+        initializePaperSyncService()
+      })
 
     // 创建主窗口
     const mainWindow = createApplicationWindow()

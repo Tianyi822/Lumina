@@ -74,7 +74,12 @@ export default function WriterMathView({ node, updateAttributes }: NodeViewProps
           </span>
         )}
       </span>
-      <button type="button" className={styles.copyButton} aria-label="复制公式源码" onClick={copyLatex}>
+      <button
+        type="button"
+        className={styles.copyButton}
+        aria-label="复制公式源码"
+        onClick={copyLatex}
+      >
         复制源码
       </button>
       {editing ? (

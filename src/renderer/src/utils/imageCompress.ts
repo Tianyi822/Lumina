@@ -6,15 +6,7 @@
 // ==================== 常量 ====================
 
 /** 支持的图片扩展名 */
-const IMAGE_SUPPORTED_EXTENSIONS = [
-  '.jpg',
-  '.jpeg',
-  '.png',
-  '.webp',
-  '.bmp',
-  '.tiff',
-  '.tif'
-]
+const IMAGE_SUPPORTED_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp', '.bmp', '.tiff', '.tif']
 
 /** 支持的 MIME 类型 */
 const IMAGE_SUPPORTED_MIME_TYPES = [

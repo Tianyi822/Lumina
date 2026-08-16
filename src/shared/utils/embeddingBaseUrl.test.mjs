@@ -18,8 +18,5 @@ test('仅主机端口时自动补 /v1', () => {
 })
 
 test('已是正确 baseUrl 时保持不变', () => {
-  assert.equal(
-    normalizeEmbeddingBaseUrl('https://api.openai.com/v1'),
-    'https://api.openai.com/v1'
-  )
+  assert.equal(normalizeEmbeddingBaseUrl('https://api.openai.com/v1'), 'https://api.openai.com/v1')
 })

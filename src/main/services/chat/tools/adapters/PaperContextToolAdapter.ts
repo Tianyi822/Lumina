@@ -89,9 +89,7 @@ export class PaperContextToolAdapter implements ToolAdapter {
     result: MCPToolCallResult
   ): ToolResultMetadata {
     const content =
-      typeof result.content === 'string'
-        ? result.content
-        : JSON.stringify(result.content ?? '')
+      typeof result.content === 'string' ? result.content : JSON.stringify(result.content ?? '')
 
     const sectionCount = (content.match(/^##\s/gm) || []).length
     const contentLength = content.length

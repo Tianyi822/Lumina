@@ -279,9 +279,7 @@ export default function WriterEditor({
     if (lastInvalidToastKeyRef.current === key) return
     lastInvalidToastKeyRef.current = key
     const message =
-      invalidReason === 'target_changed'
-        ? '目标内容已变化，建议已失效'
-        : '建议无效，请重新生成'
+      invalidReason === 'target_changed' ? '目标内容已变化，建议已失效' : '建议无效，请重新生成'
     notify.warning('建议已失效', message)
   }, [invalidReason, notify, suggestionStatus])
 
@@ -393,9 +391,7 @@ export default function WriterEditor({
           </span>
         </div>
         <span className={styles.srOnly} role="status" aria-live="polite" aria-atomic="true">
-          {suggestionStatus === 'pending'
-            ? getWriterSuggestionPendingLabel(pendingAction)
-            : ''}
+          {suggestionStatus === 'pending' ? getWriterSuggestionPendingLabel(pendingAction) : ''}
         </span>
         <EditorContent editor={editor} className={styles.editorContent} />
         <input
@@ -412,11 +408,7 @@ export default function WriterEditor({
         />
         {editor ? (
           <>
-            <WriterBubbleMenu
-              editor={editor}
-              isAiSending={isAiSending}
-              onAiAction={onAiAction}
-            />
+            <WriterBubbleMenu editor={editor} isAiSending={isAiSending} onAiAction={onAiAction} />
             <WriterTableControls editor={editor} />
             <WriterSlashMenu editor={editor} onSelectImage={() => imageInputRef.current?.click()} />
           </>

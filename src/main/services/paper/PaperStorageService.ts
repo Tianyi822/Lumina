@@ -1,6 +1,6 @@
-import path from 'path'
+import path, { dirname } from 'path'
 import { existsSync } from 'fs'
-import { readFile, writeFile, rm, mkdir, copyFile, stat, readdir } from 'fs/promises'
+import { readFile, writeFile, rm, mkdir, copyFile, stat, readdir, rename } from 'fs/promises'
 import { createHash } from 'crypto'
 import { logger } from '@main/services/logger'
 import { WriteQueue } from './WriteQueue'
@@ -35,6 +35,7 @@ import {
   createLocalAssetReplacementMapFromDisk,
   localizePaperTranslationCacheAssets
 } from './paperAssetLocalizer'
+import { resolveContainedPath } from '@main/services/sync/paper/paperPack'
 
 const MAX_PAPER_PAGES = 200
 const MAX_PAPER_FILE_SIZE = 200 * 1024 * 1024
@@ -765,6 +766,70 @@ export class PaperStorageService {
       const errorMessage = error instanceof Error ? error.message : String(error)
       logger.error('获取归一化 OCR 结果列表失败', 'main', { paperId, error: errorMessage })
       return { success: false, error: errorMessage }
+    }
+  }
+
+  // ============ 同步引擎专用接口（走 writeQueue 串行化） ============
+
+  /** 同步下行 meta（复用 saveMeta 路径语义，走 writeQueue）；data 为实际落盘字节 */
+  async applySyncedMeta(
+    paperId: string,
+    meta: PaperDocument
+  ): Promise<{ success: boolean; error?: string; data?: Uint8Array }> {
+    try {
+      // 确保论文目录存在（新设备首次下行时目录可能不存在，saveMetaCore 的 writeFile
+      // 不会自动建目录，否则会 ENOENT）
+      const paperDir = getPaperDirPath(paperId)
+      await mkdir(paperDir, { recursive: true })
+      // 归一化机器相关路径（filePath / pageAssets[].imagePath）——远端 meta 携带的
+      // 是远端机器路径，原样落盘会导致本地 re-scan 计算出的字节 hash 与 tracker
+      // 的 contentHash 不一致，触发虚假重传。复用 normalizeMetaPaths 使落盘字节与
+      // readMeta 归一化结果保持一致。
+      const normalized = this.normalizeMetaPaths(paperId, meta)
+      const result = await this.saveMeta(paperId, normalized.document)
+      if (!result.success) return result
+      // 返回实际落盘字节（序列化格式与 saveMetaCore 保持一致），同步引擎以其 hash
+      // 作为 tracker 基线——否则跨机路径差异会导致两台设备每轮互相重传 meta
+      return {
+        success: true,
+        data: new TextEncoder().encode(JSON.stringify(normalized.document, null, 2))
+      }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
+    }
+  }
+
+  /** 同步下行批注（复用 saveAnnotationStore 路径语义） */
+  async applySyncedAnnotations(
+    paperId: string,
+    store: PaperAnnotationStore
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const result = await this.saveAnnotationStore(paperId, store)
+      return result
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
+    }
+  }
+
+  /** 同步下行 pack 文件（containment 校验 → mkdir → rename） */
+  async applySyncedPackFile(
+    paperId: string,
+    relPath: string,
+    stagingFilePath: string
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const paperDir = getPaperDirPath(paperId)
+      const targetPath = resolveContainedPath(paperDir, relPath)
+      if (!targetPath) {
+        return { success: false, error: `路径越界：${relPath}` }
+      }
+      const targetDir = dirname(targetPath)
+      await mkdir(targetDir, { recursive: true })
+      await rename(stagingFilePath, targetPath)
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
     }
   }
 }

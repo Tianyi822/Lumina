@@ -130,7 +130,9 @@ function parseWriterIndex(value: unknown): WriterIndex | null {
 }
 
 /** 将历史文档转换为当前 Schema，保持函数无 I/O 副作用 */
-function migrateWriterDocument(value: unknown): { document: WriterDocument; changed: boolean } | null {
+function migrateWriterDocument(
+  value: unknown
+): { document: WriterDocument; changed: boolean } | null {
   const parsed = writerDocumentSchema.safeParse(value)
   if (!parsed.success) {
     return null
@@ -282,7 +284,9 @@ export class WriterStorageService {
         }
         await rm(getWriterDocumentDir(id, this.rootPath), { recursive: true, force: false })
         this.index.documents = this.index.documents.filter((document) => document.id !== id)
-        this.index.recentDocumentIds = this.index.recentDocumentIds.filter((recentId) => recentId !== id)
+        this.index.recentDocumentIds = this.index.recentDocumentIds.filter(
+          (recentId) => recentId !== id
+        )
         await this.writeIndexAtomically(this.index)
         return { success: true }
       } catch (error) {
@@ -400,6 +404,58 @@ export class WriterStorageService {
         return this.toIoError<WriterDocument>('更新写作文档收藏状态失败', error)
       }
     })
+  }
+
+  // ============ 同步引擎专用接口（不经 WriterService 编排层） ============
+
+  /** 同步下行 index（原子写，不触发 recentDocumentIds 更新） */
+  applySyncedIndex(merged: WriterIndex): Promise<WriterResult<WriterIndex>> {
+    return this.enqueueWrite(async () => {
+      this.index = merged
+      await this.writeIndexAtomically(this.index)
+      return { success: true, data: this.index }
+    })
+  }
+
+  /** 同步下行文档（原子写 document.json，不递增 revision，更新 summary） */
+  applySyncedDocument(doc: WriterDocument): Promise<WriterResult<WriterDocument>> {
+    return this.enqueueWrite(async () => {
+      // 落盘前再次检查：若本地 revision 更新则跳过（防 autosave 竞态回退）
+      const localResult = await this.readDocument(doc.id)
+      if (localResult.success && localResult.data && localResult.data.revision > doc.revision) {
+        return {
+          success: false,
+          code: 'revision_conflict',
+          error: '本地 revision 更新，跳过远端下行'
+        }
+      }
+      await this.writeDocumentAtomically(doc)
+      await this.upsertSummary(doc)
+      return { success: true, data: doc }
+    })
+  }
+
+  /** 同步下行删除文档（rm -rf 目录 + 从 index 移除） */
+  applySyncedDeletedDocument(documentId: string): Promise<WriterResult<true>> {
+    return this.enqueueWrite(async () => {
+      if (!isValidWriterDocumentId(documentId) || !this.isSafeDocumentDirectory(documentId)) {
+        return this.invalidInput<true>('文档 ID 无效')
+      }
+      try {
+        await rm(getWriterDocumentDir(documentId, this.rootPath), { recursive: true, force: true })
+      } catch {
+        // 目录不存在视为已删除
+      }
+      this.index.documents = this.index.documents.filter((d) => d.id !== documentId)
+      this.index.recentDocumentIds = this.index.recentDocumentIds.filter((id) => id !== documentId)
+      await this.writeIndexAtomically(this.index)
+      return { success: true, data: true }
+    })
+  }
+
+  /** 同步层只读：读取文档原始 JSON（不更新 recentDocumentIds，无副作用） */
+  readDocumentForSync(documentId: string): Promise<WriterResult<WriterDocument>> {
+    return this.readDocument(documentId)
   }
 
   private async initializeCore(): Promise<WriterIndex> {

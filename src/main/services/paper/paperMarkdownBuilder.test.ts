@@ -892,7 +892,12 @@ test('图片块保留在正文 markdown 中（不删除 img 标记）', () => {
       createTextBlock(0, 'First paragraph before figure.'),
       createImageBlock(1, imageUrl),
       createTextBlock(2, '<div align="center">\n\nFigure 1: Sample figure.\n\n</div>'),
-      createTextBlock(3, 'Second paragraph after figure.', { x: 120, y: 620, width: 680, height: 40 })
+      createTextBlock(3, 'Second paragraph after figure.', {
+        x: 120,
+        y: 620,
+        width: 680,
+        height: 40
+      })
     ]
   }
 
@@ -909,11 +914,9 @@ test('正文图片带有 data-paper-figure-id 属性', () => {
     paperId: 'paper-figid',
     pageIndex: 0,
     status: 'completed',
-    markdown: [
-      'Text before.',
-      `<img src='${imageUrl}' alt='OCR图片'/>`,
-      'Text after.'
-    ].join('\n\n'),
+    markdown: ['Text before.', `<img src='${imageUrl}' alt='OCR图片'/>`, 'Text after.'].join(
+      '\n\n'
+    ),
     blocks: [
       createTextBlock(0, 'Text before.'),
       createImageBlock(1, imageUrl),

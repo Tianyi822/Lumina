@@ -56,11 +56,7 @@ describe('CapabilityComposer', () => {
       )
     )
     capRegistry.register(
-      makeCapability(
-        'knowledge',
-        () => makeFakeAdapter([knowledgeTool]),
-        [knowledgeTool]
-      )
+      makeCapability('knowledge', () => makeFakeAdapter([knowledgeTool]), [knowledgeTool])
     )
   })
 

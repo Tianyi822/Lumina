@@ -25,6 +25,11 @@ export class SessionService {
     this.storage = storage
   }
 
+  /** 主进程内部：暴露存储层，供同步引擎复用同一写队列。 */
+  getStorage(): SessionStorageService {
+    return this.storage
+  }
+
   /** 初始化：委托存储层建目录、恢复 tmp、迁移旧 JSON、确保 index */
   async initialize(): Promise<void> {
     if (this.initialized) {

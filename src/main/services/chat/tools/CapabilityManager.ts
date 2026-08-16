@@ -15,7 +15,10 @@ export class CapabilityManager {
    * @param sessionId 会话 ID
    * @param existingState 已有的能力状态（用于恢复旧会话）
    */
-  initCapabilities(sessionId: string, existingState?: ActiveCapabilityState): ActiveCapabilityState {
+  initCapabilities(
+    sessionId: string,
+    existingState?: ActiveCapabilityState
+  ): ActiveCapabilityState {
     return this.initCapabilitiesForSessionType(sessionId, 'default', existingState)
   }
 

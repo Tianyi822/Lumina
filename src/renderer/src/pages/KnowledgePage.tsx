@@ -92,7 +92,10 @@ export default function KnowledgePage() {
 
   const handleFilesLinked = useCallback(
     (files: FileItem[]) => {
-      linkFilesToKB(currentKBIdForSelector, files.map((f) => f.id))
+      linkFilesToKB(
+        currentKBIdForSelector,
+        files.map((f) => f.id)
+      )
       filesLinkedHandlerRef.current?.(files)
     },
     [linkFilesToKB, currentKBIdForSelector]
@@ -105,16 +108,13 @@ export default function KnowledgePage() {
     [unlinkFileFromKB]
   )
 
-  const handleDescriptionUpdated = useCallback(
-    (kbId: string, description: string) => {
-      useKnowledgeStore.setState((state) => ({
-        knowledgeBases: state.knowledgeBases.map((kb) =>
-          kb.id === kbId ? { ...kb, description } : kb
-        )
-      }))
-    },
-    []
-  )
+  const handleDescriptionUpdated = useCallback((kbId: string, description: string) => {
+    useKnowledgeStore.setState((state) => ({
+      knowledgeBases: state.knowledgeBases.map((kb) =>
+        kb.id === kbId ? { ...kb, description } : kb
+      )
+    }))
+  }, [])
 
   const linkedFileIdsForSelector =
     knowledgeBases.find((kb) => kb.id === currentKBIdForSelector)?.linkedFileIds || []

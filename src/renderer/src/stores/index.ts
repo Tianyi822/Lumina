@@ -6,6 +6,7 @@ export { usePaperChatMessageCacheStore } from './paperChatMessageCacheStore'
 export { useUIStateStore } from './uiStateStore'
 export { useKnowledgeIndexStore } from './knowledgeIndexStore'
 export { useConfigStore } from './configStore'
+export { useSyncStore } from './syncStore'
 
 export { useKnowledgeStore } from './knowledgeStore'
 export { useFileStore } from './fileStore'

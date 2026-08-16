@@ -47,7 +47,7 @@ function sha256(message: Uint8Array): Uint8Array {
   ])
 
   const bitLen = message.length * 8
-  const withPadLen = ((message.length + 9 + 63) & ~63)
+  const withPadLen = (message.length + 9 + 63) & ~63
   const padded = new Uint8Array(withPadLen)
   padded.set(message)
   padded[message.length] = 0x80

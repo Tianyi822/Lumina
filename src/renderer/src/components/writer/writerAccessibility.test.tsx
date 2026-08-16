@@ -97,10 +97,7 @@ test('建议等待状态通过 sr-only aria-live 播报', async () => {
 })
 
 test('Bubble Menu 暴露改写与续写动作 aria-label', async () => {
-  const source = await readFile(
-    new URL('./toolbar/WriterBubbleMenu.tsx', import.meta.url),
-    'utf8'
-  )
+  const source = await readFile(new URL('./toolbar/WriterBubbleMenu.tsx', import.meta.url), 'utf8')
   assert.match(source, /aria-label="AI 改写选区"/)
   assert.match(source, /aria-label="AI 续写选区"/)
   assert.match(source, /role="separator"/)

@@ -87,9 +87,7 @@ test('pending 骨架锚定在请求时选区，不随后续点击移动', () => 
   useWriterSuggestionStore.getState().reset()
   const state = createSuggestionState({ from: 2, to: 6 })
   useWriterSuggestionStore.getState().beginRequest('writer-doc-pending', 1, 'continue', 6)
-  const stateMoved = state.apply(
-    state.tr.setSelection(TextSelection.create(state.doc, 2, 3))
-  )
+  const stateMoved = state.apply(state.tr.setSelection(TextSelection.create(state.doc, 2, 3)))
   const decorations = buildPluginDecorationsForTest(stateMoved)
   const widget = decorations.find()[0]
   assert.ok(widget)
@@ -128,9 +126,7 @@ test('insert_blocks 预览按块拆分而非 join 拼接', () => {
   }
   useWriterSuggestionStore.getState().beginRequest(proposal.documentId, proposal.baseRevision)
   assert.equal(
-    useWriterSuggestionStore
-      .getState()
-      .ingestProposal(proposal, proposal.documentId, 1, state),
+    useWriterSuggestionStore.getState().ingestProposal(proposal, proposal.documentId, 1, state),
     true
   )
   const decorations = buildPluginDecorationsForTest(state)

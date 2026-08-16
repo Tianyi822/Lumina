@@ -16,9 +16,7 @@ export function buildWriterBubbleSendOptions(): SendWriterAiTurnOptions {
   return { scope: 'selection', includeExternalTools: false }
 }
 
-export type WriterBubbleAiGateResult =
-  | { ok: true }
-  | { ok: false; reason: 'busy' | 'no_model' }
+export type WriterBubbleAiGateResult = { ok: true } | { ok: false; reason: 'busy' | 'no_model' }
 
 export function canStartWriterBubbleAiAction(input: {
   isSending: boolean

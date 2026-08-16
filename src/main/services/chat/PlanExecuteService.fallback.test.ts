@@ -28,10 +28,7 @@ interface CreateHarnessOptions {
   /** LLM 返回的 plan content;默认生成有效 JSON */
   planContent?: string
   /** reactLoopService.sendMessageWithReact 的行为 */
-  reactImpl?: (
-    request: ChatRequest,
-    runtimeOptions: unknown
-  ) => Promise<ChatResult>
+  reactImpl?: (request: ChatRequest, runtimeOptions: unknown) => Promise<ChatResult>
   /** 步骤定义,用于生成有效的 plan JSON */
   planSteps?: Array<{ title: string; description: string }>
 }
@@ -58,8 +55,7 @@ function createHarness(options: CreateHarnessOptions = {}): Harness {
     { title: '步骤三', description: '执行第三项任务' }
   ]
 
-  const planContent =
-    options.planContent ?? JSON.stringify({ steps: planSteps })
+  const planContent = options.planContent ?? JSON.stringify({ steps: planSteps })
 
   const logger = {
     debug: () => {},
@@ -185,20 +181,13 @@ test('空计划回退到普通 React 模式:LLM 返回无效 JSON 时委托 reac
   // 回退时传入的 request 应保留原始消息
   const fallbackRequest = harness.reactRequests[0]?.request
   assert.ok(fallbackRequest, '回退调用必须携带 request')
-  assert.equal(
-    fallbackRequest.messages.length,
-    1,
-    '回退请求应携带原始用户消息'
-  )
+  assert.equal(fallbackRequest.messages.length, 1, '回退请求应携带原始用户消息')
 
   // 回退前的 plan_status 应先发 idle(清空计划状态)
   const planStatuses = harness.events
     .filter((event) => event.type === 'plan_status')
     .map((event) => event.planStatus?.status)
-  assert.ok(
-    planStatuses.includes('idle'),
-    '空计划回退前应发送 idle 状态清空前端计划视图'
-  )
+  assert.ok(planStatuses.includes('idle'), '空计划回退前应发送 idle 状态清空前端计划视图')
 
   // 不应发送 plan_generated / running 等计划执行态事件
   const hasPlanGenerated = harness.events.some((event) => event.type === 'plan_generated')
@@ -208,10 +197,12 @@ test('空计划回退到普通 React 模式:LLM 返回无效 JSON 时委托 reac
   assert.equal(result.success, true)
 
   // 回退时传入的 runtimeOptions 应携带共享 abortController 且 preserveAbortController:true
-  const runtimeOptions = harness.reactRequests[0]?.runtimeOptions as {
-    abortController?: AbortController
-    preserveAbortController?: boolean
-  } | undefined
+  const runtimeOptions = harness.reactRequests[0]?.runtimeOptions as
+    | {
+        abortController?: AbortController
+        preserveAbortController?: boolean
+      }
+    | undefined
   assert.equal(
     runtimeOptions?.abortController,
     harness.abortController,
@@ -232,7 +223,7 @@ test('AbortError 步骤级联:中途抛 AbortError 时后续步骤标记 cancell
       { title: '第二步', description: '会 abort' },
       { title: '第三步', description: '应被标记 cancelled' }
     ],
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 参数为匹配 reactImpl 签名而保留，本用例通过 reactCounter 计数
+
     reactImpl: (_request, _opts): Promise<ChatResult> => {
       const callIndex = harness.reactCounter.count // 当前是第几次调用(1-based)
       if (callIndex === 2) {
@@ -254,21 +245,13 @@ test('AbortError 步骤级联:中途抛 AbortError 时后续步骤标记 cancell
   assert.equal(result.success, true)
 
   // 应只执行到第 2 步(第 3 步不再调用 reactLoopService)
-  assert.equal(
-    harness.reactCounter.count,
-    2,
-    '第 2 步 abort 后不应再执行第 3 步'
-  )
+  assert.equal(harness.reactCounter.count, 2, '第 2 步 abort 后不应再执行第 3 步')
 
   // plan_status 最终应为 cancelled
   const planStatuses = harness.events
     .filter((event) => event.type === 'plan_status')
     .map((event) => event.planStatus?.status)
-  assert.equal(
-    planStatuses.at(-1),
-    'cancelled',
-    'AbortError 后 plan_status 最终应为 cancelled'
-  )
+  assert.equal(planStatuses.at(-1), 'cancelled', 'AbortError 后 plan_status 最终应为 cancelled')
 
   // done 事件的 finalStatus 应为 cancelled
   const doneEvent = harness.events.find((event) => event.type === 'done')
@@ -294,9 +277,7 @@ test('AbortError 步骤级联:中途抛 AbortError 时后续步骤标记 cancell
 
   // cancelled 状态的步骤的错误信息应为"用户已取消"
   assert.ok(
-    stepUpdates.some(
-      (update) => update?.status === 'cancelled' && update?.error === '用户已取消'
-    ),
+    stepUpdates.some((update) => update?.status === 'cancelled' && update?.error === '用户已取消'),
     '级联取消步骤的 error 应为"用户已取消"'
   )
 })
@@ -348,7 +329,6 @@ test('AbortError 在规划阶段抛出时也标记为 cancelled', async () => {
     }) as unknown as OpenAI
 
   const reactLoopService = {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- webContents 为匹配签名保留，本回退用例不消费
     sendMessageWithReact: async (request: ChatRequest, _wc: WebContents) => {
       reactRequests.push({ request, runtimeOptions: undefined })
       return { success: true }

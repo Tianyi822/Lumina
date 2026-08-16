@@ -93,32 +93,29 @@ export function useMarkdownScrollPersistence({
     [syncSessionScrollPosition]
   )
 
-  const saveProgress = useCallback(
-    (targetPaperId: string, percent: number) => {
-      if (!targetPaperId) return
+  const saveProgress = useCallback((targetPaperId: string, percent: number) => {
+    if (!targetPaperId) return
 
-      const isTranslated = translationVisibleRef.current
-      const existingProgress = usePaperListStore
-        .getState()
-        .papers.find((p) => p.id === targetPaperId)?.readingProgress
-      const progress = buildReadingProgressPatch(existingProgress, {
-        percent,
-        translationVisible: isTranslated,
-        zoomLevel: zoomLevelRef.current
-      })
+    const isTranslated = translationVisibleRef.current
+    const existingProgress = usePaperListStore
+      .getState()
+      .papers.find((p) => p.id === targetPaperId)?.readingProgress
+    const progress = buildReadingProgressPatch(existingProgress, {
+      percent,
+      translationVisible: isTranslated,
+      zoomLevel: zoomLevelRef.current
+    })
 
-      void window.api.paper.saveReadingProgress({
-        paperId: targetPaperId,
-        scrollPercentOriginal: isTranslated ? undefined : percent,
-        scrollPercentTranslated: isTranslated ? percent : undefined,
-        zoomLevel: progress.zoomLevel,
-        translationVisible: progress.translationVisible
-      })
+    void window.api.paper.saveReadingProgress({
+      paperId: targetPaperId,
+      scrollPercentOriginal: isTranslated ? undefined : percent,
+      scrollPercentTranslated: isTranslated ? percent : undefined,
+      zoomLevel: progress.zoomLevel,
+      translationVisible: progress.translationVisible
+    })
 
-      usePaperListStore.getState().updatePaperInList(targetPaperId, { readingProgress: progress })
-    },
-    []
-  )
+    usePaperListStore.getState().updatePaperInList(targetPaperId, { readingProgress: progress })
+  }, [])
 
   const flushPendingSaveForPaper = useCallback(
     (targetPaperId: string | null) => {
@@ -127,7 +124,11 @@ export function useMarkdownScrollPersistence({
         saveTimerRef.current = null
       }
 
-      if (!targetPaperId || !pendingDirtyRef.current || pendingSavePaperIdRef.current !== targetPaperId) {
+      if (
+        !targetPaperId ||
+        !pendingDirtyRef.current ||
+        pendingSavePaperIdRef.current !== targetPaperId
+      ) {
         return
       }
 

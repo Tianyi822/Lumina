@@ -1,19 +1,10 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import {
-  existsSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync
-} from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { WriterExportDocument, WriterResult } from '@shared/types/writer'
-import {
-  WriterDocxExporter,
-  type WriterFormulaRasterizerPort
-} from './WriterDocxExporter'
+import { WriterDocxExporter, type WriterFormulaRasterizerPort } from './WriterDocxExporter'
 
 /** 1x1 透明 PNG */
 const VALID_PNG = Buffer.from(
@@ -90,9 +81,7 @@ function createRichExportDocument(imageSourcePath?: string): WriterExportDocumen
         items: [{ number: 1, runs: [{ kind: 'text', text: '脚注说明' }] }]
       }
     ],
-    assets: imageSourcePath
-      ? [{ sourcePath: imageSourcePath, exportName: 'hash.png' }]
-      : [],
+    assets: imageSourcePath ? [{ sourcePath: imageSourcePath, exportName: 'hash.png' }] : [],
     warnings: []
   }
 }
@@ -137,9 +126,7 @@ test('公式图片模型携带 LaTeX 替代文本', async () => {
 
 test('公式栅格化失败时写入可读 LaTeX 并产生警告', async () => {
   const rasterizer = new FakeFormulaRasterizer(null)
-  const result = await new WriterDocxExporter(rasterizer).build(
-    createMathExportDocument('\\frac{')
-  )
+  const result = await new WriterDocxExporter(rasterizer).build(createMathExportDocument('\\frac{'))
   assert.ok(result.plainText.includes('\\frac{'))
   assert.equal(result.warnings.length, 1)
   assert.equal(result.formulas.length, 0)

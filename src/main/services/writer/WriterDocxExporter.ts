@@ -295,7 +295,13 @@ async function mapList(
   let index = 1
   for (const item of items) {
     const prefix =
-      kind === 'taskList' ? (item.checked ? '☑ ' : '☐ ') : kind === 'orderedList' ? `${index}. ` : '• '
+      kind === 'taskList'
+        ? item.checked
+          ? '☑ '
+          : '☐ '
+        : kind === 'orderedList'
+          ? `${index}. `
+          : '• '
     const body = item.nodes.map(nodeToPlain).join(' ').trim()
     ctx.plainChunks.push(`${prefix}${body}`)
     paragraphs.push(
@@ -519,7 +525,9 @@ function nodeToPlain(node: WriterExportNode): string {
     case 'taskList':
       return node.items.map((item) => item.nodes.map(nodeToPlain).join(' ')).join(' ')
     case 'table':
-      return node.rows.map((row) => row.cells.map((cell) => runsToPlain(cell.runs)).join('\t')).join(' ')
+      return node.rows
+        .map((row) => row.cells.map((cell) => runsToPlain(cell.runs)).join('\t'))
+        .join(' ')
     case 'horizontalRule':
       return '---'
     case 'footnotes':

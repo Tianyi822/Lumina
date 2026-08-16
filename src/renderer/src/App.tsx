@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react
 import { useUIStateStore } from '@renderer/stores/uiStateStore'
 import { useConfigStore } from '@renderer/stores/configStore'
 import { usePaperViewStore } from '@renderer/stores/paper'
+import { useSyncStore } from '@renderer/stores/syncStore'
 import { getRuntimePlatform } from '@renderer/composables/runtimePlatformCore'
 
 import { useForegroundUpdateCheck } from '@renderer/composables/useForegroundUpdateCheck'
@@ -56,6 +57,16 @@ export default function App() {
     void configStore.loadConfig()
     usePaperViewStore.getState().loadPaperReaderPreferences()
   }, [loadConfigStatus])
+
+  // 同步事件流在应用生命周期内保持连接，设置页只负责展示与操作
+  useEffect(() => {
+    const syncStore = useSyncStore.getState()
+    void syncStore.refreshStatus()
+
+    return () => {
+      syncStore.cleanupEventStream()
+    }
+  }, [])
 
   // 全局链接拦截：防止默认导航，通过主进程打开外部链接
   useEffect(() => {
