@@ -7,12 +7,6 @@ import type { LLMConfig } from '@shared/types/config'
 import ModelApiKeyInput from './ModelApiKeyInput'
 import styles from './ModelSettings.module.css'
 
-const MODEL_FIELD_LABELS: Record<'base_url' | 'api_key' | 'model_name', string> = {
-  base_url: 'API Base URL',
-  api_key: 'API Key',
-  model_name: '模型名称'
-}
-
 const EMPTY_NEW_MODEL: LLMConfig = { base_url: '', api_key: '', model_name: '' }
 
 /** 对话模型配置页面：管理 LLM 列表、默认模型、新增/删除/测试连接 */
@@ -47,7 +41,13 @@ export default function ModelSettings() {
 
   const validateModelConfig = useCallback(
     (config: LLMConfig, index: number): string => {
-      const requiredFields: Array<keyof typeof MODEL_FIELD_LABELS> = [
+      // 字段显示名运行时取值，保证切换语言后校验消息同步
+      function fieldLabel(field: 'base_url' | 'api_key' | 'model_name'): string {
+        if (field === 'model_name') return t('notifications.settings.model.fieldModelName')
+        return field === 'base_url' ? 'API Base URL' : 'API Key'
+      }
+
+      const requiredFields: Array<'base_url' | 'api_key' | 'model_name'> = [
         'base_url',
         'api_key',
         'model_name'
@@ -55,13 +55,16 @@ export default function ModelSettings() {
 
       for (const field of requiredFields) {
         if (!config[field].trim()) {
-          return `模型配置"${getModelItemName(config, index)}"的 ${MODEL_FIELD_LABELS[field]} 不能为空`
+          return t('notifications.settings.model.validateFieldEmpty', {
+            name: getModelItemName(config, index),
+            field: fieldLabel(field)
+          })
         }
       }
 
       return ''
     },
-    [getModelItemName]
+    [getModelItemName, t]
   )
 
   const validateAllModelConfigs = useCallback((): boolean => {
@@ -70,12 +73,14 @@ export default function ModelSettings() {
       // 任一模型配置校验不通过则提示并阻止操作
       const validationMessage = validateModelConfig(config, index)
       if (validationMessage) {
-        notifyWarning('模型配置校验失败', validationMessage, { source: 'settings' })
+        notifyWarning(t('notifications.settings.model.validateFailedTitle'), validationMessage, {
+          source: 'settings'
+        })
         return false
       }
     }
     return true
-  }, [validateModelConfig])
+  }, [validateModelConfig, t])
 
   // Auto-save 队列
   const flushAutoSaveQueue = useCallback(async () => {
@@ -115,7 +120,9 @@ export default function ModelSettings() {
     const { llmConfigs: configs } = useConfigStore.getState()
     const validationMessage = validateModelConfig(newModelConfig, configs.length)
     if (validationMessage) {
-      notifyWarning('模型配置校验失败', validationMessage, { source: 'settings' })
+      notifyWarning(t('notifications.settings.model.validateFailedTitle'), validationMessage, {
+        source: 'settings'
+      })
       return
     }
 
@@ -132,7 +139,14 @@ export default function ModelSettings() {
     triggerAutoSave()
     setShowNewModelForm(false)
     setNewModelConfig({ ...EMPTY_NEW_MODEL })
-  }, [newModelConfig, validateModelConfig, updateLLMConfigs, updateDefaultModel, triggerAutoSave])
+  }, [
+    newModelConfig,
+    validateModelConfig,
+    updateLLMConfigs,
+    updateDefaultModel,
+    triggerAutoSave,
+    t
+  ])
 
   const deleteModel = useCallback(
     (modelIndex: number) => {
@@ -191,7 +205,9 @@ export default function ModelSettings() {
 
       const validationMessage = validateModelConfig(config, modelIndex)
       if (validationMessage) {
-        notifyWarning('模型配置校验失败', validationMessage, { source: 'settings' })
+        notifyWarning(t('notifications.settings.model.validateFailedTitle'), validationMessage, {
+          source: 'settings'
+        })
         return
       }
 
@@ -200,28 +216,40 @@ export default function ModelSettings() {
         // 调用主进程测试模型 API 连通性
         const result = await window.api.config.testModelConnection({ ...config })
         if (result.success) {
-          notifySuccess('模型连接测试成功', `模型"${getModelItemName(config, modelIndex)}"可用`, {
-            source: 'settings'
-          })
+          notifySuccess(
+            t('notifications.settings.model.testSuccessTitle'),
+            t('notifications.settings.model.testSuccessMessage', {
+              name: getModelItemName(config, modelIndex)
+            }),
+            { source: 'settings' }
+          )
         } else {
-          notifyError('模型连接测试失败', result.error || '连接测试失败', { source: 'settings' })
+          notifyError(
+            t('notifications.settings.model.testFailedTitle'),
+            result.error || t('notifications.settings.model.testFailedFallback'),
+            { source: 'settings' }
+          )
         }
       } catch (error) {
-        notifyError('模型连接测试失败', error instanceof Error ? error.message : String(error), {
-          source: 'settings'
-        })
+        notifyError(
+          t('notifications.settings.model.testFailedTitle'),
+          error instanceof Error ? error.message : String(error),
+          { source: 'settings' }
+        )
       } finally {
         setTestingModelIndex(null)
       }
     },
-    [validateModelConfig, getModelItemName]
+    [validateModelConfig, getModelItemName, t]
   )
 
   const testNewModelConnection = useCallback(async () => {
     const { llmConfigs: configs } = useConfigStore.getState()
     const validationMessage = validateModelConfig(newModelConfig, configs.length)
     if (validationMessage) {
-      notifyWarning('模型配置校验失败', validationMessage, { source: 'settings' })
+      notifyWarning(t('notifications.settings.model.validateFailedTitle'), validationMessage, {
+        source: 'settings'
+      })
       return
     }
 
@@ -229,20 +257,28 @@ export default function ModelSettings() {
     try {
       const result = await window.api.config.testModelConnection({ ...newModelConfig })
       if (result.success) {
-        notifySuccess('模型连接测试成功', `模型"${newModelConfig.model_name}"可用`, {
-          source: 'settings'
-        })
+        notifySuccess(
+          t('notifications.settings.model.testSuccessTitle'),
+          t('notifications.settings.model.testSuccessMessage', { name: newModelConfig.model_name }),
+          { source: 'settings' }
+        )
       } else {
-        notifyError('模型连接测试失败', result.error || '连接测试失败', { source: 'settings' })
+        notifyError(
+          t('notifications.settings.model.testFailedTitle'),
+          result.error || t('notifications.settings.model.testFailedFallback'),
+          { source: 'settings' }
+        )
       }
     } catch (error) {
-      notifyError('模型连接测试失败', error instanceof Error ? error.message : String(error), {
-        source: 'settings'
-      })
+      notifyError(
+        t('notifications.settings.model.testFailedTitle'),
+        error instanceof Error ? error.message : String(error),
+        { source: 'settings' }
+      )
     } finally {
       setTestingNewModel(false)
     }
-  }, [newModelConfig, validateModelConfig])
+  }, [newModelConfig, validateModelConfig, t])
 
   const updateModelConfig = useCallback(
     (modelIndex: number, field: keyof LLMConfig, value: string) => {

@@ -499,6 +499,33 @@ const en: Resources = {
       openPanelFirst: 'Open the AI panel and pick a model first',
       loadSessionFailed: 'Failed to load the writer chat session',
       selectionNotEditable: 'The selection has no editable text for rewriting or continuation'
+    },
+    settings: {
+      model: {
+        validateFailedTitle: 'Model Configuration Validation Failed',
+        validateFieldEmpty: 'Field {{field}} is required for model "{{name}}"',
+        fieldModelName: 'Model Name',
+        testSuccessTitle: 'Model Connection Test Succeeded',
+        testSuccessMessage: 'Model "{{name}}" is available',
+        testFailedTitle: 'Model Connection Test Failed',
+        testFailedFallback: 'Connection test failed'
+      },
+      embedding: {
+        title: 'Embedding Model',
+        deleted: 'Embedding model deleted',
+        deleteFailed: 'Failed to delete embedding model',
+        testSuccess: 'Connection test succeeded',
+        testFailedFallback: 'Connection test failed',
+        updated: 'Embedding model updated',
+        added: 'Embedding model added',
+        resaveNote:
+          'Saving an edit as a new configuration is expected; the original is not affected.',
+        updateFailed: 'Failed to update embedding model',
+        addFailed: 'Failed to add embedding model',
+        saveTestConfigFailed: 'Failed to save test configuration',
+        testFailedPrefix: 'Test failed: ',
+        configSaved: 'Embedding model configuration saved'
+      }
     }
   }
 }

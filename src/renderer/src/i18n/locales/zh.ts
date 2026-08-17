@@ -477,6 +477,32 @@ const zh = {
       openPanelFirst: '请先打开 AI 面板选择模型',
       loadSessionFailed: '加载写作聊天会话失败',
       selectionNotEditable: '当前选区没有可编辑文本，无法改写或续写'
+    },
+    settings: {
+      model: {
+        validateFailedTitle: '模型配置校验失败',
+        validateFieldEmpty: '模型配置"{{name}}"的 {{field}} 不能为空',
+        fieldModelName: '模型名称',
+        testSuccessTitle: '模型连接测试成功',
+        testSuccessMessage: '模型"{{name}}"可用',
+        testFailedTitle: '模型连接测试失败',
+        testFailedFallback: '连接测试失败'
+      },
+      embedding: {
+        title: '嵌入模型',
+        deleted: '嵌入模型已删除',
+        deleteFailed: '删除嵌入模型失败',
+        testSuccess: '连接测试成功',
+        testFailedFallback: '连接测试失败',
+        updated: '嵌入模型已更新',
+        added: '嵌入模型已添加',
+        resaveNote: '编辑后保存为新配置是正常逻辑，原配置不受影响。',
+        updateFailed: '更新嵌入模型失败',
+        addFailed: '添加嵌入模型失败',
+        saveTestConfigFailed: '保存测试配置失败',
+        testFailedPrefix: '测试失败: ',
+        configSaved: '嵌入模型配置已保存'
+      }
     }
   }
 }

@@ -56,12 +56,20 @@ export default function EmbeddingModelSettings() {
     async (id: string) => {
       const success = await deleteEmbeddingModel(id)
       if (success) {
-        notifySuccess('嵌入模型', '嵌入模型已删除', { source: 'settings' })
+        notifySuccess(
+          t('notifications.settings.embedding.title'),
+          t('notifications.settings.embedding.deleted'),
+          { source: 'settings' }
+        )
       } else {
-        notifyError('嵌入模型', '删除嵌入模型失败', { source: 'settings' })
+        notifyError(
+          t('notifications.settings.embedding.title'),
+          t('notifications.settings.embedding.deleteFailed'),
+          { source: 'settings' }
+        )
       }
     },
-    [deleteEmbeddingModel]
+    [deleteEmbeddingModel, t]
   )
 
   // 测试模型（已保存的）
@@ -71,15 +79,23 @@ export default function EmbeddingModelSettings() {
       try {
         const result = await testEmbeddingModel(id)
         if (result.success) {
-          notifySuccess('嵌入模型', '连接测试成功', { source: 'settings' })
+          notifySuccess(
+            t('notifications.settings.embedding.title'),
+            t('notifications.settings.embedding.testSuccess'),
+            { source: 'settings' }
+          )
         } else {
-          notifyError('嵌入模型', result.error || '连接测试失败', { source: 'settings' })
+          notifyError(
+            t('notifications.settings.embedding.title'),
+            result.error || t('notifications.settings.embedding.testFailedFallback'),
+            { source: 'settings' }
+          )
         }
       } finally {
         setTestingModelId(null)
       }
     },
-    [testEmbeddingModel]
+    [testEmbeddingModel, t]
   )
 
   // 保存模型（新增或更新）
@@ -88,24 +104,34 @@ export default function EmbeddingModelSettings() {
       const isEditing = editingModelId !== null
       const success = await saveEmbeddingModel(id, config)
       if (success) {
-        notifySuccess('嵌入模型', isEditing ? '嵌入模型已更新' : '嵌入模型已添加', {
-          source: 'settings'
-        })
+        notifySuccess(
+          t('notifications.settings.embedding.title'),
+          isEditing
+            ? t('notifications.settings.embedding.updated')
+            : t('notifications.settings.embedding.added'),
+          { source: 'settings' }
+        )
         if (isEditing) {
-          notifyInfo('嵌入模型', '编辑后保存为新配置是正常逻辑，原配置不受影响。', {
-            source: 'settings'
-          })
+          notifyInfo(
+            t('notifications.settings.embedding.title'),
+            t('notifications.settings.embedding.resaveNote'),
+            { source: 'settings' }
+          )
         }
         setShowAddForm(false)
         setEditingModelId(null)
         setEditingModelConfig(null)
       } else {
-        notifyError('嵌入模型', isEditing ? '更新嵌入模型失败' : '添加嵌入模型失败', {
-          source: 'settings'
-        })
+        notifyError(
+          t('notifications.settings.embedding.title'),
+          isEditing
+            ? t('notifications.settings.embedding.updateFailed')
+            : t('notifications.settings.embedding.addFailed'),
+          { source: 'settings' }
+        )
       }
     },
-    [saveEmbeddingModel, editingModelId]
+    [saveEmbeddingModel, editingModelId, t]
   )
 
   // 取消添加/编辑
@@ -128,24 +154,38 @@ export default function EmbeddingModelSettings() {
         )
 
         if (!saveResult.success) {
-          notifyError('嵌入模型', '保存测试配置失败', { source: 'settings' })
+          notifyError(
+            t('notifications.settings.embedding.title'),
+            t('notifications.settings.embedding.saveTestConfigFailed'),
+            { source: 'settings' }
+          )
           return
         }
 
         if (testResult?.success) {
-          notifySuccess('嵌入模型', '连接测试成功', { source: 'settings' })
+          notifySuccess(
+            t('notifications.settings.embedding.title'),
+            t('notifications.settings.embedding.testSuccess'),
+            { source: 'settings' }
+          )
         } else {
-          notifyError('嵌入模型', testResult?.error || '连接测试失败', { source: 'settings' })
+          notifyError(
+            t('notifications.settings.embedding.title'),
+            testResult?.error || t('notifications.settings.embedding.testFailedFallback'),
+            { source: 'settings' }
+          )
         }
       } catch (error) {
         notifyError(
-          '嵌入模型',
-          `测试失败: ${error instanceof Error ? error.message : String(error)}`,
+          t('notifications.settings.embedding.title'),
+          `${t('notifications.settings.embedding.testFailedPrefix')}${
+            error instanceof Error ? error.message : String(error)
+          }`,
           { source: 'settings' }
         )
       }
     },
-    [testNewModel]
+    [testNewModel, t]
   )
 
   // 保存配置
@@ -153,11 +193,15 @@ export default function EmbeddingModelSettings() {
     setSaving(true)
     try {
       await loadEmbeddingModels()
-      notifySuccess('嵌入模型', '嵌入模型配置已保存', { source: 'settings' })
+      notifySuccess(
+        t('notifications.settings.embedding.title'),
+        t('notifications.settings.embedding.configSaved'),
+        { source: 'settings' }
+      )
     } finally {
       setSaving(false)
     }
-  }, [loadEmbeddingModels])
+  }, [loadEmbeddingModels, t])
 
   const modelEntries = Object.entries(embeddingModels)
   const modelCount = modelEntries.length
