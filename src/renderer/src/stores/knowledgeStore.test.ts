@@ -2,6 +2,10 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { useKnowledgeStore } from './knowledgeStore'
 import type { KnowledgeBase } from '@shared/types/knowledge'
+import { initI18n } from '@renderer/i18n'
+
+// store 错误兜底走 i18n.t：先初始化（测试环境无 localStorage，默认语言恒为 zh）
+await initI18n()
 
 function createKnowledgeBase(): KnowledgeBase {
   return {
