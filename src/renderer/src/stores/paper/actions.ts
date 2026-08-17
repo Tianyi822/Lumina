@@ -173,7 +173,9 @@ async function startPaperUploadPipeline(
   try {
     const fileResult = await window.api.paper.readFileAsBase64(fileInfo.path)
     if (!fileResult.success || !fileResult.data) {
-      throw new Error(fileResult.error || `读取 PDF 文件失败: ${fileInfo.name}`)
+      throw new Error(
+        fileResult.error || i18n.t('notifications.paper.readPdfFileFailed', { name: fileInfo.name })
+      )
     }
 
     rasterizer = usePdfPageRasterizer()
@@ -185,7 +187,10 @@ async function startPaperUploadPipeline(
       pageCount: totalPageCount
     })
     if (!createResult.success || !createResult.data) {
-      throw new Error(createResult.error || `创建论文记录失败: ${fileInfo.name}`)
+      throw new Error(
+        createResult.error ||
+          i18n.t('notifications.paper.createPaperRecordFailed', { name: fileInfo.name })
+      )
     }
 
     const newPaperId = createResult.data.id
@@ -356,7 +361,7 @@ export async function retryPaper(paperId: string): Promise<{ success: boolean; e
     try {
       const fileResult = await window.api.paper.readFileAsBase64(paper.filePath)
       if (!fileResult.success || !fileResult.data) {
-        throw new Error(fileResult.error || '读取本地论文文件失败')
+        throw new Error(fileResult.error || i18n.t('notifications.paper.readLocalPaperFileFailed'))
       }
       const rasterizer = usePdfPageRasterizer()
       const pageInfos = await rasterizer.loadPdf(decodeBase64ToArrayBuffer(fileResult.data))

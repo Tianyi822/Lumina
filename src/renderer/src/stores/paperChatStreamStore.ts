@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { deepClone } from '@shared/utils'
+import { i18n } from '@renderer/i18n'
 import { usePaperChatMessageCacheStore } from './paperChatMessageCacheStore'
 import { useReactIterationManager } from './paperChatReactIteration'
 import { usePlanStateManager } from './paperChatPlanState'
@@ -63,7 +64,6 @@ export interface PaperChatStreamState {
 const paperChatMessageCache = usePaperChatMessageCacheStore
 const reactIteration = useReactIterationManager()
 const planManager = usePlanStateManager()
-const REQUEST_FAILED_MESSAGE = '请求失败，请稍后重试或换一个模型。'
 
 /**
  * 流式聊天 Store
@@ -445,6 +445,7 @@ export const usePaperChatStreamStore = create<PaperChatStreamState>()((set, get)
 
     const existingPlan = planManager.planStates.value.get(targetSessionId)
     if (existingPlan) {
+      const cancelledByUser = i18n.t('notifications.paper.cancelledByUser')
       const nextPlan = {
         ...existingPlan,
         status: 'cancelled' as const,
@@ -452,10 +453,10 @@ export const usePaperChatStreamStore = create<PaperChatStreamState>()((set, get)
           .clonePlanSteps(existingPlan.steps)
           .map((step) =>
             step.status === 'pending' || step.status === 'running'
-              ? { ...step, status: 'cancelled' as const, error: '用户已取消' }
+              ? { ...step, status: 'cancelled' as const, error: cancelledByUser }
               : step
           ),
-        error: '用户已取消',
+        error: cancelledByUser,
         updatedAt: new Date().toISOString()
       }
       planManager.setPlanState(targetSessionId, nextPlan)
@@ -561,7 +562,7 @@ function handleStreamError(
   if (streamingMessage) {
     streamingMessage.isStreaming = false
     if (!streamingMessage.content.trim() && event.error) {
-      streamingMessage.content = REQUEST_FAILED_MESSAGE
+      streamingMessage.content = i18n.t('notifications.paper.streamRequestFailed')
     }
     reactIteration.finalizeIterations(streamingMessage, sessionId)
   } else {

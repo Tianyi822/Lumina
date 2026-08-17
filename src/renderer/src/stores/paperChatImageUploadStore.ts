@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { formatFileSize } from '@shared/utils'
+import { i18n } from '@renderer/i18n'
 
 export interface PendingImage {
   fileName: string
@@ -75,21 +76,24 @@ export const usePaperChatImageUploadStore = create<PaperChatImageUploadState>()(
     let skipped = 0
 
     if (availableSlots <= 0) {
-      errors.push(`已达到最大图片数量限制（${IMAGE_MAX_COUNT}张）`)
+      errors.push(i18n.t('notifications.common.imageMaxCountReached', { max: IMAGE_MAX_COUNT }))
       return { added: 0, skipped: files.length, errors }
     }
 
     const filesToProcess = files.slice(0, availableSlots)
     if (files.length > availableSlots) {
       skipped = files.length - availableSlots
-      errors.push(`超出数量限制，已忽略 ${skipped} 张图片`)
+      errors.push(i18n.t('notifications.common.imageOverLimitSkipped', { count: skipped }))
     }
 
     for (const [fileIndex, file] of filesToProcess.entries()) {
       const normalizedFile = normalizeImageFile(file, fileIndex)
       const validation = validateImageFile(normalizedFile)
       if (!validation.valid) {
-        errors.push(validation.error || `图片 "${normalizedFile.name}" 验证失败`)
+        errors.push(
+          validation.error ||
+            i18n.t('notifications.common.imageValidationFailed', { name: normalizedFile.name })
+        )
         skipped++
         continue
       }
@@ -151,7 +155,12 @@ export const usePaperChatImageUploadStore = create<PaperChatImageUploadState>()(
         })
 
         const errorMessage = error instanceof Error ? error.message : String(error)
-        errors.push(`图片 "${normalizedFile.name}" 压缩失败: ${errorMessage}`)
+        errors.push(
+          i18n.t('notifications.common.imageCompressFailed', {
+            name: normalizedFile.name,
+            reason: errorMessage
+          })
+        )
         skipped++
       } finally {
         setTimeout(() => {

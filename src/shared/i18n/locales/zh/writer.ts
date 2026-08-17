@@ -9,7 +9,8 @@ const writer = {
     titleAriaLabel: '文档标题',
     untitled: '无标题文档',
     imagePickerAriaLabel: '选择写作图片',
-    placeholder: '开始写作…'
+    placeholder: '开始写作…',
+    unreferencedLabel: '未引用'
   },
   slashMenu: {
     paragraph: '正文',
@@ -115,9 +116,9 @@ const writer = {
     requestFailed: '模型请求失败，请稍后重试或换一个模型。',
     interrupted: '连接已中断（{{message}}），请稍后重试或换一个模型。',
     timeout: '请求超时或已中断（{{message}}），请稍后重试。',
-    saveFailed: '保存写作聊天会话失败',
-    createFailed: '创建写作聊天会话失败',
-    notReady: '写作聊天会话未就绪',
+    saveFailed: '保存写作对话失败',
+    createFailed: '创建写作对话失败',
+    notReady: '写作对话未就绪',
     noModel: '请先选择一个模型'
   }
 }

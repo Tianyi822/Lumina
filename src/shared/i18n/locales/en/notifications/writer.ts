@@ -23,6 +23,8 @@ const writer: Resources['notifications']['writer'] = {
   imageInsertUnavailable: 'Cannot insert an image at the current position',
   invalidDocumentId: 'Invalid writing document ID',
   invalidAssetResponse: 'Invalid image asset response',
+  htmlPasteUnsupported: 'HTML paste parsing is not supported in this environment',
+  imageAssetUrlInvalid: 'Invalid writing image asset URL',
   suggestionExpiredTitle: 'Suggestion expired',
   clearConfirmTitle: 'Clear the current writing chat context?',
   clearConfirmBody: 'The chat history will be cleared.',

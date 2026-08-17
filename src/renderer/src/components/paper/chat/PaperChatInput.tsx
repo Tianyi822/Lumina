@@ -9,6 +9,7 @@ import type {
 } from '@renderer/types'
 import type { PaperQuote } from '@shared/types/chat'
 import type { CapabilitySuggestionData } from '@renderer/stores/paperChatStreamStore'
+import { i18n } from '@renderer/i18n'
 import SvgIcon from '@renderer/components/icons/SvgIcon'
 import {
   usePaperChatDocumentUploadStore,
@@ -189,7 +190,7 @@ export default function PaperChatInput({
           .getState()
           .addImages(sessionId, imageFiles)
         if (result.errors.length > 0) {
-          setAttachmentError(result.errors.join('\uff1b'))
+          setAttachmentError(result.errors.join(i18n.t('common.listSeparator')))
         }
       }
       if (documentFiles.length > 0) {

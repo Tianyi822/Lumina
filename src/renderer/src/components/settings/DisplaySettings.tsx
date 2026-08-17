@@ -5,7 +5,7 @@ import type { ThemeConfig, ThemeMode } from '@shared/types/config'
 import LanguageSettings from './LanguageSettings'
 import styles from './DisplaySettings.module.css'
 
-/** 主题卡片描述文案的翻译 key（按主题 id 映射；未知主题回退自带描述） */
+/** 主题卡片描述文案的翻译 key（按主题 id 映射；未知主题不显示描述） */
 const THEME_DESC_KEYS: Record<string, string> = {
   'lumina-dark': 'settings.display.theme.descDark',
   'lumina-light': 'settings.display.theme.descLight'
@@ -156,7 +156,7 @@ export default function DisplaySettings({ onThemeChange }: DisplaySettingsProps)
               <div className={styles['theme-info']}>
                 <span className={styles['theme-name']}>{theme.name}</span>
                 <span className={styles['theme-desc']}>
-                  {THEME_DESC_KEYS[theme.id] ? t(THEME_DESC_KEYS[theme.id]) : theme.description}
+                  {THEME_DESC_KEYS[theme.id] ? t(THEME_DESC_KEYS[theme.id]) : ''}
                 </span>
               </div>
             </button>

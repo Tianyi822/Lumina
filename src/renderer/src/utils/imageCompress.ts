@@ -178,10 +178,12 @@ function loadImageFromFile(file: File): Promise<HTMLImageElement> {
     reader.onload = () => {
       const img = new Image()
       img.onload = () => resolve(img)
-      img.onerror = () => reject(new Error(`无法加载图片: ${file.name}`))
+      img.onerror = () =>
+        reject(new Error(i18n.t('notifications.common.imageLoadFailed', { name: file.name })))
       img.src = reader.result as string
     }
-    reader.onerror = () => reject(new Error(`无法读取文件: ${file.name}`))
+    reader.onerror = () =>
+      reject(new Error(i18n.t('notifications.common.imageReadFailed', { name: file.name })))
     reader.readAsDataURL(file)
   })
 }
@@ -193,7 +195,7 @@ function loadImageFromDataURL(dataURL: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image()
     img.onload = () => resolve(img)
-    img.onerror = () => reject(new Error('无法加载图片'))
+    img.onerror = () => reject(new Error(i18n.t('notifications.common.imageLoadFailedBare')))
     img.src = dataURL
   })
 }
@@ -270,7 +272,7 @@ export async function compressImage(file: File): Promise<CompressedImage> {
 
   const ctx = canvas.getContext('2d')
   if (!ctx) {
-    throw new Error('无法创建 Canvas 上下文')
+    throw new Error(i18n.t('notifications.common.canvasContextFailed'))
   }
 
   // 绘制图片
@@ -317,7 +319,7 @@ async function generateThumbnail(
 
   const ctx = canvas.getContext('2d')
   if (!ctx) {
-    throw new Error('无法创建 Canvas 上下文')
+    throw new Error(i18n.t('notifications.common.canvasContextFailed'))
   }
 
   ctx.drawImage(img, 0, 0, scaled.width, scaled.height)

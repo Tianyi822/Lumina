@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { PaperDocument, PaperStatus, OcrProgressInfo } from '@shared/types/paper'
+import { i18n } from '@renderer/i18n'
 import {
   createIdleOcrProgress,
   isPaperReadableStatus,
@@ -241,7 +242,7 @@ export const usePaperListStore = create<PaperListState>()((set, get) => {
     ): Promise<void> => {
       const result = await window.api.paper.updateStatus({ paperId, status, errorMessage })
       if (!result.success) {
-        throw new Error(result.error || '更新论文状态失败')
+        throw new Error(result.error || i18n.t('notifications.paper.updatePaperStatusFailed'))
       }
       get().updatePaperInList(paperId, { status, errorMessage })
     },
@@ -418,7 +419,10 @@ export const usePaperListStore = create<PaperListState>()((set, get) => {
 
             if (!saveResult.success) {
               throw new Error(
-                `保存第 ${pageIndex + 1} 页图片失败: ${saveResult.error || '未知错误'}`
+                i18n.t('notifications.paper.savePageImageFailed', {
+                  page: pageIndex + 1,
+                  reason: saveResult.error || i18n.t('common.unknownError')
+                })
               )
             }
           },

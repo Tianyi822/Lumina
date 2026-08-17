@@ -178,7 +178,23 @@ const paper: Resources['notifications']['paper'] = {
   webSearchQueryEmpty: 'The search query is empty',
   webSearchEndpointError: 'Search endpoint returned an error: {{status}}',
   webSearchEndpointRequestFailed: 'Search endpoint request failed: {{message}}',
-  webSearchPageFetchFailed: 'Failed to fetch the page {{source}}: {{detail}}'
+  webSearchPageFetchFailed: 'Failed to fetch the page {{source}}: {{detail}}',
+  // ===== Renderer runtime error copy (phase 6, T9) =====
+  streamRequestFailed: 'The request failed. Try again later or switch models.',
+  cancelledByUser: 'Cancelled by the user',
+  readPdfFileFailed: 'Failed to read the PDF file: {{name}}',
+  createPaperRecordFailed: 'Failed to create the paper record: {{name}}',
+  readLocalPaperFileFailed: 'Failed to read the local paper file',
+  updatePaperStatusFailed: 'Failed to update the paper status',
+  savePageImageFailed: 'Failed to save the page {{page}} image: {{reason}}',
+  canvas2dContextFailed: 'Failed to create the 2D canvas context',
+  pdfFetchFailed: 'PDF request failed: {{status}}',
+  pdfLoadFailed: 'Failed to load the PDF',
+  pdfNotLoaded: 'The PDF is not loaded; call loadPdf first',
+  pageIndexInvalid: 'Invalid page index: {{index}}; valid range: 0-{{max}}',
+  pageRenderFailed: 'Failed to render page {{index}}',
+  segmentIndexInvalid: 'Invalid segment index: {{index}}',
+  documentUploadFailed: 'Upload failed'
 }
 
 export default paper

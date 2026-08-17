@@ -21,6 +21,8 @@ const writer = {
   imageInsertUnavailable: '无法在当前位置插入图片',
   invalidDocumentId: '写作文档 ID 无效',
   invalidAssetResponse: '图片资源响应无效',
+  htmlPasteUnsupported: '当前环境不支持 HTML 粘贴解析',
+  imageAssetUrlInvalid: '写作图片资源 URL 无效',
   suggestionExpiredTitle: '建议已失效',
   clearConfirmTitle: '清空当前写作聊天上下文？',
   clearConfirmBody: '聊天记录会被清空。',

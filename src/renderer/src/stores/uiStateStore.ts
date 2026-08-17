@@ -20,7 +20,6 @@ export type { ViewMode } from '@renderer/components/chrome/workspaceNavigation'
 export interface ThemeMeta {
   id: string
   name: string
-  description?: string
   previewColors?: {
     primary: string
     secondary: string
@@ -34,7 +33,6 @@ export const AVAILABLE_THEMES: ThemeMeta[] = [
   {
     id: 'lumina-dark',
     name: 'Lumina Dark',
-    description: 'settings.display.theme.descDark',
     previewColors: {
       primary: '#121212',
       secondary: '#1b1f26',
@@ -46,7 +44,6 @@ export const AVAILABLE_THEMES: ThemeMeta[] = [
   {
     id: 'lumina-light',
     name: 'Lumina Light',
-    description: 'settings.display.theme.descLight',
     previewColors: {
       primary: '#f5f5f7',
       secondary: '#ffffff',

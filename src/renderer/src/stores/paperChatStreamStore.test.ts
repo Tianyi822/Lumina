@@ -2,7 +2,11 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { usePaperChatStreamStore, type PaperChatStreamState } from './paperChatStreamStore'
 import { derivePaperChatStepContent } from '@renderer/components/paper/chat/message/paperChatReactStepContent'
+import { initI18n } from '@renderer/i18n'
 import type { Message, StreamEvent } from '@renderer/types'
+
+// 错误兜底文案改走 i18n.t：先初始化（测试环境默认 zh，既有中文断言不变）
+await initI18n()
 
 const sessionId = 'paper-session-test'
 const turnId = 'assistant-turn-test'

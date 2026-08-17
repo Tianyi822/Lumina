@@ -518,7 +518,7 @@ export function usePaperMarkdownEngine(options: PaperMarkdownEngineOptions): Pap
   }> {
     const segment = ctx.sourceSegments[index]
     if (!segment) {
-      throw new Error(`段落索引无效: ${index}`)
+      throw new Error(i18n.t('notifications.paper.segmentIndexInvalid', { index }))
     }
 
     const outlineEntry = ctx.outlineEntryMap.get(segment.renderId)

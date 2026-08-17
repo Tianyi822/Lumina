@@ -1,6 +1,7 @@
 import { Extension } from '@tiptap/core'
 import { Plugin } from '@tiptap/pm/state'
 import MarkdownIt from 'markdown-it'
+import { i18n } from '@renderer/i18n'
 
 export interface WriterPastePayload {
   kind: 'html' | 'markdown' | 'text'
@@ -71,7 +72,7 @@ function escapeHtml(value: string): string {
 
 function parseHtmlDocument(html: string): Document {
   if (typeof DOMParser === 'undefined') {
-    throw new Error('当前环境不支持 HTML 粘贴解析')
+    throw new Error(i18n.t('notifications.writer.htmlPasteUnsupported'))
   }
   return new DOMParser().parseFromString(
     `<!doctype html><html><head></head><body>${html}</body></html>`,

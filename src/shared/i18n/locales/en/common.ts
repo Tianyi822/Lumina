@@ -27,6 +27,7 @@ const common: Resources['common'] = {
   resizeChat: 'Drag to resize the chat panel',
   unknownError: 'Unknown error',
   ok: 'OK',
+  listSeparator: '; ',
   chat: {
     clearContext: 'Clear context',
     loading: 'Loading conversation...'

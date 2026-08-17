@@ -164,7 +164,23 @@ const paper = {
   webSearchQueryEmpty: '搜索 query 为空',
   webSearchEndpointError: '搜索入口返回异常: {{status}}',
   webSearchEndpointRequestFailed: '搜索入口请求失败: {{message}}',
-  webSearchPageFetchFailed: '页面抓取失败 {{source}}: {{detail}}'
+  webSearchPageFetchFailed: '页面抓取失败 {{source}}: {{detail}}',
+  // ===== 渲染进程运行时错误文案（六期 T9）=====
+  streamRequestFailed: '请求失败，请稍后重试或换一个模型。',
+  cancelledByUser: '用户已取消',
+  readPdfFileFailed: '读取 PDF 文件失败: {{name}}',
+  createPaperRecordFailed: '创建论文记录失败: {{name}}',
+  readLocalPaperFileFailed: '读取本地论文文件失败',
+  updatePaperStatusFailed: '更新论文状态失败',
+  savePageImageFailed: '保存第 {{page}} 页图片失败: {{reason}}',
+  canvas2dContextFailed: '创建 Canvas 2D 上下文失败',
+  pdfFetchFailed: 'PDF 请求失败: {{status}}',
+  pdfLoadFailed: '加载 PDF 失败',
+  pdfNotLoaded: 'PDF 未加载，请先调用 loadPdf',
+  pageIndexInvalid: '页面索引无效: {{index}}，有效范围: 0-{{max}}',
+  pageRenderFailed: '渲染页面 {{index}} 失败',
+  segmentIndexInvalid: '段落索引无效: {{index}}',
+  documentUploadFailed: '上传失败'
 }
 
 export default paper

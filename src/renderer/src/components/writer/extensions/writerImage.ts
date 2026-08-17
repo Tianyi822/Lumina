@@ -149,7 +149,7 @@ export function createWriterImageAttrs(input: CreateWriterImageAttrsInput): Writ
     parsedUrl.relativePath !== input.relativePath ||
     (input.documentId !== undefined && parsedUrl.documentId !== input.documentId)
   ) {
-    throw new Error('写作图片资源 URL 无效')
+    throw new Error(i18n.t('notifications.writer.imageAssetUrlInvalid'))
   }
 
   return {

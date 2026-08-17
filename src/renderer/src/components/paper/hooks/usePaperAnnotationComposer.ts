@@ -5,10 +5,7 @@ import {
   PAPER_ANNOTATION_HIGHLIGHT_COLOR_KEYS,
   PAPER_ANNOTATION_NOTE_COLOR_KEY
 } from '@shared/types/paper'
-import {
-  PAPER_ANNOTATION_NOTE_CONFLICT_MESSAGE,
-  findPaperAnnotationNoteConflict
-} from '@shared/utils/paperAnnotationConflicts'
+import { findPaperAnnotationNoteConflict } from '@shared/utils/paperAnnotationConflicts'
 import { i18n } from '@renderer/i18n'
 import { createPaperAnnotationComposerActions } from '../composables/paperAnnotationComposerActions'
 import {
@@ -443,7 +440,7 @@ export function usePaperAnnotationComposer(
     }
 
     if (findNoteConflict(menu.draft)) {
-      setSelectionActionMenuError(PAPER_ANNOTATION_NOTE_CONFLICT_MESSAGE)
+      setSelectionActionMenuError(i18n.t('notifications.paper.noteConflict'))
       return
     }
 
@@ -487,7 +484,7 @@ export function usePaperAnnotationComposer(
 
     if (findNoteConflict(draft.draft)) {
       setNoteEditorSaving(false)
-      setNoteEditorError(PAPER_ANNOTATION_NOTE_CONFLICT_MESSAGE)
+      setNoteEditorError(i18n.t('notifications.paper.noteConflict'))
       return
     }
 

@@ -25,6 +25,7 @@ const common = {
   resizeChat: '拖拽调整聊天窗口宽度',
   unknownError: '未知错误',
   ok: '确定',
+  listSeparator: '；',
   chat: {
     clearContext: '清空上下文',
     loading: '正在加载对话...'

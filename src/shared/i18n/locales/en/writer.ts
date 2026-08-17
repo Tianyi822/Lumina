@@ -11,7 +11,8 @@ const writer: Resources['writer'] = {
     titleAriaLabel: 'Document title',
     untitled: 'Untitled document',
     imagePickerAriaLabel: 'Choose a writing image',
-    placeholder: 'Start writing…'
+    placeholder: 'Start writing…',
+    unreferencedLabel: 'Unreferenced'
   },
   slashMenu: {
     paragraph: 'Paragraph',
@@ -117,9 +118,9 @@ const writer: Resources['writer'] = {
     requestFailed: 'The model request failed. Retry later or switch models.',
     interrupted: 'Connection interrupted ({{message}}). Retry later or switch models.',
     timeout: 'The request timed out or was interrupted ({{message}}). Retry later.',
-    saveFailed: 'Failed to save the writing chat session',
-    createFailed: 'Failed to create the writing chat session',
-    notReady: 'Writing chat session not ready',
+    saveFailed: 'Failed to save the Writer chat session',
+    createFailed: 'Failed to create the Writer chat session',
+    notReady: 'Writer chat session not ready',
     noModel: 'Select a model first'
   }
 }

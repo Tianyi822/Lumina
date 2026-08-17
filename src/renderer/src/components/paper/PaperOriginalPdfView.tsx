@@ -14,6 +14,7 @@ import {
   type RenderTask
 } from 'pdfjs-dist'
 import { useTranslation } from 'react-i18next'
+import { i18n } from '@renderer/i18n'
 import { usePaperViewStore } from '@renderer/stores/paper'
 import { useZoomAnchor } from './composables/useZoomAnchor'
 import styles from './PaperOriginalPdfView.module.css'
@@ -173,7 +174,7 @@ export default function PaperOriginalPdfView({ paperId }: PaperOriginalPdfViewPr
           willReadFrequently: false
         })
         if (!canvasContext) {
-          throw new Error('创建 Canvas 2D 上下文失败')
+          throw new Error(i18n.t('notifications.paper.canvas2dContextFailed'))
         }
 
         // 仅在尺寸变化时更新 Canvas 大小，避免不必要的重设
@@ -383,7 +384,7 @@ export default function PaperOriginalPdfView({ paperId }: PaperOriginalPdfViewPr
         // 通过 fetch 获取 PDF 二进制数据（走 lumina:// 协议自定义拦截）
         const response = await fetch(sourcePdfUrl)
         if (!response.ok) {
-          throw new Error(`PDF 请求失败: ${response.status}`)
+          throw new Error(i18n.t('notifications.paper.pdfFetchFailed', { status: response.status }))
         }
 
         const source = await response.arrayBuffer()
