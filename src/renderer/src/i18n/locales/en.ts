@@ -693,13 +693,13 @@ const en: Resources = {
   notifications: {
     dismiss: 'Dismiss notification',
     paper: {
-      confirmTitle: 'Delete Paper',
+      confirmTitle: 'Delete paper',
       confirmIrreversible: 'This cannot be undone.',
-      deleteFailedTitle: 'Failed to Delete Paper',
+      deleteFailedTitle: 'Failed to delete paper',
       deleteFailedMessage: 'Please try again later or check the logs for details.',
-      retryFailedTitle: 'Retry Failed',
+      retryFailedTitle: 'Retry failed',
       unknownError: 'Unknown error',
-      deleteTranslationTitle: 'Delete Translation',
+      deleteTranslationTitle: 'Delete translation',
       translationAnnotatedLine1: 'This translation already has annotations.',
       translationAnnotatedLine2_one: 'It contains {{count}} translation annotation.',
       translationAnnotatedLine2_other: 'It contains {{count}} translation annotations.',
@@ -709,8 +709,8 @@ const en: Resources = {
       translationHighlights_other: '{{count}} highlights',
       translationAnnotatedLine3: 'Deleting the translation will delete these annotations too.',
       translationAnnotatedLine4: 'Delete the translation anyway?',
-      deleteTranslationFailedTitle: 'Failed to Delete Translation',
-      chatTitle: 'Paper Chat',
+      deleteTranslationFailedTitle: 'Failed to delete translation',
+      chatTitle: 'Paper chat',
       chatCreateFailed: 'Failed to create the paper chat session',
       annotationTitle: 'Paper annotations',
       annotationIndexLoading: 'The reader segment index is loading. Try again shortly',
@@ -765,10 +765,10 @@ const en: Resources = {
     },
     knowledge: {
       confirmIrreversible: 'This cannot be undone.',
-      deleteKbTitle: 'Delete Knowledge Base',
-      deleteKbFailedTitle: 'Failed to Delete Knowledge Base',
+      deleteKbTitle: 'Delete knowledge base',
+      deleteKbFailedTitle: 'Failed to delete knowledge base',
       unknownError: 'Unknown error',
-      createKbFailedTitle: 'Failed to Create Knowledge Base',
+      createKbFailedTitle: 'Failed to create knowledge base',
       indexFailed: 'Indexing failed',
       unlinkConfirmTitle: 'Remove document from knowledge base',
       unlinkConfirmBody:
@@ -807,15 +807,15 @@ const en: Resources = {
     },
     writer: {
       confirmIrreversible: 'This cannot be undone.',
-      deleteDocumentTitle: 'Delete Document Permanently',
+      deleteDocumentTitle: 'Delete document permanently',
       deleteFolderMessage: 'Deleting the folder moves its documents back to All Documents.',
-      deleteFolderTitle: 'Delete Folder',
-      exportFailedTitle: 'Export Failed',
+      deleteFolderTitle: 'Delete folder',
+      exportFailedTitle: 'Export failed',
       exportFailedFallback: 'Unable to export the document',
-      exportDoneTitle: 'Export Complete',
+      exportDoneTitle: 'Export complete',
       exportDoneMessage: 'Exported as {{format}}',
-      chatRequestFailed: 'Writer Chat Request Failed',
-      chatTitle: 'Writer Chat',
+      chatRequestFailed: 'Writer chat request failed',
+      chatTitle: 'Writer chat',
       stopReplyFirst: 'Stop the current reply first',
       openPanelFirst: 'Open the AI panel and pick a model first',
       loadSessionFailed: 'Failed to load the writer chat session',
@@ -848,14 +848,14 @@ const en: Resources = {
       model: {
         validateFailedTitle: 'Model configuration validation failed',
         validateFieldEmpty: 'Field {{field}} is required for model "{{name}}"',
-        fieldModelName: 'Model Name',
+        fieldModelName: 'Model name',
         testSuccessTitle: 'Model connection test succeeded',
         testSuccessMessage: 'Model "{{name}}" is available',
         testFailedTitle: 'Model connection test failed',
         testFailedFallback: 'Connection test failed'
       },
       embedding: {
-        title: 'Embedding Model',
+        title: 'Embedding model',
         deleted: 'Embedding model deleted',
         deleteFailed: 'Failed to delete embedding model',
         testSuccess: 'Connection test succeeded',
@@ -871,7 +871,7 @@ const en: Resources = {
         configSaved: 'Embedding model configuration saved'
       },
       mcp: {
-        title: 'MCP Server',
+        title: 'MCP server',
         validateNameRequired: 'Please enter a server name',
         validateCommandRequired: 'Command is required for MCP server "{{name}}"',
         validateUrlRequired: 'Server URL is required for MCP server "{{name}}"',
@@ -879,7 +879,7 @@ const en: Resources = {
         importSuccess_one: 'Imported {{count}} configuration',
         importSuccess_other: 'Imported {{count}} configurations',
         importFailedPrefix: 'Import failed: ',
-        validateFailedTitle: 'Validation Failed',
+        validateFailedTitle: 'Validation failed',
         formNameExists: 'This name already exists',
         formCommandRequired: 'Please enter the command',
         formUrlRequired: 'Please enter the server URL',
@@ -895,7 +895,7 @@ const en: Resources = {
         testFailed: 'Connection test failed'
       },
       knowledgeMcp: {
-        title: 'Knowledge Base MCP',
+        title: 'Knowledge base MCP',
         stopped: 'MCP server stopped',
         stopFailed: 'Failed to stop the server',
         started: 'MCP server started',
@@ -906,7 +906,7 @@ const en: Resources = {
         copyFailedPrefix: 'Copy failed: '
       },
       paperReader: {
-        title: 'Paper Reader',
+        title: 'Paper reader',
         apiKeyRequired: 'Please enter the API key first',
         testSuccess: 'Connection test succeeded. Click Save to apply.',
         testFailedFallback: 'Connection test failed',
@@ -922,7 +922,7 @@ const en: Resources = {
       }
     },
     sync: {
-      title: 'Data Sync',
+      title: 'Data sync',
       connectRelayFallback: 'Unable to reach the Relay service',
       relayOk: 'Relay service connection is healthy',
       connectFallback: 'Failed to connect the sync service',
@@ -1231,7 +1231,7 @@ const en: Resources = {
       invalidRegenerate: 'Suggestion invalid; regenerate'
     },
     chat: {
-      title: 'Writing chat',
+      title: 'Writer chat',
       scrollToBottom: 'Scroll to bottom',
       requestFailed: 'The model request failed. Retry later or switch models.',
       interrupted: 'Connection interrupted ({{message}}). Retry later or switch models.',
