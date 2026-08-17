@@ -437,14 +437,14 @@ function extractTaggedTranslationForSegment(
     return {
       translatedMarkdown: matchedById.content,
       alignmentWarning:
-        matches.length > 1 ? '模型返回多个翻译标签，已按段落 ID 提取当前段落译文' : undefined
+        matches.length > 1 ? t('notifications.paper.translationMultiTagExtracted') : undefined
     }
   }
 
   if (matches.length === 1 && !matches[0].id) {
     return {
       translatedMarkdown: matches[0].content,
-      alignmentWarning: '模型返回无段落 ID 的翻译标签，已按唯一标签提取译文'
+      alignmentWarning: t('notifications.paper.translationSingleTagExtracted')
     }
   }
 
@@ -482,7 +482,10 @@ function constrainTranslatedBlocksToSegment(
 
   return {
     translatedMarkdown: blocks.slice(0, expectedBlockCount).join('\n\n'),
-    alignmentWarning: `模型返回 ${blocks.length} 个翻译块，已按当前段落结构保留前 ${expectedBlockCount} 个块`
+    alignmentWarning: t('notifications.paper.translationBlocksTruncated', {
+      actual: blocks.length,
+      expected: expectedBlockCount
+    })
   }
 }
 

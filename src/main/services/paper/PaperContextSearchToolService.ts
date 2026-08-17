@@ -395,7 +395,7 @@ export class PaperContextSearchToolService {
             score: 0,
             matchedKeywords: []
           })),
-          warnings: [...warnings, '未提取到明确关键词，已返回候选阅读上下文']
+          warnings: [...warnings, t('notifications.paper.contextSearchNoKeywords')]
         }
       }
     }
@@ -477,7 +477,7 @@ export class PaperContextSearchToolService {
         }
 
         if (translatedCount === 0) {
-          warnings.push('译文缓存中没有可用译文段落')
+          warnings.push(t('notifications.paper.contextSearchNoTranslatedSegments'))
         }
       }
     }
@@ -499,13 +499,13 @@ export class PaperContextSearchToolService {
     const metaResult = await this.dependencies.readMeta(paperId)
     const progress = metaResult.success ? metaResult.data?.readingProgress : undefined
     if (!progress) {
-      warnings.push('未找到阅读进度，已使用论文开头候选上下文')
+      warnings.push(t('notifications.paper.contextSearchProgressMissing'))
       return this.filterCorpusBySegmentRange(corpus, 0, READING_PROGRESS_WINDOW_AFTER, source)
     }
 
     const totalSegments = readerDocument.segments.length
     if (totalSegments === 0) {
-      warnings.push('阅读进度对应段落为空，已使用论文开头候选上下文')
+      warnings.push(t('notifications.paper.contextSearchProgressSegmentEmpty'))
       return this.filterCorpusBySegmentRange(corpus, 0, READING_PROGRESS_WINDOW_AFTER, source)
     }
 

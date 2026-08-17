@@ -1,4 +1,5 @@
 import { net } from 'electron'
+import { t } from '@main/services/i18n'
 import { logger } from '@main/services/logger'
 import type {
   PaperWebSearchEnvironmentInfo,
@@ -122,7 +123,11 @@ export class PaperWebSearchService {
     const warnings: string[] = []
 
     if (!query) {
-      return this.createFailureOutput(input.query, startTime, '搜索 query 为空')
+      return this.createFailureOutput(
+        input.query,
+        startTime,
+        t('notifications.paper.webSearchQueryEmpty')
+      )
     }
 
     try {
@@ -201,7 +206,9 @@ export class PaperWebSearchService {
       try {
         const response = await this.fetchText(endpoint, SEARCH_TIMEOUT_MS)
         if (!response.ok || !response.text.trim()) {
-          warnings.push(`搜索入口返回异常: ${response.status}`)
+          warnings.push(
+            t('notifications.paper.webSearchEndpointError', { status: response.status })
+          )
           continue
         }
 
@@ -211,7 +218,7 @@ export class PaperWebSearchService {
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
-        warnings.push(`搜索入口请求失败: ${message}`)
+        warnings.push(t('notifications.paper.webSearchEndpointRequestFailed', { message }))
       }
     }
 
@@ -222,7 +229,12 @@ export class PaperWebSearchService {
     try {
       const response = await this.fetchText(url, FETCH_TIMEOUT_MS)
       if (!response.ok) {
-        warnings.push(`页面抓取失败 ${getSourceName(url)}: ${response.status}`)
+        warnings.push(
+          t('notifications.paper.webSearchPageFetchFailed', {
+            source: getSourceName(url),
+            detail: response.status
+          })
+        )
         return ''
       }
 
@@ -233,7 +245,12 @@ export class PaperWebSearchService {
       return cleanHtml(response.text.slice(0, MAX_HTML_CHARS))
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      warnings.push(`页面抓取失败 ${getSourceName(url)}: ${message}`)
+      warnings.push(
+        t('notifications.paper.webSearchPageFetchFailed', {
+          source: getSourceName(url),
+          detail: message
+        })
+      )
       return ''
     }
   }

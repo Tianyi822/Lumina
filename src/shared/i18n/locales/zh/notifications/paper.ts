@@ -150,7 +150,21 @@ const paper = {
   webSearchReasonRequired: '缺少必需的参数: reason（搜索原因）',
   webSearchContextMissing: '论文上下文未设置，无法执行搜索。请先设置论文上下文后再调用。',
   webSearchExecutionFailed: '搜索执行失败',
-  pdfFileFilter: 'PDF 文件'
+  pdfFileFilter: 'PDF 文件',
+  // ===== 主进程服务错误文案（六期 T3b：翻译对齐警告、上下文检索警告与网页搜索状态）=====
+  translationMultiTagExtracted: '模型返回多个翻译标签，已按段落 ID 提取当前段落译文',
+  translationSingleTagExtracted: '模型返回无段落 ID 的翻译标签，已按唯一标签提取译文',
+  translationBlocksTruncated:
+    '模型返回 {{actual}} 个翻译块，已按当前段落结构保留前 {{expected}} 个块',
+  translationContentMissing: '模型未返回翻译内容',
+  contextSearchNoKeywords: '未提取到明确关键词，已返回候选阅读上下文',
+  contextSearchNoTranslatedSegments: '译文缓存中没有可用译文段落',
+  contextSearchProgressMissing: '未找到阅读进度，已使用论文开头候选上下文',
+  contextSearchProgressSegmentEmpty: '阅读进度对应段落为空，已使用论文开头候选上下文',
+  webSearchQueryEmpty: '搜索 query 为空',
+  webSearchEndpointError: '搜索入口返回异常: {{status}}',
+  webSearchEndpointRequestFailed: '搜索入口请求失败: {{message}}',
+  webSearchPageFetchFailed: '页面抓取失败 {{source}}: {{detail}}'
 }
 
 export default paper

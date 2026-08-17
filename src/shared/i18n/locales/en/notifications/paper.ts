@@ -160,7 +160,25 @@ const paper: Resources['notifications']['paper'] = {
   webSearchContextMissing:
     'The paper context is not set; cannot search. Set the paper context before calling.',
   webSearchExecutionFailed: 'The search failed to execute',
-  pdfFileFilter: 'PDF file'
+  pdfFileFilter: 'PDF file',
+  // ===== Main-process service error copy (phase 6, T3b) =====
+  translationMultiTagExtracted:
+    'The model returned multiple translation tags; extracted the current segment translation by segment ID',
+  translationSingleTagExtracted:
+    'The model returned a translation tag without a segment ID; extracted the translation from the only tag',
+  translationBlocksTruncated:
+    'The model returned {{actual}} translation blocks; kept the first {{expected}} per the current segment structure',
+  translationContentMissing: 'The model did not return translation content',
+  contextSearchNoKeywords: 'No clear keywords extracted; returned candidate reading context',
+  contextSearchNoTranslatedSegments: 'The translation cache has no usable translated segments',
+  contextSearchProgressMissing:
+    'Reading progress not found; used candidate context from the start of the paper',
+  contextSearchProgressSegmentEmpty:
+    'The reading progress segment is empty; used candidate context from the start of the paper',
+  webSearchQueryEmpty: 'The search query is empty',
+  webSearchEndpointError: 'Search endpoint returned an error: {{status}}',
+  webSearchEndpointRequestFailed: 'Search endpoint request failed: {{message}}',
+  webSearchPageFetchFailed: 'Failed to fetch the page {{source}}: {{detail}}'
 }
 
 export default paper

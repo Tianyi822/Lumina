@@ -1,6 +1,7 @@
 import OpenAI from 'openai'
 import type { LLMConfig } from '@shared/types/config'
 import { configManager } from '@main/services/config'
+import { t } from '@main/services/i18n'
 import { logger } from '@main/services/logger'
 import { PaperStorageService } from './PaperStorageService'
 import { PaperTranslationCore } from './PaperTranslationCore'
@@ -71,7 +72,7 @@ class PaperTranslationService extends PaperTranslationCore {
 
         const translatedContent = response.choices[0]?.message?.content?.trim()
         if (!translatedContent) {
-          throw new Error('模型未返回翻译内容')
+          throw new Error(t('notifications.paper.translationContentMissing'))
         }
 
         return translatedContent
