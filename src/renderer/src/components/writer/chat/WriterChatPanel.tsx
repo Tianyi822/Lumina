@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useUIStateStore } from '@renderer/stores/uiStateStore'
 import { useNotification } from '@renderer/composables/useNotification'
 import SvgIcon from '@renderer/components/icons/SvgIcon'
@@ -25,6 +26,7 @@ export default function WriterChatPanel({
   sessionState,
   streamState
 }: WriterChatPanelProps) {
+  const { t } = useTranslation()
   const notify = useNotification()
   const setWriterChatPanelOpen = useUIStateStore((s) => s.setWriterChatPanelOpen)
   const [isDragging, setIsDragging] = useState(false)
@@ -52,26 +54,34 @@ export default function WriterChatPanel({
 
   async function handleClearContext(): Promise<void> {
     if (streamState.isSending) {
-      notify.warning('写作对话', '请先停止当前回复，再清空上下文。', { source: 'chat' })
+      notify.warning(
+        t('notifications.writer.chatTitle'),
+        t('notifications.writer.stopBeforeClear'),
+        {
+          source: 'chat'
+        }
+      )
       return
     }
 
-    const confirmed = await notify.confirm('聊天记录会被清空。', {
-      title: '清空当前写作聊天上下文？',
+    const confirmed = await notify.confirm(t('notifications.writer.clearConfirmBody'), {
+      title: t('notifications.writer.clearConfirmTitle'),
       danger: true
     })
     if (!confirmed) return
 
     const success = await sessionState.clearContext()
     if (success) {
-      notify.success('写作对话', '上下文已清空', { source: 'chat' })
+      notify.success(t('notifications.writer.chatTitle'), t('notifications.writer.clearedBody'), {
+        source: 'chat'
+      })
     }
   }
 
   return (
     <div ref={panelRef} className={styles.panel}>
       <AssistantPanelShell
-        title="写作对话"
+        title={t('writer.chat.title')}
         subtitle={documentTitle}
         status={sessionState.error || undefined}
         loading={sessionState.loading}
@@ -117,7 +127,7 @@ export default function WriterChatPanel({
               <button
                 className={styles.scrollButton}
                 type="button"
-                aria-label="滚动到底部"
+                aria-label={t('writer.chat.scrollToBottom')}
                 onClick={() => messageListRef.current?.scrollToBottom()}
               >
                 <SvgIcon name="arrow-down" size={16} />

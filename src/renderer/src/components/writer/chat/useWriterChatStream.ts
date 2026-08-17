@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import type { MutableRefObject } from 'react'
+import { useTranslation } from 'react-i18next'
 import type {
   AttachedDocument,
   AttachedImage,
@@ -91,6 +92,7 @@ function toPlainRequest<T>(request: T): T {
 export function useWriterChatStream(
   options: UseWriterChatStreamOptions
 ): UseWriterChatStreamReturn {
+  const { t } = useTranslation()
   const { session, messagesRef, setMessages, saveCurrentSession, setError } = options
 
   const sessionId = session?.sessionId || ''
@@ -215,7 +217,7 @@ export function useWriterChatStream(
     ): Promise<void> => {
       const targetSession = options?.session ?? latestRef.current.session
       if (!targetSession) {
-        setError('写作聊天会话未就绪')
+        setError(t('writer.chat.notReady'))
         return
       }
 
@@ -234,7 +236,7 @@ export function useWriterChatStream(
 
       const selected = latestRef.current
       if (!selected.selectedModel) {
-        setError('请先选择一个模型')
+        setError(t('writer.chat.noModel'))
         return
       }
 
@@ -322,7 +324,7 @@ export function useWriterChatStream(
           writerEditor &&
           !writerContext
         ) {
-          setError('当前选区没有可编辑文本，无法改写或续写')
+          setError(t('notifications.writer.selectionNotEditable'))
           setMessages(snapshot)
           streamStore.setSessionSendingState(currentSessionId, false, true)
           usePaperChatStreamStore.setState({ streamingSessionId: null })
@@ -379,7 +381,7 @@ export function useWriterChatStream(
         reportRequestError(message)
       }
     },
-    [messagesRef, reportRequestError, setError, setMessages]
+    [messagesRef, reportRequestError, setError, setMessages, t]
   )
 
   const stopRequest = useCallback(async (): Promise<void> => {

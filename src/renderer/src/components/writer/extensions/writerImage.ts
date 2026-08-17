@@ -9,6 +9,7 @@ import type {
   WriterJsonNode,
   WriterResult
 } from '@shared/types/writer'
+import { i18n } from '@renderer/i18n'
 import WriterImageView from '../nodes/WriterImageView.tsx'
 
 /** 写作图片只接受 PNG、JPEG、WebP、GIF，SVG 不进入导入路径（主进程同样拒绝）。 */
@@ -193,7 +194,11 @@ export async function importWriterImage(
     window.api.writer.importAsset(id, fileName, mimeType, bytes)
 ): Promise<WriterResult<WriterAsset>> {
   if (!WRITER_DOCUMENT_ID_PATTERN.test(documentId)) {
-    return { success: false, code: 'invalid_input', error: '写作文档 ID 无效' }
+    return {
+      success: false,
+      code: 'invalid_input',
+      error: i18n.t('notifications.writer.invalidDocumentId')
+    }
   }
 
   try {
@@ -209,7 +214,11 @@ export async function importWriterImage(
     })
     return result
   } catch {
-    return { success: false, code: 'invalid_input', error: '图片资源响应无效' }
+    return {
+      success: false,
+      code: 'invalid_input',
+      error: i18n.t('notifications.writer.invalidAssetResponse')
+    }
   }
 }
 
@@ -218,7 +227,7 @@ function createUploadPlaceholder(): HTMLElement {
   placeholder.className = 'writer-image-upload-placeholder'
   placeholder.setAttribute('role', 'status')
   placeholder.setAttribute('aria-live', 'polite')
-  placeholder.textContent = '正在导入图片…'
+  placeholder.textContent = i18n.t('writer.nodes.imageImporting')
   return placeholder
 }
 
@@ -429,7 +438,7 @@ export async function queueWriterImageImport(
         } satisfies WriterImageUploadMeta)
         .setMeta('addToHistory', false)
     )
-    onError(result.error ?? '图片导入失败')
+    onError(result.error ?? i18n.t('notifications.writer.imageImportFailed'))
     return false
   }
 
@@ -457,7 +466,7 @@ export async function queueWriterImageImport(
     } satisfies JSONContent)
     .run()
   if (!inserted) {
-    onError('无法在当前位置插入图片')
+    onError(i18n.t('notifications.writer.imageInsertUnavailable'))
   }
   return inserted
 }

@@ -28,6 +28,7 @@ import rust from 'highlight.js/lib/languages/rust'
 import typescript from 'highlight.js/lib/languages/typescript'
 import xml from 'highlight.js/lib/languages/xml'
 import { createLowlight } from 'lowlight'
+import { i18n } from '@renderer/i18n'
 import WriterCodeBlockView from '../nodes/WriterCodeBlockView.tsx'
 import WriterMathView from '../nodes/WriterMathView.tsx'
 import { WriterClipboard } from './writerClipboard'
@@ -190,7 +191,7 @@ export function createWriterExtensions(documentId = 'writer-unbound'): Extension
       types: ['heading', 'paragraph', 'tableCell'],
       alignments: ['left', 'center', 'right', 'justify']
     }),
-    Placeholder.configure({ placeholder: '开始写作…' }),
+    Placeholder.configure({ placeholder: i18n.t('writer.editor.placeholder') }),
     CharacterCount,
     WriterMarkdownRules,
     WriterClipboard,

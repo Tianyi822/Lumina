@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { i18n } from '@renderer/i18n'
 import type { WriterOutlineItem } from '@renderer/components/writer/outline/writerOutline'
 
 export type WriterSaveStatus = 'idle' | 'dirty' | 'saving' | 'saved' | 'error' | 'conflict'
@@ -92,7 +93,7 @@ export const useWriterSessionStore = create<WriterSessionStore>((set, get) => ({
     set((state) => ({
       revision: Math.max(state.revision, revision)
     })),
-  handleSaveFailure: (error = '保存失败') =>
+  handleSaveFailure: (error = i18n.t('notifications.writer.saveFailed')) =>
     set({
       dirty: true,
       saveStatus: 'error',
@@ -102,7 +103,7 @@ export const useWriterSessionStore = create<WriterSessionStore>((set, get) => ({
     set({
       dirty: true,
       saveStatus: 'conflict',
-      error: '文档已在其他位置更新，请重新加载'
+      error: i18n.t('notifications.writer.sessionConflict')
     }),
   setOutline: (outline) => set({ outline }),
   requestScrollToNode: (nodeId) => set({ pendingScrollNodeId: nodeId }),
