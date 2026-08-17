@@ -8,6 +8,7 @@ import { extname } from 'path'
 import mammoth from 'mammoth'
 import officeParser, { type OfficeParserConfig } from 'officeparser'
 import WordExtractor from 'word-extractor'
+import { t } from '@main/services/i18n'
 import { logger } from '@main/services/logger'
 import { SUPPORTED_DOCUMENT_EXTENSIONS } from '@shared/constants/document'
 import type { FilePreviewData } from '@shared/types/knowledge'
@@ -104,7 +105,7 @@ async function readPdfFile(filePath: string): Promise<string> {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
     logger.error('PDF 解析失败', 'main', { filePath, error: errorMessage })
-    throw new Error(`PDF 解析失败: ${errorMessage}`)
+    throw new Error(t('notifications.file.pdfParseFailed', { error: errorMessage }))
   }
 }
 
@@ -121,7 +122,7 @@ async function readDocxFile(filePath: string): Promise<string> {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
     logger.error('docx 解析失败', 'main', { filePath, error: errorMessage })
-    throw new Error(`docx 解析失败: ${errorMessage}`)
+    throw new Error(t('notifications.file.docxParseFailed', { error: errorMessage }))
   }
 }
 
@@ -140,7 +141,7 @@ async function readDocFile(filePath: string): Promise<string> {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
     logger.error('doc 解析失败', 'main', { filePath, error: errorMessage })
-    throw new Error(`doc 解析失败: ${errorMessage}`)
+    throw new Error(t('notifications.file.docParseFailed', { error: errorMessage }))
   }
 }
 
@@ -162,7 +163,7 @@ async function readExcelFile(filePath: string): Promise<string> {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
     logger.error('excel 解析失败', 'main', { filePath, error: errorMessage })
-    throw new Error(`excel 解析失败: ${errorMessage}`)
+    throw new Error(t('notifications.file.excelParseFailed', { error: errorMessage }))
   }
 }
 
@@ -186,7 +187,7 @@ async function readPptxFile(filePath: string): Promise<string> {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
     logger.error('pptx 解析失败', 'main', { filePath, error: errorMessage })
-    throw new Error(`pptx 解析失败: ${errorMessage}`)
+    throw new Error(t('notifications.file.pptxParseFailed', { error: errorMessage }))
   }
 }
 
@@ -257,17 +258,20 @@ export async function readFilePreviewData(
   try {
     const ext = extname(fileName).toLowerCase()
     if (!SUPPORTED_FILE_TYPES.has(ext)) {
-      return { success: false, error: `不支持的文件类型: ${ext}` }
+      return {
+        success: false,
+        error: t('notifications.file.unsupportedFileTypeShort', { ext })
+      }
     }
 
     if (!existsSync(filePath)) {
-      return { success: false, error: '文件不存在，可能已被删除' }
+      return { success: false, error: t('notifications.file.fileNotFoundDeleted') }
     }
 
     const content = await readFileContent(filePath, fileName)
     return createFilePreviewDataFromContent(content, fileName, fileSize, uploadedAt, fileType)
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
-    return { success: false, error: `文件读取失败: ${errorMessage}` }
+    return { success: false, error: t('notifications.file.readFailed', { error: errorMessage }) }
   }
 }

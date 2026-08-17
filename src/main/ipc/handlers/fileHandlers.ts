@@ -1,5 +1,6 @@
 import { ipcMain, shell } from 'electron'
 import { getFileService } from '@main/services/file'
+import { t } from '@main/services/i18n'
 import { getPaperService } from '@main/services/paper'
 import { logger } from '@main/services/logger'
 // FileItem type is not directly used in this file, but handlers return typed responses
@@ -49,7 +50,9 @@ export function registerFileHandlers(): void {
         data: files
       }
     } catch (error) {
-      const errorMessage = `获取文件列表失败: ${error instanceof Error ? error.message : String(error)}`
+      const errorMessage = t('notifications.file.fetchListFailed', {
+        error: error instanceof Error ? error.message : String(error)
+      })
       logger.error(errorMessage)
       return {
         success: false,
@@ -65,7 +68,7 @@ export function registerFileHandlers(): void {
       if (!file) {
         return {
           success: false,
-          error: '文件不存在'
+          error: t('notifications.file.fileNotFound')
         }
       }
       return {
@@ -73,7 +76,9 @@ export function registerFileHandlers(): void {
         data: file
       }
     } catch (error) {
-      const errorMessage = `获取文件失败: ${error instanceof Error ? error.message : String(error)}`
+      const errorMessage = t('notifications.file.fetchOneFailed', {
+        error: error instanceof Error ? error.message : String(error)
+      })
       logger.error(errorMessage)
       return {
         success: false,
@@ -91,7 +96,9 @@ export function registerFileHandlers(): void {
         data: files
       }
     } catch (error) {
-      const errorMessage = `搜索文件失败: ${error instanceof Error ? error.message : String(error)}`
+      const errorMessage = t('notifications.file.searchFailed', {
+        error: error instanceof Error ? error.message : String(error)
+      })
       logger.error(errorMessage)
       return {
         success: false,
@@ -108,7 +115,9 @@ export function registerFileHandlers(): void {
       const result = await getFileService().uploadFile(buffer, fileData.name)
       return result
     } catch (error) {
-      const errorMessage = `上传文件失败: ${error instanceof Error ? error.message : String(error)}`
+      const errorMessage = t('notifications.file.uploadFileFailed', {
+        error: error instanceof Error ? error.message : String(error)
+      })
       logger.error(errorMessage)
       return {
         success: false,
@@ -123,7 +132,9 @@ export function registerFileHandlers(): void {
       const result = await getFileService().deleteFile(fileId, forceDelete)
       return result
     } catch (error) {
-      const errorMessage = `删除文件失败: ${error instanceof Error ? error.message : String(error)}`
+      const errorMessage = t('notifications.file.deleteFileFailed', {
+        error: error instanceof Error ? error.message : String(error)
+      })
       logger.error(errorMessage)
       return {
         success: false,
@@ -138,7 +149,9 @@ export function registerFileHandlers(): void {
       const result = await getFileService().linkFileToKB(fileId, kbId)
       return result
     } catch (error) {
-      const errorMessage = `关联文件到知识库失败: ${error instanceof Error ? error.message : String(error)}`
+      const errorMessage = t('notifications.file.linkToKbFailed', {
+        error: error instanceof Error ? error.message : String(error)
+      })
       logger.error(errorMessage)
       return {
         success: false,
@@ -153,7 +166,9 @@ export function registerFileHandlers(): void {
       const result = await getFileService().unlinkFileFromKB(fileId, kbId)
       return result
     } catch (error) {
-      const errorMessage = `取消文件关联失败: ${error instanceof Error ? error.message : String(error)}`
+      const errorMessage = t('notifications.file.unlinkFailed', {
+        error: error instanceof Error ? error.message : String(error)
+      })
       logger.error(errorMessage)
       return {
         success: false,
@@ -171,7 +186,9 @@ export function registerFileHandlers(): void {
         data: files
       }
     } catch (error) {
-      const errorMessage = `获取知识库文件列表失败: ${error instanceof Error ? error.message : String(error)}`
+      const errorMessage = t('notifications.file.fetchKbFilesFailed', {
+        error: error instanceof Error ? error.message : String(error)
+      })
       logger.error(errorMessage)
       return {
         success: false,
@@ -189,7 +206,9 @@ export function registerFileHandlers(): void {
         data: usage
       }
     } catch (error) {
-      const errorMessage = `获取文件使用情况失败: ${error instanceof Error ? error.message : String(error)}`
+      const errorMessage = t('notifications.file.fetchUsageFailed', {
+        error: error instanceof Error ? error.message : String(error)
+      })
       logger.error(errorMessage)
       return {
         success: false,
@@ -237,13 +256,15 @@ export function registerFileHandlers(): void {
     try {
       const file = getFileService().getFileById(fileId)
       if (!file) {
-        return { success: false, error: '文件不存在' }
+        return { success: false, error: t('notifications.file.fileNotFound') }
       }
 
       const result = await getFileService().readFileResourcePreview(fileId)
       return result
     } catch (error) {
-      const errorMessage = `获取文件预览失败: ${error instanceof Error ? error.message : String(error)}`
+      const errorMessage = t('notifications.file.fetchPreviewFailed', {
+        error: error instanceof Error ? error.message : String(error)
+      })
       logger.error(errorMessage)
       return { success: false, error: errorMessage }
     }
@@ -254,21 +275,26 @@ export function registerFileHandlers(): void {
     try {
       const file = getFileService().getFileById(fileId)
       if (!file) {
-        return { success: false, error: '文件不存在' }
+        return { success: false, error: t('notifications.file.fileNotFound') }
       }
 
       if (file.origin?.allowExternalOpen === false || !file.absolutePath) {
-        return { success: false, error: '此资源不支持外部打开' }
+        return { success: false, error: t('notifications.file.externalOpenUnsupported') }
       }
 
       const result = await shell.openPath(file.absolutePath)
       if (result === '') {
         return { success: true }
       } else {
-        return { success: false, error: `打开文件失败: ${result}` }
+        return {
+          success: false,
+          error: t('notifications.file.openFailed', { error: result })
+        }
       }
     } catch (error) {
-      const errorMessage = `打开文件失败: ${error instanceof Error ? error.message : String(error)}`
+      const errorMessage = t('notifications.file.openFailed', {
+        error: error instanceof Error ? error.message : String(error)
+      })
       logger.error(errorMessage)
       return { success: false, error: errorMessage }
     }

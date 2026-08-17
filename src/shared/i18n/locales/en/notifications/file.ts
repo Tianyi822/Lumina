@@ -1,0 +1,51 @@
+import type { Resources } from '../../zh'
+
+const file: Resources['notifications']['file'] = {
+  notInitialized: 'File service is not initialized. Call initialize() first',
+  unsupportedFileType: 'Unsupported file type: {{ext}}, only {{supported}} are supported',
+  fileTooLarge: 'File is too large: {{size}}, the limit is 50MB',
+  uploadFailed: 'File upload failed: {{error}}',
+  saveMetadataFailed: 'Failed to save file metadata: {{error}}',
+  fileNotFound: 'File not found',
+  fileNotFoundDeleted: 'File not found. It may have been deleted',
+  paperNotesEmpty: 'Paper notes are empty',
+  paperManagedResource:
+    'Paper-origin resources are managed by the paper system. Delete them from the paper page',
+  syncPaperFileFailed: 'Failed to sync the paper file: {{error}}',
+  syncPaperNotesFailed: 'Failed to sync the paper notes: {{error}}',
+  removePaperNotesFailed: 'Failed to remove the paper notes: {{error}}',
+  inUseByKnowledgeBases_one:
+    'The file is used by {{count}} knowledge base. Unlink it before deleting',
+  inUseByKnowledgeBases_other:
+    'The file is used by {{count}} knowledge bases. Unlink it before deleting',
+  deleteIndexFailed: 'Failed to delete the file index',
+  deleteIndexInKbFailed: 'Failed to delete the file index in knowledge base {{kbId}}: {{error}}',
+  deleteFailed: 'File deletion failed: {{error}}',
+  alreadyLinkedToKb: 'The file is already linked to this knowledge base',
+  notLinkedToKb: 'The file is not linked to this knowledge base',
+  linkFailed: 'Failed to link the file: {{error}}',
+  unlinkFailed: 'Failed to unlink the file: {{error}}',
+  pdfParseFailed: 'PDF parsing failed: {{error}}',
+  docxParseFailed: 'DOCX parsing failed: {{error}}',
+  docParseFailed: 'DOC parsing failed: {{error}}',
+  excelParseFailed: 'Excel parsing failed: {{error}}',
+  pptxParseFailed: 'PPTX parsing failed: {{error}}',
+  unsupportedFileTypeShort: 'Unsupported file type: {{ext}}',
+  readFailed: 'Failed to read the file: {{error}}',
+  fetchListFailed: 'Failed to get the file list: {{error}}',
+  fetchOneFailed: 'Failed to get the file: {{error}}',
+  searchFailed: 'Failed to search files: {{error}}',
+  uploadFileFailed: 'Failed to upload the file: {{error}}',
+  deleteFileFailed: 'Failed to delete the file: {{error}}',
+  linkToKbFailed: 'Failed to link the file to the knowledge base: {{error}}',
+  fetchKbFilesFailed: 'Failed to get the knowledge base file list: {{error}}',
+  fetchUsageFailed: 'Failed to get file usage: {{error}}',
+  fetchPreviewFailed: 'Failed to get the file preview: {{error}}',
+  externalOpenUnsupported: 'This resource cannot be opened externally',
+  openFailed: 'Failed to open the file: {{error}}',
+  notInMetadata: 'File {{fileId}} is not in the metadata',
+  onlyUploadedWritable: 'Only uploaded files can receive content',
+  pathOutsideStorage: 'Invalid file path (outside the storage directory): {{path}}'
+}
+
+export default file
