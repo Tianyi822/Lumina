@@ -67,7 +67,7 @@ export default function EmbeddingModelForm({
     } else {
       setNameConflictError('')
     }
-  }, [displayName, editingName, existingNames])
+  }, [displayName, editingName, existingNames, t])
 
   // 构建配置对象
   function buildConfig(): EmbeddingConfig {
