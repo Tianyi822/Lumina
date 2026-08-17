@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   SUPPORTED_DOCUMENT_EXTENSIONS,
   isSupportedDocumentExtension
@@ -25,6 +26,7 @@ export interface UploadOptions {
 
 /** 文件拖拽/选择上传 Hook，支持格式校验、大小限制和自动挂载知识库 */
 export function useFileUpload(options?: UploadOptions) {
+  const { t } = useTranslation()
   const fileStore = useFileStore()
   const notify = useNotification()
 
@@ -39,11 +41,11 @@ export function useFileUpload(options?: UploadOptions) {
       for (const file of fileList) {
         const ext = '.' + file.name.split('.').pop()?.toLowerCase()
         if (!isSupportedDocumentExtension(ext)) {
-          errors.push(`${file.name}: 不支持的文件格式`)
+          errors.push(t('notifications.knowledge.fileFormatUnsupported', { name: file.name }))
           continue
         }
         if (file.size > MAX_FILE_SIZE) {
-          errors.push(`${file.name}: 文件超过 50MB 限制`)
+          errors.push(t('notifications.knowledge.fileTooLarge', { name: file.name }))
           continue
         }
         validFiles.push(file)
@@ -51,7 +53,7 @@ export function useFileUpload(options?: UploadOptions) {
 
       return { validFiles, errors }
     },
-    []
+    [t]
   )
 
   const processUpload = useCallback(
@@ -60,7 +62,11 @@ export function useFileUpload(options?: UploadOptions) {
 
       if (validFiles.length === 0) {
         if (validationErrors.length > 0) {
-          notify.error('文件验证失败', validationErrors.join('\n'), { source: 'file' })
+          notify.error(
+            t('notifications.knowledge.validationFailedTitle'),
+            validationErrors.join('\n'),
+            { source: 'file' }
+          )
         }
         return { uploaded: [], duplicates: [], errors: validationErrors }
       }
@@ -92,7 +98,7 @@ export function useFileUpload(options?: UploadOptions) {
         setIsUploading(false)
       }
     },
-    [fileStore, notify, options, validateFiles]
+    [fileStore, notify, options, validateFiles, t]
   )
 
   const handleDragOver = useCallback((event: React.DragEvent) => {
