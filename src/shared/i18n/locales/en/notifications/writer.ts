@@ -1,0 +1,42 @@
+import type { Resources } from '../../zh'
+
+const writer: Resources['notifications']['writer'] = {
+  confirmIrreversible: 'This cannot be undone.',
+  deleteDocumentTitle: 'Delete document permanently',
+  deleteFolderMessage: 'Deleting the folder moves its documents back to All Documents.',
+  deleteFolderTitle: 'Delete folder',
+  exportFailedTitle: 'Export failed',
+  exportFailedFallback: 'Unable to export the document',
+  exportDoneTitle: 'Export complete',
+  exportDoneMessage: 'Exported as {{format}}',
+  chatRequestFailed: 'Writer chat request failed',
+  chatTitle: 'Writer chat',
+  stopReplyFirst: 'Stop the current reply first',
+  openPanelFirst: 'Open the AI panel and pick a model first',
+  loadSessionFailed: 'Failed to load the writer chat session',
+  selectionNotEditable: 'The selection has no editable text for rewriting or continuation',
+  conflictTitle: 'Document save conflict',
+  conflictBody: 'Your current text is kept in the editor. Reload the document before continuing.',
+  saveFailedTitle: 'Failed to save document',
+  saveFailed: 'Save failed',
+  imageImportFailed: 'Image import failed',
+  imageInsertUnavailable: 'Cannot insert an image at the current position',
+  invalidDocumentId: 'Invalid writing document ID',
+  invalidAssetResponse: 'Invalid image asset response',
+  suggestionExpiredTitle: 'Suggestion expired',
+  clearConfirmTitle: 'Clear the current writing chat context?',
+  clearConfirmBody: 'The chat history will be cleared.',
+  clearedBody: 'Context cleared',
+  stopBeforeClear: 'Stop the current reply before clearing the context.',
+  loadDocumentsFailed: 'Failed to load documents',
+  createDocumentFailed: 'Failed to create document',
+  deleteDocumentFailed: 'Failed to delete document',
+  deleteFolderFailed: 'Failed to delete folder',
+  renameFailed: 'Failed to rename document',
+  moveFailed: 'Failed to move document',
+  documentNotFound: 'Document not found',
+  favoriteFailed: 'Failed to update favorite',
+  sessionConflict: 'The document was updated elsewhere; reload it'
+}
+
+export default writer

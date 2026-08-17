@@ -7,8 +7,8 @@
 import i18next, { type i18n as I18nInstance } from 'i18next'
 import { initReactI18next } from 'react-i18next'
 import type { AppLanguage } from '@shared/types/config'
-import zh from './locales/zh'
-import en from './locales/en'
+import zh from '@shared/i18n/locales/zh'
+import en from '@shared/i18n/locales/en'
 
 export const LANGUAGE_STORAGE_KEY = 'lumina-language'
 

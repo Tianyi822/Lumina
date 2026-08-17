@@ -11,8 +11,8 @@ import {
   getDateLocale,
   LANGUAGE_STORAGE_KEY
 } from './index'
-import zh from './locales/zh'
-import en from './locales/en'
+import zh from '@shared/i18n/locales/zh'
+import en from '@shared/i18n/locales/en'
 
 /** 简易 localStorage 内存桩（node 环境无 localStorage 全局） */
 function createLocalStorageStub(): Storage {
