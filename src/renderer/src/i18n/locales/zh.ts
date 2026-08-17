@@ -577,6 +577,14 @@ const zh = {
       relayNotInitialized: 'Relay 服务尚未初始化',
       quotaExceeded: '账户存储配额不足，请清理远端数据或联系管理员扩容',
       bodyTooLarge: '文件过大，超过同步单文件上限'
+    },
+    config: {
+      loadFailedTitle: '配置加载失败',
+      loadFailedPrefix: '加载配置失败: ',
+      saveSuccess: '配置保存成功',
+      saveFailedTitle: '配置保存失败',
+      saveFailedFallback: '保存失败',
+      saveFailedPrefix: '保存配置失败: '
     }
   }
 }

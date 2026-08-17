@@ -601,6 +601,14 @@ const en: Resources = {
       relayNotInitialized: 'Relay service is not initialized yet',
       quotaExceeded: 'Account storage quota exceeded. Clean up remote data or contact your admin',
       bodyTooLarge: 'File too large; exceeds the per-file sync limit'
+    },
+    config: {
+      loadFailedTitle: 'Failed to Load Configuration',
+      loadFailedPrefix: 'Failed to load configuration: ',
+      saveSuccess: 'Configuration Saved',
+      saveFailedTitle: 'Failed to Save Configuration',
+      saveFailedFallback: 'Save failed',
+      saveFailedPrefix: 'Failed to save configuration: '
     }
   }
 }
