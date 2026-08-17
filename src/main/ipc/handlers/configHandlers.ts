@@ -2,6 +2,7 @@ import OpenAI from 'openai'
 import { ipcMain } from 'electron'
 import { configManager } from '@main/services/config'
 import { logger } from '@main/services/logger'
+import { t } from '@main/services/i18n'
 import { AppConfig, ConfigLoadResult, LLMConfig } from '@main/types/config'
 import { MODEL_CONNECT_TIMEOUT } from '@main/constants/timeouts'
 
@@ -17,13 +18,13 @@ interface ModelConnectionTestResult {
 
 function validateLLMConfig(config: LLMConfig): string | null {
   if (!config.base_url.trim()) {
-    return 'API Base URL 不能为空'
+    return t('notifications.config.validateApiBaseUrlRequired')
   }
   if (!config.api_key.trim()) {
-    return 'API Key 不能为空'
+    return t('notifications.config.validateApiKeyRequired')
   }
   if (!config.model_name.trim()) {
-    return '模型名称不能为空'
+    return t('notifications.config.validateModelNameRequired')
   }
   return null
 }
@@ -84,12 +85,12 @@ export function initializeConfig(): ConfigLoadResult {
     }
     return configLoadResult
   } catch (error) {
-    const errorMessage = `配置初始化时发生意外错误: ${error instanceof Error ? error.message : String(error)}`
-    logger.error(errorMessage)
+    const detail = error instanceof Error ? error.message : String(error)
+    logger.error(`配置初始化时发生意外错误: ${detail}`)
     configLoadResult = {
       success: false,
       config: null,
-      error: errorMessage
+      error: t('notifications.config.initUnexpectedErrorPrefix') + detail
     }
     return configLoadResult
   }

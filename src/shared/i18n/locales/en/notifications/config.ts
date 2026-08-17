@@ -8,7 +8,12 @@ const config: Resources['notifications']['config'] = {
   saveFailedFallback: 'Save failed',
   saveFailedPrefix: 'Failed to save configuration: ',
   statusErrorTitle: 'Configuration error',
-  statusFetchFailedPrefix: 'Failed to get configuration status: '
+  statusFetchFailedPrefix: 'Failed to get configuration status: ',
+  validateApiBaseUrlRequired: 'API Base URL cannot be empty',
+  validateApiKeyRequired: 'API Key cannot be empty',
+  validateModelNameRequired: 'Model name cannot be empty',
+  noActiveConfig: 'Cannot update: no valid configuration available',
+  initUnexpectedErrorPrefix: 'Unexpected error during configuration initialization: '
 }
 
 export default config

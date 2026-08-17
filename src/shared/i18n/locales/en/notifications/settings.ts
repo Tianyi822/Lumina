@@ -47,7 +47,22 @@ const settings: Resources['notifications']['settings'] = {
     disconnectFailed: 'Failed to disconnect',
     testFoundTools_one: 'Test succeeded; found {{count}} tool',
     testFoundTools_other: 'Test succeeded; found {{count}} tools',
-    testFailed: 'Connection test failed'
+    testFailed: 'Connection test failed',
+    stdioCommandRequired: 'stdio transport requires a command',
+    sseUrlRequired: 'SSE transport requires a URL',
+    streamableHttpUrlRequired: 'streamableHttp transport requires a URL',
+    unsupportedTransport: 'Unsupported transport type: {{transport}}',
+    serverNotFound: 'Server not found',
+    serverNotConnected: 'Server not connected: {{name}}',
+    serverDisconnected: 'Server connection closed: {{name}}',
+    configNameRequired: 'MCP configuration name cannot be empty',
+    mainConfigUnavailable: 'Cannot access the main configuration',
+    configNotFound: 'Configuration not found: {{name}}',
+    validateConfigInvalid: 'Invalid configuration parameters',
+    validateConfigNameRequired: 'Configuration name cannot be empty',
+    validateImportContentRequired: 'Import content cannot be empty',
+    importFormatInvalid: 'Invalid configuration format: missing mcpServers field',
+    importBatchSaveFailedPrefix: 'Batch save failed: '
   },
   knowledgeMcp: {
     title: 'Knowledge base MCP',
@@ -73,7 +88,14 @@ const settings: Resources['notifications']['settings'] = {
   update: {
     checkFailed: 'Update check failed. Try again later',
     downloadFailed: 'Failed to download the update',
-    releasesFailed: 'Failed to load release history'
+    releasesFailed: 'Failed to load release history',
+    devModeUnavailable: 'Unavailable in development mode',
+    manualDownloadOnly: 'This platform updates with a manually downloaded installer',
+    latestInfoUnavailable: 'Failed to get the latest version information',
+    releasesUnavailable: 'GitHub release history is temporarily unavailable',
+    releasesNetworkUnavailable: 'Failed to get release history. Check your network connection',
+    rateLimited: 'Too many requests. Try again later',
+    apiUnavailable: 'GitHub Releases API is temporarily unavailable'
   }
 }
 

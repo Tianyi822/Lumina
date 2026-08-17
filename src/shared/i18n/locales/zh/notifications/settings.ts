@@ -45,7 +45,22 @@ const settings = {
     disconnectFailed: '断开连接失败',
     testFoundTools_one: '连接测试成功，找到 {{count}} 个工具',
     testFoundTools_other: '连接测试成功，找到 {{count}} 个工具',
-    testFailed: '连接测试失败'
+    testFailed: '连接测试失败',
+    stdioCommandRequired: 'stdio 传输类型需要指定 command',
+    sseUrlRequired: 'SSE 传输类型需要指定 url',
+    streamableHttpUrlRequired: 'streamableHttp 传输类型需要指定 url',
+    unsupportedTransport: '不支持的传输类型: {{transport}}',
+    serverNotFound: '服务器未找到',
+    serverNotConnected: '服务器未连接: {{name}}',
+    serverDisconnected: '服务器连接已断开: {{name}}',
+    configNameRequired: 'MCP 配置名称不能为空',
+    mainConfigUnavailable: '无法访问主配置',
+    configNotFound: '配置不存在: {{name}}',
+    validateConfigInvalid: '配置参数无效',
+    validateConfigNameRequired: '配置名称不能为空',
+    validateImportContentRequired: '导入内容不能为空',
+    importFormatInvalid: '无效的配置格式：缺少 mcpServers 字段',
+    importBatchSaveFailedPrefix: '批量保存失败: '
   },
   knowledgeMcp: {
     title: '知识库 MCP',
@@ -71,7 +86,14 @@ const settings = {
   update: {
     checkFailed: '检查更新失败，请稍后重试',
     downloadFailed: '下载更新失败',
-    releasesFailed: '获取版本历史失败'
+    releasesFailed: '获取版本历史失败',
+    devModeUnavailable: '开发模式下不可用',
+    manualDownloadOnly: '当前平台使用手动下载安装包更新',
+    latestInfoUnavailable: '无法获取最新版本信息',
+    releasesUnavailable: 'GitHub 版本历史暂时不可用',
+    releasesNetworkUnavailable: '无法获取版本历史，请检查网络连接',
+    rateLimited: '请求过于频繁，请稍后再试',
+    apiUnavailable: 'GitHub Releases API 暂时不可用'
   }
 }
 

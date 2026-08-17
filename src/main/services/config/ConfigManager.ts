@@ -3,6 +3,7 @@ import { join } from 'path'
 import type { AppConfig, ConfigLoadResult } from '@main/types/config'
 import { getConfigDirPath, getConfigFilePath } from './configPaths'
 import { logger } from '@main/services/logger'
+import { t } from '@main/services/i18n'
 import {
   DEFAULT_OCR_PROVIDER,
   getOcrProviderPreset,
@@ -312,7 +313,7 @@ export class ConfigManager {
    */
   updateConfig(partialConfig: Partial<AppConfig>): { success: boolean; error?: string } {
     if (!this.config) {
-      return { success: false, error: '无法更新：当前没有有效配置' }
+      return { success: false, error: t('notifications.config.noActiveConfig') }
     }
 
     const newConfig = {

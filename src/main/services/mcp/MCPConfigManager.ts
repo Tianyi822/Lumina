@@ -3,6 +3,7 @@ import { join } from 'path'
 import { app } from 'electron'
 import { logger } from '@main/services/logger'
 import { configManager } from '@main/services/config'
+import { t } from '@main/services/i18n'
 import {
   MCPServerConfig,
   MCPConfigSaveResult,
@@ -35,15 +36,17 @@ export class MCPConfigManager {
    */
   private validateConfig(serverConfig: MCPServerConfig): string | null {
     if (!serverConfig.name?.trim()) {
-      return 'MCP 配置名称不能为空'
+      return t('notifications.settings.mcp.configNameRequired')
     }
 
     if (serverConfig.transport === 'stdio') {
       if (!serverConfig.command?.trim()) {
-        return `MCP 配置 ${serverConfig.name} 的执行命令不能为空`
+        return t('notifications.settings.mcp.validateCommandRequired', {
+          name: serverConfig.name
+        })
       }
     } else if (!serverConfig.url?.trim()) {
-      return `MCP 配置 ${serverConfig.name} 的服务地址不能为空`
+      return t('notifications.settings.mcp.validateUrlRequired', { name: serverConfig.name })
     }
 
     return null
@@ -168,7 +171,7 @@ export class MCPConfigManager {
       if (!config) {
         return {
           success: false,
-          error: '无法访问主配置'
+          error: t('notifications.settings.mcp.mainConfigUnavailable')
         }
       }
 
@@ -215,7 +218,7 @@ export class MCPConfigManager {
       if (!config) {
         return {
           success: false,
-          error: '无法访问主配置'
+          error: t('notifications.settings.mcp.mainConfigUnavailable')
         }
       }
 
@@ -254,7 +257,7 @@ export class MCPConfigManager {
       if (!config || !config.mcpServers) {
         return {
           success: false,
-          error: '无法访问主配置'
+          error: t('notifications.settings.mcp.mainConfigUnavailable')
         }
       }
 
@@ -262,7 +265,7 @@ export class MCPConfigManager {
       if (!config.mcpServers[name]) {
         return {
           success: false,
-          error: `配置不存在: ${name}`
+          error: t('notifications.settings.mcp.configNotFound', { name })
         }
       }
 
@@ -303,7 +306,7 @@ export class MCPConfigManager {
         return {
           success: false,
           imported: 0,
-          errors: ['无效的配置格式：缺少 mcpServers 字段']
+          errors: [t('notifications.settings.mcp.importFormatInvalid')]
         }
       }
 
@@ -340,7 +343,9 @@ export class MCPConfigManager {
         if (saveResult.success) {
           result.imported = configsToImport.length
         } else {
-          result.errors.push(`批量保存失败: ${saveResult.error}`)
+          result.errors.push(
+            t('notifications.settings.mcp.importBatchSaveFailedPrefix') + saveResult.error
+          )
         }
       }
 
