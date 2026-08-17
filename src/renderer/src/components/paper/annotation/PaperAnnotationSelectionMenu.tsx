@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import type { PaperAnnotationColorKey } from '@shared/types/paper'
 import type { SelectionActionMenuState } from '../composables/paperAnnotationComposerTypes'
 import SvgIcon from '@renderer/components/icons/SvgIcon'
@@ -21,6 +22,8 @@ export default function PaperAnnotationSelectionMenu({
   onOpenNoteEditor,
   onAddToChat
 }: PaperAnnotationSelectionMenuProps) {
+  const { t } = useTranslation()
+
   return (
     <div
       className={[
@@ -82,7 +85,9 @@ export default function PaperAnnotationSelectionMenu({
             name="note"
             size={14}
           />
-          <span className="paper-annotation-selection-menu__label">记录笔记</span>
+          <span className="paper-annotation-selection-menu__label">
+            {t('paper.annotation.menu.addNote')}
+          </span>
         </button>
 
         <div
@@ -105,7 +110,9 @@ export default function PaperAnnotationSelectionMenu({
             name="chat"
             size={14}
           />
-          <span className="paper-annotation-selection-menu__label">添加到对话</span>
+          <span className="paper-annotation-selection-menu__label">
+            {t('paper.annotation.menu.addToChat')}
+          </span>
         </button>
       </div>
 

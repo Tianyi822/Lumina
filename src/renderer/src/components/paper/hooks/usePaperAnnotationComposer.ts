@@ -5,11 +5,11 @@ import {
   PAPER_ANNOTATION_HIGHLIGHT_COLOR_KEYS,
   PAPER_ANNOTATION_NOTE_COLOR_KEY
 } from '@shared/types/paper'
-import { PAPER_ANNOTATION_INDEX_LOADING_MESSAGE } from '@shared/utils/paperAnnotationReadiness'
 import {
   PAPER_ANNOTATION_NOTE_CONFLICT_MESSAGE,
   findPaperAnnotationNoteConflict
 } from '@shared/utils/paperAnnotationConflicts'
+import { i18n } from '@renderer/i18n'
 import { createPaperAnnotationComposerActions } from '../composables/paperAnnotationComposerActions'
 import {
   clearSelectedFormulas,
@@ -231,8 +231,9 @@ export function usePaperAnnotationComposer(
         return true
       }
 
-      setInlineError?.(PAPER_ANNOTATION_INDEX_LOADING_MESSAGE)
-      optionsRef.current.onAnnotationUnavailable?.(PAPER_ANNOTATION_INDEX_LOADING_MESSAGE)
+      const loadingMessage = i18n.t('notifications.paper.annotationIndexLoading')
+      setInlineError?.(loadingMessage)
+      optionsRef.current.onAnnotationUnavailable?.(loadingMessage)
       return false
     },
     [optionsRef]
@@ -355,7 +356,7 @@ export function usePaperAnnotationComposer(
       setNoteEditorSaving(false)
 
       if (!result.success) {
-        setNoteEditorError(result.error || '升级笔记失败')
+        setNoteEditorError(result.error || i18n.t('notifications.paper.upgradeNoteFailed'))
         return
       }
       clearSelectionUi()
@@ -419,7 +420,9 @@ export function usePaperAnnotationComposer(
 
       const result = await actions.persistSelectionDraft(menu.draft, 'highlight', colorKey, '')
       if (!result.success) {
-        setSelectionActionMenuError(result.error || '创建标记失败')
+        setSelectionActionMenuError(
+          result.error || i18n.t('notifications.paper.createHighlightFailed')
+        )
         return
       }
 
@@ -499,7 +502,7 @@ export function usePaperAnnotationComposer(
 
     if (!result.success) {
       setNoteEditorSaving(false)
-      setNoteEditorError(result.error || '保存笔记失败')
+      setNoteEditorError(result.error || i18n.t('notifications.paper.saveNoteFailed'))
       return
     }
 
@@ -547,7 +550,7 @@ export function usePaperAnnotationComposer(
     setNoteEditorSaving(false)
 
     if (!result.success) {
-      setNoteEditorError(result.error || '更新笔记失败')
+      setNoteEditorError(result.error || i18n.t('notifications.paper.updateNoteFailed'))
       return
     }
 
@@ -575,7 +578,7 @@ export function usePaperAnnotationComposer(
     setNoteEditorSaving(false)
 
     if (!result.success) {
-      setNoteEditorError(result.error || '删除笔记失败')
+      setNoteEditorError(result.error || i18n.t('notifications.paper.deleteNoteFailed'))
     }
   }, [actions, noteEditorDraftRef])
 
@@ -628,7 +631,7 @@ export function usePaperAnnotationComposer(
       })
 
       if (!result.success) {
-        setHoverPopoverError(result.error || '更新标记颜色失败')
+        setHoverPopoverError(result.error || i18n.t('notifications.paper.updateColorFailed'))
       }
     },
     [annotationHoverPopoverRef, getAnnotationById, optionsRef]
@@ -638,7 +641,7 @@ export function usePaperAnnotationComposer(
     async (annotationId: string): Promise<void> => {
       const result = await actions.deleteAnnotationById(annotationId)
       if (!result.success && annotationHoverPopoverRef.current?.annotationId === annotationId) {
-        setHoverPopoverError(result.error || '删除标注失败')
+        setHoverPopoverError(result.error || i18n.t('notifications.paper.deleteAnnotationFailed'))
       }
     },
     [actions, annotationHoverPopoverRef]

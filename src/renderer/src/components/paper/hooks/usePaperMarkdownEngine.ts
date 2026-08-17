@@ -38,6 +38,7 @@ import {
   getImageMimeTypeFromPath,
   isFileUrl
 } from '@shared/utils'
+import { i18n } from '@renderer/i18n'
 import { usePaperHighlightRenderer } from '../composables/usePaperHighlightRenderer'
 import type { RenderSourceSegment } from '../composables/usePaperHighlightRenderer'
 import { postProcessRenderedHtml } from './paperMarkdownPostProcess'
@@ -638,7 +639,7 @@ export function usePaperMarkdownEngine(options: PaperMarkdownEngineOptions): Pap
         return
       }
       const message = error instanceof Error ? error.message : String(error)
-      setParseError(`Markdown 解析失败: ${message}`)
+      setParseError(`${i18n.t('paper.reader.parseErrorPrefix')}${message}`)
       segmentRenderContextRef.current = null
       setRenderedSegments([])
       currentOptions.clearToc()

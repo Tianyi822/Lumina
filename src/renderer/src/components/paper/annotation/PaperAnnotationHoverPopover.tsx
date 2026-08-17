@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import type { PaperAnnotation, PaperAnnotationColorKey } from '@shared/types/paper'
 import type { AnnotationHoverPopoverState } from '../composables/paperAnnotationComposerTypes'
 import SvgIcon from '@renderer/components/icons/SvgIcon'
@@ -28,6 +29,8 @@ export default function PaperAnnotationHoverPopover({
   onOpenNoteEditor,
   onUpdateColor
 }: PaperAnnotationHoverPopoverProps) {
+  const { t } = useTranslation()
+
   return (
     <div
       className={[styles['paper-annotation-hover-popover'], 'paper-annotation-hover-popover'].join(
@@ -90,7 +93,9 @@ export default function PaperAnnotationHoverPopover({
           type="button"
           onClick={onDelete}
         >
-          {isHighlight(annotation) ? '删除标记' : '删除笔记'}
+          {isHighlight(annotation)
+            ? t('paper.annotation.popover.deleteHighlight')
+            : t('paper.annotation.popover.deleteNote')}
         </button>
 
         <div
@@ -115,7 +120,11 @@ export default function PaperAnnotationHoverPopover({
               size={14}
             />
           )}
-          <span>{isHighlight(annotation) ? '添加笔记' : '编辑笔记'}</span>
+          <span>
+            {isHighlight(annotation)
+              ? t('paper.annotation.popover.addNote')
+              : t('paper.annotation.popover.editNote')}
+          </span>
         </button>
       </div>
 
