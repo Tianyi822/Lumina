@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import MarkdownIt from 'markdown-it'
 import texmath from 'markdown-it-texmath'
 import katex from 'katex'
+import { useTranslation } from 'react-i18next'
 import { buildFigureCaptionTranslationMap } from '@shared/utils/paperTranslation'
 import { normalizePaperInlineMathForRender } from '@shared/utils/paperMarkdown'
 import { usePaperListStore } from '@renderer/stores/paper'
@@ -44,18 +45,19 @@ interface ResizeState extends PointerState {
 
 interface ResizeHandle {
   edge: ResizeEdge
-  label: string
+  /** aria-label 文案 key（paper.figures.*），渲染处经 t() 取当前语言文案 */
+  labelKey: string
 }
 
 const resizeHandles: ResizeHandle[] = [
-  { edge: 'top', label: '从上边缩放图片预览' },
-  { edge: 'right', label: '从右边缩放图片预览' },
-  { edge: 'bottom', label: '从下边缩放图片预览' },
-  { edge: 'left', label: '从左边缩放图片预览' },
-  { edge: 'top-left', label: '从左上角缩放图片预览' },
-  { edge: 'top-right', label: '从右上角缩放图片预览' },
-  { edge: 'bottom-right', label: '从右下角缩放图片预览' },
-  { edge: 'bottom-left', label: '从左下角缩放图片预览' }
+  { edge: 'top', labelKey: 'paper.figures.resizeN' },
+  { edge: 'right', labelKey: 'paper.figures.resizeE' },
+  { edge: 'bottom', labelKey: 'paper.figures.resizeS' },
+  { edge: 'left', labelKey: 'paper.figures.resizeW' },
+  { edge: 'top-left', labelKey: 'paper.figures.resizeNW' },
+  { edge: 'top-right', labelKey: 'paper.figures.resizeNE' },
+  { edge: 'bottom-right', labelKey: 'paper.figures.resizeSE' },
+  { edge: 'bottom-left', labelKey: 'paper.figures.resizeSW' }
 ]
 
 const EMPTY_PAPER_FIGURES: PaperFigureItem[] = []
@@ -159,6 +161,7 @@ function buildResizedRect(state: ResizeState, event: MouseEvent): PaperFigurePre
 
 /** 论文图片预览浮动面板组件，支持拖拽移动、缩放大小、钉住、键盘导航和翻译图注切换 */
 export default function PaperFigurePreview() {
+  const { t } = useTranslation()
   const currentPaperId = usePaperListStore((state) => state.currentPaperId)
   const activeFigure = usePaperFigureStore((state) => state.activeFigure)
   const figuresByPaperId = usePaperFigureStore((state) => state.figuresByPaperId)
@@ -430,15 +433,15 @@ export default function PaperFigurePreview() {
 
   // 合成当前预览图片的图注文本：启用了翻译时优先显示翻译结果，否则降级到原文或子标题
   const previewCaption = useMemo(() => {
-    if (!activeFigure) return '暂无图注'
+    if (!activeFigure) return t('chrome.toolbar.noCaption')
 
     if (translationVisible) {
       const translated = figureCaptionTranslationMap[activeFigure.id]
       if (translated) return translated
     }
 
-    return activeFigure.caption || activeFigure.subCaption || '暂无图注'
-  }, [activeFigure, translationVisible, figureCaptionTranslationMap])
+    return activeFigure.caption || activeFigure.subCaption || t('chrome.toolbar.noCaption')
+  }, [activeFigure, translationVisible, figureCaptionTranslationMap, t])
 
   // 计算当前图片在论文图片列表中的索引，用于显示位置和判断切换可行性
   const currentFigureIndex = useMemo(() => {
@@ -469,7 +472,7 @@ export default function PaperFigurePreview() {
       className={styles['paper-figure-preview']}
       style={previewStyle}
       role="dialog"
-      aria-label="论文图片预览"
+      aria-label={t('paper.figures.previewAria')}
     >
       <div
         className={styles['paper-figure-preview__header']}
@@ -479,7 +482,9 @@ export default function PaperFigurePreview() {
         }}
       >
         <div className={styles['paper-figure-preview__meta']}>
-          <div className={styles['paper-figure-preview__title']}>论文图片预览</div>
+          <div className={styles['paper-figure-preview__title']}>
+            {t('paper.figures.panelTitle')}
+          </div>
         </div>
 
         <div
@@ -494,8 +499,8 @@ export default function PaperFigurePreview() {
             ]
               .filter(Boolean)
               .join(' ')}
-            title={figurePreviewPinned ? '取消钉住' : '钉住预览窗'}
-            aria-label={figurePreviewPinned ? '取消钉住' : '钉住预览窗'}
+            title={figurePreviewPinned ? t('paper.figures.unpin') : t('paper.figures.pin')}
+            aria-label={figurePreviewPinned ? t('paper.figures.unpin') : t('paper.figures.pin')}
             type="button"
             onClick={(e) => {
               e.stopPropagation()
@@ -507,8 +512,8 @@ export default function PaperFigurePreview() {
 
           <button
             className={['sm-icon-button', styles['paper-figure-preview__action']].join(' ')}
-            title="关闭"
-            aria-label="关闭图片预览"
+            title={t('common.close')}
+            aria-label={t('paper.figures.closeAria')}
             type="button"
             onClick={(e) => {
               e.stopPropagation()
@@ -537,8 +542,8 @@ export default function PaperFigurePreview() {
               <button
                 className={['sm-icon-button', styles['paper-figure-preview__nav-button']].join(' ')}
                 type="button"
-                title="上一张"
-                aria-label="查看上一张图片"
+                title={t('paper.figures.prev')}
+                aria-label={t('paper.figures.prevAria')}
                 onClick={(e) => {
                   e.stopPropagation()
                   switchFigure(-1)
@@ -550,8 +555,8 @@ export default function PaperFigurePreview() {
               <button
                 className={['sm-icon-button', styles['paper-figure-preview__nav-button']].join(' ')}
                 type="button"
-                title="下一张"
-                aria-label="查看下一张图片"
+                title={t('paper.figures.next')}
+                aria-label={t('paper.figures.nextAria')}
                 onClick={(e) => {
                   e.stopPropagation()
                   switchFigure(1)
@@ -580,7 +585,7 @@ export default function PaperFigurePreview() {
           ].join(' ')}
           type="button"
           tabIndex={-1}
-          aria-label={handle.label}
+          aria-label={t(handle.labelKey)}
           onMouseDown={(e) => {
             e.preventDefault()
             e.stopPropagation()

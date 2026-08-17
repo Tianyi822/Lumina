@@ -4,11 +4,13 @@ import MarkdownIt from 'markdown-it'
 import texmath from 'markdown-it-texmath'
 import katex from 'katex'
 import 'katex/dist/katex.min.css'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import SvgIcon from '@renderer/components/icons/SvgIcon'
 import { CssTransitionGroup } from '@renderer/components/motion/CssTransition'
 import { formatFileSize } from '@shared/utils'
 import { normalizePaperInlineMathForRender } from '@shared/utils/paperMarkdown'
-import type { OcrProgressInfo, PaperDocument, PaperStatus } from '@shared/types/paper'
+import type { OcrProgressInfo, PaperDocument } from '@shared/types/paper'
 import type { RenderingProgress } from '@renderer/stores/paperReaderStore'
 import { getSidebarListItemMotionStyle } from '@renderer/utils/sidebarListMotion'
 import styles from './PaperSidebar.module.css'
@@ -24,6 +26,27 @@ const TITLE_HTML_CACHE_LIMIT = 500
 const titleHtmlCache = new Map<string, string>()
 const EMPTY_RENDER_PROGRESS_MAP = {} as Record<string, RenderingProgress>
 const EMPTY_OCR_PROGRESS_MAP = {} as Record<string, OcrProgressInfo>
+
+/** OCR 进度文案 key（paper.sidebar.*），渲染处经 t() 取当前语言文案 */
+const OCR_PROGRESS_LABEL_KEYS: Record<string, string> = {
+  idle: 'paper.sidebar.statusIdle',
+  queued: 'paper.sidebar.statusQueued',
+  processing: 'paper.sidebar.statusProcessing',
+  completed: 'paper.sidebar.statusCompleted',
+  partial_failed: 'paper.sidebar.statusPartialFailed',
+  failed: 'paper.sidebar.statusFailed',
+  cancelled: 'paper.sidebar.statusCancelled'
+}
+
+/** 论文状态降级文案 key（draft/rendering 同显“待开始”） */
+const PAPER_STATUS_LABEL_KEYS: Record<string, string> = {
+  draft: 'paper.sidebar.statusIdle',
+  rendering: 'paper.sidebar.statusIdle',
+  ocr_processing: 'paper.sidebar.statusProcessing',
+  completed: 'paper.sidebar.statusCompleted',
+  partial_failed: 'paper.sidebar.statusPartialFailed',
+  failed: 'paper.sidebar.statusFailed'
+}
 
 function renderPaperTitleHtml(paperId: string, displayName: string): string {
   const cacheKey = `${paperId}\u0000${displayName}`
@@ -114,58 +137,40 @@ function getRenderProgressPercent(
   return Math.min(100, Math.round((progress.completedPages / progress.totalPages) * 100))
 }
 
-// 获取 OCR 进度：优先使用实时进度信息，无则从论文状态反推
+// 获取 OCR 进度：优先使用实时进度信息，无则从论文状态反推（返回文案 key，渲染处经 t() 翻译）
 function getOcrProgress(
   paper: PaperDocument,
   ocrProgressByPaperId: Record<string, OcrProgressInfo>
 ): {
   completedPages: number
   totalPages: number
-  hint: string
+  hintKey: string
 } {
   const progress = ocrProgressByPaperId[paper.id]
   if (progress) {
-    // 将 OcrProgressInfo 状态映射为中文提示文本
-    const hintMap: Record<OcrProgressInfo['status'], string> = {
-      idle: '待开始',
-      queued: 'OCR 排队中',
-      processing: '处理中',
-      completed: '已完成',
-      partial_failed: '部分失败',
-      failed: '失败',
-      cancelled: '已取消'
-    }
-
+    // 将 OcrProgressInfo 状态映射为文案 key
     return {
       completedPages: progress.completedPages,
       totalPages: progress.totalPages || paper.pageCount,
-      hint: hintMap[progress.status]
+      hintKey: OCR_PROGRESS_LABEL_KEYS[progress.status] ?? 'paper.sidebar.statusIdle'
     }
   }
 
   // 无实时进度时用 PaperStatus 做降级映射
-  const fallbackHintMap: Record<PaperStatus, string> = {
-    draft: '待开始',
-    rendering: '待开始',
-    ocr_processing: '处理中',
-    completed: '已完成',
-    partial_failed: '部分失败',
-    failed: '失败'
-  }
-
   return {
     completedPages: paper.completedPageCount,
     totalPages: paper.pageCount,
-    hint: fallbackHintMap[paper.status]
+    hintKey: PAPER_STATUS_LABEL_KEYS[paper.status] ?? 'paper.sidebar.statusIdle'
   }
 }
 
 function formatOcrProgressText(
   paper: PaperDocument,
-  ocrProgressByPaperId: Record<string, OcrProgressInfo>
+  ocrProgressByPaperId: Record<string, OcrProgressInfo>,
+  t: TFunction
 ): string {
   const progress = getOcrProgress(paper, ocrProgressByPaperId)
-  return `${progress.completedPages}/${progress.totalPages}（${progress.hint}）`
+  return `${progress.completedPages}/${progress.totalPages}（${t(progress.hintKey)}）`
 }
 
 function getOcrProgressPercent(
@@ -200,57 +205,40 @@ function shouldShowRetry(paper: PaperDocument): boolean {
   return paper.status === 'failed' || paper.status === 'partial_failed'
 }
 
-// 按照失败阶段优先级的顺序确定重试按钮标题
-function getRetryTitle(
-  paper: PaperDocument,
-  renderProgressByPaperId: Record<string, RenderingProgress>
-): string {
-  const renderProgress = renderProgressByPaperId[paper.id]
-  // 截图阶段失败优先于 OCR 阶段
-  if (renderProgress?.stage === 'failed') {
-    return '截图阶段失败'
-  }
-
-  if (paper.status === 'partial_failed') {
-    return 'OCR 部分失败'
-  }
-
-  return 'OCR 阶段失败'
-}
-
 // 根据失败阶段生成重试提示消息，优先展示详细的错误信息
 function getRetryMessage(
   paper: PaperDocument,
   renderProgressByPaperId: Record<string, RenderingProgress>,
-  ocrProgressByPaperId: Record<string, OcrProgressInfo>
+  ocrProgressByPaperId: Record<string, OcrProgressInfo>,
+  t: TFunction
 ): string {
   const renderProgress = renderProgressByPaperId[paper.id]
   // 截图阶段失败 → 展示 render 错误信息
   if (renderProgress?.stage === 'failed') {
-    return renderProgress.error || paper.errorMessage || '页图生成失败，请手动重试。'
+    return renderProgress.error || paper.errorMessage || t('paper.sidebar.renderFailedHint')
   }
 
   // 部分失败 → 提示可重试 OCR
   if (paper.status === 'partial_failed') {
-    return '有页面识别失败，点击重试后会重新执行 OCR。'
+    return t('paper.sidebar.hasFailedPagesHint')
   }
 
   // 完全失败 → 展示 OCR 错误信息
   const ocrProgress = ocrProgressByPaperId[paper.id]
-  return ocrProgress?.errorMessage || paper.errorMessage || 'OCR 执行失败，请手动重试。'
+  return ocrProgress?.errorMessage || paper.errorMessage || t('paper.sidebar.ocrFailedHint')
 }
 
 // 根据论文状态判断不可阅读时的显示文本
-function getUnreadableText(paper: PaperDocument): string {
+function getUnreadableText(paper: PaperDocument, t: TFunction): string {
   if (shouldShowRetry(paper)) {
-    return '处理失败，暂不可阅读'
+    return t('paper.sidebar.unreadableFailed')
   }
 
   if (paper.status === 'failed' || paper.status === 'partial_failed') {
-    return '识别未完成，暂不可阅读'
+    return t('paper.sidebar.unreadableIncomplete')
   }
 
-  return '处理中，暂不可阅读'
+  return t('paper.sidebar.unreadableProcessing')
 }
 
 function getPaperKey(paper: PaperDocument): string {
@@ -276,6 +264,7 @@ const PaperSidebarItem = memo(
     },
     ref
   ) {
+    const { t } = useTranslation()
     // 优先使用标题，无标题时从文件名去除 .pdf 后缀
     const displayName = paper.title || paper.fileName.replace(/\.pdf$/i, '')
     const renderedHtml = useMemo(
@@ -293,6 +282,21 @@ const PaperSidebarItem = memo(
     )
 
     const readable = isPaperReadable(paper)
+
+    // 按照失败阶段优先级的顺序确定重试按钮标题
+    const getRetryTitle = (): string => {
+      const renderProgress = renderProgressByPaperId[paper.id]
+      // 截图阶段失败优先于 OCR 阶段
+      if (renderProgress?.stage === 'failed') {
+        return t('paper.sidebar.retryTitleScreenshot')
+      }
+
+      if (paper.status === 'partial_failed') {
+        return t('paper.sidebar.retryTitlePartial')
+      }
+
+      return t('paper.sidebar.retryTitleOcr')
+    }
 
     return (
       <div
@@ -324,7 +328,7 @@ const PaperSidebarItem = memo(
           />
           <div className={styles['paper-item__meta-row']}>
             <div className={styles['paper-item__meta']}>
-              <span>{paper.pageCount} 页</span>
+              <span>{t('paper.sidebar.pagesCount', { count: paper.pageCount })}</span>
               <span className={styles['paper-item__meta-sep']}>·</span>
               <span>{formatFileSize(paper.fileSize)}</span>
             </div>
@@ -334,11 +338,15 @@ const PaperSidebarItem = memo(
               <button
                 className={styles['paper-item__translation-tag']}
                 type="button"
-                title="点击删除翻译内容"
+                title={t('paper.sidebar.deleteTranslationTooltip')}
                 onClick={(event) => onDeleteTranslation(paper.id, event)}
               >
-                <span className={styles['paper-item__translation-tag-default']}>有译文</span>
-                <span className={styles['paper-item__translation-tag-delete']}>删除翻译</span>
+                <span className={styles['paper-item__translation-tag-default']}>
+                  {t('paper.sidebar.hasTranslation')}
+                </span>
+                <span className={styles['paper-item__translation-tag-delete']}>
+                  {t('paper.sidebar.deleteTranslation')}
+                </span>
               </button>
             )}
           </div>
@@ -347,7 +355,9 @@ const PaperSidebarItem = memo(
           {shouldShowRenderProgress(paper, renderProgressByPaperId) && (
             <div className={styles['paper-item__progress']}>
               <div className={styles['paper-item__progress-line']}>
-                <span className={styles['paper-item__progress-label']}>截图进度</span>
+                <span className={styles['paper-item__progress-label']}>
+                  {t('paper.sidebar.screenshotProgress')}
+                </span>
                 <span>{formatRenderProgressText(paper, renderProgressByPaperId)}</span>
               </div>
               <div className={styles['paper-item__progress-track']}>
@@ -369,8 +379,10 @@ const PaperSidebarItem = memo(
             shouldShowOcrProgress(paper, ocrProgressByPaperId) && (
               <div className={styles['paper-item__progress']}>
                 <div className={styles['paper-item__progress-line']}>
-                  <span className={styles['paper-item__progress-label']}>OCR 进度</span>
-                  <span>{formatOcrProgressText(paper, ocrProgressByPaperId)}</span>
+                  <span className={styles['paper-item__progress-label']}>
+                    {t('paper.sidebar.ocrProgress')}
+                  </span>
+                  <span>{formatOcrProgressText(paper, ocrProgressByPaperId, t)}</span>
                 </div>
                 <div className={styles['paper-item__progress-track']}>
                   <span
@@ -389,32 +401,30 @@ const PaperSidebarItem = memo(
           {/* failed/partial_failed 状态：显示错误信息和重试按钮 */}
           {shouldShowRetry(paper) && (
             <div className={styles['paper-item__retry']}>
-              <div className={styles['paper-item__retry-title']}>
-                {getRetryTitle(paper, renderProgressByPaperId)}
-              </div>
+              <div className={styles['paper-item__retry-title']}>{getRetryTitle()}</div>
               <div className={styles['paper-item__retry-message']}>
-                {getRetryMessage(paper, renderProgressByPaperId, ocrProgressByPaperId)}
+                {getRetryMessage(paper, renderProgressByPaperId, ocrProgressByPaperId, t)}
               </div>
               <button
                 className={styles['paper-item__retry-btn']}
                 type="button"
                 onClick={(event) => onRetryPaper(paper.id, event)}
               >
-                重试
+                {t('paper.sidebar.retry')}
               </button>
             </div>
           )}
 
           {/* 不可读状态（处理中或失败）：显示提示文本 */}
           {!readable && (
-            <div className={styles['paper-item__unreadable']}>{getUnreadableText(paper)}</div>
+            <div className={styles['paper-item__unreadable']}>{getUnreadableText(paper, t)}</div>
           )}
         </div>
 
         <div className={styles['paper-item__actions']}>
           <button
             className={styles['paper-item__delete-btn']}
-            title="删除论文"
+            title={t('paper.sidebar.deletePaperTooltip')}
             type="button"
             onClick={(event) => onDeletePaper(paper.id, event)}
           >
