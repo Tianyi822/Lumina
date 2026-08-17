@@ -6,6 +6,7 @@ import type {
   PaperTranslationEntry
 } from '@shared/types/paper'
 import type { MCPToolCallResult } from '@shared/types/mcp'
+import { t } from '@main/services/i18n'
 import { getPaperService, paperStorageService } from './index'
 
 export type PaperContextSearchSource = 'original' | 'translation' | 'both'
@@ -329,14 +330,14 @@ export class PaperContextSearchToolService {
     )
 
     if (!paperId.trim()) {
-      return { success: false, error: '缺少论文 ID，无法检索论文上下文' }
+      return { success: false, error: t('notifications.paper.contextSearchPaperIdMissing') }
     }
 
     const readerResult = await this.dependencies.getReaderDocument(paperId)
     if (!readerResult.success || !readerResult.data) {
       return {
         success: false,
-        error: readerResult.error || '读取论文原文内容失败'
+        error: readerResult.error || t('notifications.paper.contextSearchReaderFailed')
       }
     }
 
@@ -345,7 +346,7 @@ export class PaperContextSearchToolService {
     if (corpus.length === 0) {
       return {
         success: false,
-        error: '论文 OCR/译文文本为空，无法检索上下文'
+        error: t('notifications.paper.contextSearchCorpusEmpty')
       }
     }
 

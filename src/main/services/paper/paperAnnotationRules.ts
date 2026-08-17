@@ -8,6 +8,7 @@ import {
   PAPER_ANNOTATION_HIGHLIGHT_COLOR_KEYS,
   PAPER_ANNOTATION_NOTE_COLOR_KEY
 } from '@shared/types/paper'
+import { t } from '@main/services/i18n'
 
 export interface NormalizedAnnotationContentInput {
   comment: string
@@ -45,7 +46,7 @@ export function normalizeAnnotationContent(
 
   if (kind === 'highlight') {
     if (!isHighlightColorKey(colorKey)) {
-      return { success: false, error: '普通标记只能使用蓝色、黄色或橙色' }
+      return { success: false, error: t('notifications.paper.highlightColorRestricted') }
     }
 
     return {
@@ -58,11 +59,11 @@ export function normalizeAnnotationContent(
   }
 
   if (colorKey !== PAPER_ANNOTATION_NOTE_COLOR_KEY) {
-    return { success: false, error: '笔记必须使用绿色高亮' }
+    return { success: false, error: t('notifications.paper.noteHighlightRequired') }
   }
 
   if (!trimmedComment) {
-    return { success: false, error: '请先填写笔记内容' }
+    return { success: false, error: t('notifications.paper.noteContentRequired') }
   }
 
   return {

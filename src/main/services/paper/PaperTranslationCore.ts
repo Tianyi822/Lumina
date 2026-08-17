@@ -1,4 +1,5 @@
 import { createHash } from 'crypto'
+import { t } from '@main/services/i18n'
 import type { LLMConfig } from '../../../shared/types/config'
 import type {
   PaperFigureItem,
@@ -447,7 +448,7 @@ function extractTaggedTranslationForSegment(
     }
   }
 
-  throw new Error('模型返回的翻译标签与当前段落 ID 不匹配')
+  throw new Error(t('notifications.paper.translationTagMismatch'))
 }
 
 function splitMeaningfulTranslationBlocks(content: string): string[] {
@@ -471,7 +472,7 @@ function constrainTranslatedBlocksToSegment(
 ): SanitizedTranslatedMarkdown {
   const blocks = splitMeaningfulTranslationBlocks(content)
   if (blocks.length === 0) {
-    throw new Error('模型未返回有效翻译结果')
+    throw new Error(t('notifications.paper.translationEmptyResult'))
   }
 
   const expectedBlockCount = getExpectedTranslationBlockCount(segment)
@@ -689,7 +690,7 @@ export class PaperTranslationCore {
     const source = buildPaperTranslationSource(markdown, figures)
 
     if (source.segments.length === 0) {
-      return { success: false, error: '没有可翻译的正文内容' }
+      return { success: false, error: t('notifications.paper.noTranslatableContent') }
     }
 
     const existingTask = this.tasks.get(paperId)
@@ -712,7 +713,7 @@ export class PaperTranslationCore {
     if (pendingEntries.length > 0) {
       llmConfig = this.deps.getDefaultLlmConfig()
       if (!llmConfig) {
-        return { success: false, error: '未找到可用的默认模型配置' }
+        return { success: false, error: t('notifications.paper.defaultModelMissing') }
       }
 
       cache.modelName = llmConfig.model_name
@@ -915,7 +916,7 @@ export class PaperTranslationCore {
     const runningTask = this.tasks.get(paperId)
     if (runningTask) {
       if (runningTask.sourceHash !== source.sourceHash) {
-        return { success: false, error: '翻译任务正在进行中，请稍后再试' }
+        return { success: false, error: t('notifications.paper.translationInProgress') }
       }
 
       const entryIndex = runningTask.cache.entries.findIndex((e) => e.id === segmentId)
@@ -952,12 +953,12 @@ export class PaperTranslationCore {
 
     const entryIndex = cache.entries.findIndex((e) => e.id === segmentId)
     if (entryIndex === -1) {
-      return { success: false, error: '未找到指定段落' }
+      return { success: false, error: t('notifications.paper.segmentNotFound') }
     }
 
     const llmConfig = this.deps.getDefaultLlmConfig()
     if (!llmConfig) {
-      return { success: false, error: '未找到可用的默认模型配置' }
+      return { success: false, error: t('notifications.paper.defaultModelMissing') }
     }
 
     const entry = cache.entries[entryIndex]
@@ -989,7 +990,7 @@ export class PaperTranslationCore {
       const translatedMarkdown = sanitized.translatedMarkdown
 
       if (tempTask.abortController.signal.aborted) {
-        return { success: false, error: '翻译已取消' }
+        return { success: false, error: t('notifications.paper.translationCancelled') }
       }
 
       entry.status = 'completed'
@@ -1009,7 +1010,7 @@ export class PaperTranslationCore {
       return { success: true, entry: cloneEntry(entry) }
     } catch (error) {
       if (tempTask.abortController.signal.aborted) {
-        return { success: false, error: '翻译已取消' }
+        return { success: false, error: t('notifications.paper.translationCancelled') }
       }
 
       const errorMessage = error instanceof Error ? error.message : String(error)
@@ -1242,7 +1243,7 @@ export class PaperTranslationCore {
     content = stripPromptArtifacts(content)
 
     if (!content) {
-      throw new Error('模型未返回有效翻译结果')
+      throw new Error(t('notifications.paper.translationEmptyResult'))
     }
 
     const constrainedResult = constrainTranslatedBlocksToSegment(segment, content)
@@ -1262,7 +1263,7 @@ export class PaperTranslationCore {
           .trim()
 
         if (!headingText) {
-          throw new Error('标题段翻译结果为空')
+          throw new Error(t('notifications.paper.headingTranslationEmpty'))
         }
 
         content = `${headingPrefix} ${headingText}`
