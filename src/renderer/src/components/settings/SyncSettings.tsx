@@ -1,25 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
+import { getDateLocale } from '@renderer/i18n'
 import { useNotificationCenterStore } from '@renderer/stores/notificationCenterStore'
 import { useSyncStore } from '@renderer/stores/syncStore'
 import type { RelayEvent } from '@shared/types/sync'
 import styles from './SyncSettings.module.css'
-
-function formatTimestamp(unixSeconds: number | null): string {
-  if (!unixSeconds) return '未知'
-  return new Date(unixSeconds * 1000).toLocaleString('zh-CN')
-}
-
-function formatIsoDateTime(iso: string | null): string {
-  if (!iso) return '从未'
-  const time = Date.parse(iso)
-  if (Number.isNaN(time)) return '从未'
-  return new Date(time).toLocaleString('zh-CN')
-}
-
-function formatLastSeen(unixSeconds: number): string {
-  return new Date(unixSeconds * 1000).toLocaleString('zh-CN')
-}
 
 function formatDuration(seconds: number): string {
   const minutes = Math.floor(seconds / 60)
@@ -27,26 +13,9 @@ function formatDuration(seconds: number): string {
   return `${String(minutes).padStart(2, '0')}:${String(rest).padStart(2, '0')}`
 }
 
-function describeEvent(event: RelayEvent | null): string {
-  if (!event) return '尚未收到事件'
-  switch (event.type) {
-    case 'ready':
-      return `事件通道已就绪 · 组版本 ${event.groupRevision}`
-    case 'manifest_updated':
-      return `设备 ${event.deviceId} 更新了 Manifest v${event.version}`
-    case 'session_file_updated':
-      return `会话 ${event.sessionId} 已更新至 v${event.version}`
-    case 'session_file_deleted':
-      return `会话 ${event.sessionId} 已删除`
-    case 'sync_group_merged':
-      return `同步组已合并 · 组版本 ${event.groupRevision}`
-    case 'device_revoked':
-      return `设备 ${event.deviceId} 已吊销`
-  }
-}
-
 /** Lumina Relay 数据同步设置页（Scope A：连接、设备、同步组与事件状态）。 */
 export default function SyncSettings() {
+  const { t } = useTranslation()
   const status = useSyncStore((state) => state.status)
   const storedRelayUrl = useSyncStore((state) => state.relayUrl)
   const storedUsername = useSyncStore((state) => state.username)
@@ -86,6 +55,46 @@ export default function SyncSettings() {
   const bindPaperSyncState = useSyncStore((state) => state.bindPaperSyncState)
   const requestConfirm = useNotificationCenterStore((state) => state.requestConfirm)
 
+  function formatTimestamp(unixSeconds: number | null): string {
+    if (!unixSeconds) return t('settings.sync.unknown')
+    return new Date(unixSeconds * 1000).toLocaleString(getDateLocale())
+  }
+
+  function formatIsoDateTime(iso: string | null): string {
+    if (!iso) return t('settings.sync.never')
+    const time = Date.parse(iso)
+    if (Number.isNaN(time)) return t('settings.sync.never')
+    return new Date(time).toLocaleString(getDateLocale())
+  }
+
+  function formatLastSeen(unixSeconds: number): string {
+    return new Date(unixSeconds * 1000).toLocaleString(getDateLocale())
+  }
+
+  function describeEvent(event: RelayEvent | null): string {
+    if (!event) return t('settings.sync.eventNone')
+    switch (event.type) {
+      case 'ready':
+        return t('settings.sync.eventReady', { revision: event.groupRevision })
+      case 'manifest_updated':
+        return t('settings.sync.eventManifestUpdated', {
+          deviceId: event.deviceId,
+          version: event.version
+        })
+      case 'session_file_updated':
+        return t('settings.sync.eventSessionUpdated', {
+          sessionId: event.sessionId,
+          version: event.version
+        })
+      case 'session_file_deleted':
+        return t('settings.sync.eventSessionDeleted', { sessionId: event.sessionId })
+      case 'sync_group_merged':
+        return t('settings.sync.eventGroupMerged', { revision: event.groupRevision })
+      case 'device_revoked':
+        return t('settings.sync.eventDeviceRevoked', { deviceId: event.deviceId })
+    }
+  }
+
   /** 同步状态的最小展示接口（5 个模块的状态共享此形状） */
   type SyncStateView = {
     phase: 'idle' | 'running' | 'error'
@@ -101,43 +110,72 @@ export default function SyncSettings() {
     resultFormat: (r: unknown) => string
   }> = [
     {
-      name: '会话',
+      name: t('settings.sync.moduleSession'),
       state: sessionSync,
       resultFormat: (r) => {
         const d = r as Record<string, number>
-        return `↑${d.uploaded} 上行 · ↓${d.downloaded} 下行 · ⇄${d.merged} 合并 · ✕${d.deletedLocal + d.deletedRemote} 删除 · 已同步 ${d.skipped}`
+        return t('settings.sync.resultSession', {
+          uploaded: d.uploaded,
+          downloaded: d.downloaded,
+          merged: d.merged,
+          deleted: d.deletedLocal + d.deletedRemote,
+          skipped: d.skipped
+        })
       }
     },
     {
-      name: '配置',
+      name: t('settings.sync.moduleConfig'),
       state: configSync,
       resultFormat: (r) => {
         const d = r as Record<string, number>
-        return `↑${d.uploaded} 上行 · ↓${d.downloaded} 下行 · ⇄${d.merged} 合并 · 已同步 ${d.skipped}`
+        return t('settings.sync.resultConfig', {
+          uploaded: d.uploaded,
+          downloaded: d.downloaded,
+          merged: d.merged,
+          skipped: d.skipped
+        })
       }
     },
     {
-      name: '写作',
+      name: t('settings.sync.moduleWriter'),
       state: writerSync,
       resultFormat: (r) => {
         const d = r as Record<string, number>
-        return `↑${d.uploaded} 上行 · ↓${d.downloaded} 下行 · ✕${d.deletedLocal + d.deletedRemote} 删除 · 已同步 ${d.skipped}`
+        return t('settings.sync.resultWriter', {
+          uploaded: d.uploaded,
+          downloaded: d.downloaded,
+          deleted: d.deletedLocal + d.deletedRemote,
+          skipped: d.skipped
+        })
       }
     },
     {
-      name: '知识库',
+      name: t('settings.sync.moduleKnowledge'),
       state: knowledgeSync,
       resultFormat: (r) => {
         const d = r as Record<string, number>
-        return `↑${d.uploaded} 上行 · ↓${d.downloaded} 下行 · ⟳${d.reindexed} 重建索引 · ✕${d.deletedLocal + d.deletedRemote} 删除 · 已同步 ${d.skipped}`
+        return t('settings.sync.resultKnowledge', {
+          uploaded: d.uploaded,
+          downloaded: d.downloaded,
+          reindexed: d.reindexed,
+          deleted: d.deletedLocal + d.deletedRemote,
+          skipped: d.skipped
+        })
       }
     },
     {
-      name: '论文',
+      name: t('settings.sync.modulePaper'),
       state: paperSync,
       resultFormat: (r) => {
         const d = r as Record<string, number>
-        return `↑${d.uploaded} 文件上行 · ↓${d.downloaded} 下行 · ⟁${d.blocksUploaded} 块上行 · ⇊${d.blocksDownloaded} 块下行 · ✕${d.deletedLocal + d.deletedRemote} 删除 · 已同步 ${d.skipped}`
+        return t('settings.sync.resultPaper', {
+          uploaded: d.uploaded,
+          downloaded: d.downloaded,
+          blocksUploaded: d.blocksUploaded,
+          blocksDownloaded: d.blocksDownloaded,
+          deleted: d.deletedLocal + d.deletedRemote,
+          skipped: d.skipped
+        })
       }
     }
   ]
@@ -158,11 +196,12 @@ export default function SyncSettings() {
     knowledgeSync.phase === 'running' ||
     paperSync.phase === 'running'
   const connectionLabel = useMemo(() => {
-    if (status === 'connecting') return '连接中'
-    if (status === 'connected') return eventConnected ? '已连接 · 事件在线' : '已连接 · 事件重连中'
-    if (status === 'error') return '连接异常'
-    return '未连接'
-  }, [eventConnected, status])
+    if (status === 'connecting') return t('settings.sync.connConnecting')
+    if (status === 'connected')
+      return eventConnected ? t('settings.sync.connOnline') : t('settings.sync.connReconnecting')
+    if (status === 'error') return t('settings.sync.connError')
+    return t('settings.sync.connDisconnected')
+  }, [eventConnected, status, t])
 
   useEffect(() => {
     void refreshStatus()
@@ -200,8 +239,8 @@ export default function SyncSettings() {
 
   async function handleDisconnect(): Promise<void> {
     const confirmed = await requestConfirm(
-      '这会清除本机保存的设备身份和会话 Token。远端设备记录不会自动吊销。',
-      '断开数据同步',
+      t('settings.sync.confirmDisconnect'),
+      t('settings.sync.confirmDisconnectTitle'),
       true
     )
     if (confirmed) await disconnect()
@@ -214,8 +253,8 @@ export default function SyncSettings() {
 
   async function handleRevoke(deviceId: string, deviceName: string): Promise<void> {
     const confirmed = await requestConfirm(
-      `吊销“${deviceName}”后，该设备会立即失去当前同步组访问权限。`,
-      '吊销设备',
+      t('settings.sync.confirmRevoke', { name: deviceName }),
+      t('settings.sync.confirmRevokeTitle'),
       true
     )
     if (confirmed) await revokeDevice(deviceId)
@@ -223,8 +262,8 @@ export default function SyncSettings() {
 
   async function handleDiscardGroups(): Promise<void> {
     const confirmed = await requestConfirm(
-      '其他同步组中的设备、Manifest、block 引用和会话快照将被永久删除，无法恢复。',
-      '永久放弃其他同步组',
+      t('settings.sync.confirmDiscard'),
+      t('settings.sync.confirmDiscardTitle'),
       true
     )
     if (confirmed) await discardOtherGroups()
@@ -234,7 +273,7 @@ export default function SyncSettings() {
     <div className={['sm-settings-page', styles['sync-settings']].join(' ')}>
       <header className="sm-settings-page__header">
         <div className="sm-settings-page__section-title-row">
-          <h2 className="sm-settings-page__title">数据同步</h2>
+          <h2 className="sm-settings-page__title">{t('settings.sync.title')}</h2>
           <span
             className={[
               'sm-settings-chip',
@@ -247,9 +286,7 @@ export default function SyncSettings() {
             {connectionLabel}
           </span>
         </div>
-        <p className="sm-settings-page__description">
-          连接自建 Lumina Relay。密码学和密钥只在主进程处理，Relay 仅保存端到端加密数据。
-        </p>
+        <p className="sm-settings-page__description">{t('settings.sync.description')}</p>
       </header>
 
       <section
@@ -257,16 +294,16 @@ export default function SyncSettings() {
       >
         <div className="sm-settings-page__section-header">
           <div>
-            <h3 className="sm-settings-page__section-title">连接配置</h3>
+            <h3 className="sm-settings-page__section-title">{t('settings.sync.connSection')}</h3>
             <p className="sm-settings-page__section-description">
-              后端会根据账号是否存在自动选择注册或登录。
+              {t('settings.sync.connSectionDesc')}
             </p>
           </div>
         </div>
 
         <div className={styles['sync-settings__form-grid']}>
           <label className={styles['sync-settings__field']}>
-            <span>Relay 地址</span>
+            <span>{t('settings.sync.relayUrl')}</span>
             <input
               className="sm-input"
               type="url"
@@ -277,7 +314,7 @@ export default function SyncSettings() {
             />
           </label>
           <label className={styles['sync-settings__field']}>
-            <span>用户名</span>
+            <span>{t('settings.sync.username')}</span>
             <input
               className="sm-input"
               value={username}
@@ -289,14 +326,14 @@ export default function SyncSettings() {
           </label>
           {!connected && (
             <label className={styles['sync-settings__field']}>
-              <span>密码</span>
+              <span>{t('settings.sync.password')}</span>
               <input
                 className="sm-input"
                 type="password"
                 value={password}
                 disabled={connecting}
                 autoComplete="current-password"
-                placeholder="输入账号密码"
+                placeholder={t('settings.sync.passwordPlaceholder')}
                 onChange={(event) => setPassword(event.target.value)}
                 onKeyDown={(event) => {
                   if (event.key === 'Enter') void handleConnect()
@@ -313,7 +350,9 @@ export default function SyncSettings() {
               disabled={!relayUrl.trim() || pendingAction === 'discover' || connecting}
               onClick={() => void discover(relayUrl)}
             >
-              {pendingAction === 'discover' ? '检测中...' : '检测 Relay'}
+              {pendingAction === 'discover'
+                ? t('settings.sync.discovering')
+                : t('settings.sync.discover')}
             </button>
           )}
           {!connected ? (
@@ -322,7 +361,7 @@ export default function SyncSettings() {
               disabled={!relayUrl.trim() || !username.trim() || !password || connecting}
               onClick={() => void handleConnect()}
             >
-              {connecting ? '正在连接...' : '连接 / 登录'}
+              {connecting ? t('settings.sync.connectLoading') : t('settings.sync.connectLogin')}
             </button>
           ) : (
             <>
@@ -331,13 +370,13 @@ export default function SyncSettings() {
                 disabled={pendingAction === 'renew'}
                 onClick={() => void renewSession()}
               >
-                {pendingAction === 'renew' ? '延长中...' : '延长登录有效期'}
+                {pendingAction === 'renew' ? t('settings.sync.renewing') : t('settings.sync.renew')}
               </button>
               <button
                 className="sm-button sm-button--danger"
                 onClick={() => void handleDisconnect()}
               >
-                断开
+                {t('common.disconnect')}
               </button>
             </>
           )}
@@ -352,49 +391,51 @@ export default function SyncSettings() {
           >
             <div className="sm-settings-page__section-header">
               <div>
-                <h3 className="sm-settings-page__section-title">当前设备</h3>
+                <h3 className="sm-settings-page__section-title">
+                  {t('settings.sync.deviceTitle')}
+                </h3>
                 <p className="sm-settings-page__section-description">
-                  本机身份、同步组与会话有效期。
+                  {t('settings.sync.deviceDesc')}
                 </p>
               </div>
             </div>
             <dl className={styles['sync-settings__details']}>
               <div>
-                <dt>账号</dt>
+                <dt>{t('settings.sync.account')}</dt>
                 <dd>{username}</dd>
               </div>
               <div>
-                <dt>设备</dt>
+                <dt>{t('settings.sync.device')}</dt>
                 <dd>{deviceInfo.deviceName}</dd>
               </div>
               <div>
-                <dt>设备 ID</dt>
+                <dt>{t('settings.sync.deviceId')}</dt>
                 <dd>{deviceInfo.deviceId}</dd>
               </div>
               <div>
-                <dt>同步组</dt>
+                <dt>{t('settings.sync.syncGroup')}</dt>
                 <dd>{syncGroupId}</dd>
               </div>
               <div>
-                <dt>组版本</dt>
-                <dd>{groupRevision ?? '未知'}</dd>
+                <dt>{t('settings.sync.groupRevision')}</dt>
+                <dd>{groupRevision ?? t('settings.sync.unknown')}</dd>
               </div>
               <div>
-                <dt>登录到期</dt>
+                <dt>{t('settings.sync.sessionExpiry')}</dt>
                 <dd>{formatTimestamp(deviceInfo.sessionExpiresAt)}</dd>
               </div>
             </dl>
             <p className={styles['sync-settings__auto-renew-note']}>
-              到期前会自动延长登录，无需手动操作。
+              {t('settings.sync.autoRenewNote')}
             </p>
             {!deviceInfo.secureStorageAvailable && (
               <div className="sm-settings-banner sm-settings-banner--warning">
-                系统安全存储不可用：身份仅在本次会话内存中保留，退出应用后需要重新登录。
+                {t('settings.sync.insecureStorageBanner')}
               </div>
             )}
             {hasOtherSyncData && (
               <div className="sm-settings-banner sm-settings-banner--warning">
-                账号的其他同步组中存在数据。请从旧设备生成六位同步码并在本机兑换，或确认放弃旧数据。
+                {t('settings.sync.otherGroupsBanner')}
               </div>
             )}
           </section>
@@ -404,39 +445,43 @@ export default function SyncSettings() {
           >
             <div className="sm-settings-page__section-header">
               <div>
-                <h3 className="sm-settings-page__section-title">同步组配对</h3>
+                <h3 className="sm-settings-page__section-title">
+                  {t('settings.sync.pairingTitle')}
+                </h3>
                 <p className="sm-settings-page__section-description">
-                  六位码五分钟内有效且只能使用一次，用于永久合并同账号设备的同步组。
+                  {t('settings.sync.pairingDesc')}
                 </p>
               </div>
             </div>
             <div className={styles['sync-settings__pairing']}>
               <div className="sm-settings-card">
-                <strong>邀请另一台设备</strong>
+                <strong>{t('settings.sync.inviteTitle')}</strong>
                 {generatedCode && codeSecondsRemaining > 0 ? (
                   <div className={styles['sync-settings__code-row']}>
                     <code className={styles['sync-settings__code']}>{generatedCode.code}</code>
                     <span>{formatDuration(codeSecondsRemaining)}</span>
                   </div>
                 ) : (
-                  <p>生成一个新的六位同步码。</p>
+                  <p>{t('settings.sync.inviteHint')}</p>
                 )}
                 <button
                   className="sm-button"
                   disabled={pendingAction === 'generate-code'}
                   onClick={() => void generateSyncCode()}
                 >
-                  {pendingAction === 'generate-code' ? '生成中...' : '生成同步码'}
+                  {pendingAction === 'generate-code'
+                    ? t('settings.sync.generating')
+                    : t('settings.sync.generateCode')}
                 </button>
               </div>
               <div className="sm-settings-card">
-                <strong>加入已有同步组</strong>
+                <strong>{t('settings.sync.joinTitle')}</strong>
                 <input
                   className={['sm-input', styles['sync-settings__redeem-input']].join(' ')}
                   value={redeemCode}
                   inputMode="numeric"
                   maxLength={6}
-                  placeholder="输入六位同步码"
+                  placeholder={t('settings.sync.redeemPlaceholder')}
                   onChange={(event) => setRedeemCode(event.target.value.replace(/\D/g, ''))}
                 />
                 <button
@@ -444,7 +489,9 @@ export default function SyncSettings() {
                   disabled={redeemCode.length !== 6 || pendingAction === 'redeem-code'}
                   onClick={() => void handleRedeem()}
                 >
-                  {pendingAction === 'redeem-code' ? '正在加入...' : '加入同步组'}
+                  {pendingAction === 'redeem-code'
+                    ? t('settings.sync.joining')
+                    : t('settings.sync.join')}
                 </button>
               </div>
             </div>
@@ -455,19 +502,23 @@ export default function SyncSettings() {
           >
             <div className="sm-settings-page__section-header">
               <div>
-                <h3 className="sm-settings-page__section-title">设备管理</h3>
-                <p className="sm-settings-page__section-description">管理当前同步组中的设备。</p>
+                <h3 className="sm-settings-page__section-title">
+                  {t('settings.sync.devicesTitle')}
+                </h3>
+                <p className="sm-settings-page__section-description">
+                  {t('settings.sync.devicesDesc')}
+                </p>
               </div>
               <button
                 className="sm-button"
                 disabled={pendingAction === 'list-devices'}
                 onClick={() => void listDevices()}
               >
-                {pendingAction === 'list-devices' ? '刷新中...' : '刷新'}
+                {pendingAction === 'list-devices' ? t('common.refreshing') : t('common.refresh')}
               </button>
             </div>
             {devices.length === 0 ? (
-              <div className="sm-settings-empty">当前同步组暂无设备信息。</div>
+              <div className="sm-settings-empty">{t('settings.sync.devicesEmpty')}</div>
             ) : (
               <div className={styles['sync-settings__device-list']}>
                 {devices.map((device) => {
@@ -478,18 +529,23 @@ export default function SyncSettings() {
                         <div className={styles['sync-settings__device-title']}>
                           <strong>{device.deviceName}</strong>
                           {current && (
-                            <span className="sm-settings-chip sm-settings-chip--accent">本机</span>
+                            <span className="sm-settings-chip sm-settings-chip--accent">
+                              {t('settings.sync.thisDevice')}
+                            </span>
                           )}
                           <span className="sm-settings-chip">{device.status}</span>
                         </div>
-                        <p>最近在线：{formatLastSeen(device.lastSeenAt)}</p>
+                        <p>
+                          {t('settings.sync.lastSeen')}
+                          {formatLastSeen(device.lastSeenAt)}
+                        </p>
                       </div>
                       <button
                         className="sm-button sm-button--danger"
                         disabled={current || pendingAction === `revoke:${device.deviceId}`}
                         onClick={() => void handleRevoke(device.deviceId, device.deviceName)}
                       >
-                        吊销
+                        {t('settings.sync.revoke')}
                       </button>
                     </div>
                   )
@@ -503,9 +559,11 @@ export default function SyncSettings() {
           >
             <div className="sm-settings-page__section-header">
               <div>
-                <h3 className="sm-settings-page__section-title">事件与对账</h3>
+                <h3 className="sm-settings-page__section-title">
+                  {t('settings.sync.eventsTitle')}
+                </h3>
                 <p className="sm-settings-page__section-description">
-                  WebSocket 事件仅作通知；断线后以 HTTP 全量对账结果为准。
+                  {t('settings.sync.eventsDesc')}
                 </p>
               </div>
               <button
@@ -513,18 +571,24 @@ export default function SyncSettings() {
                 disabled={pendingAction === 'reconcile'}
                 onClick={() => void reconcile(true)}
               >
-                {pendingAction === 'reconcile' ? '对账中...' : '立即对账'}
+                {pendingAction === 'reconcile'
+                  ? t('settings.sync.reconciling')
+                  : t('settings.sync.reconcile')}
               </button>
             </div>
             <div className={styles['sync-settings__event-status']}>
               <span className={eventConnected ? styles['is-online'] : styles['is-offline']}>
-                {eventConnected ? '事件通道在线' : '事件通道重连中'}
+                {eventConnected
+                  ? t('settings.sync.eventOnline')
+                  : t('settings.sync.eventReconnecting')}
               </span>
               <span>{describeEvent(lastEvent)}</span>
               {lastReconcile && (
                 <span>
-                  最近对账：{lastReconcile.manifestHeads.length} 个 Manifest head，
-                  {lastReconcile.sessionFiles.length} 个会话快照
+                  {t('settings.sync.lastReconcile', {
+                    manifests: lastReconcile.manifestHeads.length,
+                    snapshots: lastReconcile.sessionFiles.length
+                  })}
                 </span>
               )}
             </div>
@@ -535,9 +599,9 @@ export default function SyncSettings() {
           >
             <div className="sm-settings-page__section-header">
               <div>
-                <h3 className="sm-settings-page__section-title">数据同步</h3>
+                <h3 className="sm-settings-page__section-title">{t('settings.sync.dataTitle')}</h3>
                 <p className="sm-settings-page__section-description">
-                  会话、配置、写作、知识库、论文五类数据端到端加密同步；每 60 秒自动一轮。
+                  {t('settings.sync.dataDesc')}
                 </p>
               </div>
               <button
@@ -545,7 +609,7 @@ export default function SyncSettings() {
                 disabled={anyRunning}
                 onClick={() => void syncAllNow()}
               >
-                {anyRunning ? '同步中...' : '立即同步'}
+                {anyRunning ? t('settings.sync.syncing') : t('settings.sync.syncNow')}
               </button>
             </div>
             <div className={styles['sync-settings__modules']}>
@@ -570,7 +634,11 @@ export default function SyncSettings() {
                         {mod.name}
                       </span>
                       <span className={styles['sync-settings__module-meta']}>
-                        {isRunning ? '同步中' : isError ? '失败' : '空闲'}
+                        {isRunning
+                          ? t('settings.sync.phaseRunning')
+                          : isError
+                            ? t('settings.sync.phaseError')
+                            : t('settings.sync.phaseIdle')}
                         {' · '}
                         {formatIsoDateTime(state.lastSyncAt)}
                       </span>
@@ -609,9 +677,11 @@ export default function SyncSettings() {
           >
             <div className="sm-settings-page__section-header">
               <div>
-                <h3 className="sm-settings-page__section-title">危险操作</h3>
+                <h3 className="sm-settings-page__section-title">
+                  {t('settings.sync.dangerTitle')}
+                </h3>
                 <p className="sm-settings-page__section-description">
-                  永久删除当前组以外的同步组数据，并吊销其中全部设备。
+                  {t('settings.sync.dangerDesc')}
                 </p>
               </div>
               <button
@@ -619,7 +689,9 @@ export default function SyncSettings() {
                 disabled={pendingAction === 'discard-groups'}
                 onClick={() => void handleDiscardGroups()}
               >
-                {pendingAction === 'discard-groups' ? '正在处理...' : '放弃其他同步组'}
+                {pendingAction === 'discard-groups'
+                  ? t('settings.sync.discarding')
+                  : t('settings.sync.discard')}
               </button>
             </div>
           </section>
