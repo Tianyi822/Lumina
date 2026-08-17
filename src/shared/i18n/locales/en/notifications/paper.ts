@@ -107,6 +107,7 @@ const paper: Resources['notifications']['paper'] = {
   annotationUpdateInternalError: 'An internal error occurred while updating the annotation',
   noteConflict:
     'A note already covers the selected range in this segment. Adjust the selection or edit the existing note',
+  ocrImageAlt: 'OCR image',
   highlightColorRestricted: 'Highlights can only use blue, yellow, or orange',
   noteHighlightRequired: 'Notes must use the green highlight',
   sourcePdfMissing: 'The source PDF file does not exist',

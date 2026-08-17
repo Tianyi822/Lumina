@@ -308,8 +308,41 @@ test('渲染进程 t() 字面量引用的 key 均存在于 zh 资源', () => {
   assert.deepEqual(offenders, [], `存在未定义的 i18n key 引用: ${JSON.stringify(offenders)}`)
 })
 
-/** 主进程间接引用（t(变量)）白名单：当前无既有引用，T3 起若出现 key-map 常量随任务补充 */
-const MAIN_INDIRECT_KEY_WHITELIST: string[] = []
+/**
+ * 主进程间接引用(t(变量))白名单:字面量正则扫不到、经参数传递的 key。
+ * - writer 操作名:writerHandlers invokeWriter / WriterService runOperation / WriterStorageService enqueueMutation 传 key 组合
+ * - sync 密文长度:paperSnapshotCrypto/knowledgeSnapshotCrypto 的 lengthErrorKey 参数
+ */
+const MAIN_INDIRECT_KEY_WHITELIST: string[] = [
+  // writerHandlers.ts / WriterService.ts / WriterStorageService.ts — t(operationKey)
+  'notifications.writer.operations.cleanupAssets',
+  'notifications.writer.operations.createDocument',
+  'notifications.writer.operations.createFolder',
+  'notifications.writer.operations.deleteDocument',
+  'notifications.writer.operations.deleteFolder',
+  'notifications.writer.operations.exportDocument',
+  'notifications.writer.operations.importAsset',
+  'notifications.writer.operations.initializeService',
+  'notifications.writer.operations.initializeStorage',
+  'notifications.writer.operations.listDocuments',
+  'notifications.writer.operations.mapDocument',
+  'notifications.writer.operations.moveDocument',
+  'notifications.writer.operations.readCleanupDocument',
+  'notifications.writer.operations.readDocument',
+  'notifications.writer.operations.readDocumentIndex',
+  'notifications.writer.operations.renameDocument',
+  'notifications.writer.operations.renameFolder',
+  'notifications.writer.operations.saveDocument',
+  'notifications.writer.operations.updateFavorite',
+  // paperSnapshotCrypto.ts / knowledgeSnapshotCrypto.ts — t(lengthErrorKey)
+  'notifications.sync.knowledgeBlockCiphertextLengthInvalid',
+  'notifications.sync.knowledgeFileCiphertextLengthInvalid',
+  'notifications.sync.knowledgeManifestCiphertextLengthInvalid',
+  'notifications.sync.paperAnnotationsCiphertextLengthInvalid',
+  'notifications.sync.paperBlockCiphertextLengthInvalid',
+  'notifications.sync.paperMetaCiphertextLengthInvalid',
+  'notifications.sync.paperPackCiphertextLengthInvalid'
+]
 
 test('主进程 t() 字面量引用的 key 均存在于 zh 资源', () => {
   const zhKeys = new Set(collectKeys(zh))

@@ -99,6 +99,7 @@ const paper = {
   updateAnnotationsFailed: '更新论文批注失败',
   annotationUpdateInternalError: '更新批注时发生内部错误',
   noteConflict: '该段已有笔记覆盖了选中范围，请调整选区或编辑已有笔记',
+  ocrImageAlt: 'OCR图片',
   highlightColorRestricted: '普通标记只能使用蓝色、黄色或橙色',
   noteHighlightRequired: '笔记必须使用绿色高亮',
   sourcePdfMissing: '源 PDF 文件不存在',
