@@ -335,7 +335,10 @@ export class WriterSyncService {
         tracker.setTombstone(key, new Date().toISOString())
         if (del.success && del.data?.deleted) result.deletedRemote++
       } else {
-        result.errors.push({ key, message: `删除远端失败：${del.error ?? del.code}` })
+        result.errors.push({
+          key,
+          message: t('notifications.sync.remoteDeleteFailed', { detail: del.error ?? del.code })
+        })
       }
     }
 
@@ -349,7 +352,10 @@ export class WriterSyncService {
       const dl = await client.getSessionFile(key)
       if (!dl.success || !dl.data) {
         if (dl.code !== 'session_file_not_found') {
-          result.errors.push({ key, message: `下载失败：${dl.error ?? dl.code}` })
+          result.errors.push({
+            key,
+            message: t('notifications.sync.itemDownloadFailed', { detail: dl.error ?? dl.code })
+          })
         }
         continue
       }
@@ -358,13 +364,13 @@ export class WriterSyncService {
       try {
         plainBytes = openWriterFile(dek, dl.data.bytes)
       } catch {
-        result.errors.push({ key, message: '解密失败' })
+        result.errors.push({ key, message: t('notifications.sync.decryptFailed') })
         continue
       }
 
       const parsed = parseWriterKey(key)
       if (!parsed) {
-        result.errors.push({ key, message: 'key 解析失败' })
+        result.errors.push({ key, message: t('notifications.sync.keyParseFailed') })
         continue
       }
 
@@ -375,7 +381,7 @@ export class WriterSyncService {
         downloadResult = await this.applyRemoteFile(parsed, plainBytes)
       } catch (error) {
         if (error instanceof SyntaxError) {
-          result.errors.push({ key, message: 'JSON 解析失败' })
+          result.errors.push({ key, message: t('notifications.sync.jsonParseFailed') })
           continue
         }
         throw error
@@ -410,7 +416,12 @@ export class WriterSyncService {
 
       const del = await this.storage.applySyncedDeletedDocument(parsed.documentId)
       if (!del.success) {
-        result.errors.push({ key, message: `本地删除失败：${del.error ?? '未知'}` })
+        result.errors.push({
+          key,
+          message: t('notifications.sync.localDeleteFailed', {
+            detail: del.error ?? t('notifications.sync.unknown')
+          })
+        })
         continue
       }
       tracker.removeKey(key)
@@ -467,7 +478,11 @@ export class WriterSyncService {
         if (merge.changed) {
           const applyResult = await this.storage.applySyncedIndex(merge.merged)
           if (!applyResult.success) {
-            return { failed: `index 落盘失败：${applyResult.error ?? '未知'}` }
+            return {
+              failed: t('notifications.sync.writerIndexApplyFailed', {
+                detail: applyResult.error ?? t('notifications.sync.unknown')
+              })
+            }
           }
         }
         return 'downloaded'
@@ -481,7 +496,11 @@ export class WriterSyncService {
         }
         const applyResult = await this.storage.applySyncedDocument(remoteDoc)
         if (!applyResult.success) {
-          return { failed: `document 落盘失败：${applyResult.error ?? '未知'}` }
+          return {
+            failed: t('notifications.sync.writerDocumentApplyFailed', {
+              detail: applyResult.error ?? t('notifications.sync.unknown')
+            })
+          }
         }
         return 'downloaded'
       }
@@ -494,7 +513,11 @@ export class WriterSyncService {
           bytes
         })
         if (!importResult.success) {
-          return { failed: `asset 落盘失败：${importResult.error ?? '未知'}` }
+          return {
+            failed: t('notifications.sync.writerAssetApplyFailed', {
+              detail: importResult.error ?? t('notifications.sync.unknown')
+            })
+          }
         }
         return 'downloaded'
       }

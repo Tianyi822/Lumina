@@ -245,7 +245,10 @@ export class SessionSyncService {
     result: SessionSyncResult
   ): Promise<boolean> {
     if (meta.sessionId !== sessionId) {
-      result.errors.push({ sessionId, message: '远端内容 sessionId 与文件键不一致，已拒绝落盘' })
+      result.errors.push({
+        sessionId,
+        message: t('notifications.sync.remoteSessionIdMismatch')
+      })
       return false
     }
     try {
@@ -253,7 +256,9 @@ export class SessionSyncService {
     } catch (error) {
       result.errors.push({
         sessionId,
-        message: `落盘失败：${error instanceof Error ? error.message : String(error)}`
+        message: t('notifications.sync.applyFailed', {
+          detail: error instanceof Error ? error.message : String(error)
+        })
       })
       return false
     }
@@ -315,7 +320,10 @@ export class SessionSyncService {
       if (local.kind === 'ok') {
         localMap.set(sessionId, local)
       } else if (local.kind === 'error') {
-        result.errors.push({ sessionId, message: `本地读取失败：${local.message}` })
+        result.errors.push({
+          sessionId,
+          message: t('notifications.sync.localReadFailed', { detail: local.message })
+        })
         unreadable.add(sessionId)
       }
     }
@@ -335,7 +343,10 @@ export class SessionSyncService {
         tracker.setTombstone(sessionId, new Date().toISOString())
         if (del.success && del.data?.deleted) result.deletedRemote++
       } else {
-        result.errors.push({ sessionId, message: `删除远端失败：${del.error ?? del.code}` })
+        result.errors.push({
+          sessionId,
+          message: t('notifications.sync.remoteDeleteFailed', { detail: del.error ?? del.code })
+        })
       }
     }
 
@@ -365,7 +376,10 @@ export class SessionSyncService {
       const dl = await client.getSessionFile(sessionId)
       if (!dl.success || !dl.data) {
         if (dl.code !== 'session_file_not_found') {
-          result.errors.push({ sessionId, message: `下载失败：${dl.error ?? dl.code}` })
+          result.errors.push({
+            sessionId,
+            message: t('notifications.sync.itemDownloadFailed', { detail: dl.error ?? dl.code })
+          })
         }
         continue
       }
@@ -376,14 +390,17 @@ export class SessionSyncService {
           'utf-8'
         )
       } catch {
-        result.errors.push({ sessionId, message: '解密失败' })
+        result.errors.push({ sessionId, message: t('notifications.sync.decryptFailed') })
         continue
       }
 
       if (local === undefined || !localDirty) {
         const parsed = parseSessionJsonl(remoteText)
         if (!parsed.meta) {
-          result.errors.push({ sessionId, message: '远端内容无法解析' })
+          result.errors.push({
+            sessionId,
+            message: t('notifications.sync.remoteContentParseFailed')
+          })
           continue
         }
         if (!(await this.rewriteOwnedSession(sessionId, parsed.meta, parsed.messages, result))) {
@@ -391,7 +408,10 @@ export class SessionSyncService {
         }
         const disk = await this.readLocal(dir, sessionId)
         if (disk.kind === 'error') {
-          result.errors.push({ sessionId, message: `本地读取失败：${disk.message}` })
+          result.errors.push({
+            sessionId,
+            message: t('notifications.sync.localReadFailed', { detail: disk.message })
+          })
           continue
         }
         if (disk.kind === 'ok') localMap.set(sessionId, disk)
@@ -405,7 +425,7 @@ export class SessionSyncService {
 
       const merged = mergeSessionJsonl(Buffer.from(local.bytes).toString('utf-8'), remoteText)
       if (!merged.meta) {
-        result.errors.push({ sessionId, message: '合并失败：meta 不可用' })
+        result.errors.push({ sessionId, message: t('notifications.sync.mergeMetaUnavailable') })
         continue
       }
       if (!(await this.rewriteOwnedSession(sessionId, merged.meta, merged.messages, result))) {
@@ -413,7 +433,10 @@ export class SessionSyncService {
       }
       const disk = await this.readLocal(dir, sessionId)
       if (disk.kind === 'error') {
-        result.errors.push({ sessionId, message: `本地读取失败：${disk.message}` })
+        result.errors.push({
+          sessionId,
+          message: t('notifications.sync.localReadFailed', { detail: disk.message })
+        })
         continue
       }
       if (disk.kind === 'ok') localMap.set(sessionId, disk)
@@ -442,7 +465,9 @@ export class SessionSyncService {
       } catch (error) {
         result.errors.push({
           sessionId,
-          message: `落盘失败：${error instanceof Error ? error.message : String(error)}`
+          message: t('notifications.sync.applyFailed', {
+            detail: error instanceof Error ? error.message : String(error)
+          })
         })
         continue
       }
@@ -490,7 +515,10 @@ export class SessionSyncService {
   ): Promise<void> {
     const initial = await this.readLocal(dir, sessionId)
     if (initial.kind === 'error') {
-      result.errors.push({ sessionId, message: `本地读取失败：${initial.message}` })
+      result.errors.push({
+        sessionId,
+        message: t('notifications.sync.localReadFailed', { detail: initial.message })
+      })
       return
     }
     if (initial.kind === 'missing') return

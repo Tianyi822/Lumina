@@ -7,6 +7,7 @@
  */
 import { xchacha20poly1305 } from '@noble/ciphers/chacha.js'
 import { randomBytes } from 'node:crypto'
+import { t } from '@main/services/i18n'
 import { utf8ToBytes } from '../crypto/base64url'
 import { sha256Hex } from '../crypto/hash'
 
@@ -20,7 +21,9 @@ const DEK_BYTES = 32
 
 function assertDek(dek: Uint8Array): void {
   if (dek.length !== DEK_BYTES) {
-    throw new Error(`DEK 长度非法：期望 ${DEK_BYTES} 字节，实际 ${dek.length} 字节`)
+    throw new Error(
+      t('notifications.sync.dekLengthInvalid', { expected: DEK_BYTES, actual: dek.length })
+    )
   }
 }
 
@@ -38,11 +41,11 @@ function openWithAad(
   dek: Uint8Array,
   aad: Uint8Array,
   ciphertext: Uint8Array,
-  label: string
+  lengthErrorKey: string
 ): Uint8Array {
   assertDek(dek)
   if (ciphertext.length < NONCE_BYTES + TAG_BYTES + 1) {
-    throw new Error(`${label} 密文长度非法：${ciphertext.length} 字节`)
+    throw new Error(t(lengthErrorKey, { length: ciphertext.length }))
   }
   const nonce = ciphertext.subarray(0, NONCE_BYTES)
   const sealed = ciphertext.subarray(NONCE_BYTES)
@@ -54,7 +57,12 @@ export function sealPaperMeta(dek: Uint8Array, plaintext: Uint8Array): Uint8Arra
   return sealWithAad(dek, PAPER_META_AAD, plaintext)
 }
 export function openPaperMeta(dek: Uint8Array, ciphertext: Uint8Array): Uint8Array {
-  return openWithAad(dek, PAPER_META_AAD, ciphertext, 'paper meta')
+  return openWithAad(
+    dek,
+    PAPER_META_AAD,
+    ciphertext,
+    'notifications.sync.paperMetaCiphertextLengthInvalid'
+  )
 }
 
 /** 用 DEK 密封/解开 paper annotations 明文 */
@@ -62,7 +70,12 @@ export function sealPaperAnnotations(dek: Uint8Array, plaintext: Uint8Array): Ui
   return sealWithAad(dek, PAPER_ANNOTATIONS_AAD, plaintext)
 }
 export function openPaperAnnotations(dek: Uint8Array, ciphertext: Uint8Array): Uint8Array {
-  return openWithAad(dek, PAPER_ANNOTATIONS_AAD, ciphertext, 'paper annotations')
+  return openWithAad(
+    dek,
+    PAPER_ANNOTATIONS_AAD,
+    ciphertext,
+    'notifications.sync.paperAnnotationsCiphertextLengthInvalid'
+  )
 }
 
 /** 用 DEK 密封/解开 paper pack manifest 明文 */
@@ -70,7 +83,12 @@ export function sealPaperPack(dek: Uint8Array, plaintext: Uint8Array): Uint8Arra
   return sealWithAad(dek, PAPER_PACK_AAD, plaintext)
 }
 export function openPaperPack(dek: Uint8Array, ciphertext: Uint8Array): Uint8Array {
-  return openWithAad(dek, PAPER_PACK_AAD, ciphertext, 'paper pack')
+  return openWithAad(
+    dek,
+    PAPER_PACK_AAD,
+    ciphertext,
+    'notifications.sync.paperPackCiphertextLengthInvalid'
+  )
 }
 
 /** 块加密：返回密文与 blockId（blockId = sha256(密文)，对齐 relay blocks 通道契约） */
@@ -84,5 +102,10 @@ export function sealPaperBlock(
 
 /** 解开 paper 块密文；tag 校验失败/长度非法抛异常 */
 export function openPaperBlock(dek: Uint8Array, ciphertext: Uint8Array): Uint8Array {
-  return openWithAad(dek, PAPER_BLOCK_AAD, ciphertext, 'paper block')
+  return openWithAad(
+    dek,
+    PAPER_BLOCK_AAD,
+    ciphertext,
+    'notifications.sync.paperBlockCiphertextLengthInvalid'
+  )
 }

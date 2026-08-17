@@ -464,7 +464,10 @@ export class PaperSyncService {
         tracker.setTombstone(key, new Date().toISOString())
         if (del.success && del.data?.deleted) result.deletedRemote++
       } else {
-        result.errors.push({ key, message: `删除远端失败：${del.error ?? del.code}` })
+        result.errors.push({
+          key,
+          message: t('notifications.sync.remoteDeleteFailed', { detail: del.error ?? del.code })
+        })
       }
     }
 
@@ -477,13 +480,16 @@ export class PaperSyncService {
       const dl = await client.getSessionFile(key)
       if (!dl.success || !dl.data) {
         if (dl.code !== 'session_file_not_found')
-          result.errors.push({ key, message: `下载失败：${dl.error ?? dl.code}` })
+          result.errors.push({
+            key,
+            message: t('notifications.sync.itemDownloadFailed', { detail: dl.error ?? dl.code })
+          })
         continue
       }
 
       const parsed = parsePaperKey(key)
       if (!parsed) {
-        result.errors.push({ key, message: 'key 解析失败' })
+        result.errors.push({ key, message: t('notifications.sync.keyParseFailed') })
         continue
       }
 
@@ -494,7 +500,7 @@ export class PaperSyncService {
           plainBytes = openPaperAnnotations(dek, dl.data.bytes)
         else plainBytes = openPaperPack(dek, dl.data.bytes)
       } catch {
-        result.errors.push({ key, message: '解密失败' })
+        result.errors.push({ key, message: t('notifications.sync.decryptFailed') })
         continue
       }
 
@@ -503,7 +509,7 @@ export class PaperSyncService {
         try {
           remoteMeta = JSON.parse(new TextDecoder().decode(plainBytes)) as PaperDocument
         } catch {
-          result.errors.push({ key, message: 'meta JSON 解析失败' })
+          result.errors.push({ key, message: t('notifications.sync.paperMetaJsonParseFailed') })
           continue
         }
         const localResult = await this.deps.paperStorage.readMeta(parsed.paperId)
@@ -521,7 +527,10 @@ export class PaperSyncService {
           merge.merged
         )
         if (!applyResult.success) {
-          result.errors.push({ key, message: `落盘失败：${applyResult.error}` })
+          result.errors.push({
+            key,
+            message: t('notifications.sync.applyFailed', { detail: applyResult.error })
+          })
           continue
         }
         // 已落盘则用实际落盘字节 hash：路径归一化会改写 filePath 等机器相关字段，
@@ -537,7 +546,10 @@ export class PaperSyncService {
         try {
           remoteStore = JSON.parse(new TextDecoder().decode(plainBytes)) as PaperAnnotationStore
         } catch {
-          result.errors.push({ key, message: 'annotations JSON 解析失败' })
+          result.errors.push({
+            key,
+            message: t('notifications.sync.paperAnnotationsJsonParseFailed')
+          })
           continue
         }
         const localResult = await this.deps.paperStorage.readAnnotationStore(parsed.paperId)
@@ -553,7 +565,10 @@ export class PaperSyncService {
           merge.merged
         )
         if (!applyResult.success) {
-          result.errors.push({ key, message: `落盘失败：${applyResult.error}` })
+          result.errors.push({
+            key,
+            message: t('notifications.sync.applyFailed', { detail: applyResult.error })
+          })
           continue
         }
         tracker.setKey(key, {
@@ -566,7 +581,7 @@ export class PaperSyncService {
         const manifestJson = new TextDecoder().decode(plainBytes)
         const manifest = parsePaperPackManifest(manifestJson)
         if (!manifest) {
-          result.errors.push({ key, message: 'pack manifest 解析失败' })
+          result.errors.push({ key, message: t('notifications.sync.packManifestParseFailed') })
           continue
         }
         const pack = tracker.getPack(parsed.paperId)
@@ -603,7 +618,12 @@ export class PaperSyncService {
       }
       const del = await this.deps.paperService.applySyncedPaperDeletion(parsed.paperId)
       if (!del.success) {
-        result.errors.push({ key, message: `本地删除失败：${del.error ?? '未知'}` })
+        result.errors.push({
+          key,
+          message: t('notifications.sync.localDeleteFailed', {
+            detail: del.error ?? t('notifications.sync.unknown')
+          })
+        })
         continue
       }
       // 清理该论文所有 tracker keys + pack
@@ -672,7 +692,7 @@ export class PaperSyncService {
     contentHash: string
   ): Promise<void> {
     if (bytes.length + 40 > MAX_SESSION_FILE_BYTES) {
-      result.errors.push({ key, message: '密文超过 4MiB 上限' })
+      result.errors.push({ key, message: t('notifications.sync.cipherOverLimit') })
       return
     }
     const parsed = parsePaperKey(key)
@@ -806,14 +826,22 @@ export class PaperSyncService {
           const { blockId, ciphertext } = sealPaperBlock(dek, chunk)
           const missing = await client.blocksMissing([blockId])
           if (!missing.success || !missing.data) {
-            throw new Error(`查询块缺失失败：${missing.error ?? missing.code ?? '未知错误'}`)
+            throw new Error(
+              t('notifications.sync.blocksMissingQueryFailed', {
+                detail: missing.error ?? missing.code ?? t('notifications.sync.unknownError')
+              })
+            )
           }
           if (missing.data.missing.includes(blockId)) {
             const putBlock = await client.putBlock(blockId, ciphertext)
             // 失败必须抛错中止：否则 manifest 会引用 relay 上不存在的块，
             // 对端下载永远失败，且本地基线已复用该块引用而无法自愈
             if (!putBlock.success) {
-              throw new Error(`块上传失败：${putBlock.error ?? putBlock.code ?? '未知错误'}`)
+              throw new Error(
+                t('notifications.sync.blockUploadFailed', {
+                  detail: putBlock.error ?? putBlock.code ?? t('notifications.sync.unknownError')
+                })
+              )
             }
             if (putBlock.data?.created) result.blocksUploaded++
           }
@@ -836,7 +864,10 @@ export class PaperSyncService {
         hasChunkFailure = true
         result.errors.push({
           key: makePaperPackKey(paperId),
-          message: `文件切块失败 ${relPath}：${error instanceof Error ? error.message : String(error)}`
+          message: t('notifications.sync.fileChunkFailed', {
+            path: relPath,
+            detail: error instanceof Error ? error.message : String(error)
+          })
         })
       }
     }
@@ -867,7 +898,7 @@ export class PaperSyncService {
     if (manifestBytes.length + 40 > MAX_SESSION_FILE_BYTES) {
       result.errors.push({
         key: makePaperPackKey(paperId),
-        message: 'pack manifest 超过 4MiB 上限'
+        message: t('notifications.sync.packManifestOverLimit')
       })
       return
     }
@@ -899,7 +930,9 @@ export class PaperSyncService {
       if (put.code !== 'stale_session_file') {
         result.errors.push({
           key,
-          message: `pack manifest 上传失败：${put.error ?? put.code}`
+          message: t('notifications.sync.packManifestUploadFailed', {
+            detail: put.error ?? put.code
+          })
         })
         return
       }
@@ -909,7 +942,7 @@ export class PaperSyncService {
       const latest = await client.getSessionFile(key)
       base = latest.data?.version ?? 0
     }
-    result.errors.push({ key, message: 'pack manifest 版本冲突重试耗尽' })
+    result.errors.push({ key, message: t('notifications.sync.packManifestCasRetryExhausted') })
   }
 
   /** 懒下载：拉缺失块 → 重组 → 校验 → 落盘；返回本轮下载的块数（供 drain 汇总） */
