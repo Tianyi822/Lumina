@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 import SvgIcon from '@renderer/components/icons/SvgIcon'
 import styles from './AssistantPanelShell.module.css'
 
@@ -27,6 +28,7 @@ export default function AssistantPanelShell({
   messages,
   composer
 }: AssistantPanelShellProps) {
+  const { t } = useTranslation()
   return (
     <section className={styles.shell}>
       <header className={styles.header}>
@@ -39,8 +41,8 @@ export default function AssistantPanelShell({
           <button
             className={styles.iconButton}
             type="button"
-            title="清空上下文"
-            aria-label="清空上下文"
+            title={t('common.chat.clearContext')}
+            aria-label={t('common.chat.clearContext')}
             disabled={loading}
             onClick={onClear}
           >
@@ -49,8 +51,8 @@ export default function AssistantPanelShell({
           <button
             className={styles.iconButton}
             type="button"
-            title="关闭"
-            aria-label="关闭"
+            title={t('common.close')}
+            aria-label={t('common.close')}
             onClick={onClose}
           >
             <SvgIcon name="close" size={16} />
@@ -65,7 +67,7 @@ export default function AssistantPanelShell({
       ) : null}
 
       {loading ? (
-        <div className={styles.loadingState}>正在加载对话...</div>
+        <div className={styles.loadingState}>{t('common.chat.loading')}</div>
       ) : (
         <div className={styles.messages}>{messages}</div>
       )}

@@ -1,7 +1,8 @@
 import { useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { Message } from '@renderer/types'
 import type { PaperQuote } from '@shared/types/chat'
-import { estimateTokenCount, formatTokenCount } from '@renderer/utils/tokenEstimate'
+import { estimateTokenCount } from '@renderer/utils/tokenEstimate'
 import { usePaperChatStreamingReveal } from '../hooks/usePaperChatStreamingReveal'
 import PaperChatMessageAttachments from './PaperChatMessageAttachments'
 import PaperChatMessageContent from './PaperChatMessageContent'
@@ -55,6 +56,7 @@ export default function PaperChatMessage({
   onToggleReasoning,
   onQuoteClick
 }: PaperChatMessageProps) {
+  const { t } = useTranslation()
   const { displayedContent, isRevealing } = usePaperChatStreamingReveal(
     message.content,
     message.isStreaming
@@ -113,7 +115,7 @@ export default function PaperChatMessage({
 
   const userTokenUsageLabel =
     message.role === 'user' && !isVisuallyStreaming
-      ? `输入: 约 ${formatTokenCount(estimateTokenCount(message.content))}`
+      ? t('paper.chat.message.inputTokens', { count: estimateTokenCount(message.content) })
       : ''
 
   if (!shouldRender) {

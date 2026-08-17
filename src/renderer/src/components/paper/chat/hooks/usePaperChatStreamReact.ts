@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import type { MutableRefObject } from 'react'
+import { i18n } from '@renderer/i18n'
 import type {
   AttachedDocument,
   AttachedImage,
@@ -172,7 +173,7 @@ export function usePaperChatStreamReact(
     ): Promise<void> => {
       const targetSession = latestRef.current.session
       if (!targetSession) {
-        setError('论文聊天会话未就绪')
+        setError(i18n.t('notifications.paper.sessionNotReady'))
         return
       }
 
@@ -192,7 +193,7 @@ export function usePaperChatStreamReact(
 
       const selected = latestRef.current
       if (!selected.selectedModel) {
-        setError('请先选择一个模型')
+        setError(i18n.t('notifications.paper.modelNotSelected'))
         return
       }
 

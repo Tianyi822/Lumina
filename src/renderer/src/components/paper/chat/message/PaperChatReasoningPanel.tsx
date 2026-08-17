@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import MarkdownIt from 'markdown-it'
 import SvgIcon from '@renderer/components/icons/SvgIcon'
 import { estimateTokenCount, formatTokenCount } from '@renderer/utils/tokenEstimate'
@@ -31,6 +32,7 @@ export default function PaperChatReasoningPanel({
   reasoningTokens,
   onToggle
 }: PaperChatReasoningPanelProps) {
+  const { t } = useTranslation()
   const [localExpanded, setLocalExpanded] = useState(isExpanded ?? false)
   const actuallyExpanded = isExpanded ?? localExpanded
   const renderedMarkdown = useMemo(() => renderMarkdown(content), [content])
@@ -38,8 +40,8 @@ export default function PaperChatReasoningPanel({
     if (reasoningTokens !== undefined) {
       return formatTokenCount(reasoningTokens)
     }
-    return `约 ${formatTokenCount(estimateTokenCount(content))}`
-  }, [content, reasoningTokens])
+    return t('paper.chat.reasoning.tokens', { count: estimateTokenCount(content) })
+  }, [content, reasoningTokens, t])
 
   function toggle(): void {
     if (isExpanded === undefined) {
@@ -56,7 +58,7 @@ export default function PaperChatReasoningPanel({
             <SvgIcon name="thinking" size={20} />
           </span>
           <span className={styles['header-text']}>
-            <span className={styles['header-label']}>思考过程</span>
+            <span className={styles['header-label']}>{t('paper.chat.reasoning.title')}</span>
             <span className={styles['header-meta']}>{tokenLabel}</span>
           </span>
         </span>

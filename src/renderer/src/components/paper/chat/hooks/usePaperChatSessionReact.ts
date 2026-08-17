@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
 import type { MutableRefObject } from 'react'
+import { i18n } from '@renderer/i18n'
 import type { KnowledgeBase, MCPTool, Message, SessionData } from '@renderer/types'
 import type { PaperDocument } from '@shared/types/paper'
 import { ensurePaperChatSession } from '@renderer/stores/paper'
@@ -130,10 +131,10 @@ export function usePaperChatSessionReact(
         cursor: cursorRef.current,
         // 加载时过滤过 legacy 全文消息时强制一次全量重写以清除磁盘残留
         forceRewrite: forceRewriteRef.current,
-        errorLabel: '保存论文聊天会话失败'
+        errorLabel: i18n.t('notifications.paper.saveSessionFailed')
       })
       if (!result.ok) {
-        setErrorState(result.error || '保存论文聊天会话失败')
+        setErrorState(result.error || i18n.t('notifications.paper.saveSessionFailed'))
         return false
       }
       // 保存成功后才清零强制重写标志，失败时下次仍会重试
@@ -196,13 +197,15 @@ export function usePaperChatSessionReact(
       const sessionResult = await ensurePaperChatSession(currentPaper.id)
       const ensuredSessionId = sessionResult.data
       if (!sessionResult.success || !ensuredSessionId) {
-        setErrorState(sessionResult.error || '创建论文聊天会话失败')
+        setErrorState(
+          sessionResult.error || i18n.t('notifications.paper.createPaperChatSessionFailed')
+        )
         return null
       }
 
       const ensuredSessionResult = await window.api.session.load(ensuredSessionId)
       if (!ensuredSessionResult.success || !ensuredSessionResult.data) {
-        setErrorState('加载论文聊天会话失败')
+        setErrorState(i18n.t('notifications.paper.loadSessionFailed'))
         return null
       }
 
