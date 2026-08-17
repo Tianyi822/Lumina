@@ -525,6 +525,40 @@ const en: Resources = {
         saveTestConfigFailed: 'Failed to save test configuration',
         testFailedPrefix: 'Test failed: ',
         configSaved: 'Embedding model configuration saved'
+      },
+      mcp: {
+        title: 'MCP Server',
+        validateNameRequired: 'Please enter a server name',
+        validateCommandRequired: 'Command is required for MCP server "{{name}}"',
+        validateUrlRequired: 'Server URL is required for MCP server "{{name}}"',
+        importJsonRequired: 'Please paste the MCP config JSON',
+        importSuccess: 'Imported {{count}} configurations',
+        importFailedPrefix: 'Import failed: ',
+        validateFailedTitle: 'Validation Failed',
+        formNameExists: 'This name already exists',
+        formCommandRequired: 'Please enter the command',
+        formUrlRequired: 'Please enter the server URL'
+      },
+      knowledgeMcp: {
+        title: 'Knowledge Base MCP',
+        stopped: 'MCP server stopped',
+        stopFailed: 'Failed to stop the server',
+        started: 'MCP server started',
+        startFailedPrefix: 'Failed to start the server: ',
+        unknownError: 'Unknown error',
+        operationFailedPrefix: 'Operation failed: ',
+        copied: 'Configuration copied to clipboard',
+        copyFailedPrefix: 'Copy failed: '
+      },
+      paperReader: {
+        title: 'Paper Reader',
+        apiKeyRequired: 'Please enter the API key first',
+        testSuccess: 'Connection test succeeded. Click Save to apply.',
+        testFailedFallback: 'Connection test failed',
+        testFailedPrefix: 'Test failed: ',
+        saveFailed: 'Save failed',
+        ocrSaved: 'OCR configuration saved',
+        translationSaved: 'Translation model configuration saved'
       }
     }
   }

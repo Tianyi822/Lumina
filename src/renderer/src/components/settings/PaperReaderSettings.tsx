@@ -103,7 +103,11 @@ export default function PaperReaderSettings() {
   // 测试连接
   const handleTestConnection = useCallback(async () => {
     if (!localConfig.ocr.apiKey?.trim()) {
-      notifyError('论文阅读配置', '请先填写 API Key', { source: 'settings' })
+      notifyError(
+        t('notifications.settings.paperReader.title'),
+        t('notifications.settings.paperReader.apiKeyRequired'),
+        { source: 'settings' }
+      )
       return
     }
 
@@ -115,22 +119,30 @@ export default function PaperReaderSettings() {
       })
 
       if (result.success) {
-        notifySuccess('论文阅读配置', '连接测试成功，请点击保存配置以生效', { source: 'settings' })
+        notifySuccess(
+          t('notifications.settings.paperReader.title'),
+          t('notifications.settings.paperReader.testSuccess'),
+          { source: 'settings' }
+        )
       } else {
-        notifyError('论文阅读配置', result.error ?? '连接测试失败', { source: 'settings' })
+        notifyError(
+          t('notifications.settings.paperReader.title'),
+          result.error ?? t('notifications.settings.paperReader.testFailedFallback'),
+          { source: 'settings' }
+        )
       }
     } catch (error) {
       notifyError(
-        '论文阅读配置',
-        `测试失败: ${error instanceof Error ? error.message : String(error)}`,
-        {
-          source: 'settings'
-        }
+        t('notifications.settings.paperReader.title'),
+        `${t('notifications.settings.paperReader.testFailedPrefix')}${
+          error instanceof Error ? error.message : String(error)
+        }`,
+        { source: 'settings' }
       )
     } finally {
       setTesting(false)
     }
-  }, [localConfig.ocr])
+  }, [localConfig.ocr, t])
 
   // 保存 OCR 配置
   const handleSaveOcr = useCallback(async () => {
@@ -138,12 +150,20 @@ export default function PaperReaderSettings() {
     updatePaperReaderConfig(plainConfig)
     const success = await saveConfig({ silent: true })
     if (!success) {
-      notifyError('论文阅读配置', '保存失败', { source: 'settings' })
+      notifyError(
+        t('notifications.settings.paperReader.title'),
+        t('notifications.settings.paperReader.saveFailed'),
+        { source: 'settings' }
+      )
       return
     }
     notifyConfigUpdate()
-    notifySuccess('论文阅读配置', 'OCR 配置已保存', { source: 'settings' })
-  }, [buildPlainConfig, updatePaperReaderConfig, saveConfig, notifyConfigUpdate])
+    notifySuccess(
+      t('notifications.settings.paperReader.title'),
+      t('notifications.settings.paperReader.ocrSaved'),
+      { source: 'settings' }
+    )
+  }, [buildPlainConfig, updatePaperReaderConfig, saveConfig, notifyConfigUpdate, t])
 
   // 保存翻译模型配置
   const handleSaveTranslation = useCallback(async () => {
@@ -151,12 +171,20 @@ export default function PaperReaderSettings() {
     updatePaperReaderConfig(plainConfig)
     const success = await saveConfig({ silent: true })
     if (!success) {
-      notifyError('论文阅读配置', '保存失败', { source: 'settings' })
+      notifyError(
+        t('notifications.settings.paperReader.title'),
+        t('notifications.settings.paperReader.saveFailed'),
+        { source: 'settings' }
+      )
       return
     }
     notifyConfigUpdate()
-    notifySuccess('论文阅读配置', '翻译模型配置已保存', { source: 'settings' })
-  }, [buildPlainConfig, updatePaperReaderConfig, saveConfig, notifyConfigUpdate])
+    notifySuccess(
+      t('notifications.settings.paperReader.title'),
+      t('notifications.settings.paperReader.translationSaved'),
+      { source: 'settings' }
+    )
+  }, [buildPlainConfig, updatePaperReaderConfig, saveConfig, notifyConfigUpdate, t])
 
   // 打开 API Key 获取页面
   const handleOpenApiKeyUrl = useCallback(() => {

@@ -43,15 +43,19 @@ export default function MCPSettings({ onMcpUpdated }: MCPSettingsProps) {
   const importPlaceholder = useMemo(() => t('settings.mcp.importPlaceholder'), [t])
 
   // 校验 MCP 配置
-  const validateMCPConfig = useCallback((config: MCPServerConfig): string => {
-    if (!config.name.trim()) return '请输入服务器名称'
-    if (config.transport === 'stdio') {
-      if (!config.command?.trim()) return `MCP 服务"${config.name}"的执行命令不能为空`
-    } else if (!config.url?.trim()) {
-      return `MCP 服务"${config.name}"的服务地址不能为空`
-    }
-    return ''
-  }, [])
+  const validateMCPConfig = useCallback(
+    (config: MCPServerConfig): string => {
+      if (!config.name.trim()) return t('notifications.settings.mcp.validateNameRequired')
+      if (config.transport === 'stdio') {
+        if (!config.command?.trim())
+          return t('notifications.settings.mcp.validateCommandRequired', { name: config.name })
+      } else if (!config.url?.trim()) {
+        return t('notifications.settings.mcp.validateUrlRequired', { name: config.name })
+      }
+      return ''
+    },
+    [t]
+  )
 
   // 现有服务器名称列表
   const existingNames = useMemo(() => configs.map((c) => c.name), [configs])
@@ -69,29 +73,29 @@ export default function MCPSettings({ onMcpUpdated }: MCPSettingsProps) {
     async (name: string) => {
       const success = await connectStore(
         name,
-        (msg) => notifySuccess('MCP 服务', msg, { source: 'settings' }),
-        (msg) => notifyError('MCP 服务', msg, { source: 'settings' })
+        (msg) => notifySuccess(t('notifications.settings.mcp.title'), msg, { source: 'settings' }),
+        (msg) => notifyError(t('notifications.settings.mcp.title'), msg, { source: 'settings' })
       )
       if (success) {
         await loadConfigs()
         onMcpUpdated?.()
       }
     },
-    [connectStore, loadConfigs, onMcpUpdated]
+    [connectStore, loadConfigs, onMcpUpdated, t]
   )
 
   // 断开
   const handleDisconnect = useCallback(
     async (name: string) => {
       const success = await disconnectStore(name, (msg) =>
-        notifyError('MCP 服务', msg, { source: 'settings' })
+        notifyError(t('notifications.settings.mcp.title'), msg, { source: 'settings' })
       )
       if (success) {
         await loadConfigs()
         onMcpUpdated?.()
       }
     },
-    [disconnectStore, loadConfigs, onMcpUpdated]
+    [disconnectStore, loadConfigs, onMcpUpdated, t]
   )
 
   // 测试连接
@@ -99,16 +103,16 @@ export default function MCPSettings({ onMcpUpdated }: MCPSettingsProps) {
     async (config: MCPServerConfig) => {
       const msg = validateMCPConfig(config)
       if (msg) {
-        notifyError('MCP 服务', msg, { source: 'settings' })
+        notifyError(t('notifications.settings.mcp.title'), msg, { source: 'settings' })
         return
       }
       await testConnectionStore(
         config,
-        (m) => notifySuccess('MCP 服务', m, { source: 'settings' }),
-        (m) => notifyError('MCP 服务', m, { source: 'settings' })
+        (m) => notifySuccess(t('notifications.settings.mcp.title'), m, { source: 'settings' }),
+        (m) => notifyError(t('notifications.settings.mcp.title'), m, { source: 'settings' })
       )
     },
-    [validateMCPConfig, testConnectionStore]
+    [validateMCPConfig, testConnectionStore, t]
   )
 
   // 删除配置
@@ -127,7 +131,7 @@ export default function MCPSettings({ onMcpUpdated }: MCPSettingsProps) {
     async (config: MCPServerConfig): Promise<boolean> => {
       const msg = validateMCPConfig(config)
       if (msg) {
-        notifyError('MCP 服务', msg, { source: 'settings' })
+        notifyError(t('notifications.settings.mcp.title'), msg, { source: 'settings' })
         return false
       }
       const success = await saveConfigStore(config)
@@ -136,7 +140,7 @@ export default function MCPSettings({ onMcpUpdated }: MCPSettingsProps) {
       }
       return success
     },
-    [validateMCPConfig, saveConfigStore, onMcpUpdated]
+    [validateMCPConfig, saveConfigStore, onMcpUpdated, t]
   )
 
   // 添加新服务器
@@ -144,7 +148,7 @@ export default function MCPSettings({ onMcpUpdated }: MCPSettingsProps) {
     async (config: MCPServerConfig) => {
       const msg = validateMCPConfig(config)
       if (msg) {
-        notifyError('MCP 服务', msg, { source: 'settings' })
+        notifyError(t('notifications.settings.mcp.title'), msg, { source: 'settings' })
         return
       }
       const success = await saveConfigStore(config)
@@ -153,7 +157,7 @@ export default function MCPSettings({ onMcpUpdated }: MCPSettingsProps) {
         onMcpUpdated?.()
       }
     },
-    [validateMCPConfig, saveConfigStore, onMcpUpdated]
+    [validateMCPConfig, saveConfigStore, onMcpUpdated, t]
   )
 
   // 切换导入面板
@@ -168,7 +172,11 @@ export default function MCPSettings({ onMcpUpdated }: MCPSettingsProps) {
   const importMCPConfigs = useCallback(async () => {
     const jsonContent = importJsonContent.trim()
     if (!jsonContent) {
-      notifyError('MCP 服务', '请输入 MCP 配置 JSON', { source: 'settings' })
+      notifyError(
+        t('notifications.settings.mcp.title'),
+        t('notifications.settings.mcp.importJsonRequired'),
+        { source: 'settings' }
+      )
       return
     }
 
@@ -176,7 +184,11 @@ export default function MCPSettings({ onMcpUpdated }: MCPSettingsProps) {
     try {
       const result = await window.api.mcp.importConfigs(jsonContent)
       if (result.success) {
-        notifySuccess('MCP 服务', `成功导入 ${result.imported} 个配置`, { source: 'settings' })
+        notifySuccess(
+          t('notifications.settings.mcp.title'),
+          t('notifications.settings.mcp.importSuccess', { count: result.imported }),
+          { source: 'settings' }
+        )
         if (result.errors.length > 0) {
           window.api.logger.warn('[MCPSettings] 导入过程中存在错误', { errors: result.errors })
         }
@@ -185,18 +197,24 @@ export default function MCPSettings({ onMcpUpdated }: MCPSettingsProps) {
         await loadConfigs()
         onMcpUpdated?.()
       } else {
-        notifyError('MCP 服务', `导入失败: ${result.errors.join(', ')}`, { source: 'settings' })
+        notifyError(
+          t('notifications.settings.mcp.title'),
+          `${t('notifications.settings.mcp.importFailedPrefix')}${result.errors.join(', ')}`,
+          { source: 'settings' }
+        )
       }
     } catch (error) {
       notifyError(
-        'MCP 服务',
-        `导入失败: ${error instanceof Error ? error.message : String(error)}`,
+        t('notifications.settings.mcp.title'),
+        `${t('notifications.settings.mcp.importFailedPrefix')}${
+          error instanceof Error ? error.message : String(error)
+        }`,
         { source: 'settings' }
       )
     } finally {
       setIsImporting(false)
     }
-  }, [importJsonContent, loadConfigs, onMcpUpdated])
+  }, [importJsonContent, loadConfigs, onMcpUpdated, t])
 
   // 组件挂载时加载配置并设置状态监听
   useEffect(() => {

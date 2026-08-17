@@ -30,33 +30,49 @@ export default function KnowledgeMCPSettings() {
       if (enabled) {
         const result = await stop()
         if (result.success) {
-          notifySuccess('知识库 MCP', 'MCP 服务已停止', { source: 'settings' })
+          notifySuccess(
+            t('notifications.settings.knowledgeMcp.title'),
+            t('notifications.settings.knowledgeMcp.stopped'),
+            { source: 'settings' }
+          )
         } else {
-          notifyError('知识库 MCP', '停止服务失败', { source: 'settings' })
+          notifyError(
+            t('notifications.settings.knowledgeMcp.title'),
+            t('notifications.settings.knowledgeMcp.stopFailed'),
+            { source: 'settings' }
+          )
         }
       } else {
         const result = await start()
         if (result.success) {
-          notifySuccess('知识库 MCP', 'MCP 服务已启动', { source: 'settings' })
+          notifySuccess(
+            t('notifications.settings.knowledgeMcp.title'),
+            t('notifications.settings.knowledgeMcp.started'),
+            { source: 'settings' }
+          )
         } else {
-          notifyError('知识库 MCP', `启动服务失败: ${result.error || '未知错误'}`, {
-            source: 'settings'
-          })
+          notifyError(
+            t('notifications.settings.knowledgeMcp.title'),
+            `${t('notifications.settings.knowledgeMcp.startFailedPrefix')}${
+              result.error || t('notifications.settings.knowledgeMcp.unknownError')
+            }`,
+            { source: 'settings' }
+          )
         }
       }
       await refreshStatus()
     } catch (error) {
       notifyError(
-        '知识库 MCP',
-        `操作失败: ${error instanceof Error ? error.message : String(error)}`,
-        {
-          source: 'settings'
-        }
+        t('notifications.settings.knowledgeMcp.title'),
+        `${t('notifications.settings.knowledgeMcp.operationFailedPrefix')}${
+          error instanceof Error ? error.message : String(error)
+        }`,
+        { source: 'settings' }
       )
     } finally {
       setToggling(false)
     }
-  }, [enabled, toggling, loading, start, stop, refreshStatus])
+  }, [enabled, toggling, loading, start, stop, refreshStatus, t])
 
   // 复制配置
   const handleCopy = useCallback(async () => {
@@ -65,19 +81,23 @@ export default function KnowledgeMCPSettings() {
     setCopying(true)
     try {
       await navigator.clipboard.writeText(configJSON)
-      notifySuccess('知识库 MCP', '配置已复制到剪贴板', { source: 'settings' })
+      notifySuccess(
+        t('notifications.settings.knowledgeMcp.title'),
+        t('notifications.settings.knowledgeMcp.copied'),
+        { source: 'settings' }
+      )
     } catch (error) {
       notifyError(
-        '知识库 MCP',
-        `复制失败: ${error instanceof Error ? error.message : String(error)}`,
-        {
-          source: 'settings'
-        }
+        t('notifications.settings.knowledgeMcp.title'),
+        `${t('notifications.settings.knowledgeMcp.copyFailedPrefix')}${
+          error instanceof Error ? error.message : String(error)
+        }`,
+        { source: 'settings' }
       )
     } finally {
       setCopying(false)
     }
-  }, [configJSON])
+  }, [configJSON, t])
 
   return (
     <div className={['sm-settings-page', styles['knowledge-mcp-settings']].join(' ')}>

@@ -63,36 +63,41 @@ export default function MCPNewServerForm({
 
   // 校验配置
   const validateConfig = useCallback((): string | null => {
-    if (!name.trim()) return '请输入服务器名称'
-    if (existingNames.some((n) => n === name.trim())) return '该名称已存在'
+    if (!name.trim()) return t('notifications.settings.mcp.validateNameRequired')
+    if (existingNames.some((n) => n === name.trim()))
+      return t('notifications.settings.mcp.formNameExists')
     if (transport === 'stdio') {
-      if (!command.trim()) return '请输入执行命令'
+      if (!command.trim()) return t('notifications.settings.mcp.formCommandRequired')
     } else {
-      if (!url.trim()) return '请输入服务地址'
+      if (!url.trim()) return t('notifications.settings.mcp.formUrlRequired')
     }
     return null
-  }, [name, transport, command, url, existingNames])
+  }, [name, transport, command, url, existingNames, t])
 
   // 提交表单
   const handleSubmit = useCallback(() => {
     const error = validateConfig()
     if (error) {
-      notifyWarning('配置校验失败', error, { source: 'settings' })
+      notifyWarning(t('notifications.settings.mcp.validateFailedTitle'), error, {
+        source: 'settings'
+      })
       return
     }
     onSubmit(buildConfig())
-  }, [validateConfig, buildConfig, onSubmit])
+  }, [validateConfig, buildConfig, onSubmit, t])
 
   // 测试连接
   const handleTest = useCallback(() => {
     const error = validateConfig()
     if (error) {
-      notifyWarning('配置校验失败', error, { source: 'settings' })
+      notifyWarning(t('notifications.settings.mcp.validateFailedTitle'), error, {
+        source: 'settings'
+      })
       return
     }
     setTesting(true)
     onTest(buildConfig())
-  }, [validateConfig, buildConfig, onTest])
+  }, [validateConfig, buildConfig, onTest, t])
 
   return (
     <div className={styles['new-model-form']}>
