@@ -21,6 +21,8 @@ import { getKnowledgeMCPServerService } from '@main/services/knowledge/Knowledge
 import { toolStatsCollector } from '@main/services/chat/tools/ToolStatsCollector'
 import { logger } from '@main/services/logger'
 import { updateService } from '@main/services/update'
+import { setLanguageProvider } from '@main/services/i18n'
+import { configManager } from '@main/services/config'
 import { paperTranslationService } from '@main/services/paper'
 import { startEventLoopMonitoring } from '@main/services/monitoring/eventLoopMonitor'
 import { writerService } from '@main/services/writer'
@@ -188,6 +190,9 @@ export function initializeApp(): void {
 
     // 初始化配置，即使失败也不阻止应用启动
     initializeConfig()
+
+    // 装配主进程 i18n 语言读取器（config 未加载时缺省中文），供主进程 t() 即时读取当前语言
+    setLanguageProvider(() => configManager.getConfig()?.language ?? 'zh')
 
     // 注册 lumina:// 自定义协议（必须在 ready 后、窗口创建前）
     registerLuminaProtocol()

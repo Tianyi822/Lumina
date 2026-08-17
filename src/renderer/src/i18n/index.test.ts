@@ -263,23 +263,24 @@ const INDIRECT_KEY_WHITELIST = [
   'chrome.sidebar.all'
 ]
 
-test('渲染进程 t() 字面量引用的 key 均存在于 zh 资源', () => {
-  const zhKeys = new Set(collectKeys(zh))
-  for (const key of INDIRECT_KEY_WHITELIST) {
-    assert.ok(zhKeys.has(key), `间接引用的 key 不存在于资源: ${key}`)
-  }
-
-  const rendererRoot = path.join(import.meta.dirname, '..')
+/**
+ * 扫描指定根目录下 t() 字面量引用，收集不存在于 zh 资源的 key
+ * 渲染进程与主进程守护测试共用（同 regex、排除测试文件、复数 _one/_other 豁免）
+ */
+function collectUndefinedKeyReferences(
+  root: string,
+  zhKeys: Set<string>
+): Array<{ file: string; key: string }> {
   const literalCallPattern = /(?:i18n\.)?\bt\(\s*(['"])([^'"]+)\1/g
   const offenders: Array<{ file: string; key: string }> = []
 
-  const files = fs.readdirSync(rendererRoot, {
+  const files = fs.readdirSync(root, {
     recursive: true,
     encoding: 'utf8'
   }) as string[]
   for (const file of files) {
     if (!/\.(ts|tsx)$/.test(file) || /\.test\.(ts|tsx|mjs)$/.test(file)) continue
-    const lines = fs.readFileSync(path.join(rendererRoot, file), 'utf8').split('\n')
+    const lines = fs.readFileSync(path.join(root, file), 'utf8').split('\n')
     lines.forEach((line, index) => {
       const trimmed = line.trim()
       if (trimmed.startsWith('//') || trimmed.startsWith('*') || trimmed.startsWith('/*')) return
@@ -293,6 +294,31 @@ test('渲染进程 t() 字面量引用的 key 均存在于 zh 资源', () => {
       }
     })
   }
+  return offenders
+}
+
+test('渲染进程 t() 字面量引用的 key 均存在于 zh 资源', () => {
+  const zhKeys = new Set(collectKeys(zh))
+  for (const key of INDIRECT_KEY_WHITELIST) {
+    assert.ok(zhKeys.has(key), `间接引用的 key 不存在于资源: ${key}`)
+  }
+
+  const rendererRoot = path.join(import.meta.dirname, '..')
+  const offenders = collectUndefinedKeyReferences(rendererRoot, zhKeys)
+  assert.deepEqual(offenders, [], `存在未定义的 i18n key 引用: ${JSON.stringify(offenders)}`)
+})
+
+/** 主进程间接引用（t(变量)）白名单：当前无既有引用，T3 起若出现 key-map 常量随任务补充 */
+const MAIN_INDIRECT_KEY_WHITELIST: string[] = []
+
+test('主进程 t() 字面量引用的 key 均存在于 zh 资源', () => {
+  const zhKeys = new Set(collectKeys(zh))
+  for (const key of MAIN_INDIRECT_KEY_WHITELIST) {
+    assert.ok(zhKeys.has(key), `间接引用的 key 不存在于资源: ${key}`)
+  }
+
+  const mainRoot = path.join(import.meta.dirname, '..', '..', '..', 'main')
+  const offenders = collectUndefinedKeyReferences(mainRoot, zhKeys)
   assert.deepEqual(offenders, [], `存在未定义的 i18n key 引用: ${JSON.stringify(offenders)}`)
 })
 
