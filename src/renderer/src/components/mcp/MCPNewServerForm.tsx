@@ -104,7 +104,7 @@ export default function MCPNewServerForm({
         <input
           type="text"
           className="sm-input"
-          placeholder="例如: filesystem, github"
+          placeholder={t('settings.mcp.serverNamePlaceholder')}
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
@@ -132,7 +132,7 @@ export default function MCPNewServerForm({
             <input
               type="text"
               className="sm-input"
-              placeholder="例如: npx, node, python"
+              placeholder={t('settings.mcp.commandPlaceholder')}
               value={command}
               onChange={(e) => setCommand(e.target.value)}
             />

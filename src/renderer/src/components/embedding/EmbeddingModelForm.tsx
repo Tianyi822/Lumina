@@ -146,7 +146,7 @@ export default function EmbeddingModelForm({
             className={['sm-input', nameConflictError && styles['input-error']]
               .filter(Boolean)
               .join(' ')}
-            placeholder="例如: OpenAI Embedding Small"
+            placeholder={t('settings.embedding.displayNamePlaceholder')}
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
           />

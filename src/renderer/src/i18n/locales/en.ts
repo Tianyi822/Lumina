@@ -91,6 +91,7 @@ const en: Resources = {
       formTitleAdd: 'Add Embedding Model',
       formTitleEdit: 'Edit Embedding Model',
       displayName: 'Display Name',
+      displayNamePlaceholder: 'E.g. OpenAI Embedding Small',
       nameConflict: 'This name is already in use',
       baseUrlLabel: 'API Base URL',
       baseUrlPlaceholder: 'http://127.0.0.1:1234/v1 (up to /v1, without /embeddings)',
@@ -134,6 +135,8 @@ const en: Resources = {
       availableTools: 'Available Tools ({{count}})',
       noTools: 'No tools available',
       serverName: 'Server Name',
+      serverNamePlaceholder: 'E.g. filesystem, github',
+      commandPlaceholder: 'E.g. npx, node, python',
       validation: {
         nameRequired: 'Server name is required',
         commandRequired: 'Command is required for MCP server "{{name}}"',

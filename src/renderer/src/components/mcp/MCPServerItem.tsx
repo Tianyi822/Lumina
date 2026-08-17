@@ -250,7 +250,7 @@ export default function MCPServerItem({
                 <input
                   type="text"
                   className="sm-input"
-                  placeholder="例如: npx, node, python"
+                  placeholder={t('settings.mcp.commandPlaceholder')}
                   value={localConfig.command || ''}
                   onChange={(e) => updateConfig({ command: e.target.value })}
                   onBlur={() => persistConfig()}

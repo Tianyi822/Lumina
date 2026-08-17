@@ -84,6 +84,7 @@ const zh = {
       formTitleAdd: '添加嵌入模型',
       formTitleEdit: '编辑嵌入模型',
       displayName: '显示名称',
+      displayNamePlaceholder: '例如: OpenAI Embedding Small',
       nameConflict: '该名称已被使用，请更换',
       baseUrlLabel: 'API 基础URL',
       baseUrlPlaceholder: 'http://127.0.0.1:1234/v1（填到 /v1，不要含 /embeddings）',
@@ -127,6 +128,8 @@ const zh = {
       availableTools: '可用工具 ({{count}})',
       noTools: '暂无可用工具',
       serverName: '服务器名称',
+      serverNamePlaceholder: '例如: filesystem, github',
+      commandPlaceholder: '例如: npx, node, python',
       validation: {
         nameRequired: '服务器名称不能为空',
         commandRequired: 'MCP 服务"{{name}}"的执行命令不能为空',
