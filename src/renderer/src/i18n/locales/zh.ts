@@ -100,6 +100,37 @@ const zh = {
         dimensionInteger: '向量维度必须是整数',
         dimensionPositive: '向量维度必须大于0'
       }
+    },
+    mcp: {
+      title: 'MCP 服务配置',
+      description: '管理工具服务的连接、传输方式和导入配置，保持与聊天工作区同一套工程控制台语言。',
+      listTitle: '服务清单',
+      listDescription: '当前共 {{count}} 个 MCP 服务配置，可逐项测试、连接或编辑。',
+      empty: '暂无 MCP 服务配置',
+      addServer: '添加 MCP 服务器',
+      importJson: '导入 JSON 配置',
+      collapseImport: '收起导入',
+      importLabel: '粘贴 MCP 配置 JSON',
+      importPlaceholder: '例如：\n{\n  "mcpServers": {\n    "server-name": {\n      "command": "npx",\n      "args": ["-y", "some-mcp"]\n    }\n  }\n}',
+      confirmImport: '确认导入',
+      importing: '导入中...',
+      connected: '已连接',
+      disconnected: '未连接',
+      transport: '传输类型',
+      transportStdio: 'stdio (本地进程)',
+      command: '执行命令',
+      commandArgs: '命令参数 (每行一个)',
+      envVars: '环境变量 (KEY=VALUE 格式，每行一个)',
+      serviceUrl: '服务地址',
+      authHeaders: '认证头 (KEY=VALUE 格式，每行一个)',
+      availableTools: '可用工具 ({{count}})',
+      noTools: '暂无可用工具',
+      serverName: '服务器名称',
+      validation: {
+        nameRequired: '服务器名称不能为空',
+        commandRequired: 'MCP 服务"{{name}}"的执行命令不能为空',
+        urlRequired: 'MCP 服务"{{name}}"的服务地址不能为空'
+      }
     }
   }
 }

@@ -107,6 +107,37 @@ const en: Resources = {
         dimensionInteger: 'Dimensions must be an integer',
         dimensionPositive: 'Dimensions must be greater than 0'
       }
+    },
+    mcp: {
+      title: 'MCP Servers',
+      description: 'Manage tool service connections, transports, and JSON config import.',
+      listTitle: 'Server List',
+      listDescription: '{{count}} MCP server configurations. Test, connect, or edit each one.',
+      empty: 'No MCP servers configured',
+      addServer: 'Add MCP Server',
+      importJson: 'Import JSON Config',
+      collapseImport: 'Collapse Import',
+      importLabel: 'Paste MCP config JSON',
+      importPlaceholder: 'Example:\n{\n  "mcpServers": {\n    "server-name": {\n      "command": "npx",\n      "args": ["-y", "some-mcp"]\n    }\n  }\n}',
+      confirmImport: 'Import',
+      importing: 'Importing...',
+      connected: 'Connected',
+      disconnected: 'Disconnected',
+      transport: 'Transport',
+      transportStdio: 'stdio (local process)',
+      command: 'Command',
+      commandArgs: 'Arguments (one per line)',
+      envVars: 'Environment Variables (KEY=VALUE, one per line)',
+      serviceUrl: 'Server URL',
+      authHeaders: 'Auth Headers (KEY=VALUE, one per line)',
+      availableTools: 'Available Tools ({{count}})',
+      noTools: 'No tools available',
+      serverName: 'Server Name',
+      validation: {
+        nameRequired: 'Server name is required',
+        commandRequired: 'Command is required for MCP server "{{name}}"',
+        urlRequired: 'Server URL is required for MCP server "{{name}}"'
+      }
     }
   }
 }
