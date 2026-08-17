@@ -19,7 +19,19 @@ const chat = {
   invalidTextRange: '块 {{blockId}} 的范围 [{{from}}, {{to}}) 无效',
   disallowedBlockType: '不允许的块类型: {{type}}（禁止图片/表格结构变化）',
   insertBudgetExceeded: '插入文本总计超过 {{limit}} 字符上限',
-  overlappingEdits: '块 {{blockId}} 上的编辑操作发生重叠'
+  overlappingEdits: '块 {{blockId}} 上的编辑操作发生重叠',
+  duplicateCallBlocked: '[duplicate] 连续重复调用',
+  duplicateCallBlockedDetail_one:
+    '[duplicate] 连续重复调用 "{{toolName}}" 已达 {{count}} 次，疑似陷入死循环。请改用不同参数或更换思路（例如先检查状态、分步操作或换用其他工具）。',
+  duplicateCallBlockedDetail_other:
+    '[duplicate] 连续重复调用 "{{toolName}}" 已达 {{count}} 次，疑似陷入死循环。请改用不同参数或更换思路（例如先检查状态、分步操作或换用其他工具）。',
+  toolCallOperation: '工具调用 {{toolName}}',
+  toolNotFound: '未找到已注册的工具: {{toolName}}',
+  toolCallFailed: '工具调用失败',
+  parseToolArgsFailed: '解析工具参数失败: {{error}}',
+  mcpServerNotFound: '未找到 MCP 服务器: {{serverName}}',
+  unknownPaperTool: '未知的论文工具: {{toolName}}，当前仅支持 search_context',
+  paperIdNotSet: '论文 ID 未设置，无法检索论文上下文'
 }
 
 export default chat

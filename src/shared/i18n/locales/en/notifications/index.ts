@@ -11,6 +11,7 @@ import session from './session'
 import chat from './chat'
 import embedding from './embedding'
 import document from './document'
+import protocol from './protocol'
 
 const notifications: Resources['notifications'] = {
   dismiss: 'Dismiss notification',
@@ -25,7 +26,8 @@ const notifications: Resources['notifications'] = {
   session,
   chat,
   embedding,
-  document
+  document,
+  protocol
 }
 
 export default notifications

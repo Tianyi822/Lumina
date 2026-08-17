@@ -1,5 +1,6 @@
 import { lstat, realpath } from 'fs/promises'
 import { dirname, relative, resolve, sep } from 'path'
+import { t } from '@main/services/i18n'
 import { isValidWriterDocumentId } from '@main/services/writer/writerPaths'
 
 const IMMUTABLE_CACHE_CONTROL = 'private, max-age=31536000, immutable'
@@ -36,11 +37,11 @@ export function resolveLuminaResource(
       url.search ||
       url.hash
     ) {
-      return denied('协议 URL 无效')
+      return denied(t('notifications.protocol.invalidProtocolUrl'))
     }
     const segments = decodePathSegments(url.pathname)
     if (!segments) {
-      return denied('协议路径无效')
+      return denied(t('notifications.protocol.invalidProtocolPath'))
     }
     if (url.hostname === 'writing') {
       return resolveWritingResource(segments, roots.writingRoot)
@@ -48,9 +49,9 @@ export function resolveLuminaResource(
     if (url.hostname === 'paper') {
       return resolvePaperResource(segments, roots.papersRoot)
     }
-    return denied('协议资源类型无效')
+    return denied(t('notifications.protocol.invalidResourceType'))
   } catch {
-    return denied('协议 URL 无效')
+    return denied(t('notifications.protocol.invalidProtocolUrl'))
   }
 }
 
@@ -66,7 +67,7 @@ export async function resolveLuminaResourceFile(
   try {
     const resourceRoot = getResourceRoot(rawUrl, roots)
     if (!resourceRoot) {
-      return denied('协议资源路径无效')
+      return denied(t('notifications.protocol.invalidResourcePath'))
     }
     const canonicalRoot = await getCanonicalDirectory(resourceRoot)
     if (isWritingUrl(rawUrl)) {
@@ -75,48 +76,48 @@ export async function resolveLuminaResourceFile(
         !isPathInside(canonicalWritingRoot, canonicalRoot) ||
         !(await hasSafeWritingDirectoryChain(resourceRoot, canonicalWritingRoot))
       ) {
-        return denied('写作资源根目录越界')
+        return denied(t('notifications.protocol.writingRootOutOfBounds'))
       }
     }
     const fileStat = await lstat(resolution.path)
     if (!fileStat.isFile() || fileStat.isSymbolicLink()) {
-      return denied('协议资源不是普通文件')
+      return denied(t('notifications.protocol.notPlainFile'))
     }
     const canonicalFilePath = await realpath(resolution.path)
     if (!isPathInside(canonicalRoot, canonicalFilePath)) {
-      return denied('协议资源真实路径越界')
+      return denied(t('notifications.protocol.realPathOutOfBounds'))
     }
     return { ...resolution, path: canonicalFilePath }
   } catch {
-    return denied('协议资源不存在或无法安全读取')
+    return denied(t('notifications.protocol.resourceUnreadable'))
   }
 }
 
 function resolveWritingResource(segments: string[], writingRoot: string): WriterProtocolResolution {
   if (segments.length !== 3 || segments[1] !== 'assets' || !isValidWriterDocumentId(segments[0])) {
-    return denied('写作资源路径无效')
+    return denied(t('notifications.protocol.invalidWritingPath'))
   }
   const mimeType = getImageMimeType(segments[2])
   if (!mimeType) {
-    return denied('写作资源类型无效')
+    return denied(t('notifications.protocol.invalidWritingType'))
   }
   const assetsRoot = resolve(writingRoot, 'documents', segments[0], 'assets')
   const path = resolve(assetsRoot, segments[2])
   if (!isPathInside(assetsRoot, path)) {
-    return denied('写作资源路径越界')
+    return denied(t('notifications.protocol.writingPathOutOfBounds'))
   }
   return { success: true, path, mimeType, cacheControl: IMMUTABLE_CACHE_CONTROL }
 }
 
 function resolvePaperResource(segments: string[], papersRoot: string): WriterProtocolResolution {
   if (segments.length < 2) {
-    return denied('论文资源路径无效')
+    return denied(t('notifications.protocol.invalidPaperPath'))
   }
   const mimeType = getPaperMimeType(segments)
   const paperRoot = resolve(papersRoot, segments[0])
   const path = resolve(paperRoot, ...segments.slice(1))
   if (!isPathInside(paperRoot, path)) {
-    return denied('论文资源路径越界')
+    return denied(t('notifications.protocol.paperPathOutOfBounds'))
   }
   return { success: true, path, mimeType, cacheControl: IMMUTABLE_CACHE_CONTROL }
 }
@@ -158,7 +159,7 @@ function isWritingUrl(rawUrl: string): boolean {
 async function getCanonicalDirectory(path: string): Promise<string> {
   const stat = await lstat(path)
   if (!stat.isDirectory() || stat.isSymbolicLink()) {
-    throw new Error('资源根目录不是普通目录')
+    throw new Error(t('notifications.protocol.rootNotPlainDirectory'))
   }
   return realpath(path)
 }

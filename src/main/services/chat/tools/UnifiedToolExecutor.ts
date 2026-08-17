@@ -1,5 +1,6 @@
 import OpenAI from 'openai'
 import type { WebContents } from 'electron'
+import { t } from '@main/services/i18n'
 import type { Logger } from '../../logger'
 import type { MCPToolCallResult } from '@shared/types/mcp'
 import type {
@@ -218,7 +219,7 @@ export class UnifiedToolExecutor {
       return {
         needUserInteraction: false,
         failedToolCount: blocked.results.length,
-        errors: blocked.results.map((r) => r.error || '[duplicate] 连续重复调用'),
+        errors: blocked.results.map((r) => r.error || t('notifications.chat.duplicateCallBlocked')),
         results: blocked.results
       }
     }
@@ -412,9 +413,10 @@ export class UnifiedToolExecutor {
           toolNames: toolCalls.map((tc) => tc.function.name)
         })
         const results = toolCalls.map((tc) => {
-          const error =
-            `[duplicate] 连续重复调用 "${tc.function.name}" 已达 ${state.count} 次，` +
-            '疑似陷入死循环。请改用不同参数或更换思路（例如先检查状态、分步操作或换用其他工具）。'
+          const error = t('notifications.chat.duplicateCallBlockedDetail', {
+            toolName: tc.function.name,
+            count: state.count
+          })
           // 发送 tool_call 事件，保持与正常执行路径一致的 tool_call→tool_result 配对
           const blockedArgs = this.parseArguments(tc.function.arguments)
           const blockedRegistered = this.registry.getTool(tc.function.name)
@@ -464,7 +466,7 @@ export class UnifiedToolExecutor {
     const registeredTool = this.registry.getTool(requestedName)
 
     if (!registeredTool) {
-      const error = `未找到已注册的工具: ${requestedName}`
+      const error = t('notifications.chat.toolNotFound', { toolName: requestedName })
       this.logger.error(error, 'main')
       this.sendErrorToolResult(webContents, sessionId, toolCall.id, requestedName, error, turnId)
       return {
@@ -529,7 +531,7 @@ export class UnifiedToolExecutor {
         registeredTool.adapter.execute(fullName, args),
         sessionId,
         timeout,
-        `工具调用 ${fullName}`
+        t('notifications.chat.toolCallOperation', { toolName: fullName })
       )
 
       this.checkStopped(sessionId)
@@ -544,7 +546,7 @@ export class UnifiedToolExecutor {
           toolCallId: toolCall.id,
           category: registeredTool.category,
           args,
-          error: result.error || '工具调用失败'
+          error: result.error || t('notifications.chat.toolCallFailed')
         })
       }
 
@@ -708,7 +710,7 @@ export class UnifiedToolExecutor {
   private collectToolErrors(results: ToolExecutionResult[]): string[] {
     return results
       .filter((result) => !result.success)
-      .map((result) => result.error || '工具调用失败')
+      .map((result) => result.error || t('notifications.chat.toolCallFailed'))
   }
 
   /** 解析工具调用参数字符串为对象 */
@@ -734,7 +736,7 @@ export class UnifiedToolExecutor {
     try {
       return { args: JSON.parse(argsString || '{}') }
     } catch (error) {
-      const errorMessage = `解析工具参数失败: ${error}`
+      const errorMessage = t('notifications.chat.parseToolArgsFailed', { error: String(error) })
       this.logger.error(errorMessage, 'main')
       this.sendErrorToolResult(webContents, sessionId, toolCallId, toolName, errorMessage, turnId)
       return { error: errorMessage }

@@ -10,6 +10,7 @@ import session from './session'
 import chat from './chat'
 import embedding from './embedding'
 import document from './document'
+import protocol from './protocol'
 
 const notifications = {
   dismiss: '关闭通知',
@@ -24,7 +25,8 @@ const notifications = {
   session,
   chat,
   embedding,
-  document
+  document,
+  protocol
 }
 
 export default notifications

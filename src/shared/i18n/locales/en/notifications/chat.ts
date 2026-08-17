@@ -25,7 +25,19 @@ const chat: Resources['notifications']['chat'] = {
   disallowedBlockType:
     'Disallowed block type: {{type}} (image or table structure changes are forbidden)',
   insertBudgetExceeded: 'Total inserted text exceeds the limit of {{limit}} characters',
-  overlappingEdits: 'Editing operations on block {{blockId}} overlap'
+  overlappingEdits: 'Editing operations on block {{blockId}} overlap',
+  duplicateCallBlocked: '[duplicate] Repeated consecutive calls',
+  duplicateCallBlockedDetail_one:
+    '[duplicate] Repeated consecutive calls of "{{toolName}}" reached {{count}} time, likely stuck in a loop. Please use different arguments or change approach (for example, check status first, proceed step by step, or switch to another tool).',
+  duplicateCallBlockedDetail_other:
+    '[duplicate] Repeated consecutive calls of "{{toolName}}" reached {{count}} times, likely stuck in a loop. Please use different arguments or change approach (for example, check status first, proceed step by step, or switch to another tool).',
+  toolCallOperation: 'Tool call {{toolName}}',
+  toolNotFound: 'Registered tool not found: {{toolName}}',
+  toolCallFailed: 'Tool call failed',
+  parseToolArgsFailed: 'Failed to parse tool arguments: {{error}}',
+  mcpServerNotFound: 'MCP server not found: {{serverName}}',
+  unknownPaperTool: 'Unknown paper tool: {{toolName}}, only search_context is supported',
+  paperIdNotSet: 'Paper ID is not set, cannot retrieve paper context'
 }
 
 export default chat
