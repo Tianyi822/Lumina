@@ -7,7 +7,6 @@ import {
   changeAppLanguage,
   reconcileLanguageFromConfig,
   getDateLocale,
-  normalizeLanguage,
   LANGUAGE_STORAGE_KEY
 } from './index'
 import zh from './locales/zh'
@@ -31,6 +30,7 @@ function createLocalStorageStub(): Storage {
 interface WindowStub {
   stored: Storage
   config: { language?: unknown } | null
+  navigatorLanguage: string
   updateConfigCalls: Array<{ language?: unknown }>
   updateConfigError?: Error
   updateConfigResult?: { success: boolean; error?: string }
@@ -41,12 +41,17 @@ function installGlobals(options: Partial<WindowStub> = {}): WindowStub {
   const stub: WindowStub = {
     stored: options.stored ?? createLocalStorageStub(),
     config: options.config ?? null,
+    navigatorLanguage: options.navigatorLanguage ?? 'zh-CN',
     updateConfigCalls: [],
     updateConfigError: options.updateConfigError,
     updateConfigResult: options.updateConfigResult,
     warnCalls: []
   }
   Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: stub.stored })
+  Object.defineProperty(globalThis, 'navigator', {
+    configurable: true,
+    value: { language: stub.navigatorLanguage }
+  })
   Object.defineProperty(globalThis, 'window', {
     configurable: true,
     value: {
@@ -74,11 +79,30 @@ function installGlobals(options: Partial<WindowStub> = {}): WindowStub {
   return stub
 }
 
-test('initI18n：localStorage 无值时默认中文', async () => {
-  installGlobals()
+test('initI18n：无显式选择时跟随系统语言（中文系统）', async () => {
+  installGlobals({ navigatorLanguage: 'zh-CN' })
   await initI18n()
   assert.equal(i18n.language, 'zh')
   assert.equal(i18n.t('settings.nav.display'), '显示设置')
+})
+
+test('initI18n：英文系统回退 English', async () => {
+  installGlobals({ navigatorLanguage: 'en-US' })
+  await initI18n()
+  assert.equal(i18n.language, 'en')
+  assert.equal(i18n.t('settings.nav.display'), 'Display')
+})
+
+test('initI18n：其他语言系统回退 English', async () => {
+  installGlobals({ navigatorLanguage: 'fr-FR' })
+  await initI18n()
+  assert.equal(i18n.language, 'en')
+})
+
+test('initI18n：繁体中文系统按中文处理', async () => {
+  installGlobals({ navigatorLanguage: 'zh-TW' })
+  await initI18n()
+  assert.equal(i18n.language, 'zh')
 })
 
 test('initI18n：读取 localStorage 中已存语言', async () => {
@@ -90,12 +114,24 @@ test('initI18n：读取 localStorage 中已存语言', async () => {
   assert.equal(i18n.t('settings.nav.display'), 'Display')
 })
 
-test('initI18n：非法存储值归一化为中文', async () => {
+test('initI18n：显式选择优先于系统语言', async () => {
   const stored = createLocalStorageStub()
-  stored.setItem(LANGUAGE_STORAGE_KEY, 'fr')
-  installGlobals({ stored })
+  stored.setItem(LANGUAGE_STORAGE_KEY, 'zh')
+  installGlobals({ stored, navigatorLanguage: 'en-US' })
   await initI18n()
   assert.equal(i18n.language, 'zh')
+})
+
+test('initI18n：非法存储值视为未选择并跟随系统', async () => {
+  const stored = createLocalStorageStub()
+  stored.setItem(LANGUAGE_STORAGE_KEY, 'fr')
+  installGlobals({ stored, navigatorLanguage: 'zh-CN' })
+  await initI18n()
+  assert.equal(i18n.language, 'zh')
+
+  installGlobals({ stored, navigatorLanguage: 'en-US' })
+  await initI18n()
+  assert.equal(i18n.language, 'en')
 })
 
 test('changeAppLanguage：切换语言并双写 localStorage 与 config.json', async () => {
@@ -154,14 +190,6 @@ test('getDateLocale 随当前语言返回 locale 标识', async () => {
   assert.equal(getDateLocale(), 'zh-CN')
   await changeAppLanguage('en')
   assert.equal(getDateLocale(), 'en-US')
-})
-
-test('normalizeLanguage：仅接受 zh/en，其余回退 zh', () => {
-  assert.equal(normalizeLanguage('zh'), 'zh')
-  assert.equal(normalizeLanguage('en'), 'en')
-  assert.equal(normalizeLanguage('fr'), 'zh')
-  assert.equal(normalizeLanguage(undefined), 'zh')
-  assert.equal(normalizeLanguage(42), 'zh')
 })
 
 test('zh/en 资源 key 集合完全对齐', () => {

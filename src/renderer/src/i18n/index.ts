@@ -2,6 +2,7 @@
  * 渲染进程国际化模块：i18next 实例、语言初始化/切换/配置对账。
  * 语言状态唯一来源是 i18next 实例（不经 zustand）；
  * 持久化双写 localStorage（启动同步读取防闪烁）与 config.json（参与多端同步）。
+ * 未做显式选择时默认跟随系统语言（中文环境→中文，其余→English），显式选择后以选择为准。
  */
 import i18next, { type i18n as I18nInstance } from 'i18next'
 import { initReactI18next } from 'react-i18next'
@@ -16,15 +17,23 @@ const DEFAULT_LANGUAGE: AppLanguage = 'zh'
 /** 应用级 i18next 实例（use(initReactI18next) 后供 useTranslation 默认消费） */
 export const i18n: I18nInstance = i18next.createInstance()
 
-/** 归一化未知语言值：仅接受 'zh' | 'en'，其余回退默认中文 */
-export function normalizeLanguage(value: unknown): AppLanguage {
-  return value === 'en' || value === 'zh' ? value : DEFAULT_LANGUAGE
+/** 探测系统语言：中文环境（zh-*，含繁体）→ 中文，其余 → English；无法探测时回退默认中文 */
+function detectSystemLanguage(): AppLanguage {
+  try {
+    if (typeof navigator === 'undefined' || !navigator.language) return DEFAULT_LANGUAGE
+    return navigator.language.toLowerCase().startsWith('zh') ? 'zh' : 'en'
+  } catch {
+    return DEFAULT_LANGUAGE
+  }
 }
 
 function readStoredLanguage(): AppLanguage {
   try {
     if (typeof localStorage === 'undefined') return DEFAULT_LANGUAGE
-    return normalizeLanguage(localStorage.getItem(LANGUAGE_STORAGE_KEY))
+    const stored = localStorage.getItem(LANGUAGE_STORAGE_KEY)
+    // 有显式选择时以选择为准；无值/非法值视为未选择，跟随系统语言
+    if (stored === 'zh' || stored === 'en') return stored
+    return detectSystemLanguage()
   } catch {
     return DEFAULT_LANGUAGE
   }
