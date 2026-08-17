@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useKnowledgeIndexStore } from '@renderer/stores'
 import SvgIcon from '@renderer/components/icons/SvgIcon'
 import type { FileItem, KnowledgeBase } from '@renderer/types'
@@ -26,6 +27,7 @@ export default function KnowledgeMain({
   onDescriptionUpdated,
   onFilesLinkedRef
 }: KnowledgeMainProps) {
+  const { t } = useTranslation()
   const indexStore = useKnowledgeIndexStore()
 
   const kbId = knowledgeBase?.id
@@ -169,7 +171,7 @@ export default function KnowledgeMain({
                     value={editingDescription}
                     className={`sm-textarea ${styles.kbDescription} ${styles.kbDescriptionEditing}`}
                     rows={3}
-                    placeholder="补充知识库用途、范围和检索约束..."
+                    placeholder={t('knowledge.main.descriptionPlaceholder')}
                     onChange={(e) => setEditingDescription(e.target.value)}
                     onBlur={saveDescription}
                     onKeyDown={handleDescriptionKeydown}
@@ -179,7 +181,7 @@ export default function KnowledgeMain({
                     className={`${styles.kbDescription} ${!knowledgeBase.description ? 'kb-description-empty' : ''}`}
                     onDoubleClick={startEditDescription}
                   >
-                    {knowledgeBase.description || '双击编辑，补充知识库用途、覆盖范围和检索约束。'}
+                    {knowledgeBase.description || t('knowledge.main.descriptionEmptyHint')}
                   </p>
                 )}
 
@@ -197,8 +199,8 @@ export default function KnowledgeMain({
                   <SvgIcon name="warning" size={16} />
                 </span>
                 <div className={styles.kbReindexNoticeCopy}>
-                  <strong>需要重新索引</strong>
-                  <span>论文笔记已更新，重新索引后检索结果会使用最新笔记内容。</span>
+                  <strong>{t('knowledge.main.reindexNeededTitle')}</strong>
+                  <span>{t('knowledge.main.reindexNeededBody')}</span>
                   {validInvalidatedFiles.length > 0 && (
                     <ul className={styles.kbReindexNoticeList}>
                       {validInvalidatedFiles.map((file) => (
@@ -232,8 +234,8 @@ export default function KnowledgeMain({
         </div>
       ) : (
         <div className={['sm-empty', styles.emptyKb].join(' ')}>
-          <h2>选择或创建知识库</h2>
-          <p>从左侧选择一个知识库，开始管理文档、索引和检索实验。</p>
+          <h2>{t('knowledge.main.emptyTitle')}</h2>
+          <p>{t('knowledge.main.emptyBody')}</p>
         </div>
       )}
     </main>
