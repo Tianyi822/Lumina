@@ -1,9 +1,9 @@
+import { i18n } from '@renderer/i18n'
+
 /**
  * 将写作对话底层错误整理为通知可读文案。
  * 保留原始错误关键词，避免只显示笼统「模型请求失败」。
  */
-import { i18n } from '@renderer/i18n'
-
 export function formatWriterChatError(raw: string): string {
   const message = raw.trim()
   if (!message) {
