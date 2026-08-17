@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict'
+import fs from 'node:fs'
+import path from 'node:path'
 import test from 'node:test'
 
 import {
@@ -214,15 +216,91 @@ test('getDateLocale 随当前语言返回 locale 标识', async () => {
   assert.equal(getDateLocale(), 'en-US')
 })
 
+/** 递归收集资源对象的全部叶子 key（点分路径） */
+function collectKeys(obj: Record<string, unknown>, prefix = ''): string[] {
+  return Object.entries(obj).flatMap(([key, value]) =>
+    value !== null && typeof value === 'object'
+      ? collectKeys(value as Record<string, unknown>, `${prefix}${key}.`)
+      : [`${prefix}${key}`]
+  )
+}
+
+/** 按点分路径取资源叶子值 */
+function getValueAt(obj: Record<string, unknown>, dottedKey: string): unknown {
+  return dottedKey.split('.').reduce<unknown>((node, part) => {
+    if (node !== null && typeof node === 'object') {
+      return (node as Record<string, unknown>)[part]
+    }
+    return undefined
+  }, obj)
+}
+
 test('zh/en 资源 key 集合完全对齐', () => {
-  function collectKeys(obj: Record<string, unknown>, prefix = ''): string[] {
-    return Object.entries(obj).flatMap(([key, value]) =>
-      value !== null && typeof value === 'object'
-        ? collectKeys(value as Record<string, unknown>, `${prefix}${key}.`)
-        : [`${prefix}${key}`]
-    )
-  }
   const zhKeys = collectKeys(zh).sort()
   const enKeys = collectKeys(en).sort()
   assert.deepEqual(enKeys, zhKeys)
+})
+
+/** 间接引用（t(变量)）扫不到、但被 key-map 常量消费的 key，显式断言存在以防误删 */
+const INDIRECT_KEY_WHITELIST = [
+  // workspaceNavigation.ts 的 WORKSPACE_NAV_LABEL_KEYS / WORKSPACE_ADD_LABEL_KEYS
+  'chrome.nav.read',
+  'chrome.nav.knowledge',
+  'chrome.nav.writer',
+  'chrome.nav.addPaper',
+  'chrome.nav.addKnowledge',
+  'chrome.nav.addDocument'
+]
+
+test('渲染进程 t() 字面量引用的 key 均存在于 zh 资源', () => {
+  const zhKeys = new Set(collectKeys(zh))
+  for (const key of INDIRECT_KEY_WHITELIST) {
+    assert.ok(zhKeys.has(key), `间接引用的 key 不存在于资源: ${key}`)
+  }
+
+  const rendererRoot = path.join(import.meta.dirname, '..')
+  const literalCallPattern = /(?:i18n\.)?\bt\(\s*(['"])([^'"]+)\1/g
+  const offenders: Array<{ file: string; key: string }> = []
+
+  const files = fs.readdirSync(rendererRoot, {
+    recursive: true,
+    encoding: 'utf8'
+  }) as string[]
+  for (const file of files) {
+    if (!/\.(ts|tsx)$/.test(file) || /\.test\.(ts|tsx|mjs)$/.test(file)) continue
+    const lines = fs.readFileSync(path.join(rendererRoot, file), 'utf8').split('\n')
+    lines.forEach((line, index) => {
+      const trimmed = line.trim()
+      if (trimmed.startsWith('//') || trimmed.startsWith('*') || trimmed.startsWith('/*')) return
+      for (const match of line.matchAll(literalCallPattern)) {
+        const key = match[2]
+        // i18next 复数惯例：t(base, { count }) 由资源中的 base_one/_other 解析，base 本身可不存在
+        const hasPluralPair = zhKeys.has(`${key}_one`) && zhKeys.has(`${key}_other`)
+        if (!zhKeys.has(key) && !hasPluralPair) {
+          offenders.push({ file: `${file}:${index + 1}`, key })
+        }
+      }
+    })
+  }
+  assert.deepEqual(offenders, [], `存在未定义的 i18n key 引用: ${JSON.stringify(offenders)}`)
+})
+
+test('含 count 的资源 key 均以 _one/_other 成对定义', () => {
+  const zhKeys = collectKeys(zh)
+  const keySet = new Set(zhKeys)
+  const offenders: string[] = []
+  for (const key of zhKeys) {
+    const leaf = key.split('.').pop() ?? ''
+    if (leaf.endsWith('_one')) {
+      if (!keySet.has(`${key.slice(0, -4)}_other`)) offenders.push(`${key} 缺少 _other 配对`)
+    } else if (leaf.endsWith('_other')) {
+      if (!keySet.has(`${key.slice(0, -6)}_one`)) offenders.push(`${key} 缺少 _one 配对`)
+    } else {
+      const value = getValueAt(zh, key)
+      if (typeof value === 'string' && value.includes('{{count}}')) {
+        offenders.push(`${key} 含 {{count}} 但未用 _one/_other 成对定义`)
+      }
+    }
+  }
+  assert.deepEqual(offenders, [], offenders.join('; '))
 })
