@@ -19,7 +19,7 @@
     "test:writer": "npm run test:writer:shared && npm run test:writer:main && npm run test:writer:renderer",
     "test:update": "node --loader ./scripts/test/tsAliasLoader.mjs --test --experimental-strip-types src/main/services/update/updateDiagnostics.test.ts src/main/services/update/ReleaseNotesService.test.ts && node --test scripts/build/validateReleaseAssets.test.mjs",
     "test:file": "node --loader ./scripts/test/tsAliasLoader.mjs --test --experimental-strip-types src/main/services/file/FileService.test.ts",
-    "test:i18n": "node --loader ./scripts/test/tsAliasLoader.mjs --test --experimental-strip-types src/renderer/src/i18n/index.test.ts",
+    "test:i18n": "node --loader ./scripts/test/tsAliasLoader.mjs --test --experimental-strip-types src/renderer/src/i18n/index.test.ts src/renderer/src/utils/notificationLoggerBridge.test.ts",
     "test:knowledge-store": "node --loader ./scripts/test/tsAliasLoader.mjs --test --experimental-strip-types src/renderer/src/stores/knowledgeStore.test.ts",
     "test:knowledge-files-hook": "node --loader ./scripts/test/tsAliasLoader.mjs --test --experimental-strip-types src/renderer/src/components/knowledge/hooks/useKnowledgeFiles.test.ts",
     "test:paper": "node --loader ./scripts/test/tsAliasLoader.mjs --test --experimental-strip-types src/main/services/paper/paperBlockClassifiers.test.ts src/main/services/paper/paperTextProcessing.test.ts src/main/services/paper/paperMarkdownBuilder.test.ts src/main/services/paper/paperFigureExtractor.test.ts src/main/services/paper/paperAssetLocalizer.test.ts src/main/services/paper/PaperService.test.ts",
