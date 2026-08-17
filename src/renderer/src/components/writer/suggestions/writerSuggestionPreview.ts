@@ -1,4 +1,5 @@
 import type { WriterAiContextBlock } from '@shared/types/writer'
+import { i18n } from '@renderer/i18n'
 
 export function createLoadingPreviewElement(label: string): HTMLElement {
   const root = document.createElement('div')
@@ -82,7 +83,7 @@ export function createOperationToolbarElement(options: OperationToolbarOptions):
   const root = document.createElement('span')
   root.className = 'sm-writer-diff-toolbar'
   root.setAttribute('role', 'toolbar')
-  root.setAttribute('aria-label', 'AI 编辑建议')
+  root.setAttribute('aria-label', i18n.t('writer.suggestions.ariaLabel'))
   // 悬浮控件：不参与 contenteditable 编辑与原生选区绘制
   root.setAttribute('contenteditable', 'false')
   root.setAttribute('data-writer-floating-toolbar', 'true')
@@ -91,20 +92,20 @@ export function createOperationToolbarElement(options: OperationToolbarOptions):
   if (options.showBatchActions) {
     const summary = document.createElement('span')
     summary.className = 'sm-writer-diff-toolbar__summary'
-    summary.textContent = `${options.pendingCount} 项待确认`
+    summary.textContent = i18n.t('writer.suggestions.pendingCount', { count: options.pendingCount })
     root.appendChild(summary)
     root.appendChild(
       createToolbarButton(
-        '全部接受',
-        '全部接受建议',
+        i18n.t('writer.suggestions.acceptAll'),
+        i18n.t('writer.suggestions.acceptAllAria'),
         'sm-writer-diff-toolbar__btn sm-writer-diff-toolbar__btn--primary',
         () => options.onAcceptAll()
       )
     )
     root.appendChild(
       createToolbarButton(
-        '全部拒绝',
-        '全部拒绝建议',
+        i18n.t('writer.suggestions.rejectAll'),
+        i18n.t('writer.suggestions.rejectAllAria'),
         'sm-writer-diff-toolbar__btn sm-writer-diff-toolbar__btn--reject',
         () => options.onRejectAll()
       )
@@ -117,16 +118,16 @@ export function createOperationToolbarElement(options: OperationToolbarOptions):
 
   root.appendChild(
     createToolbarButton(
-      '接受',
-      '接受该项建议',
+      i18n.t('writer.suggestions.accept'),
+      i18n.t('writer.suggestions.acceptAria'),
       'sm-writer-diff-toolbar__btn sm-writer-diff-toolbar__btn--primary',
       () => options.onAcceptOne(options.operationIndex)
     )
   )
   root.appendChild(
     createToolbarButton(
-      '拒绝',
-      '拒绝该项建议',
+      i18n.t('writer.suggestions.reject'),
+      i18n.t('writer.suggestions.rejectAria'),
       'sm-writer-diff-toolbar__btn sm-writer-diff-toolbar__btn--reject',
       () => options.onRejectOne(options.operationIndex)
     )

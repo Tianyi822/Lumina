@@ -10,6 +10,7 @@ import type {
   WriterEditOperation
 } from '@shared/types/writer'
 import { hashWriterText } from '@shared/utils/writerText'
+import { i18n } from '@renderer/i18n'
 import { useWriterSessionStore } from '@renderer/stores/writer/writerSessionStore'
 
 const ALLOWED_BLOCK_TYPES = new Set<WriterAiContextBlock['type']>([
@@ -106,7 +107,7 @@ export function createWriterAiRequestContext(
   return {
     documentId,
     baseRevision: revision,
-    title: session.titleSummary || '无标题文档',
+    title: session.titleSummary || i18n.t('writer.editor.untitled'),
     anchor,
     blocks
   }

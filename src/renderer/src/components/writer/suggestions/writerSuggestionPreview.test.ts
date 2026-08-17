@@ -1,11 +1,15 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { parseHTML } from 'linkedom'
+import { initI18n } from '@renderer/i18n'
 import {
   createBlocksPreviewElement,
   createLoadingPreviewElement,
   createOperationToolbarElement
 } from './writerSuggestionPreview'
+
+// 操作条文案改走 i18n.t：先初始化（测试环境默认 zh，既有中文断言不变）
+await initI18n()
 
 const { window: testWindow } = parseHTML('<html><head></head><body></body></html>')
 for (const [name, value] of Object.entries({

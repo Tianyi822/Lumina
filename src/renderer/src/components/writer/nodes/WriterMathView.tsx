@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { MouseEvent } from 'react'
 import { NodeViewWrapper } from '@tiptap/react'
 import type { NodeViewProps } from '@tiptap/react'
@@ -16,6 +17,7 @@ function getLatex(node: NodeViewProps['node']): string {
 
 /** 公式节点只保存 LaTeX；预览 HTML 始终由当前源码重新计算。 */
 export default function WriterMathView({ node, updateAttributes }: NodeViewProps) {
+  const { t } = useTranslation()
   const latex = getLatex(node)
   const displayMode = node.type.name === 'blockMath'
   const [draftState, setDraftState] = useState(() => ({
@@ -70,25 +72,29 @@ export default function WriterMathView({ node, updateAttributes }: NodeViewProps
           <span dangerouslySetInnerHTML={{ __html: renderResult.html }} />
         ) : (
           <span className={styles.renderError} role="alert">
-            {latex || '空公式'}：{renderResult.error}
+            {latex || t('writer.nodes.emptyFormula')}：{renderResult.error}
           </span>
         )}
       </span>
       <button
         type="button"
         className={styles.copyButton}
-        aria-label="复制公式源码"
+        aria-label={t('writer.nodes.copyFormulaSource')}
         onClick={copyLatex}
       >
-        复制源码
+        {t('writer.nodes.copySource')}
       </button>
       {editing ? (
-        <div className={styles.editorPopover} role="dialog" aria-label="编辑公式源码">
+        <div
+          className={styles.editorPopover}
+          role="dialog"
+          aria-label={t('writer.nodes.editFormulaSource')}
+        >
           <label className={styles.editorLabel}>
-            LaTeX 源码
+            {t('writer.nodes.latexSource')}
             <textarea
               className={styles.sourceInput}
-              aria-label="LaTeX 源码"
+              aria-label={t('writer.nodes.latexSource')}
               value={draft}
               onChange={(event) =>
                 setDraftState((current) => ({ ...current, draft: event.target.value }))
@@ -97,7 +103,7 @@ export default function WriterMathView({ node, updateAttributes }: NodeViewProps
               onDoubleClick={(event) => event.stopPropagation()}
             />
           </label>
-          <div className={styles.preview} aria-label="公式实时预览">
+          <div className={styles.preview} aria-label={t('writer.nodes.formulaPreview')}>
             {renderResult.success ? (
               <span dangerouslySetInnerHTML={{ __html: renderResult.html }} />
             ) : (
@@ -108,10 +114,10 @@ export default function WriterMathView({ node, updateAttributes }: NodeViewProps
           </div>
           <div className={styles.actions}>
             <button type="button" className={styles.actionButton} onClick={confirmEditor}>
-              确定
+              {t('common.ok')}
             </button>
             <button type="button" className={styles.actionButton} onClick={cancelEditor}>
-              取消
+              {t('common.cancel')}
             </button>
           </div>
         </div>

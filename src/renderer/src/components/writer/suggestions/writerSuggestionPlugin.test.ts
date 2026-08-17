@@ -6,12 +6,16 @@ import { EditorState, TextSelection } from '@tiptap/pm/state'
 import type { Decoration } from '@tiptap/pm/view'
 import type { WriterAiProposal } from '@shared/types/writer'
 import { hashWriterText } from '@shared/utils/writerText'
+import { initI18n } from '@renderer/i18n'
 import { createWriterExtensions } from '../extensions/createWriterExtensions'
 import { useWriterSuggestionStore } from '@renderer/stores/writer/writerSuggestionStore'
 import {
   buildPluginDecorationsForTest,
   createWriterSuggestionExtension
 } from './writerSuggestionPlugin'
+
+// 建议操作条/pending 文案改走 i18n.t：先初始化（测试环境默认 zh，既有中文断言不变）
+await initI18n()
 
 const { window: testWindow } = parseHTML('<html><head></head><body></body></html>')
 for (const [name, value] of Object.entries({

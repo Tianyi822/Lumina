@@ -1,4 +1,5 @@
 import { NodeViewContent, NodeViewWrapper } from '@tiptap/react'
+import { useTranslation } from 'react-i18next'
 import type { ChangeEvent } from 'react'
 import type { NodeViewProps } from '@tiptap/react'
 import { normalizeWriterCodeLanguage, WRITER_CODE_LANGUAGES } from '../extensions/writerMath'
@@ -22,6 +23,7 @@ const LANGUAGE_LABELS: Record<(typeof WRITER_CODE_LANGUAGES)[number], string> = 
 
 /** 代码节点只用于编辑和着色，绝不执行其文本内容。 */
 export default function WriterCodeBlockView({ node, updateAttributes }: NodeViewProps) {
+  const { t } = useTranslation()
   const language = normalizeWriterCodeLanguage(node.attrs.language)
 
   const copyCode = (): void => {
@@ -41,14 +43,14 @@ export default function WriterCodeBlockView({ node, updateAttributes }: NodeView
     >
       <div className={styles.toolbar} contentEditable={false}>
         <label className={styles.languageLabel}>
-          代码语言
+          {t('writer.nodes.codeLanguage')}
           <select
             className={styles.languageSelect}
-            aria-label="代码语言"
+            aria-label={t('writer.nodes.codeLanguage')}
             value={language ?? ''}
             onChange={changeLanguage}
           >
-            <option value="">纯文本</option>
+            <option value="">{t('writer.nodes.plainText')}</option>
             {WRITER_CODE_LANGUAGES.map((item) => (
               <option key={item} value={item}>
                 {LANGUAGE_LABELS[item]}
@@ -59,10 +61,10 @@ export default function WriterCodeBlockView({ node, updateAttributes }: NodeView
         <button
           type="button"
           className={styles.copyButton}
-          aria-label="复制代码"
+          aria-label={t('writer.nodes.copyCode')}
           onClick={copyCode}
         >
-          复制
+          {t('common.copy')}
         </button>
       </div>
       <pre className={styles.codeSurface}>
