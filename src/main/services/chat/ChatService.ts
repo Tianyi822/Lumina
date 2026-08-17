@@ -1,6 +1,7 @@
 import OpenAI from 'openai'
 import type { WebContents } from 'electron'
 import { configManager } from '../config'
+import { t } from '@main/services/i18n'
 import { logger } from '../logger'
 import { mcpService } from '../mcp'
 import type { ChatRequest, ChatResult, KnowledgeSearchResult, TokenUsage } from '../../types/chat'
@@ -141,7 +142,7 @@ export class ChatService {
 
     const llmConfig = this.validateAndGetLLMConfig(modelKey, sessionId, webContents, turnId)
     if (!llmConfig) {
-      return { success: false, error: '配置验证失败' }
+      return { success: false, error: t('notifications.chat.configValidationFailed') }
     }
 
     if (this.stopController.isStopped(sessionId)) {
@@ -289,7 +290,7 @@ export class ChatService {
   ): LLMConfig | null {
     const config = configManager.getConfig()
     if (!config) {
-      const error = '配置未加载'
+      const error = t('notifications.chat.configNotLoaded')
       logger.error(error, 'main')
       this.streamHandler.sendError(webContents, sessionId, error, turnId, 'failed')
       return null
@@ -297,7 +298,7 @@ export class ChatService {
 
     const llmConfig = config.llm_config.models.find((m) => m.model_name === modelKey)
     if (!llmConfig) {
-      const error = `未找到模型配置: ${modelKey}`
+      const error = t('notifications.chat.modelConfigNotFound', { modelKey })
       logger.error(error, 'main')
       this.streamHandler.sendError(webContents, sessionId, error, turnId, 'failed')
       return null

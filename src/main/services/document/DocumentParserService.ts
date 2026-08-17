@@ -5,6 +5,7 @@ import { join } from 'path'
 import mammoth from 'mammoth'
 import officeParser, { type OfficeParserConfig } from 'officeparser'
 import { logger } from '@main/services/logger'
+import { t } from '@main/services/i18n'
 
 interface PdfjsTextContentItem {
   str?: string
@@ -88,7 +89,7 @@ export class DocumentParserService {
           break
 
         default:
-          throw new Error(`不支持的文件类型: ${ext}`)
+          throw new Error(t('notifications.document.unsupportedFileType', { ext }))
       }
 
       logger.info('文档解析完成', 'main', { fileName, contentLength: content.length })
@@ -155,7 +156,7 @@ export class DocumentParserService {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
       logger.error('PDF 解析失败', 'main', { filePath, error: errorMessage })
-      throw new Error(`PDF 解析失败: ${errorMessage}`)
+      throw new Error(t('notifications.document.pdfParseFailed', { reason: errorMessage }))
     }
   }
 
@@ -186,7 +187,7 @@ export class DocumentParserService {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
       logger.error('DOCX 文档解析失败', 'main', { filePath, error: errorMessage })
-      throw new Error(`DOCX 文档解析失败: ${errorMessage}`)
+      throw new Error(t('notifications.document.docxParseFailed', { reason: errorMessage }))
     }
   }
 
@@ -213,7 +214,7 @@ export class DocumentParserService {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
       logger.error('DOC 文档解析失败', 'main', { filePath, error: errorMessage })
-      throw new Error(`DOC 文档解析失败: ${errorMessage}`)
+      throw new Error(t('notifications.document.docParseFailed', { reason: errorMessage }))
     }
   }
 
@@ -248,9 +249,9 @@ export class DocumentParserService {
       })
 
       if (errorMessage.includes('Invalid Excel')) {
-        throw new Error('Excel 文件格式无效或已损坏')
+        throw new Error(t('notifications.document.excelInvalidFile'))
       } else {
-        throw new Error(`Excel 解析失败: ${errorMessage}`)
+        throw new Error(t('notifications.document.excelParseFailed', { reason: errorMessage }))
       }
     }
   }
@@ -285,7 +286,7 @@ export class DocumentParserService {
         filePath,
         error: errorMessage
       })
-      throw new Error(`PPTX 解析失败: ${errorMessage}`)
+      throw new Error(t('notifications.document.pptxParseFailed', { reason: errorMessage }))
     }
   }
 

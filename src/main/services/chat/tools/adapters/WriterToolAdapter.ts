@@ -12,6 +12,7 @@ import type {
 } from '@shared/types/writer'
 import { writerProposeEditsArgsSchema } from '@shared/schemas/writerSchema'
 import { hashWriterText } from '@shared/utils/writerText'
+import { t } from '@main/services/i18n'
 
 const MAX_INSERT_CHARS = 100_000
 
@@ -146,19 +147,24 @@ export class WriterToolAdapter implements ToolAdapter {
       : toolName
 
     if (normalized !== 'propose_edits') {
-      return { success: false, error: `未知的写作工具: ${toolName}，当前仅支持 propose_edits` }
+      return {
+        success: false,
+        error: t('notifications.chat.unknownWriterTool', { toolName })
+      }
     }
 
     // 拒绝任何标题修改企图
     if ('title' in args) {
-      return { success: false, error: '禁止修改文档标题：标题为只读元数据' }
+      return { success: false, error: t('notifications.chat.titleModifyForbidden') }
     }
 
     const parsed = writerProposeEditsArgsSchema.safeParse(args)
     if (!parsed.success) {
       return {
         success: false,
-        error: `编辑建议参数无效: ${parsed.error.issues.map((i) => i.message).join('; ')}`
+        error: t('notifications.chat.invalidProposalArgs', {
+          issues: parsed.error.issues.map((i) => i.message).join('; ')
+        })
       }
     }
 
@@ -270,7 +276,7 @@ export class WriterToolAdapter implements ToolAdapter {
         case 'replace_blocks': {
           const targetBlockIds = input.targetBlockIds
           if (!targetBlockIds || targetBlockIds.length === 0) {
-            throw new Error('replace_blocks 必须提供 targetBlockIds')
+            throw new Error(t('notifications.chat.replaceBlocksRequiresTargets'))
           }
           for (const id of targetBlockIds) {
             this.assertInScope(id, blockMap)
@@ -295,7 +301,7 @@ export class WriterToolAdapter implements ToolAdapter {
         }
         default: {
           const kind = (input as { kind: string }).kind
-          throw new Error(`不支持的编辑操作: ${kind}`)
+          throw new Error(t('notifications.chat.unsupportedEditOperation', { kind }))
         }
       }
     }
@@ -413,7 +419,7 @@ export class WriterToolAdapter implements ToolAdapter {
 
   private assertInScope(blockId: string, blockMap: Map<string, WriterAiContextBlock>): void {
     if (!blockMap.has(blockId)) {
-      throw new Error(`块 ${blockId} 不在当前编辑范围内`)
+      throw new Error(t('notifications.chat.blockNotInScope', { blockId }))
     }
   }
 
@@ -424,7 +430,7 @@ export class WriterToolAdapter implements ToolAdapter {
   ): void {
     const block = blockMap.get(blockId)!
     if (offset < 0 || offset > block.text.length) {
-      throw new Error(`块 ${blockId} 的 offset ${offset} 越界`)
+      throw new Error(t('notifications.chat.offsetOutOfRange', { blockId, offset }))
     }
   }
 
@@ -436,21 +442,21 @@ export class WriterToolAdapter implements ToolAdapter {
   ): void {
     const block = blockMap.get(blockId)!
     if (from < 0 || to < from || to > block.text.length) {
-      throw new Error(`块 ${blockId} 的范围 [${from}, ${to}) 无效`)
+      throw new Error(t('notifications.chat.invalidTextRange', { blockId, from, to }))
     }
   }
 
   private assertBlocksAllowed(blocks: WriterAiContextBlock[]): void {
     for (const block of blocks) {
       if (!ALLOWED_BLOCK_TYPES.has(block.type)) {
-        throw new Error(`不允许的块类型: ${block.type}（禁止图片/表格结构变化）`)
+        throw new Error(t('notifications.chat.disallowedBlockType', { type: block.type }))
       }
     }
   }
 
   private assertInsertBudget(total: number): void {
     if (total > MAX_INSERT_CHARS) {
-      throw new Error(`插入文本总计超过 ${MAX_INSERT_CHARS} 字符上限`)
+      throw new Error(t('notifications.chat.insertBudgetExceeded', { limit: MAX_INSERT_CHARS }))
     }
   }
 
@@ -486,13 +492,13 @@ export class WriterToolAdapter implements ToolAdapter {
     to: number
   ): void {
     if (claimedBlocks.has(blockId)) {
-      throw new Error(`块 ${blockId} 上的编辑操作发生重叠`)
+      throw new Error(t('notifications.chat.overlappingEdits', { blockId }))
     }
     const next: TextRange = { from, to }
     const list = ranges.get(blockId) ?? []
     for (const r of list) {
       if (this.rangesOverlap(next, r)) {
-        throw new Error(`块 ${blockId} 上的编辑操作发生重叠`)
+        throw new Error(t('notifications.chat.overlappingEdits', { blockId }))
       }
     }
     list.push(next)
@@ -505,11 +511,11 @@ export class WriterToolAdapter implements ToolAdapter {
     blockId: string
   ): void {
     if (claimedBlocks.has(blockId)) {
-      throw new Error(`块 ${blockId} 上的编辑操作发生重叠`)
+      throw new Error(t('notifications.chat.overlappingEdits', { blockId }))
     }
     const list = ranges.get(blockId)
     if (list && list.length > 0) {
-      throw new Error(`块 ${blockId} 上的编辑操作发生重叠`)
+      throw new Error(t('notifications.chat.overlappingEdits', { blockId }))
     }
     claimedBlocks.add(blockId)
   }

@@ -26,6 +26,7 @@ import {
   recordPromptCacheDiagnostics,
   stripPromptCacheOptions
 } from './PromptCacheOptimizer'
+import { t } from '@main/services/i18n'
 
 /**
  * PlanExecuteService 配置选项
@@ -111,7 +112,7 @@ export class PlanExecuteService {
 
     const llmConfig = this.validateAndGetLLMConfig(modelKey, sessionId, webContents, turnId)
     if (!llmConfig) {
-      return { success: false, error: '配置验证失败' }
+      return { success: false, error: t('notifications.chat.configValidationFailed') }
     }
 
     if (this.stopController.isStopped(sessionId)) {
@@ -236,7 +237,8 @@ export class PlanExecuteService {
           previousResults.push(stepResult.context || stepResult.summary || '步骤已完成')
         } else {
           // 步骤执行失败：标记当前步骤失败、后续步骤跳过，返回错误
-          const errorMessage = stepResult.error || `步骤 ${i + 1} 执行失败`
+          const errorMessage =
+            stepResult.error || t('notifications.chat.planStepFailed', { index: i + 1 })
           planSteps[i].status = 'failed'
           planSteps[i].error = errorMessage
           planSteps[i].attempt = stepResult.attempt
@@ -295,7 +297,7 @@ export class PlanExecuteService {
           sessionId,
           'cancelled',
           undefined,
-          '用户已取消',
+          t('notifications.chat.planUserCancelled'),
           turnId
         )
         this.streamHandler.sendDone(webContents, sessionId, undefined, turnId, 'cancelled')
@@ -503,7 +505,7 @@ export class PlanExecuteService {
         return { ...result, attempt }
       }
 
-      previousFailure = result.error || '未知错误'
+      previousFailure = result.error || t('notifications.chat.unknownError')
       this.logger.warn('计划步骤执行失败', 'main', {
         sessionId,
         stepIndex,
@@ -537,7 +539,7 @@ export class PlanExecuteService {
     return {
       success: false,
       recoverable: false,
-      error: previousFailure || '步骤执行失败',
+      error: previousFailure || t('notifications.chat.planStepExecutionFailed'),
       attempt: PLAN_STEP_MAX_ATTEMPTS
     }
   }
@@ -665,7 +667,7 @@ export class PlanExecuteService {
         step.index,
         'cancelled',
         undefined,
-        '用户已取消',
+        t('notifications.chat.planUserCancelled'),
         turnId,
         step.attempt,
         step.maxAttempts

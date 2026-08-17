@@ -5,6 +5,11 @@ import settings from './settings'
 import sync from './sync'
 import config from './config'
 import common from './common'
+import file from './file'
+import session from './session'
+import chat from './chat'
+import embedding from './embedding'
+import document from './document'
 
 const notifications = {
   dismiss: '关闭通知',
@@ -14,7 +19,12 @@ const notifications = {
   settings,
   sync,
   config,
-  common
+  common,
+  file,
+  session,
+  chat,
+  embedding,
+  document
 }
 
 export default notifications

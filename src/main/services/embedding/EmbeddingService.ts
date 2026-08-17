@@ -2,6 +2,7 @@ import OpenAI from 'openai'
 import { Worker } from 'worker_threads'
 import { encode } from 'gpt-tokenizer/encoding/cl100k_base'
 import { logger } from '@main/services/logger'
+import { t } from '@main/services/i18n'
 import type { EmbeddingConfig } from '@main/types/config'
 import { EMBEDDING_WORKER_TIMEOUT } from '@main/constants/timeouts'
 import { normalizeEmbeddingBaseUrl } from '@shared/utils/embeddingBaseUrl'
@@ -19,8 +20,10 @@ const EMBEDDING_SUSTAINABLE_TOKENS_PER_REQUEST = Math.max(
 type EmbeddingResponse = Awaited<ReturnType<OpenAI['embeddings']['create']>>
 type EmbeddingDataItem = EmbeddingResponse['data'][number]
 
-const EMPTY_EMBEDDING_DATA_ERROR =
-  '嵌入 API 返回数据为空，请检查 baseUrl、模型名称及接口是否兼容 OpenAI /v1/embeddings 格式'
+/** 嵌入 API 返回数据为空的错误文案（函数形式保证 t() 每次调用即时读取当前语言） */
+function emptyEmbeddingDataError(): string {
+  return t('notifications.embedding.emptyApiResponse')
+}
 
 /**
  * 格式化嵌入 API 错误信息
@@ -46,12 +49,10 @@ function getEmbeddingDataItems(response: EmbeddingResponse): EmbeddingDataItem[]
   if (errorField !== undefined && errorField !== null && errorField !== '') {
     const message = formatEmbeddingApiError(errorField)
     if (message.includes('/embeddings/embeddings')) {
-      throw new Error(
-        `${message}。API 基础 URL 应填写到 /v1 为止（例如 http://127.0.0.1:1234/v1），不要包含 /embeddings`
-      )
+      throw new Error(t('notifications.embedding.baseUrlExcludesEmbeddings', { message }))
     }
     if (message.includes('POST /embeddings') && !message.includes('/v1/')) {
-      throw new Error(`${message}。API 基础 URL 需包含 /v1（例如 http://127.0.0.1:1234/v1）`)
+      throw new Error(t('notifications.embedding.baseUrlRequiresV1', { message }))
     }
     throw new Error(message)
   }
@@ -71,7 +72,7 @@ function getEmbeddingDataItems(response: EmbeddingResponse): EmbeddingDataItem[]
     ]
   }
 
-  throw new Error(EMPTY_EMBEDDING_DATA_ERROR)
+  throw new Error(emptyEmbeddingDataError())
 }
 
 interface EmbeddingClient {
@@ -158,12 +159,15 @@ class EmbeddingRateLimiter {
     return this.withLock(async () => {
       const firstTextTokens = tokenEstimates[startIndex]
       if (!firstTextTokens) {
-        throw new Error('批量嵌入输入不能为空')
+        throw new Error(t('notifications.embedding.batchInputEmpty'))
       }
 
       if (firstTextTokens > EMBEDDING_MAX_TOKENS_PER_MINUTE) {
         throw new Error(
-          `单条文本估算 Token 数 ${firstTextTokens} 超过每分钟限制 ${EMBEDDING_MAX_TOKENS_PER_MINUTE}，请减小知识库分块大小后重试`
+          t('notifications.embedding.tokenLimitExceeded', {
+            tokens: firstTextTokens,
+            limit: EMBEDDING_MAX_TOKENS_PER_MINUTE
+          })
         )
       }
 
@@ -521,7 +525,7 @@ export class EmbeddingService {
     if (!this.config || !this.client) {
       return {
         success: false,
-        error: '嵌入模型未配置'
+        error: t('notifications.embedding.notConfigured')
       }
     }
 
@@ -551,14 +555,14 @@ export class EmbeddingService {
   async embed(text: string): Promise<EmbeddingResult | EmbeddingFailure> {
     const config = this.config
     if (!config || !this.client) {
-      return { success: false, error: '嵌入模型未配置' }
+      return { success: false, error: t('notifications.embedding.notConfigured') }
     }
 
     try {
       const result = await this.embedBatchInternal([text], config)
       const embedding = result.embeddings[0]
       if (!embedding) {
-        return { success: false, error: EMPTY_EMBEDDING_DATA_ERROR }
+        return { success: false, error: emptyEmbeddingDataError() }
       }
 
       return {
@@ -569,7 +573,9 @@ export class EmbeddingService {
     } catch (error) {
       return {
         success: false,
-        error: `嵌入向量生成失败: ${error instanceof Error ? error.message : String(error)}`
+        error: t('notifications.embedding.embedFailed', {
+          reason: error instanceof Error ? error.message : String(error)
+        })
       }
     }
   }
@@ -580,11 +586,11 @@ export class EmbeddingService {
   async embedBatch(texts: string[]): Promise<BatchEmbeddingResult | EmbeddingFailure> {
     const config = this.config
     if (!config || !this.client) {
-      return { success: false, error: '嵌入模型未配置' }
+      return { success: false, error: t('notifications.embedding.notConfigured') }
     }
 
     if (texts.length === 0) {
-      return { success: false, error: '输入文本列表不能为空' }
+      return { success: false, error: t('notifications.embedding.inputListEmpty') }
     }
 
     try {
@@ -592,7 +598,9 @@ export class EmbeddingService {
     } catch (error) {
       return {
         success: false,
-        error: `批量嵌入向量生成失败: ${error instanceof Error ? error.message : String(error)}`
+        error: t('notifications.embedding.batchEmbedFailed', {
+          reason: error instanceof Error ? error.message : String(error)
+        })
       }
     }
   }
@@ -603,11 +611,11 @@ export class EmbeddingService {
   ): Promise<BatchEmbeddingResult | EmbeddingFailure> {
     const config = this.config
     if (!config || !this.client) {
-      return { success: false, error: '嵌入模型未配置' }
+      return { success: false, error: t('notifications.embedding.notConfigured') }
     }
 
     if (texts.length === 0) {
-      return { success: false, error: '输入文本列表不能为空' }
+      return { success: false, error: t('notifications.embedding.inputListEmpty') }
     }
 
     try {
@@ -615,7 +623,9 @@ export class EmbeddingService {
     } catch (error) {
       return {
         success: false,
-        error: `批量嵌入向量生成失败: ${error instanceof Error ? error.message : String(error)}`
+        error: t('notifications.embedding.batchEmbedFailed', {
+          reason: error instanceof Error ? error.message : String(error)
+        })
       }
     }
   }
@@ -678,7 +688,7 @@ export class EmbeddingService {
   ): Promise<BatchEmbeddingResult> {
     const client = this.client
     if (!client) {
-      throw new Error('嵌入模型未配置')
+      throw new Error(t('notifications.embedding.notConfigured'))
     }
 
     const limiter = this.getRateLimiter(config)
@@ -695,14 +705,14 @@ export class EmbeddingService {
 
     while (processedTexts < texts.length) {
       if (options.shouldAbort?.()) {
-        throw new Error('索引操作已被用户取消')
+        throw new Error(t('notifications.embedding.indexingCancelled'))
       }
 
       const reservation = await limiter.reserveBatch(tokenEstimates, processedTexts)
 
       if (options.shouldAbort?.()) {
         await limiter.cancelReservation(reservation.reservationId)
-        throw new Error('索引操作已被用户取消')
+        throw new Error(t('notifications.embedding.indexingCancelled'))
       }
 
       const batchTexts = texts.slice(processedTexts, processedTexts + reservation.batchSize)
@@ -718,7 +728,10 @@ export class EmbeddingService {
 
         if (batchEmbeddings.length !== batchTexts.length) {
           throw new Error(
-            `嵌入响应数量不匹配，期望 ${batchTexts.length} 条，实际收到 ${batchEmbeddings.length} 条`
+            t('notifications.embedding.responseCountMismatch', {
+              expected: batchTexts.length,
+              actual: batchEmbeddings.length
+            })
           )
         }
 
@@ -825,7 +838,7 @@ export class EmbeddingService {
   ): EmbeddingConfig {
     const preset = PRESET_EMBEDDING_MODELS[presetId]
     if (!preset) {
-      throw new Error(`未找到预设模型: ${presetId}`)
+      throw new Error(t('notifications.embedding.presetModelNotFound', { presetId }))
     }
 
     return {
