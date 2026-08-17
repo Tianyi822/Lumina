@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { WriterDocument } from '@shared/types/writer'
 import WriterEditor from '@renderer/components/writer/WriterEditor'
 import type { WriterSnapshot } from '@renderer/components/writer/WriterEditor'
@@ -29,6 +30,7 @@ import styles from './WritingPage.module.css'
 /** 写作工作区负责文档加载、AI 面板布局和主进程退出握手。 */
 export default function WritingPage() {
   const notify = useNotification()
+  const { t } = useTranslation()
   const currentDocumentId = useWriterLibraryStore((state) => state.currentDocumentId)
   const createAndOpen = useWriterLibraryStore((state) => state.createAndOpen)
   const currentDocumentTitle = useWriterLibraryStore((state) => {
@@ -62,7 +64,7 @@ export default function WritingPage() {
     saveCurrentSession: sessionState.saveCurrentSession,
     setError: sessionState.setError,
     onRequestError: (message) => {
-      notify.error('写作对话请求失败', formatWriterChatError(message), {
+      notify.error(t('notifications.writer.chatRequestFailed'), formatWriterChatError(message), {
         source: 'chat'
       })
     }
@@ -82,9 +84,17 @@ export default function WritingPage() {
       })
       if (!gate.ok) {
         if (gate.reason === 'busy') {
-          notify.warning('写作对话', '请先停止当前回复', { source: 'chat' })
+          notify.warning(
+            t('notifications.writer.chatTitle'),
+            t('notifications.writer.stopReplyFirst'),
+            { source: 'chat' }
+          )
         } else {
-          notify.warning('写作对话', '请先打开 AI 面板选择模型', { source: 'chat' })
+          notify.warning(
+            t('notifications.writer.chatTitle'),
+            t('notifications.writer.openPanelFirst'),
+            { source: 'chat' }
+          )
         }
         return
       }
@@ -92,9 +102,11 @@ export default function WritingPage() {
       // 返回 SessionData 并传入 send，避免 ensure 后同 tick latestRef 仍为 null
       const session = await sessionState.ensureSession()
       if (!session) {
-        notify.error('写作对话', '加载写作聊天会话失败', {
-          source: 'chat'
-        })
+        notify.error(
+          t('notifications.writer.chatTitle'),
+          t('notifications.writer.loadSessionFailed'),
+          { source: 'chat' }
+        )
         return
       }
 
@@ -104,9 +116,11 @@ export default function WritingPage() {
         const revision = useWriterSessionStore.getState().revision
         const context = createWriterAiRequestContext(editor, 'selection', revision)
         if (!context) {
-          notify.warning('写作对话', '当前选区没有可编辑文本，无法改写或续写', {
-            source: 'chat'
-          })
+          notify.warning(
+            t('notifications.writer.chatTitle'),
+            t('notifications.writer.selectionNotEditable'),
+            { source: 'chat' }
+          )
           return
         }
       }
@@ -117,7 +131,7 @@ export default function WritingPage() {
         pendingAction: action
       })
     },
-    [notify, sessionState, streamState]
+    [notify, sessionState, streamState, t]
   )
 
   const chatSlotRef = useRef<HTMLDivElement>(null)
@@ -151,7 +165,7 @@ export default function WritingPage() {
         if (!active) return
         if (!result.success || !result.data) {
           setWriterDocument(null)
-          setError(result.error || '加载文档失败')
+          setError(result.error || t('chrome.pages.loadDocumentFailed'))
           return
         }
         setWriterDocument(result.data)
@@ -159,7 +173,9 @@ export default function WritingPage() {
       .catch((loadError: unknown) => {
         if (!active) return
         setWriterDocument(null)
-        setError(loadError instanceof Error ? loadError.message : '加载文档失败')
+        setError(
+          loadError instanceof Error ? loadError.message : t('chrome.pages.loadDocumentFailed')
+        )
       })
       .finally(() => {
         if (active) setLoading(false)
@@ -168,7 +184,7 @@ export default function WritingPage() {
     return () => {
       active = false
     }
-  }, [currentDocumentId])
+  }, [currentDocumentId, t])
 
   useEffect(
     () =>
@@ -271,7 +287,7 @@ export default function WritingPage() {
           />
         ) : (
           <div className={styles.state}>
-            {loading ? <span>正在加载文档…</span> : null}
+            {loading ? <span>{t('chrome.pages.loadingDocument')}</span> : null}
             {!loading && error ? (
               <span className={styles.error} role="alert">
                 {error}
@@ -279,13 +295,13 @@ export default function WritingPage() {
             ) : null}
             {!loading && !error && !currentDocumentId ? (
               <>
-                <span>选择一个文档，或开始新的写作</span>
+                <span>{t('chrome.pages.selectDocumentTitle')}</span>
                 <button
                   type="button"
                   className="sm-button sm-button--secondary"
                   onClick={() => void createAndOpen()}
                 >
-                  新建文档
+                  {t('chrome.pages.newDocument')}
                 </button>
               </>
             ) : null}
@@ -314,7 +330,7 @@ export default function WritingPage() {
               className={styles.chatResize}
               role="separator"
               aria-orientation="vertical"
-              title="拖拽调整聊天窗口宽度"
+              title={t('common.resizeChat')}
               onPointerDown={startChatResize}
             />
             <WriterChatPanel

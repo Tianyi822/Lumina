@@ -108,6 +108,20 @@ const en: Resources = {
       writerChat: 'Writer Chat',
       exportDocument: 'Export Document',
       exportFormats: 'Export Formats'
+    },
+    pages: {
+      selectPaperTitle: 'Select a paper to start reading',
+      selectPaperBody:
+        'Pick an existing paper from the list on the left, or upload a PDF to start reading.',
+      uploadPdf: 'Upload PDF',
+      loadingDocument: 'Loading document…',
+      loadDocumentFailed: 'Failed to load document',
+      selectDocumentTitle: 'Select a document, or start writing something new',
+      newDocument: 'New Document'
+    },
+    app: {
+      errorTitle: 'Something went wrong',
+      reload: 'Reload'
     }
   },
   settings: {

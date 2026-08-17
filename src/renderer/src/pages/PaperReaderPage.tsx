@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { usePaperListStore } from '@renderer/stores/paper'
 import { usePaperTranslationStore } from '@renderer/stores/paper'
 import { usePaperFigureStore } from '@renderer/stores/paper'
@@ -83,6 +84,7 @@ export default function PaperReaderPage() {
 
   const addPaperChatQuote = usePaperChatQuoteStore((s) => s.addQuote)
   const notify = useNotification()
+  const { t } = useTranslation()
 
   const [isResizingPaperChat, setIsResizingPaperChat] = useState(false)
   const markdownViewRef = useRef<PaperMarkdownViewHandle>(null)
@@ -125,14 +127,18 @@ export default function PaperReaderPage() {
       const sessionResult = await ensurePaperChatSession(paperId)
       const sessionId = sessionResult.data
       if (!sessionResult.success || !sessionId) {
-        notify.error('论文对话', sessionResult.error || '创建论文对话失败', { source: 'chat' })
+        notify.error(
+          t('notifications.paper.chatTitle'),
+          sessionResult.error || t('notifications.paper.chatCreateFailed'),
+          { source: 'chat' }
+        )
         return
       }
 
       addPaperChatQuote(sessionId, quote)
       setPaperChatPanelOpen(true)
     },
-    [currentPaper, addPaperChatQuote, notify, setPaperChatPanelOpen]
+    [currentPaper, addPaperChatQuote, notify, setPaperChatPanelOpen, t]
   )
 
   // 聊天面板宽度拖拽：RAF 防抖 + 宽度范围钳制
@@ -272,14 +278,14 @@ export default function PaperReaderPage() {
           {!currentPaperId ? (
             <div className={styles.emptyState}>
               <div className={['sm-empty', styles.emptyCard].join(' ')}>
-                <h2>选择一篇论文开始阅读</h2>
-                <p>从左侧列表中选择已有文献，或直接上传 PDF 开始阅读。</p>
+                <h2>{t('chrome.pages.selectPaperTitle')}</h2>
+                <p>{t('chrome.pages.selectPaperBody')}</p>
                 <button
                   className="sm-button sm-button--primary"
                   type="button"
                   onClick={() => uploadAndRenderPdf()}
                 >
-                  上传 PDF
+                  {t('chrome.pages.uploadPdf')}
                 </button>
               </div>
             </div>
@@ -323,7 +329,7 @@ export default function PaperReaderPage() {
                 className={styles.chatResize}
                 role="separator"
                 aria-orientation="vertical"
-                title="拖拽调整聊天窗口宽度"
+                title={t('common.resizeChat')}
                 onPointerDown={startPaperChatResize}
               />
               <PaperChatPanel paper={currentPaper} />

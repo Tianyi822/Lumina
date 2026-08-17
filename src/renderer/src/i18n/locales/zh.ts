@@ -106,6 +106,19 @@ const zh = {
       writerChat: '写作对话',
       exportDocument: '导出文档',
       exportFormats: '导出格式'
+    },
+    pages: {
+      selectPaperTitle: '选择一篇论文开始阅读',
+      selectPaperBody: '从左侧列表中选择已有文献，或直接上传 PDF 开始阅读。',
+      uploadPdf: '上传 PDF',
+      loadingDocument: '正在加载文档…',
+      loadDocumentFailed: '加载文档失败',
+      selectDocumentTitle: '选择一个文档，或开始新的写作',
+      newDocument: '新建文档'
+    },
+    app: {
+      errorTitle: '应用出现错误',
+      reload: '重新加载'
     }
   },
   settings: {
