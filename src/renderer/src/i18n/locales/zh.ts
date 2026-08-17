@@ -26,7 +26,237 @@ const zh = {
     confirmAction: '确认操作',
     resizeChat: '拖拽调整聊天窗口宽度',
     unknownError: '未知错误',
-    ok: '确定'
+    ok: '确定',
+    chat: {
+      clearContext: '清空上下文',
+      loading: '正在加载对话...'
+    }
+  },
+  paper: {
+    sidebar: {
+      statusIdle: '待开始',
+      statusQueued: 'OCR 排队中',
+      statusProcessing: '处理中',
+      statusCompleted: '已完成',
+      statusPartialFailed: '部分失败',
+      statusFailed: '失败',
+      statusCancelled: '已取消',
+      retryTitleScreenshot: '截图阶段失败',
+      retryTitlePartial: 'OCR 部分失败',
+      retryTitleOcr: 'OCR 阶段失败',
+      renderFailedHint: '页图生成失败，请手动重试。',
+      hasFailedPagesHint: '有页面识别失败，点击重试后会重新执行 OCR。',
+      ocrFailedHint: 'OCR 执行失败，请手动重试。',
+      unreadableFailed: '处理失败，暂不可阅读',
+      unreadableIncomplete: '识别未完成，暂不可阅读',
+      unreadableProcessing: '处理中，暂不可阅读',
+      pagesCount_one: '{{count}} 页',
+      pagesCount_other: '{{count}} 页',
+      hasTranslation: '有译文',
+      deleteTranslation: '删除翻译',
+      deleteTranslationTooltip: '点击删除翻译内容',
+      screenshotProgress: '截图进度',
+      ocrProgress: 'OCR 进度',
+      retry: '重试',
+      deletePaperTooltip: '删除论文'
+    },
+    reader: {
+      searchPlaceholder: '搜索...',
+      searchNoResult: '无结果',
+      prevMatch: '上一个 (Shift+Enter)',
+      nextMatch: '下一个 (Enter)',
+      closeSearch: '关闭 (Esc)',
+      loadingContent: '正在加载内容...',
+      emptyContent: '暂无内容',
+      parseErrorPrefix: 'Markdown 解析失败: '
+    },
+    pdf: {
+      loadFailed: '加载 PDF 原件失败',
+      noPaperSelected: '未选择论文',
+      pageAria: '第 {{index}} 页 PDF 原件',
+      renderFailed: '页面渲染失败',
+      loading: '正在加载 PDF 原件...'
+    },
+    segmentList: {
+      retranslate: '重新翻译',
+      retranslateHint: '该段翻译暂时失败，再次点击翻译按钮时会继续补全剩余内容。',
+      translating: '正在翻译...',
+      confirmTitle: '重新翻译',
+      confirmMessage: '该段落存在批注或笔记。继续重新翻译后，这些标注会一起删除。',
+      continueButton: '继续翻译'
+    },
+    figures: {
+      resizeN: '从上边缩放图片预览',
+      resizeE: '从右边缩放图片预览',
+      resizeS: '从下边缩放图片预览',
+      resizeW: '从左边缩放图片预览',
+      resizeNE: '从右上角缩放图片预览',
+      resizeNW: '从左上角缩放图片预览',
+      resizeSE: '从右下角缩放图片预览',
+      resizeSW: '从左下角缩放图片预览',
+      previewAria: '论文图片预览',
+      panelTitle: '论文图片预览',
+      unpin: '取消钉住',
+      pin: '钉住预览窗',
+      closeAria: '关闭图片预览',
+      prev: '上一张',
+      prevAria: '查看上一张图片',
+      next: '下一张',
+      nextAria: '查看下一张图片'
+    },
+    annotation: {
+      menu: {
+        addNote: '记录笔记',
+        addToChat: '添加到对话'
+      },
+      noteEditor: {
+        titleEdit: '编辑笔记',
+        titleCreate: '记录笔记',
+        closeAria: '关闭笔记编辑器',
+        placeholder: '写下这段内容的笔记...',
+        delete: '删除笔记',
+        updateSaving: '更新中...',
+        update: '更新笔记',
+        createSaving: '保存中...',
+        create: '保存笔记',
+        syncNotice: '该笔记只显示在当前译文中；如果之后删除译文，对应标注也会一起删除。'
+      },
+      popover: {
+        deleteHighlight: '删除标记',
+        deleteNote: '删除笔记',
+        addNote: '添加笔记',
+        editNote: '编辑笔记'
+      }
+    },
+    chat: {
+      panelTitle: '论文对话',
+      scrollToBottomAria: '滚动到底部',
+      emptyGreeting: '开始针对这篇论文提问吧',
+      sessionTitle: '论文对话：{{name}}',
+      taskLabel: '任务 {{index}}',
+      phaseLabel: '阶段 {{number}}',
+      iterationPhase: '第 {{number}} 阶段',
+      quoteOriginal: '原文引用',
+      quoteTranslation: '译文引用',
+      context: '上下文',
+      input: {
+        replyPlaceholder: '选择一个回复',
+        custom: '自定义',
+        suggestCapabilities: '建议开启能力',
+        ignore: '忽略',
+        enableCapability: '开启 {{name}}',
+        selectOption: '我选择：{{value}}',
+        attachment: '附件',
+        customPlaceholder: '输入自定义回答，或点击上方快捷选项 ...',
+        askPlaceholder: '尽管问',
+        dropToAttach: '释放以添加附件',
+        addAttachmentOrTool: '添加附件或配置工具',
+        addAttachment: '添加附件',
+        search: '搜索',
+        knowledgeBases: '知识库',
+        send: '发送',
+        stop: '停止'
+      },
+      modelSelector: {
+        select: '选择模型',
+        empty: '暂无模型配置'
+      },
+      kb: {
+        documentCount_one: '{{count}} 个文档',
+        documentCount_other: '{{count}} 个文档',
+        selected_one: '已选 {{count}} 个知识库',
+        selected_other: '已选 {{count}} 个知识库',
+        compactLabel: '知识',
+        label: '知识库',
+        panelTitle: '知识库选择（多选）',
+        availableCount_one: '{{count}} 个知识库可用',
+        availableCount_other: '{{count}} 个知识库可用',
+        searchPlaceholder: '搜索知识库...',
+        searchAria: '搜索知识库',
+        selectAll: '全选',
+        deselectAll: '取消全选',
+        empty: '暂无知识库，请在知识库管理页面创建',
+        noMatch: '未找到匹配的知识库',
+        collapse: '收起',
+        expand: '展开'
+      },
+      mcp: {
+        selected_one: '已选 {{count}} 个工具',
+        selected_other: '已选 {{count}} 个工具',
+        compactLabel: 'MCP',
+        label: 'MCP 工具',
+        panelTitle: 'MCP 工具（多选）',
+        connectedServers_one: '{{count}} 个服务器已连接',
+        connectedServers_other: '{{count}} 个服务器已连接',
+        searchPlaceholder: '搜索工具...',
+        searchAria: '搜索 MCP 工具',
+        noMatch: '未找到匹配的工具',
+        empty: '暂无可用工具，请在设置中配置 MCP 服务器',
+        selectAll: '全选',
+        deselectAll: '取消全选',
+        collapse: '收起',
+        expand: '展开'
+      },
+      plan: {
+        statusPlanning: '规划中',
+        statusPlanned: '已规划',
+        statusRunning: '执行中',
+        statusCompleted: '已完成',
+        statusFailed: '失败',
+        statusCancelled: '已取消',
+        statusIdle: '待命',
+        stepRunning: '运行',
+        stepSuccess: '完成',
+        stepFailed: '失败',
+        stepCancelled: '取消',
+        stepSkipped: '跳过',
+        stepWaiting: '等待',
+        iterationCallingTools: '调用工具',
+        iterationProcessing: '处理结果',
+        iterationComplete: '完成',
+        iterationThinking: '思考',
+        summaryWaiting: '等待模型生成执行计划',
+        stepCount_one: '{{count}} 个步骤',
+        stepCount_other: '{{count}} 个步骤',
+        planningIndicator: '正在拆解任务'
+      },
+      interaction: {
+        later: '稍后',
+        expandMore_one: '展开更多（共 {{count}} 个）',
+        expandMore_other: '展开更多（共 {{count}} 个）'
+      },
+      react: {
+        toolCalls_one: '{{count}} 次工具调用',
+        toolCalls_other: '{{count}} 次工具调用',
+        inProgress: '进行中',
+        phaseThinking: '阶段思考',
+        title: '分阶段推理'
+      },
+      toolCall: {
+        statusRunning: '执行中',
+        statusSuccess: '完成',
+        statusError: '失败',
+        statusWaiting: '等待',
+        params: '参数',
+        result: '结果'
+      },
+      streaming: {
+        organizing: '正在组织回答',
+        readingContext: '模型正在读取论文上下文'
+      },
+      reasoning: {
+        tokens_one: '约 {{count}}',
+        tokens_other: '约 {{count}}',
+        title: '思考过程'
+      },
+      tokens: {
+        summary: '总计: {{total}} | 缓存输入: {{cached}} ({{rate}})'
+      },
+      message: {
+        inputTokens_one: '输入: 约 {{count}}',
+        inputTokens_other: '输入: 约 {{count}}'
+      }
+    }
   },
   chrome: {
     nav: {
@@ -458,7 +688,56 @@ const zh = {
       translationAnnotatedLine4: '确定继续删除译文吗？',
       deleteTranslationFailedTitle: '删除译文失败',
       chatTitle: '论文对话',
-      chatCreateFailed: '创建论文对话失败'
+      chatCreateFailed: '创建论文对话失败',
+      annotationTitle: '论文批注',
+      annotationIndexLoading: '阅读器段落索引加载中，请稍后再试',
+      restoreTitle: '批注恢复',
+      restoreMessage_one: '{{count}} 条批注因文本变化未能恢复高亮',
+      restoreMessage_other: '{{count}} 条批注因文本变化未能恢复高亮',
+      retranslateFailedTitle: '重新翻译失败',
+      retryLaterFallback: '请稍后再试',
+      requestFailedTitle: '论文对话请求失败',
+      modelRequestFailed: '模型请求失败，请稍后重试或换一个模型。',
+      stopFirst: '请先停止当前回复，再清空上下文。',
+      clearConfirm: '聊天记录会被清空。',
+      clearConfirmTitle: '清空当前论文聊天上下文？',
+      cleared: '上下文已清空',
+      webSearchUnavailable: '联网搜索不可用',
+      webSearchRuntimeUnavailable: 'Electron 搜索运行时不可用，请重启应用后重试。',
+      webSearchCheckFailed: '环境检查失败，请稍后重试。',
+      saveSessionFailed: '保存论文聊天会话失败',
+      createPaperChatSessionFailed: '创建论文聊天会话失败',
+      loadSessionFailed: '加载论文聊天会话失败',
+      sessionNotReady: '论文聊天会话未就绪',
+      modelNotSelected: '请先选择一个模型',
+      ocrDisclaimerTitle: 'OCR 结果仅供参考',
+      ocrDisclaimerMessage:
+        '论文正文由 OCR/解析结果生成，复杂表格、公式和跨页排版可能不准确。遇到异常内容时，请优先对照原 PDF。',
+      partialUploadTitle: '部分论文上传失败',
+      partialUploadSuffix_one: '\n…等共 {{count}} 项失败',
+      partialUploadSuffix_other: '\n…等共 {{count}} 项失败',
+      notesUpdatedTitle: '论文笔记已更新',
+      notesUpdatedLine1: '以下知识库需要重新索引以确保检索结果使用最新笔记内容：',
+      notesUpdatedLine3: '请前往知识库页面点击"重新索引"。',
+      selectionInvalid: '当前选区无法添加到对话',
+      paperMissing: '论文不存在',
+      createNoteFailed: '创建笔记失败',
+      deleteHighlightFailed: '删除原标记失败',
+      upgradeNoteFailed: '升级笔记失败',
+      createHighlightFailed: '创建标记失败',
+      saveNoteFailed: '保存笔记失败',
+      updateNoteFailed: '更新笔记失败',
+      deleteNoteFailed: '删除笔记失败',
+      updateColorFailed: '更新标记颜色失败',
+      deleteAnnotationFailed: '删除标注失败',
+      noFileSelected: '未选择文件',
+      uploadFailed: '论文上传失败',
+      processingRetryLater: '论文正在处理中，请稍后再试',
+      noOpenPaper: '当前没有打开论文',
+      ocrNotDone: '论文尚未完成 OCR，无法创建对话',
+      createSessionFailed: '创建会话失败',
+      bindSessionFailed: '绑定论文聊天会话失败',
+      ocrStartFailed: 'OCR 启动失败'
     },
     knowledge: {
       confirmIrreversible: '此操作不可撤销。',
@@ -576,7 +855,17 @@ const zh = {
         validateFailedTitle: '配置校验失败',
         formNameExists: '该名称已存在',
         formCommandRequired: '请输入执行命令',
-        formUrlRequired: '请输入服务地址'
+        formUrlRequired: '请输入服务地址',
+        loadFailed: '获取配置列表失败',
+        loadStatusFailed: '获取状态失败',
+        saveFailed: '保存失败',
+        deleteFailed: '删除失败',
+        connectedTo: '已连接到 {{name}}',
+        connectFailed: '连接失败',
+        disconnectFailed: '断开连接失败',
+        testFoundTools_one: '连接测试成功，找到 {{count}} 个工具',
+        testFoundTools_other: '连接测试成功，找到 {{count}} 个工具',
+        testFailed: '连接测试失败'
       },
       knowledgeMcp: {
         title: '知识库 MCP',
@@ -598,6 +887,11 @@ const zh = {
         saveFailed: '保存失败',
         ocrSaved: 'OCR 配置已保存',
         translationSaved: '翻译模型配置已保存'
+      },
+      update: {
+        checkFailed: '检查更新失败，请稍后重试',
+        downloadFailed: '下载更新失败',
+        releasesFailed: '获取版本历史失败'
       }
     },
     sync: {
@@ -661,7 +955,14 @@ const zh = {
       saveSuccess: '配置保存成功',
       saveFailedTitle: '配置保存失败',
       saveFailedFallback: '保存失败',
-      saveFailedPrefix: '保存配置失败: '
+      saveFailedPrefix: '保存配置失败: ',
+      statusErrorTitle: '配置错误',
+      statusFetchFailedPrefix: '无法获取配置状态: '
+    },
+    common: {
+      imageGifUnsupported: '不支持 GIF 动图格式',
+      imageTypeUnsupported: '图片格式不支持，仅支持 {{extensions}}',
+      imageTooLarge: '图片 "{{name}}" 过大（{{size}}MB），最大支持 5MB'
     }
   },
   knowledge: {
@@ -669,6 +970,14 @@ const zh = {
       poolLabel: '文件资源池',
       noMatchingFiles: '未找到匹配的文件',
       searchPlaceholder: '搜索文件...'
+    },
+    main: {
+      descriptionPlaceholder: '补充知识库用途、范围和检索约束...',
+      descriptionEmptyHint: '双击编辑，补充知识库用途、覆盖范围和检索约束。',
+      reindexNeededTitle: '需要重新索引',
+      reindexNeededBody: '论文笔记已更新，重新索引后检索结果会使用最新笔记内容。',
+      emptyTitle: '选择或创建知识库',
+      emptyBody: '从左侧选择一个知识库，开始管理文档、索引和检索实验。'
     },
     form: {
       title: '创建知识库',

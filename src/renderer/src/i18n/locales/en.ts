@@ -28,7 +28,240 @@ const en: Resources = {
     confirmAction: 'Confirm Action',
     resizeChat: 'Drag to resize the chat panel',
     unknownError: 'Unknown error',
-    ok: 'OK'
+    ok: 'OK',
+    chat: {
+      clearContext: 'Clear context',
+      loading: 'Loading conversation...'
+    }
+  },
+  paper: {
+    sidebar: {
+      statusIdle: 'Not started',
+      statusQueued: 'Queued for OCR',
+      statusProcessing: 'Processing',
+      statusCompleted: 'Completed',
+      statusPartialFailed: 'Partially failed',
+      statusFailed: 'Failed',
+      statusCancelled: 'Cancelled',
+      retryTitleScreenshot: 'Screenshot stage failed',
+      retryTitlePartial: 'OCR partially failed',
+      retryTitleOcr: 'OCR stage failed',
+      renderFailedHint: 'Page rendering failed. Please retry manually.',
+      hasFailedPagesHint: 'Some pages failed to parse. Retrying will run OCR again.',
+      ocrFailedHint: 'OCR failed. Please retry manually.',
+      unreadableFailed: 'Processing failed; not readable yet',
+      unreadableIncomplete: 'OCR incomplete; not readable yet',
+      unreadableProcessing: 'Processing; not readable yet',
+      pagesCount_one: '{{count}} page',
+      pagesCount_other: '{{count}} pages',
+      hasTranslation: 'Translated',
+      deleteTranslation: 'Delete translation',
+      deleteTranslationTooltip: 'Click to delete the translation',
+      screenshotProgress: 'Screenshot progress',
+      ocrProgress: 'OCR progress',
+      retry: 'Retry',
+      deletePaperTooltip: 'Delete paper'
+    },
+    reader: {
+      searchPlaceholder: 'Search...',
+      searchNoResult: 'No results',
+      prevMatch: 'Previous (Shift+Enter)',
+      nextMatch: 'Next (Enter)',
+      closeSearch: 'Close (Esc)',
+      loadingContent: 'Loading content...',
+      emptyContent: 'No content',
+      parseErrorPrefix: 'Markdown parse failed: '
+    },
+    pdf: {
+      loadFailed: 'Failed to load the original PDF',
+      noPaperSelected: 'No paper selected',
+      pageAria: 'Original PDF, page {{index}}',
+      renderFailed: 'Page rendering failed',
+      loading: 'Loading the original PDF...'
+    },
+    segmentList: {
+      retranslate: 'Retranslate',
+      retranslateHint:
+        'This segment failed to translate. Clicking translate again will fill in the rest.',
+      translating: 'Translating...',
+      confirmTitle: 'Retranslate',
+      confirmMessage:
+        'This segment has annotations or notes. Retranslating will delete them together.',
+      continueButton: 'Continue'
+    },
+    figures: {
+      resizeN: 'Resize preview from the top',
+      resizeE: 'Resize preview from the right',
+      resizeS: 'Resize preview from the bottom',
+      resizeW: 'Resize preview from the left',
+      resizeNE: 'Resize preview from the top right',
+      resizeNW: 'Resize preview from the top left',
+      resizeSE: 'Resize preview from the bottom right',
+      resizeSW: 'Resize preview from the bottom left',
+      previewAria: 'Paper figure preview',
+      panelTitle: 'Paper figures',
+      unpin: 'Unpin',
+      pin: 'Pin preview',
+      closeAria: 'Close figure preview',
+      prev: 'Previous',
+      prevAria: 'View previous figure',
+      next: 'Next',
+      nextAria: 'View next figure'
+    },
+    annotation: {
+      menu: {
+        addNote: 'Add note',
+        addToChat: 'Add to chat'
+      },
+      noteEditor: {
+        titleEdit: 'Edit note',
+        titleCreate: 'Add note',
+        closeAria: 'Close note editor',
+        placeholder: 'Write a note for this passage...',
+        delete: 'Delete note',
+        updateSaving: 'Updating...',
+        update: 'Update note',
+        createSaving: 'Saving...',
+        create: 'Save note',
+        syncNotice:
+          'This note only appears in the current translation; deleting the translation deletes its annotations too.'
+      },
+      popover: {
+        deleteHighlight: 'Delete highlight',
+        deleteNote: 'Delete note',
+        addNote: 'Add note',
+        editNote: 'Edit note'
+      }
+    },
+    chat: {
+      panelTitle: 'Paper chat',
+      scrollToBottomAria: 'Scroll to bottom',
+      emptyGreeting: 'Start asking about this paper',
+      sessionTitle: 'Paper chat: {{name}}',
+      taskLabel: 'Task {{index}}',
+      phaseLabel: 'Phase {{number}}',
+      iterationPhase: 'Phase {{number}}',
+      quoteOriginal: 'Original quote',
+      quoteTranslation: 'Translation quote',
+      context: 'Context',
+      input: {
+        replyPlaceholder: 'Pick a reply',
+        custom: 'Custom',
+        suggestCapabilities: 'Suggested capabilities',
+        ignore: 'Ignore',
+        enableCapability: 'Enable {{name}}',
+        selectOption: 'I choose: {{value}}',
+        attachment: 'Attachment',
+        customPlaceholder: 'Type a custom answer, or pick a suggestion above ...',
+        askPlaceholder: 'Ask anything',
+        dropToAttach: 'Drop to attach',
+        addAttachmentOrTool: 'Add attachment or configure tools',
+        addAttachment: 'Add attachment',
+        search: 'Search',
+        knowledgeBases: 'Knowledge bases',
+        send: 'Send',
+        stop: 'Stop'
+      },
+      modelSelector: {
+        select: 'Select model',
+        empty: 'No model configured'
+      },
+      kb: {
+        documentCount_one: '{{count}} document',
+        documentCount_other: '{{count}} documents',
+        selected_one: '{{count}} knowledge base selected',
+        selected_other: '{{count}} knowledge bases selected',
+        compactLabel: 'KB',
+        label: 'Knowledge bases',
+        panelTitle: 'Knowledge bases (multi-select)',
+        availableCount_one: '{{count}} knowledge base available',
+        availableCount_other: '{{count}} knowledge bases available',
+        searchPlaceholder: 'Search knowledge bases...',
+        searchAria: 'Search knowledge bases',
+        selectAll: 'Select all',
+        deselectAll: 'Deselect all',
+        empty: 'No knowledge bases yet. Create one on the knowledge page',
+        noMatch: 'No matching knowledge bases',
+        collapse: 'Collapse',
+        expand: 'Expand'
+      },
+      mcp: {
+        selected_one: '{{count}} tool selected',
+        selected_other: '{{count}} tools selected',
+        compactLabel: 'MCP',
+        label: 'MCP tools',
+        panelTitle: 'MCP tools (multi-select)',
+        connectedServers_one: '{{count}} server connected',
+        connectedServers_other: '{{count}} servers connected',
+        searchPlaceholder: 'Search tools...',
+        searchAria: 'Search MCP tools',
+        noMatch: 'No matching tools',
+        empty: 'No tools available. Configure MCP servers in settings',
+        selectAll: 'Select all',
+        deselectAll: 'Deselect all',
+        collapse: 'Collapse',
+        expand: 'Expand'
+      },
+      plan: {
+        statusPlanning: 'Planning',
+        statusPlanned: 'Planned',
+        statusRunning: 'Running',
+        statusCompleted: 'Completed',
+        statusFailed: 'Failed',
+        statusCancelled: 'Cancelled',
+        statusIdle: 'Standby',
+        stepRunning: 'Running',
+        stepSuccess: 'Done',
+        stepFailed: 'Failed',
+        stepCancelled: 'Cancelled',
+        stepSkipped: 'Skipped',
+        stepWaiting: 'Waiting',
+        iterationCallingTools: 'Calling tools',
+        iterationProcessing: 'Processing results',
+        iterationComplete: 'Done',
+        iterationThinking: 'Thinking',
+        summaryWaiting: 'Waiting for the model to produce a plan',
+        stepCount_one: '{{count}} step',
+        stepCount_other: '{{count}} steps',
+        planningIndicator: 'Breaking down the task'
+      },
+      interaction: {
+        later: 'Later',
+        expandMore_one: 'Show more ({{count}} total)',
+        expandMore_other: 'Show more ({{count}} total)'
+      },
+      react: {
+        toolCalls_one: '{{count}} tool call',
+        toolCalls_other: '{{count}} tool calls',
+        inProgress: 'In progress',
+        phaseThinking: 'Phase reasoning',
+        title: 'Step-by-step reasoning'
+      },
+      toolCall: {
+        statusRunning: 'Running',
+        statusSuccess: 'Done',
+        statusError: 'Failed',
+        statusWaiting: 'Waiting',
+        params: 'Params',
+        result: 'Result'
+      },
+      streaming: {
+        organizing: 'Composing the answer',
+        readingContext: 'The model is reading the paper context'
+      },
+      reasoning: {
+        tokens_one: '~{{count}} token',
+        tokens_other: '~{{count}} tokens',
+        title: 'Reasoning'
+      },
+      tokens: {
+        summary: 'Total: {{total}} | Cached input: {{cached}} ({{rate}})'
+      },
+      message: {
+        inputTokens_one: 'Input: ~{{count}} token',
+        inputTokens_other: 'Input: ~{{count}} tokens'
+      }
+    }
   },
   chrome: {
     nav: {
@@ -480,7 +713,57 @@ const en: Resources = {
       translationAnnotatedLine4: 'Delete the translation anyway?',
       deleteTranslationFailedTitle: 'Failed to Delete Translation',
       chatTitle: 'Paper Chat',
-      chatCreateFailed: 'Failed to create the paper chat session'
+      chatCreateFailed: 'Failed to create the paper chat session',
+      annotationTitle: 'Paper annotations',
+      annotationIndexLoading: 'The reader segment index is loading. Try again shortly',
+      restoreTitle: 'Annotation restore',
+      restoreMessage_one: '{{count}} annotation lost its highlight after a text change',
+      restoreMessage_other: '{{count}} annotations lost their highlights after a text change',
+      retranslateFailedTitle: 'Retranslation failed',
+      retryLaterFallback: 'Please try again later',
+      requestFailedTitle: 'Paper chat request failed',
+      modelRequestFailed: 'The model request failed. Try again later or switch models.',
+      stopFirst: 'Stop the current reply before clearing the context.',
+      clearConfirm: 'The chat history will be cleared.',
+      clearConfirmTitle: 'Clear this paper chat context?',
+      cleared: 'Context cleared',
+      webSearchUnavailable: 'Web search unavailable',
+      webSearchRuntimeUnavailable:
+        'The Electron search runtime is unavailable. Restart the app and retry.',
+      webSearchCheckFailed: 'Environment check failed. Try again later.',
+      saveSessionFailed: 'Failed to save the paper chat session',
+      createPaperChatSessionFailed: 'Failed to create the paper chat session',
+      loadSessionFailed: 'Failed to load the paper chat session',
+      sessionNotReady: 'The paper chat session is not ready',
+      modelNotSelected: 'Select a model first',
+      ocrDisclaimerTitle: 'OCR results are for reference only',
+      ocrDisclaimerMessage:
+        'The paper text comes from OCR/parsing. Complex tables, formulas, and cross-page layouts may be inaccurate. Check the original PDF when in doubt.',
+      partialUploadTitle: 'Some papers failed to upload',
+      partialUploadSuffix_one: '\n…{{count}} failure in total',
+      partialUploadSuffix_other: '\n…{{count}} failures in total',
+      notesUpdatedTitle: 'Paper notes updated',
+      notesUpdatedLine1: 'The following knowledge bases need reindexing to use the latest notes:',
+      notesUpdatedLine3: 'Open the knowledge page and click "Reindex".',
+      selectionInvalid: 'The current selection cannot be added to chat',
+      paperMissing: 'Paper not found',
+      createNoteFailed: 'Failed to create the note',
+      deleteHighlightFailed: 'Failed to delete the highlight',
+      upgradeNoteFailed: 'Failed to upgrade the note',
+      createHighlightFailed: 'Failed to create the highlight',
+      saveNoteFailed: 'Failed to save the note',
+      updateNoteFailed: 'Failed to update the note',
+      deleteNoteFailed: 'Failed to delete the note',
+      updateColorFailed: 'Failed to update the highlight color',
+      deleteAnnotationFailed: 'Failed to delete the annotation',
+      noFileSelected: 'No file selected',
+      uploadFailed: 'Failed to upload the paper',
+      processingRetryLater: 'The paper is still processing. Try again later',
+      noOpenPaper: 'No paper is open',
+      ocrNotDone: 'OCR is not finished for this paper; chat cannot start',
+      createSessionFailed: 'Failed to create the session',
+      bindSessionFailed: 'Failed to bind the paper chat session',
+      ocrStartFailed: 'Failed to start OCR'
     },
     knowledge: {
       confirmIrreversible: 'This cannot be undone.',
@@ -601,7 +884,17 @@ const en: Resources = {
         validateFailedTitle: 'Validation Failed',
         formNameExists: 'This name already exists',
         formCommandRequired: 'Please enter the command',
-        formUrlRequired: 'Please enter the server URL'
+        formUrlRequired: 'Please enter the server URL',
+        loadFailed: 'Failed to load configurations',
+        loadStatusFailed: 'Failed to load status',
+        saveFailed: 'Save failed',
+        deleteFailed: 'Delete failed',
+        connectedTo: 'Connected to {{name}}',
+        connectFailed: 'Connection failed',
+        disconnectFailed: 'Failed to disconnect',
+        testFoundTools_one: 'Test succeeded; found {{count}} tool',
+        testFoundTools_other: 'Test succeeded; found {{count}} tools',
+        testFailed: 'Connection test failed'
       },
       knowledgeMcp: {
         title: 'Knowledge Base MCP',
@@ -623,6 +916,11 @@ const en: Resources = {
         saveFailed: 'Save failed',
         ocrSaved: 'OCR configuration saved',
         translationSaved: 'Translation model configuration saved'
+      },
+      update: {
+        checkFailed: 'Update check failed. Try again later',
+        downloadFailed: 'Failed to download the update',
+        releasesFailed: 'Failed to load release history'
       }
     },
     sync: {
@@ -687,7 +985,14 @@ const en: Resources = {
       saveSuccess: 'Configuration saved',
       saveFailedTitle: 'Failed to save configuration',
       saveFailedFallback: 'Save failed',
-      saveFailedPrefix: 'Failed to save configuration: '
+      saveFailedPrefix: 'Failed to save configuration: ',
+      statusErrorTitle: 'Configuration error',
+      statusFetchFailedPrefix: 'Failed to get configuration status: '
+    },
+    common: {
+      imageGifUnsupported: 'Animated GIF is not supported',
+      imageTypeUnsupported: 'Unsupported image format. Only {{extensions}} are supported',
+      imageTooLarge: 'Image "{{name}}" is too large ({{size}}MB); the limit is 5MB'
     }
   },
   knowledge: {
@@ -695,6 +1000,14 @@ const en: Resources = {
       poolLabel: 'File pool',
       noMatchingFiles: 'No matching files',
       searchPlaceholder: 'Search files...'
+    },
+    main: {
+      descriptionPlaceholder: 'Describe the purpose, scope, and retrieval constraints...',
+      descriptionEmptyHint: 'Double-click to edit the purpose, scope, and retrieval constraints.',
+      reindexNeededTitle: 'Reindex needed',
+      reindexNeededBody: 'Paper notes were updated. Reindex to use the latest notes in retrieval.',
+      emptyTitle: 'Select or create a knowledge base',
+      emptyBody: 'Pick a knowledge base on the left to manage documents, indexes, and retrieval.'
     },
     form: {
       title: 'Create knowledge base',
