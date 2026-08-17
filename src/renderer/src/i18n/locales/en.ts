@@ -138,6 +138,57 @@ const en: Resources = {
         commandRequired: 'Command is required for MCP server "{{name}}"',
         urlRequired: 'Server URL is required for MCP server "{{name}}"'
       }
+    },
+    knowledgeMcp: {
+      title: 'Knowledge Base MCP Server',
+      description:
+        'Expose knowledge base retrieval to external MCP clients — desktop apps, IDEs, and other AI toolchains.',
+      statusTitle: 'Server Status',
+      statusDescription:
+        'After starting or stopping, the config JSON updates automatically and can be copied into any MCP client.',
+      enableToggle: 'Enable MCP Server',
+      running: 'Running',
+      stopped: 'Stopped',
+      configTitle: 'Server Config',
+      configDescription: 'Copy this directly into your MCP client configuration file.',
+      serverUrl: 'Server URL',
+      guideTitle: 'Usage Guide',
+      guideDescription: 'What the server does, how to connect, and the security boundaries.',
+      introTitle: 'Knowledge Base MCP Server',
+      introBody:
+        'The knowledge base MCP server exposes the knowledge bases you create in this app over the MCP protocol, so external AI tools can search and reference your content. Once enabled, any MCP-compatible tool can call knowledge search directly and use relevant document snippets as context.',
+      scenariosTitle: 'Use Cases',
+      scenario1: 'Search and reference your knowledge base directly in Claude Desktop',
+      scenario2: 'Get knowledge base context in IDEs like Cursor and Windsurf',
+      scenario3: 'Let any MCP-compatible AI tool access your private knowledge',
+      howtoTitle: 'How to Use',
+      howto1: 'Turn on the toggle above to start the MCP server',
+      howto2: 'Copy the JSON config shown above',
+      howto3: 'Add the config to your MCP client configuration file',
+      howto4: 'Restart the MCP client to use the knowledge base tools',
+      securityTitle: 'Security Notes',
+      security1: 'The server only listens on local network interfaces; external devices need LAN access',
+      security2: 'Make sure your firewall allows access to the configured port',
+      security3: 'This version has no authentication; use it only on trusted networks',
+      security4: 'The server stops automatically when the app quits'
+    },
+    paperReader: {
+      ocrTitle: 'OCR',
+      ocrDescription: 'Choose an OCR provider and configure its credentials.',
+      ocrProvider: 'OCR Provider',
+      modelName: 'Model',
+      concurrency: 'Concurrency',
+      concurrencyHint: 'Limited by the provider; not editable',
+      getApiKey: 'Get API Key',
+      apiKeyPlaceholder: 'Enter the API key for this provider',
+      requestUrl: 'Endpoint',
+      translationTitle: 'Translation Model',
+      translationDescription:
+        'Choose the LLM used for paper translation. Translation needs context awareness, so only configured chat models are listed.',
+      translationModel: 'Translation Model',
+      useDefault: 'Use default model',
+      useDefaultNamed: 'Use default model ({{model}})',
+      defaultSuffix: ' (Default)'
     }
   }
 }

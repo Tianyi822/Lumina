@@ -131,6 +131,55 @@ const zh = {
         commandRequired: 'MCP 服务"{{name}}"的执行命令不能为空',
         urlRequired: 'MCP 服务"{{name}}"的服务地址不能为空'
       }
+    },
+    knowledgeMcp: {
+      title: '知识库 MCP 服务',
+      description: '将知识库检索能力暴露给外部 MCP 客户端，适用于桌面端、IDE 和其他 AI 工具链。',
+      statusTitle: '服务状态',
+      statusDescription: '启停服务后，配置 JSON 会自动更新，可直接复制到支持 MCP 的客户端中。',
+      enableToggle: '启用 MCP 服务',
+      running: '运行中',
+      stopped: '已停止',
+      configTitle: '服务配置',
+      configDescription: '复制后可直接写入 MCP 客户端配置文件。',
+      serverUrl: '服务地址',
+      guideTitle: '使用说明',
+      guideDescription: '统一说明服务用途、接入步骤和安全边界，避免页面与弹窗之间出现不同语气。',
+      introTitle: '知识库 MCP 服务',
+      introBody:
+        '知识库 MCP 服务将您在本应用中创建的知识库通过 MCP 协议对外暴露，让外部 AI 工具能够搜索和引用您的知识库内容。启用后，其他支持 MCP 协议的工具可以直接调用知识库搜索功能，获取相关文档片段作为上下文。',
+      scenariosTitle: '使用场景',
+      scenario1: '在 Claude Desktop 中直接搜索和引用您的知识库内容',
+      scenario2: '在 Cursor、Windsurf 等 IDE 中获取知识库上下文',
+      scenario3: '让其他支持 MCP 协议的 AI 工具访问您的私有知识',
+      howtoTitle: '如何使用',
+      howto1: '开启上方开关启动 MCP 服务',
+      howto2: '复制上方显示的 JSON 配置',
+      howto3: '将配置添加到您的 MCP 客户端配置文件中',
+      howto4: '重启 MCP 客户端即可使用知识库工具',
+      securityTitle: '安全注意事项',
+      security1: '服务仅监听本地网络接口，外部设备需要通过局域网访问',
+      security2: '请确保您的防火墙设置允许指定端口的访问',
+      security3: '当前版本不包含认证机制，请在可信网络环境中使用',
+      security4: '关闭应用时服务会自动停止'
+    },
+    paperReader: {
+      ocrTitle: 'OCR 配置',
+      ocrDescription: '选择 OCR 服务提供商并配置对应的凭据。',
+      ocrProvider: 'OCR 服务',
+      modelName: '模型名称',
+      concurrency: '并发数',
+      concurrencyHint: '由该模型官方限制，不允许更改',
+      getApiKey: '获取 API KEY',
+      apiKeyPlaceholder: '填写对应的 API Key',
+      requestUrl: '请求地址',
+      translationTitle: '翻译模型配置',
+      translationDescription:
+        '选择用于论文翻译的 LLM 模型。翻译需要上下文关联能力，只能从已配置的对话模型中选择。',
+      translationModel: '翻译模型',
+      useDefault: '使用默认模型',
+      useDefaultNamed: '使用默认模型（{{model}}）',
+      defaultSuffix: ' (默认)'
     }
   }
 }

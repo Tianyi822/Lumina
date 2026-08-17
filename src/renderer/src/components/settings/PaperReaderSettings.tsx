@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useConfigStore } from '@renderer/stores/configStore'
 import { useUIStateStore } from '@renderer/stores/uiStateStore'
 import { notifySuccess, notifyError } from '@renderer/composables/notificationCore'
@@ -14,6 +15,7 @@ import styles from './PaperReaderSettings.module.css'
 
 /** 论文阅读设置页：OCR 服务商配置、API Key 管理和翻译模型选择 */
 export default function PaperReaderSettings() {
+  const { t } = useTranslation()
   const [localConfig, setLocalConfig] = useState<PaperReaderConfig>({
     ocr: { provider: DEFAULT_OCR_PROVIDER }
   })
@@ -59,16 +61,20 @@ export default function PaperReaderSettings() {
   )
 
   const translationModelOptions = useMemo(() => {
-    const defaultLabel = defaultModel ? `使用默认模型（${defaultModel}）` : '使用默认模型'
+    const defaultLabel = defaultModel
+      ? t('settings.paperReader.useDefaultNamed', { model: defaultModel })
+      : t('settings.paperReader.useDefault')
     const options = [{ label: defaultLabel, value: '' }]
     for (const model of llmConfigs) {
       options.push({
-        label: model.model_name + (model.model_name === defaultModel ? ' (默认)' : ''),
+        label:
+          model.model_name +
+          (model.model_name === defaultModel ? t('settings.paperReader.defaultSuffix') : ''),
         value: model.model_name
       })
     }
     return options
-  }, [defaultModel, llmConfigs])
+  }, [defaultModel, llmConfigs, t])
 
   // 构建纯配置对象
   const buildPlainConfig = useCallback((): PaperReaderConfig => {
@@ -163,14 +169,14 @@ export default function PaperReaderSettings() {
   return (
     <div className={['sm-settings-page', styles['paper-reader-settings']].join(' ')}>
       <header className="sm-settings-page__header">
-        <h2 className="sm-settings-page__title">OCR 配置</h2>
-        <p className="sm-settings-page__description">选择 OCR 服务提供商并配置对应的凭据。</p>
+        <h2 className="sm-settings-page__title">{t('settings.paperReader.ocrTitle')}</h2>
+        <p className="sm-settings-page__description">{t('settings.paperReader.ocrDescription')}</p>
       </header>
 
       <section className="sm-settings-page__section">
         <div className={[styles['form-group'], styles['field-card']].join(' ')}>
           <label className={styles['form-label']} htmlFor="paper-ocr-provider">
-            OCR 服务
+            {t('settings.paperReader.ocrProvider')}
           </label>
           <select
             id="paper-ocr-provider"
@@ -188,14 +194,16 @@ export default function PaperReaderSettings() {
 
         <div className={styles['form-row']}>
           <div className={[styles['form-group'], styles['field-card'], styles['flex-1']].join(' ')}>
-            <label className={styles['form-label']}>模型名称</label>
+            <label className={styles['form-label']}>{t('settings.paperReader.modelName')}</label>
             <div className={styles['provider-display']}>{currentPreset?.modelName ?? '-'}</div>
           </div>
 
           <div className={[styles['form-group'], styles['field-card'], styles['flex-1']].join(' ')}>
             <label className={styles['form-label']}>
-              并发数
-              <span className={styles['field-hint']}>由该模型官方限制，不允许更改</span>
+              {t('settings.paperReader.concurrency')}
+              <span className={styles['field-hint']}>
+                {t('settings.paperReader.concurrencyHint')}
+              </span>
             </label>
             <div className={styles['provider-display']}>{currentPreset?.concurrency ?? '-'}</div>
           </div>
@@ -214,14 +222,14 @@ export default function PaperReaderSettings() {
                     handleOpenApiKeyUrl()
                   }}
                 >
-                  获取 API KEY
+                  {t('settings.paperReader.getApiKey')}
                 </a>
               )}
             </label>
             <input
               type="password"
               className="sm-input"
-              placeholder="填写对应的 API Key"
+              placeholder={t('settings.paperReader.apiKeyPlaceholder')}
               autoComplete="new-password"
               value={localConfig.ocr.apiKey ?? ''}
               onChange={(e) =>
@@ -235,7 +243,7 @@ export default function PaperReaderSettings() {
         </div>
 
         <div className={[styles['form-group'], styles['field-card']].join(' ')}>
-          <label className={styles['form-label']}>请求地址</label>
+          <label className={styles['form-label']}>{t('settings.paperReader.requestUrl')}</label>
           <div className={styles['provider-display']}>{currentPreset?.url ?? '-'}</div>
         </div>
 
@@ -246,30 +254,30 @@ export default function PaperReaderSettings() {
               disabled={!canTest}
               onClick={handleTestConnection}
             >
-              {testing ? '测试中...' : '测试连接'}
+              {testing ? t('common.testing') : t('common.testConnection')}
             </button>
             <button
               className="sm-button sm-button--primary"
               disabled={!ocrHasChanges}
               onClick={handleSaveOcr}
             >
-              保存配置
+              {t('common.saveConfig')}
             </button>
           </div>
         </div>
       </section>
 
       <header className="sm-settings-page__header">
-        <h2 className="sm-settings-page__title">翻译模型配置</h2>
+        <h2 className="sm-settings-page__title">{t('settings.paperReader.translationTitle')}</h2>
         <p className="sm-settings-page__description">
-          选择用于论文翻译的 LLM 模型。翻译需要上下文关联能力，只能从已配置的对话模型中选择。
+          {t('settings.paperReader.translationDescription')}
         </p>
       </header>
 
       <section className="sm-settings-page__section">
         <div className={[styles['form-group'], styles['field-card']].join(' ')}>
           <label className={styles['form-label']} htmlFor="paper-translation-model">
-            翻译模型
+            {t('settings.paperReader.translationModel')}
           </label>
           <select
             id="paper-translation-model"
@@ -297,7 +305,7 @@ export default function PaperReaderSettings() {
               disabled={!translationHasChanges}
               onClick={handleSaveTranslation}
             >
-              保存配置
+              {t('common.saveConfig')}
             </button>
           </div>
         </div>
