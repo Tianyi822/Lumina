@@ -176,7 +176,9 @@ export class ReactLoopService {
       modelKey,
       messageCount: messages.length,
       toolCount: request.selectedTools?.length,
-      selectedToolNames: request.selectedTools?.map((t) => `${t.serverName}/${t.toolName}`),
+      selectedToolNames: request.selectedTools?.map(
+        (tool) => `${tool.serverName}/${tool.toolName}`
+      ),
       maxReactIterations
     })
 

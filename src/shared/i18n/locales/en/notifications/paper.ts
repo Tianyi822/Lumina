@@ -120,6 +120,7 @@ const paper: Resources['notifications']['paper'] = {
   pageImageMissing: 'The page image file does not exist',
   markdownFileMissing: 'The Markdown file does not exist',
   translationCacheMissing: 'The translation cache does not exist',
+  translationCacheSkipped: 'Translation cache missing. Skipped translation search',
   normalizedOcrMissing: 'The normalized OCR result does not exist',
   pathOutOfScope: 'Path out of scope: {{path}}',
   noTranslatableContent: 'There is no translatable body content',

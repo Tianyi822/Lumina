@@ -112,6 +112,7 @@ const paper = {
   pageImageMissing: '页图文件不存在',
   markdownFileMissing: 'Markdown 文件不存在',
   translationCacheMissing: '翻译缓存不存在',
+  translationCacheSkipped: '译文缓存不存在，已跳过译文检索',
   normalizedOcrMissing: '归一化 OCR 结果不存在',
   pathOutOfScope: '路径越界：{{path}}',
   noTranslatableContent: '没有可翻译的正文内容',

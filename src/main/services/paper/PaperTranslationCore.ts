@@ -921,7 +921,7 @@ export class PaperTranslationCore {
 
       const entryIndex = runningTask.cache.entries.findIndex((e) => e.id === segmentId)
       if (entryIndex === -1) {
-        return { success: false, error: '未找到指定段落' }
+        return { success: false, error: t('notifications.paper.segmentNotFound') }
       }
 
       const entry = runningTask.cache.entries[entryIndex]

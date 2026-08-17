@@ -452,7 +452,7 @@ export class PaperContextSearchToolService {
     if (source === 'translation' || source === 'both') {
       const translationResult = await this.dependencies.readTranslationCache(paperId)
       if (!translationResult.success || !translationResult.data) {
-        warnings.push(translationResult.error || '译文缓存不存在，已跳过译文检索')
+        warnings.push(translationResult.error || t('notifications.paper.translationCacheSkipped'))
       } else {
         const segmentLookup = createSegmentLookup(readerDocument)
         let translatedCount = 0
