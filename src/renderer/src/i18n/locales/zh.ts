@@ -24,7 +24,8 @@ const zh = {
     disconnect: '断开',
     confirm: '确认',
     confirmAction: '确认操作',
-    resizeChat: '拖拽调整聊天窗口宽度'
+    resizeChat: '拖拽调整聊天窗口宽度',
+    unknownError: '未知错误'
   },
   chrome: {
     nav: {
@@ -463,7 +464,41 @@ const zh = {
       deleteKbTitle: '删除知识库',
       deleteKbFailedTitle: '删除知识库失败',
       unknownError: '未知错误',
-      createKbFailedTitle: '创建知识库失败'
+      createKbFailedTitle: '创建知识库失败',
+      indexFailed: '索引失败',
+      unlinkConfirmTitle: '移除知识库文档',
+      unlinkConfirmBody: '将从知识库移除该文档，并删除对应索引。',
+      unlinkFailedTitle: '取消关联失败',
+      selectKbFirst: '请先选择知识库',
+      fileTypeUnsupported: '{{name}}: 不支持的文件类型',
+      uploadFailed: '上传失败',
+      uploadCompleteTitle: '文件上传完成',
+      uploadCompleteBody: '成功 {{uploaded}} 个，失败 {{failed}} 个',
+      uploadSuccessTitle: '文件已添加',
+      uploadSuccess_one: '成功上传并索引 {{count}} 个文件',
+      uploadSuccess_other: '成功上传并索引 {{count}} 个文件',
+      nothingToIndex: '没有文件需要索引',
+      reindexConfirmPartial_one: '将重新索引 {{count}} 个已更新文件。',
+      reindexConfirmPartial_other: '将重新索引 {{count}} 个已更新文件。',
+      reindexConfirmFull: '这将删除现有索引并重新构建。',
+      reindexConfirmPartialTitle: '重新索引已更新文件',
+      reindexConfirmFullTitle: '重新索引整个知识库',
+      reindexDoneTitle: '重新索引完成',
+      reindexSuccess_one: '成功索引 {{count}} 个文件',
+      reindexSuccess_other: '成功索引 {{count}} 个文件',
+      reindexPartial_one: '有 {{count}} 个文件失败：\n{{details}}',
+      reindexPartial_other: '有 {{count}} 个文件失败：\n{{details}}',
+      reindexFailedTitle: '重新索引失败',
+      deleteTitle: '文件删除',
+      deleteFailed: '删除失败',
+      fileFormatUnsupported: '{{name}}: 不支持的文件格式',
+      fileTooLarge: '{{name}}: 文件超过 50MB 限制',
+      validationFailedTitle: '文件验证失败',
+      uploadTitle: '文件上传',
+      uploadPartialFailed: '部分文件上传失败：{{errors}}',
+      uploadAutoLinked: '以下文件已存在，已自动关联：{{names}}',
+      createFailed: '创建失败',
+      updateFailed: '更新失败'
     },
     writer: {
       confirmIrreversible: '此操作不可撤销。',
@@ -604,6 +639,121 @@ const zh = {
       saveFailedTitle: '配置保存失败',
       saveFailedFallback: '保存失败',
       saveFailedPrefix: '保存配置失败: '
+    }
+  },
+  knowledge: {
+    common: {
+      poolLabel: '文件资源池',
+      noMatchingFiles: '未找到匹配的文件',
+      searchPlaceholder: '搜索文件...'
+    },
+    form: {
+      title: '创建知识库',
+      nameLabel: '知识库名称 *',
+      namePlaceholder: '例如：产品文档、技术规范...',
+      descriptionLabel: '描述（可选）',
+      descriptionPlaceholder: '简要描述这个知识库的用途...',
+      modelLabel: '嵌入模型 *',
+      modelEmpty: '暂无可用模型，请先在设置中配置嵌入模型',
+      modelDimensions: '{{dimensions}} 维',
+      modelHint: '嵌入模型用于将文本转换为向量，支持语义搜索。创建后不可更改。',
+      chunkLabel: '分块策略',
+      presetFineName: '精细检索',
+      presetFineDesc: '适合代码、法律条文，精确匹配',
+      presetBalancedName: '平衡模式',
+      presetBalancedDesc: '通用场景，推荐',
+      presetLongName: '长上下文',
+      presetLongDesc: '适合论文、小说，保持段落完整',
+      customName: '自定义',
+      customDesc: '手动设置分块参数',
+      chunkSize: '块大小',
+      overlapSize: '重叠大小',
+      chunkHint: '文本分块策略影响检索精度，创建后不可更改。',
+      submit: '创建'
+    },
+    stats: {
+      embeddingModel: '嵌入模型',
+      vectorDimensions: '向量维度',
+      chunkSize: '分块大小',
+      indexedFiles: '已索引文件',
+      docChunks: '文档块',
+      dbSize: '数据库大小'
+    },
+    search: {
+      title: '搜索测试',
+      hint: '验证当前知识库的召回质量与片段命中情况。',
+      placeholder: '输入测试查询...',
+      submit: '搜索',
+      resultsTitle: '结果',
+      resultsCount_one: '{{count}} 条',
+      resultsCount_other: '{{count}} 条',
+      empty: '未找到相关结果',
+      chunkPosition: '块 {{index}} / {{total}}'
+    },
+    fileList: {
+      title: '关联文档',
+      count_one: '{{count}} 个文件',
+      count_other: '{{count}} 个文件',
+      reindex: '重新索引',
+      reindexing: '索引中...',
+      addDocument: '添加文档',
+      dropTitle: '释放文件以上传并挂载',
+      dropHint: '支持 TXT、Markdown、PDF、Word 和 CSV。',
+      loading: '正在加载文档...',
+      emptyTitle: '当前知识库还没有挂载文档',
+      emptyHint: '从文件资源池中选择已有文档，或直接拖拽文件到这里上传。',
+      emptyAction: '添加第一份文档',
+      unlinkTitle: '取消关联',
+      indexSyncing: '索引同步中',
+      addMore: '添加更多文档或拖拽上传'
+    },
+    fileManager: {
+      title: '文件管理',
+      fileCount_one: '{{count}} 个文件',
+      fileCount_other: '{{count}} 个文件',
+      emptyPool: '暂无文件，请上传文件',
+      confirmDeleteTitle: '确认删除文件',
+      confirmDeleteSubtitle: '此操作会同时影响已关联的知识库。',
+      deleteUsage_one:
+        '文件 "<strong>{{name}}</strong>" 正在被 <strong>{{count}}</strong> 个知识库使用。',
+      deleteUsage_other:
+        '文件 "<strong>{{name}}</strong>" 正在被 <strong>{{count}}</strong> 个知识库使用。',
+      confirmDeleteWarning: '删除此文件将从所有关联的知识库中移除。此操作不可撤销。',
+      forceDelete: '强制删除',
+      usageBadge: '使用中',
+      deleteTitleUsed: '文件被知识库使用，删除需谨慎',
+      deleteTitle: '删除文件'
+    },
+    fileSelector: {
+      title: '添加文件',
+      availableCount_one: '{{count}} 个可挂载文件',
+      availableCount_other: '{{count}} 个可挂载文件',
+      emptyAvailable: '没有可添加的文件，请在上方拖放或选择文件上传',
+      selectedCount_one: '已选择 {{count}} 个文件',
+      selectedCount_other: '已选择 {{count}} 个文件',
+      selectAll: '全选',
+      deselectAll: '取消全选',
+      addToKnowledge: '添加到知识库'
+    },
+    upload: {
+      dropHintActive: '拖放文件到此处上传，或点击选择文件',
+      dropHint: '拖放文件到这里，或点击选择文件',
+      autoValidate: '系统会自动校验格式与大小。',
+      supportedTypes: '支持 {{types}}，最大 50MB',
+      uploading: '正在上传...'
+    },
+    preview: {
+      openExternal: '外部打开',
+      loading: '正在加载文件内容...',
+      errorTitle: '文件预览失败',
+      truncated: '文件内容较长，已截断显示。如需查看完整内容，请点击"外部打开"使用系统程序查看。',
+      openFailed: '打开文件失败'
+    },
+    fileSource: {
+      paper: '论文',
+      paperNote: '论文笔记',
+      uploadedFile: '上传文件',
+      paperWithName: '论文：{{name}}'
     }
   }
 }
