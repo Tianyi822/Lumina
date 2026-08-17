@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import type { KnowledgeBase } from '@renderer/types'
 import EmbeddingModelInfo from './EmbeddingModelInfo'
 import styles from './StatsPanel.module.css'
@@ -17,27 +18,29 @@ function formatDBSize(bytes: number): string {
 }
 
 export default function StatsPanel({ stats, loadingStats, currentKB }: StatsPanelProps) {
+  const { t } = useTranslation()
+
   return (
     <div className={styles['kb-stats']}>
       <EmbeddingModelInfo currentKB={currentKB} />
       <div className={styles['stat-card']}>
-        <span className={styles['stat-label']}>向量维度</span>
+        <span className={styles['stat-label']}>{t('knowledge.stats.vectorDimensions')}</span>
         <span className={styles['stat-value']}>{currentKB.embeddingDimension}</span>
       </div>
       <div className={styles['stat-card']}>
-        <span className={styles['stat-label']}>分块大小</span>
+        <span className={styles['stat-label']}>{t('knowledge.stats.chunkSize')}</span>
         <span className={styles['stat-value']}>{currentKB.chunkSize}</span>
       </div>
       <div className={styles['stat-card']}>
-        <span className={styles['stat-label']}>已索引文件</span>
+        <span className={styles['stat-label']}>{t('knowledge.stats.indexedFiles')}</span>
         <span className={styles['stat-value']}>{loadingStats ? '...' : stats.fileCount}</span>
       </div>
       <div className={styles['stat-card']}>
-        <span className={styles['stat-label']}>文档块</span>
+        <span className={styles['stat-label']}>{t('knowledge.stats.docChunks')}</span>
         <span className={styles['stat-value']}>{loadingStats ? '...' : stats.chunkCount}</span>
       </div>
       <div className={styles['stat-card']}>
-        <span className={styles['stat-label']}>数据库大小</span>
+        <span className={styles['stat-label']}>{t('knowledge.stats.dbSize')}</span>
         <span className={styles['stat-value']}>
           {loadingStats ? '...' : formatDBSize(stats.dbSize)}
         </span>

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { KnowledgeBase } from '@renderer/types'
 import type { EmbeddingConfig } from '@shared/types/config'
 import styles from './EmbeddingModelInfo.module.css'
@@ -9,6 +10,7 @@ interface EmbeddingModelInfoProps {
 }
 
 export default function EmbeddingModelInfo({ currentKB }: EmbeddingModelInfoProps) {
+  const { t } = useTranslation()
   const [embeddingModels, setEmbeddingModels] = useState<Record<string, EmbeddingConfig>>({})
   const [loadingEmbeddingModels, setLoadingEmbeddingModels] = useState(false)
 
@@ -84,7 +86,7 @@ export default function EmbeddingModelInfo({ currentKB }: EmbeddingModelInfoProp
 
   return (
     <div className={`${styles['stat-card']} ${styles['stat-card--wide']}`}>
-      <span className={styles['stat-label']}>嵌入模型</span>
+      <span className={styles['stat-label']}>{t('knowledge.stats.embeddingModel')}</span>
       <span className={styles['stat-value']}>
         {displayName || (loadingEmbeddingModels ? '...' : '')}
       </span>

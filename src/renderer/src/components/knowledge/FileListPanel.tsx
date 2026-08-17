@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import SvgIcon from '@renderer/components/icons/SvgIcon'
 import { useFileStore } from '@renderer/stores'
 import type { FileItem } from '@renderer/types'
@@ -50,6 +51,7 @@ export default function FileListPanel({
   onReindex,
   onUnlinkFile
 }: FileListPanelProps) {
+  const { t } = useTranslation()
   const fileStore = useFileStore()
   const [previewFile, setPreviewFile] = useState<FileItem | null>(null)
   const [showPreview, setShowPreview] = useState(false)
@@ -84,23 +86,25 @@ export default function FileListPanel({
     >
       <div className={styles['section-header']}>
         <div>
-          <h3>关联文档</h3>
+          <h3>{t('knowledge.fileList.title')}</h3>
         </div>
         <div className={styles['section-header__actions']}>
-          <span className={styles['document-count']}>{linkedFiles.length} 个文件</span>
+          <span className={styles['document-count']}>
+            {t('knowledge.fileList.count', { count: linkedFiles.length })}
+          </span>
           <button
             className={`sm-button sm-button--secondary ${styles['reindex-btn']} ${hasInvalidatedFiles ? styles['reindex-btn--warning'] : ''}`}
             disabled={indexingStatus || reindexing || linkedFiles.length === 0}
             onClick={onReindex}
           >
             {reindexing ? <span className="sm-spinner"></span> : null}
-            {reindexing ? '索引中...' : '重新索引'}
+            {reindexing ? t('knowledge.fileList.reindexing') : t('knowledge.fileList.reindex')}
           </button>
           <button
             className={`sm-button sm-button--primary ${styles['add-files-btn']}`}
             onClick={onAddFiles}
           >
-            添加文档
+            {t('knowledge.fileList.addDocument')}
           </button>
         </div>
       </div>
@@ -110,8 +114,8 @@ export default function FileListPanel({
           <div className={styles['drag-content']}>
             <span className={styles['drag-icon']}>+</span>
             <div className={styles['drag-copy']}>
-              <strong>释放文件以上传并挂载</strong>
-              <span>支持 TXT、Markdown、PDF、Word 和 CSV。</span>
+              <strong>{t('knowledge.fileList.dropTitle')}</strong>
+              <span>{t('knowledge.fileList.dropHint')}</span>
             </div>
           </div>
         </div>
@@ -120,14 +124,14 @@ export default function FileListPanel({
       {loadingFiles ? (
         <div className={styles['loading-state']}>
           <span className="sm-spinner sm-spinner--large"></span>
-          <span>正在加载文档...</span>
+          <span>{t('knowledge.fileList.loading')}</span>
         </div>
       ) : linkedFiles.length === 0 ? (
         <div className={`sm-empty ${styles['documents-empty']}`}>
-          <h4>当前知识库还没有挂载文档</h4>
-          <p>从文件资源池中选择已有文档，或直接拖拽文件到这里上传。</p>
+          <h4>{t('knowledge.fileList.emptyTitle')}</h4>
+          <p>{t('knowledge.fileList.emptyHint')}</p>
           <button className="sm-button sm-button--primary" onClick={onAddFiles}>
-            添加第一份文档
+            {t('knowledge.fileList.emptyAction')}
           </button>
         </div>
       ) : (
@@ -143,7 +147,7 @@ export default function FileListPanel({
                 <button
                   className={styles['document-remove-btn']}
                   disabled={unlinkingFileId === file.id || indexingStatus}
-                  title="取消关联"
+                  title={t('knowledge.fileList.unlinkTitle')}
                   onClick={(e) => {
                     e.stopPropagation()
                     onUnlinkFile(file.id)
@@ -165,7 +169,7 @@ export default function FileListPanel({
                 {kbIndexingFiles[file.id] && (
                   <div className={styles['file-progress']}>
                     <div className={styles['file-progress__meta']}>
-                      <span>索引同步中</span>
+                      <span>{t('knowledge.fileList.indexSyncing')}</span>
                       <span>{kbIndexingFiles[file.id].progress || 0}%</span>
                     </div>
                     <div className={styles['progress-bar']}>
@@ -193,7 +197,7 @@ export default function FileListPanel({
 
           <button className={styles['add-file-card']} onClick={onAddFiles}>
             <span className={styles['add-file-icon']} aria-hidden="true"></span>
-            <span className={styles['add-file-text']}>添加更多文档或拖拽上传</span>
+            <span className={styles['add-file-text']}>{t('knowledge.fileList.addMore')}</span>
           </button>
         </div>
       )}
