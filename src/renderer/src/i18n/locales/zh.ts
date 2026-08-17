@@ -111,7 +111,8 @@ const zh = {
       importJson: '导入 JSON 配置',
       collapseImport: '收起导入',
       importLabel: '粘贴 MCP 配置 JSON',
-      importPlaceholder: '例如：\n{\n  "mcpServers": {\n    "server-name": {\n      "command": "npx",\n      "args": ["-y", "some-mcp"]\n    }\n  }\n}',
+      importPlaceholder:
+        '例如：\n{\n  "mcpServers": {\n    "server-name": {\n      "command": "npx",\n      "args": ["-y", "some-mcp"]\n    }\n  }\n}',
       confirmImport: '确认导入',
       importing: '导入中...',
       connected: '已连接',
@@ -232,7 +233,8 @@ const zh = {
     },
     sync: {
       title: '数据同步',
-      description: '连接自建 Lumina Relay。密码学和密钥只在主进程处理，Relay 仅保存端到端加密数据。',
+      description:
+        '连接自建 Lumina Relay。密码学和密钥只在主进程处理，Relay 仅保存端到端加密数据。',
       connConnecting: '连接中',
       connOnline: '已连接 · 事件在线',
       connReconnecting: '已连接 · 事件重连中',
@@ -309,8 +311,10 @@ const zh = {
       never: '从未',
       resultSession:
         '↑{{uploaded}} 上行 · ↓{{downloaded}} 下行 · ⇄{{merged}} 合并 · ✕{{deleted}} 删除 · 已同步 {{skipped}}',
-      resultConfig: '↑{{uploaded}} 上行 · ↓{{downloaded}} 下行 · ⇄{{merged}} 合并 · 已同步 {{skipped}}',
-      resultWriter: '↑{{uploaded}} 上行 · ↓{{downloaded}} 下行 · ✕{{deleted}} 删除 · 已同步 {{skipped}}',
+      resultConfig:
+        '↑{{uploaded}} 上行 · ↓{{downloaded}} 下行 · ⇄{{merged}} 合并 · 已同步 {{skipped}}',
+      resultWriter:
+        '↑{{uploaded}} 上行 · ↓{{downloaded}} 下行 · ✕{{deleted}} 删除 · 已同步 {{skipped}}',
       resultKnowledge:
         '↑{{uploaded}} 上行 · ↓{{downloaded}} 下行 · ⟳{{reindexed}} 重建索引 · ✕{{deleted}} 删除 · 已同步 {{skipped}}',
       resultPaper:

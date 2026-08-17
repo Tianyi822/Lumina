@@ -118,7 +118,8 @@ const en: Resources = {
       importJson: 'Import JSON Config',
       collapseImport: 'Collapse Import',
       importLabel: 'Paste MCP config JSON',
-      importPlaceholder: 'Example:\n{\n  "mcpServers": {\n    "server-name": {\n      "command": "npx",\n      "args": ["-y", "some-mcp"]\n    }\n  }\n}',
+      importPlaceholder:
+        'Example:\n{\n  "mcpServers": {\n    "server-name": {\n      "command": "npx",\n      "args": ["-y", "some-mcp"]\n    }\n  }\n}',
       confirmImport: 'Import',
       importing: 'Importing...',
       connected: 'Connected',
@@ -167,7 +168,8 @@ const en: Resources = {
       howto3: 'Add the config to your MCP client configuration file',
       howto4: 'Restart the MCP client to use the knowledge base tools',
       securityTitle: 'Security Notes',
-      security1: 'The server only listens on local network interfaces; external devices need LAN access',
+      security1:
+        'The server only listens on local network interfaces; external devices need LAN access',
       security2: 'Make sure your firewall allows access to the configured port',
       security3: 'This version has no authentication; use it only on trusted networks',
       security4: 'The server stops automatically when the app quits'
@@ -208,7 +210,8 @@ const en: Resources = {
       sortBy: 'Sort by:',
       sortCalls: 'Call Count',
       sortDuration: 'Duration',
-      empty: 'No tool call statistics yet. Stats are recorded automatically once you start chatting.',
+      empty:
+        'No tool call statistics yet. Stats are recorded automatically once you start chatting.',
       colName: 'Tool Name',
       colCalls: 'Calls',
       serverName: 'Source Server',
@@ -249,7 +252,8 @@ const en: Resources = {
       connError: 'Connection Error',
       connDisconnected: 'Not Connected',
       connSection: 'Connection',
-      connSectionDesc: 'The backend automatically registers or signs in based on whether the account exists.',
+      connSectionDesc:
+        'The backend automatically registers or signs in based on whether the account exists.',
       relayUrl: 'Relay URL',
       username: 'Username',
       password: 'Password',
@@ -292,7 +296,8 @@ const en: Resources = {
       lastSeen: 'Last seen: ',
       revoke: 'Revoke',
       eventsTitle: 'Events & Reconciliation',
-      eventsDesc: 'WebSocket events are notifications only; after a disconnect, the HTTP full reconciliation result prevails.',
+      eventsDesc:
+        'WebSocket events are notifications only; after a disconnect, the HTTP full reconciliation result prevails.',
       reconcile: 'Reconcile Now',
       reconciling: 'Reconciling...',
       eventOnline: 'Event channel online',
@@ -304,7 +309,8 @@ const en: Resources = {
       eventSessionDeleted: 'Session {{sessionId}} deleted',
       eventGroupMerged: 'Sync groups merged · Group revision {{revision}}',
       eventDeviceRevoked: 'Device {{deviceId}} revoked',
-      lastReconcile: 'Last reconcile: {{manifests}} Manifest heads, {{snapshots}} session snapshots',
+      lastReconcile:
+        'Last reconcile: {{manifests}} Manifest heads, {{snapshots}} session snapshots',
       dataTitle: 'Data Sync',
       dataDesc:
         'Sessions, config, writing, knowledge base, and papers sync end-to-end encrypted; an automatic round runs every 60 seconds.',
@@ -321,20 +327,24 @@ const en: Resources = {
       never: 'Never',
       resultSession:
         '↑{{uploaded}} up · ↓{{downloaded}} down · ⇄{{merged}} merged · ✕{{deleted}} deleted · {{skipped}} up-to-date',
-      resultConfig: '↑{{uploaded}} up · ↓{{downloaded}} down · ⇄{{merged}} merged · {{skipped}} up-to-date',
-      resultWriter: '↑{{uploaded}} up · ↓{{downloaded}} down · ✕{{deleted}} deleted · {{skipped}} up-to-date',
+      resultConfig:
+        '↑{{uploaded}} up · ↓{{downloaded}} down · ⇄{{merged}} merged · {{skipped}} up-to-date',
+      resultWriter:
+        '↑{{uploaded}} up · ↓{{downloaded}} down · ✕{{deleted}} deleted · {{skipped}} up-to-date',
       resultKnowledge:
         '↑{{uploaded}} up · ↓{{downloaded}} down · ⟳{{reindexed}} reindexed · ✕{{deleted}} deleted · {{skipped}} up-to-date',
       resultPaper:
         '↑{{uploaded}} files up · ↓{{downloaded}} down · ⟁{{blocksUploaded}} blocks up · ⇊{{blocksDownloaded}} blocks down · ✕{{deleted}} deleted · {{skipped}} up-to-date',
       dangerTitle: 'Danger Zone',
-      dangerDesc: 'Permanently delete sync group data outside the current group and revoke all devices in them.',
+      dangerDesc:
+        'Permanently delete sync group data outside the current group and revoke all devices in them.',
       discard: 'Discard Other Sync Groups',
       discarding: 'Processing...',
       confirmDisconnect:
         'This clears the device identity and session token saved on this machine. Remote device records are not revoked automatically.',
       confirmDisconnectTitle: 'Disconnect Data Sync',
-      confirmRevoke: 'Revoking "{{name}}" immediately removes its access to the current sync group.',
+      confirmRevoke:
+        'Revoking "{{name}}" immediately removes its access to the current sync group.',
       confirmRevokeTitle: 'Revoke Device',
       confirmDiscard:
         'Devices, Manifests, block references, and session snapshots in other sync groups will be permanently deleted. This cannot be undone.',
