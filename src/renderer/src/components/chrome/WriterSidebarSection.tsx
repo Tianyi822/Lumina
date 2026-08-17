@@ -1,6 +1,8 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useVirtualizer } from '@tanstack/react-virtual'
+import { getDateLocale } from '@renderer/i18n'
 import SvgIcon from '@renderer/components/icons/SvgIcon'
 import { useNotification } from '@renderer/composables/useNotification'
 import WriterOutlinePanel from '@renderer/components/writer/outline/WriterOutlinePanel'
@@ -15,7 +17,10 @@ import styles from './WriterSidebarSection.module.css'
 function formatUpdatedAt(updatedAt: string): string {
   const date = new Date(updatedAt)
   if (Number.isNaN(date.getTime())) return ''
-  return new Intl.DateTimeFormat('zh-CN', { month: 'numeric', day: 'numeric' }).format(date)
+  return new Intl.DateTimeFormat(getDateLocale(), {
+    month: 'numeric',
+    day: 'numeric'
+  }).format(date)
 }
 
 interface WriterDocumentListProps {
@@ -71,6 +76,7 @@ function WriterDocumentList({
 
 /** 写作侧边栏，提供文档库筛选、文件夹与当前文档大纲入口。 */
 const WriterSidebarSection = memo(function WriterSidebarSection() {
+  const { t } = useTranslation()
   const documents = useWriterLibraryStore((state) => state.documents)
   const folders = useWriterLibraryStore((state) => state.folders)
   const currentDocumentId = useWriterLibraryStore((state) => state.currentDocumentId)
@@ -134,24 +140,24 @@ const WriterSidebarSection = memo(function WriterSidebarSection() {
 
   const handleDeleteDocument = useCallback(
     async (documentId: string): Promise<void> => {
-      const confirmed = await notify.confirm('此操作不可撤销。', {
-        title: '永久删除文档',
+      const confirmed = await notify.confirm(t('notifications.writer.confirmIrreversible'), {
+        title: t('notifications.writer.deleteDocumentTitle'),
         danger: true
       })
       if (confirmed) await deletePermanently(documentId)
     },
-    [deletePermanently, notify]
+    [deletePermanently, notify, t]
   )
 
   const handleDeleteFolder = useCallback(
     async (folderId: string): Promise<void> => {
-      const confirmed = await notify.confirm('删除文件夹后，文档将移回全部文档。', {
-        title: '删除文件夹',
+      const confirmed = await notify.confirm(t('notifications.writer.deleteFolderMessage'), {
+        title: t('notifications.writer.deleteFolderTitle'),
         danger: true
       })
       if (confirmed) await deleteFolder(folderId)
     },
-    [deleteFolder, notify]
+    [deleteFolder, notify, t]
   )
 
   const renderDocument = useCallback(
@@ -174,7 +180,9 @@ const WriterSidebarSection = memo(function WriterSidebarSection() {
         <button
           type="button"
           className={styles.documentAction}
-          aria-label={document.favorite ? '取消收藏' : '收藏文档'}
+          aria-label={
+            document.favorite ? t('chrome.sidebar.favoriteRemove') : t('chrome.sidebar.favoriteAdd')
+          }
           aria-pressed={document.favorite}
           onClick={() => void toggleFavorite(document.id)}
         >
@@ -183,20 +191,20 @@ const WriterSidebarSection = memo(function WriterSidebarSection() {
         <button
           type="button"
           className={styles.documentAction}
-          aria-label="永久删除文档"
+          aria-label={t('chrome.sidebar.deleteDocumentPermanent')}
           onClick={() => void handleDeleteDocument(document.id)}
         >
           <SvgIcon name="trash" size={14} />
         </button>
       </div>
     ),
-    [currentDocumentId, handleDeleteDocument, setCurrentDocumentId, toggleFavorite]
+    [currentDocumentId, handleDeleteDocument, setCurrentDocumentId, t, toggleFavorite]
   )
 
-  const collectionItems: Array<{ id: WriterCollection; label: string }> = [
-    { id: 'favorites', label: '收藏' },
-    { id: 'recent', label: '最近' },
-    { id: 'all', label: '全部' }
+  const collectionItems: Array<{ id: WriterCollection; labelKey: string }> = [
+    { id: 'favorites', labelKey: 'chrome.sidebar.favorite' },
+    { id: 'recent', labelKey: 'chrome.sidebar.recent' },
+    { id: 'all', labelKey: 'chrome.sidebar.all' }
   ]
   const handleSegmentKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>): void => {
     if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return
@@ -207,7 +215,11 @@ const WriterSidebarSection = memo(function WriterSidebarSection() {
 
   return (
     <div className={styles.section}>
-      <div className={styles.segmented} role="tablist" aria-label="写作侧边栏内容">
+      <div
+        className={styles.segmented}
+        role="tablist"
+        aria-label={t('chrome.sidebar.writerSidebarAria')}
+      >
         <button
           type="button"
           role="tab"
@@ -219,7 +231,7 @@ const WriterSidebarSection = memo(function WriterSidebarSection() {
           onClick={() => setSidebarMode('documents')}
           onKeyDown={handleSegmentKeyDown}
         >
-          文档
+          {t('chrome.sidebar.tabDocuments')}
         </button>
         <button
           type="button"
@@ -232,7 +244,7 @@ const WriterSidebarSection = memo(function WriterSidebarSection() {
           onClick={() => setSidebarMode('outline')}
           onKeyDown={handleSegmentKeyDown}
         >
-          大纲
+          {t('chrome.sidebar.tabOutline')}
         </button>
       </div>
 
@@ -248,8 +260,8 @@ const WriterSidebarSection = memo(function WriterSidebarSection() {
               <input
                 type="search"
                 className={styles.searchInput}
-                placeholder="搜索文档"
-                aria-label="搜索文档"
+                placeholder={t('chrome.sidebar.searchDocument')}
+                aria-label={t('chrome.sidebar.searchDocument')}
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
               />
@@ -263,7 +275,7 @@ const WriterSidebarSection = memo(function WriterSidebarSection() {
           )}
 
           <div className={styles.list}>
-            <div className={styles.collections} aria-label="文档集合">
+            <div className={styles.collections} aria-label={t('chrome.sidebar.collectionsAria')}>
               {collectionItems.map((item) => (
                 <button
                   key={item.id}
@@ -277,14 +289,14 @@ const WriterSidebarSection = memo(function WriterSidebarSection() {
                   aria-pressed={activeCollection === item.id}
                   onClick={() => selectCollection(item.id)}
                 >
-                  {item.label}
+                  {t(item.labelKey)}
                 </button>
               ))}
             </div>
 
             {folders.length > 0 && (
               <div className={styles.folders}>
-                <span className={styles.groupLabel}>文件夹</span>
+                <span className={styles.groupLabel}>{t('chrome.sidebar.folders')}</span>
                 {folders.map((folder) => {
                   const isExpanded = expandedFolderIds.has(folder.id)
                   const folderBucket = documentRenderPlan.find((bucket) => bucket.id === folder.id)
@@ -303,7 +315,7 @@ const WriterSidebarSection = memo(function WriterSidebarSection() {
                         <button
                           type="button"
                           className={styles.folderDelete}
-                          aria-label={`删除文件夹 ${folder.name}`}
+                          aria-label={t('chrome.sidebar.deleteFolderNamed', { name: folder.name })}
                           onClick={() => void handleDeleteFolder(folder.id)}
                         >
                           <SvgIcon name="trash" size={14} />
@@ -318,7 +330,9 @@ const WriterSidebarSection = memo(function WriterSidebarSection() {
                               renderDocument={renderDocument}
                             />
                           ) : (
-                            <span className={styles.folderEmpty}>文件夹内暂无文档</span>
+                            <span className={styles.folderEmpty}>
+                              {t('chrome.sidebar.folderEmpty')}
+                            </span>
                           )}
                         </div>
                       )}
@@ -328,10 +342,16 @@ const WriterSidebarSection = memo(function WriterSidebarSection() {
               </div>
             )}
 
-            {isLoading ? <div className={styles.empty}>正在加载文档…</div> : null}
+            {isLoading ? (
+              <div className={styles.empty}>{t('chrome.sidebar.loadingDocuments')}</div>
+            ) : null}
             {!isLoading && filteredDocuments.length === 0 ? (
               <div className={styles.empty}>
-                <span>{searchQuery ? '未找到匹配的文档' : '暂无文档'}</span>
+                <span>
+                  {searchQuery
+                    ? t('chrome.sidebar.noMatchDocument')
+                    : t('chrome.sidebar.emptyDocument')}
+                </span>
               </div>
             ) : null}
 

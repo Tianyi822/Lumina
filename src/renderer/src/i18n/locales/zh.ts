@@ -23,7 +23,90 @@ const zh = {
     connecting: '连接中...',
     disconnect: '断开',
     confirm: '确认',
-    confirmAction: '确认操作'
+    confirmAction: '确认操作',
+    resizeChat: '拖拽调整聊天窗口宽度'
+  },
+  chrome: {
+    nav: {
+      ariaPrimary: '一级导航',
+      read: '阅读',
+      knowledge: '知识库',
+      writer: '写作',
+      addPaper: '添加论文',
+      addKnowledge: '新增知识库',
+      addDocument: '新建文档',
+      expandSidebar: '展开二级侧边栏',
+      collapseSidebar: '收起二级侧边栏',
+      themeSwitch: '主题切换',
+      themeLight: '浅色主题',
+      themeDark: '深色主题',
+      settings: '设置',
+      settingsWithUpdate: '设置，有新版本可用'
+    },
+    sidebar: {
+      searchPaper: '搜索论文',
+      searchKnowledge: '搜索知识库',
+      searchDocument: '搜索文档',
+      manageFiles: '管理文件',
+      needsReindex: '需重索引',
+      deleteKnowledgeBase: '删除知识库',
+      noMatchKnowledge: '未找到匹配的知识库',
+      emptyKnowledge: '暂无知识库',
+      createFirstKnowledge: '创建第一个知识库',
+      documentCount_one: '{{count}} 个文档',
+      documentCount_other: '{{count}} 个文档',
+      tabDocuments: '文档',
+      tabOutline: '大纲',
+      writerSidebarAria: '写作侧边栏内容',
+      collectionsAria: '文档集合',
+      favorite: '收藏',
+      recent: '最近',
+      all: '全部',
+      folders: '文件夹',
+      deleteFolderNamed: '删除文件夹 {{name}}',
+      folderEmpty: '文件夹内暂无文档',
+      loadingDocuments: '正在加载文档…',
+      noMatchDocument: '未找到匹配的文档',
+      emptyDocument: '暂无文档',
+      favoriteRemove: '取消收藏',
+      favoriteAdd: '收藏文档',
+      deleteDocumentPermanent: '永久删除文档'
+    },
+    window: {
+      minimize: '最小化',
+      minimizeAria: '最小化窗口',
+      maximize: '最大化',
+      maximizeAria: '最大化窗口',
+      restore: '还原',
+      restoreAria: '还原窗口',
+      close: '关闭',
+      closeAria: '关闭窗口'
+    },
+    toolbar: {
+      paperTools: '论文工具',
+      writerTools: '写作工具',
+      hideTranslation: '隐藏译文',
+      hideTranslationBackground: '隐藏译文（后台继续翻译）',
+      showTranslation: '显示译文',
+      showTranslationBackground: '显示译文（后台正在翻译）',
+      translatePaper: '翻译论文',
+      noCaption: '暂无图注',
+      openToc: '打开论文目录',
+      toc: '论文目录',
+      tocLoading: '目录加载中',
+      tocEmpty: '未识别到可用目录',
+      openFigures: '打开论文图片列表',
+      figures: '论文图片',
+      figuresAria: '论文图片列表',
+      figuresLoading: '图片加载中',
+      figuresEmpty: '未识别到可用图片',
+      preview: '预览',
+      originalPdf: 'PDF 原件',
+      chat: '会话',
+      writerChat: '写作对话',
+      exportDocument: '导出文档',
+      exportFormats: '导出格式'
+    }
   },
   settings: {
     title: '设置中心',
@@ -340,7 +423,48 @@ const zh = {
     }
   },
   notifications: {
-    dismiss: '关闭通知'
+    dismiss: '关闭通知',
+    paper: {
+      confirmTitle: '删除论文',
+      confirmIrreversible: '此操作不可撤销。',
+      deleteFailedTitle: '删除论文失败',
+      deleteFailedMessage: '请稍后重试或查看日志获取更多信息。',
+      retryFailedTitle: '重试失败',
+      unknownError: '未知错误',
+      deleteTranslationTitle: '删除译文',
+      translationAnnotatedLine1: '当前译文里已经有标注内容。',
+      translationAnnotatedLine2: '其中包含 {{count}} 条译文标注。',
+      translationNotes: '笔记 {{count}} 条',
+      translationHighlights: '标记 {{count}} 条',
+      translationAnnotatedLine3: '删除译文后，这些译文标注也会一起删除。',
+      translationAnnotatedLine4: '确定继续删除译文吗？',
+      deleteTranslationFailedTitle: '删除译文失败',
+      chatTitle: '论文对话',
+      chatCreateFailed: '创建论文对话失败'
+    },
+    knowledge: {
+      confirmIrreversible: '此操作不可撤销。',
+      deleteKbTitle: '删除知识库',
+      deleteKbFailedTitle: '删除知识库失败',
+      unknownError: '未知错误',
+      createKbFailedTitle: '创建知识库失败'
+    },
+    writer: {
+      confirmIrreversible: '此操作不可撤销。',
+      deleteDocumentTitle: '永久删除文档',
+      deleteFolderMessage: '删除文件夹后，文档将移回全部文档。',
+      deleteFolderTitle: '删除文件夹',
+      exportFailedTitle: '导出失败',
+      exportFailedFallback: '无法导出文档',
+      exportDoneTitle: '导出完成',
+      exportDoneMessage: '已导出为 {{format}}',
+      chatRequestFailed: '写作对话请求失败',
+      chatTitle: '写作对话',
+      stopReplyFirst: '请先停止当前回复',
+      openPanelFirst: '请先打开 AI 面板选择模型',
+      loadSessionFailed: '加载写作聊天会话失败',
+      selectionNotEditable: '当前选区没有可编辑文本，无法改写或续写'
+    }
   }
 }
 

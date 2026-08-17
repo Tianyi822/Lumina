@@ -1,4 +1,5 @@
 import { useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import SvgIcon from '@renderer/components/icons/SvgIcon'
 import { uploadAndRenderPdf } from '@renderer/stores/paper'
 import { useKnowledgeStore } from '@renderer/stores'
@@ -8,8 +9,9 @@ import { useUIStateStore } from '@renderer/stores/uiStateStore'
 import type { UIStateStore } from '@renderer/stores/uiStateStore'
 import WorkspaceToolbar from '@renderer/components/chrome/WorkspaceToolbar'
 import {
-  getWorkspaceAddLabel,
   WORKSPACE_NAV_ITEMS,
+  WORKSPACE_ADD_LABEL_KEYS,
+  WORKSPACE_NAV_LABEL_KEYS,
   type WorkspaceNavItem
 } from './workspaceNavigation'
 import styles from './PrimarySidebar.module.css'
@@ -17,7 +19,7 @@ import styles from './PrimarySidebar.module.css'
 const ICON_SIZE = 18
 const EXPAND_ICON_SIZE = 11
 
-const BOTTOM_NAV_ITEM = { id: 'settings', icon: 'settings', label: '设置' } as const
+const BOTTOM_NAV_ITEM = { id: 'settings', icon: 'settings' } as const
 
 interface PrimarySidebarProps {
   onOpenSettings?: () => void
@@ -34,6 +36,7 @@ function selectIsSecondarySidebarCollapsed(state: UIStateStore): boolean {
  * 提供视图导航、主题切换、添加按钮、设置入口等功能
  */
 export default function PrimarySidebar({ onOpenSettings }: PrimarySidebarProps) {
+  const { t } = useTranslation()
   const currentView = useUIStateStore((s) => s.currentView)
   const setCurrentView = useUIStateStore((s) => s.setCurrentView)
   const toggleCurrentSidebar = useUIStateStore((s) => s.toggleCurrentSidebar)
@@ -48,7 +51,7 @@ export default function PrimarySidebar({ onOpenSettings }: PrimarySidebarProps) 
 
   const isDarkTheme = currentTheme === 'lumina-dark'
 
-  const addTooltip = getWorkspaceAddLabel(currentView)
+  const addTooltip = t(WORKSPACE_ADD_LABEL_KEYS[currentView])
 
   // 根据当前视图执行不同的添加操作（上传论文/创建知识库）
   const handleAddClick = useCallback((): void => {
@@ -89,7 +92,7 @@ export default function PrimarySidebar({ onOpenSettings }: PrimarySidebarProps) 
   )
 
   return (
-    <nav className={styles['sm-primary-sidebar']} aria-label="一级导航">
+    <nav className={styles['sm-primary-sidebar']} aria-label={t('chrome.nav.ariaPrimary')}>
       <div className={styles['sm-primary-sidebar__main']}>
         <div className={styles['sm-primary-sidebar__add-slot']}>
           <div className={styles['sm-primary-sidebar__item-wrap']}>
@@ -113,7 +116,11 @@ export default function PrimarySidebar({ onOpenSettings }: PrimarySidebarProps) 
             ]
               .filter(Boolean)
               .join(' ')}
-            aria-label={isSecondarySidebarCollapsed ? '展开二级侧边栏' : '收起二级侧边栏'}
+            aria-label={
+              isSecondarySidebarCollapsed
+                ? t('chrome.nav.expandSidebar')
+                : t('chrome.nav.collapseSidebar')
+            }
             aria-expanded={!isSecondarySidebarCollapsed}
             onClick={handleExpandToggle}
           >
@@ -123,7 +130,7 @@ export default function PrimarySidebar({ onOpenSettings }: PrimarySidebarProps) 
 
         {WORKSPACE_NAV_ITEMS.map((item) => {
           const isActive = item.view === currentView
-          const tooltip = item.label
+          const tooltip = t(WORKSPACE_NAV_LABEL_KEYS[item.view])
 
           return (
             <div key={item.id} className={styles['sm-primary-sidebar__item-wrap']}>
@@ -172,13 +179,13 @@ export default function PrimarySidebar({ onOpenSettings }: PrimarySidebarProps) 
               .filter(Boolean)
               .join(' ')}
             role="group"
-            aria-label="主题切换"
+            aria-label={t('chrome.nav.themeSwitch')}
           >
             <span className={styles['sm-primary-sidebar__theme-switch-thumb']} aria-hidden="true" />
             <button
               type="button"
               className={styles['sm-primary-sidebar__theme-switch-option']}
-              aria-label="浅色主题"
+              aria-label={t('chrome.nav.themeLight')}
               aria-pressed={!isDarkTheme}
               onClick={() => applyTheme('lumina-light')}
             >
@@ -187,7 +194,7 @@ export default function PrimarySidebar({ onOpenSettings }: PrimarySidebarProps) 
             <button
               type="button"
               className={styles['sm-primary-sidebar__theme-switch-option']}
-              aria-label="深色主题"
+              aria-label={t('chrome.nav.themeDark')}
               aria-pressed={isDarkTheme}
               onClick={() => applyTheme('lumina-dark')}
             >
@@ -195,7 +202,7 @@ export default function PrimarySidebar({ onOpenSettings }: PrimarySidebarProps) 
             </button>
           </div>
           <span className={styles['sm-primary-sidebar__tooltip']} role="tooltip">
-            {isDarkTheme ? '深色主题' : '浅色主题'}
+            {isDarkTheme ? t('chrome.nav.themeDark') : t('chrome.nav.themeLight')}
           </span>
         </div>
 
@@ -205,7 +212,7 @@ export default function PrimarySidebar({ onOpenSettings }: PrimarySidebarProps) 
               type="button"
               className={styles['sm-primary-sidebar__item']}
               aria-label={
-                showUpdateBadge ? `${BOTTOM_NAV_ITEM.label}，有新版本可用` : BOTTOM_NAV_ITEM.label
+                showUpdateBadge ? t('chrome.nav.settingsWithUpdate') : t('chrome.nav.settings')
               }
               onClick={onOpenSettings}
             >

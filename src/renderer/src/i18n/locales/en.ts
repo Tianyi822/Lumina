@@ -25,7 +25,90 @@ const en: Resources = {
     connecting: 'Connecting...',
     disconnect: 'Disconnect',
     confirm: 'Confirm',
-    confirmAction: 'Confirm Action'
+    confirmAction: 'Confirm Action',
+    resizeChat: 'Drag to resize the chat panel'
+  },
+  chrome: {
+    nav: {
+      ariaPrimary: 'Primary navigation',
+      read: 'Read',
+      knowledge: 'Knowledge',
+      writer: 'Write',
+      addPaper: 'Add Paper',
+      addKnowledge: 'New Knowledge Base',
+      addDocument: 'New Document',
+      expandSidebar: 'Expand secondary sidebar',
+      collapseSidebar: 'Collapse secondary sidebar',
+      themeSwitch: 'Theme',
+      themeLight: 'Light theme',
+      themeDark: 'Dark theme',
+      settings: 'Settings',
+      settingsWithUpdate: 'Settings, new version available'
+    },
+    sidebar: {
+      searchPaper: 'Search papers',
+      searchKnowledge: 'Search knowledge bases',
+      searchDocument: 'Search documents',
+      manageFiles: 'Manage Files',
+      needsReindex: 'Needs reindex',
+      deleteKnowledgeBase: 'Delete knowledge base',
+      noMatchKnowledge: 'No matching knowledge bases',
+      emptyKnowledge: 'No knowledge bases yet',
+      createFirstKnowledge: 'Create your first knowledge base',
+      documentCount_one: '{{count}} document',
+      documentCount_other: '{{count}} documents',
+      tabDocuments: 'Documents',
+      tabOutline: 'Outline',
+      writerSidebarAria: 'Writer sidebar content',
+      collectionsAria: 'Document collections',
+      favorite: 'Favorites',
+      recent: 'Recent',
+      all: 'All',
+      folders: 'Folders',
+      deleteFolderNamed: 'Delete folder {{name}}',
+      folderEmpty: 'No documents in this folder',
+      loadingDocuments: 'Loading documents…',
+      noMatchDocument: 'No matching documents',
+      emptyDocument: 'No documents yet',
+      favoriteRemove: 'Remove from favorites',
+      favoriteAdd: 'Add to favorites',
+      deleteDocumentPermanent: 'Delete permanently'
+    },
+    window: {
+      minimize: 'Minimize',
+      minimizeAria: 'Minimize window',
+      maximize: 'Maximize',
+      maximizeAria: 'Maximize window',
+      restore: 'Restore',
+      restoreAria: 'Restore window',
+      close: 'Close',
+      closeAria: 'Close window'
+    },
+    toolbar: {
+      paperTools: 'Paper Tools',
+      writerTools: 'Writer Tools',
+      hideTranslation: 'Hide Translation',
+      hideTranslationBackground: 'Hide Translation (continues in background)',
+      showTranslation: 'Show Translation',
+      showTranslationBackground: 'Show Translation (translating in background)',
+      translatePaper: 'Translate Paper',
+      noCaption: 'No caption',
+      openToc: 'Open table of contents',
+      toc: 'Table of Contents',
+      tocLoading: 'Loading table of contents',
+      tocEmpty: 'No table of contents detected',
+      openFigures: 'Open paper figures',
+      figures: 'Figures',
+      figuresAria: 'Paper figures',
+      figuresLoading: 'Loading figures',
+      figuresEmpty: 'No figures detected',
+      preview: 'Preview',
+      originalPdf: 'Original PDF',
+      chat: 'Chat',
+      writerChat: 'Writer Chat',
+      exportDocument: 'Export Document',
+      exportFormats: 'Export Formats'
+    }
   },
   settings: {
     title: 'Settings',
@@ -361,7 +444,48 @@ const en: Resources = {
     }
   },
   notifications: {
-    dismiss: 'Dismiss notification'
+    dismiss: 'Dismiss notification',
+    paper: {
+      confirmTitle: 'Delete Paper',
+      confirmIrreversible: 'This cannot be undone.',
+      deleteFailedTitle: 'Failed to Delete Paper',
+      deleteFailedMessage: 'Please try again later or check the logs for details.',
+      retryFailedTitle: 'Retry Failed',
+      unknownError: 'Unknown error',
+      deleteTranslationTitle: 'Delete Translation',
+      translationAnnotatedLine1: 'This translation already has annotations.',
+      translationAnnotatedLine2: 'It contains {{count}} translation annotations.',
+      translationNotes: '{{count}} notes',
+      translationHighlights: '{{count}} highlights',
+      translationAnnotatedLine3: 'Deleting the translation will delete these annotations too.',
+      translationAnnotatedLine4: 'Delete the translation anyway?',
+      deleteTranslationFailedTitle: 'Failed to Delete Translation',
+      chatTitle: 'Paper Chat',
+      chatCreateFailed: 'Failed to create the paper chat session'
+    },
+    knowledge: {
+      confirmIrreversible: 'This cannot be undone.',
+      deleteKbTitle: 'Delete Knowledge Base',
+      deleteKbFailedTitle: 'Failed to Delete Knowledge Base',
+      unknownError: 'Unknown error',
+      createKbFailedTitle: 'Failed to Create Knowledge Base'
+    },
+    writer: {
+      confirmIrreversible: 'This cannot be undone.',
+      deleteDocumentTitle: 'Delete Document Permanently',
+      deleteFolderMessage: 'Deleting the folder moves its documents back to All Documents.',
+      deleteFolderTitle: 'Delete Folder',
+      exportFailedTitle: 'Export Failed',
+      exportFailedFallback: 'Unable to export the document',
+      exportDoneTitle: 'Export Complete',
+      exportDoneMessage: 'Exported as {{format}}',
+      chatRequestFailed: 'Writer Chat Request Failed',
+      chatTitle: 'Writer Chat',
+      stopReplyFirst: 'Stop the current reply first',
+      openPanelFirst: 'Open the AI panel and pick a model first',
+      loadSessionFailed: 'Failed to load the writer chat session',
+      selectionNotEditable: 'The selection has no editable text for rewriting or continuation'
+    }
   }
 }
 
