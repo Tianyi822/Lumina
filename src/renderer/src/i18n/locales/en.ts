@@ -505,12 +505,12 @@ const en: Resources = {
     },
     settings: {
       model: {
-        validateFailedTitle: 'Model Configuration Validation Failed',
+        validateFailedTitle: 'Model configuration validation failed',
         validateFieldEmpty: 'Field {{field}} is required for model "{{name}}"',
         fieldModelName: 'Model Name',
-        testSuccessTitle: 'Model Connection Test Succeeded',
+        testSuccessTitle: 'Model connection test succeeded',
         testSuccessMessage: 'Model "{{name}}" is available',
-        testFailedTitle: 'Model Connection Test Failed',
+        testFailedTitle: 'Model connection test failed',
         testFailedFallback: 'Connection test failed'
       },
       embedding: {
@@ -622,10 +622,10 @@ const en: Resources = {
       lastErrorPaper_other: '{{count}} papers failed to sync'
     },
     config: {
-      loadFailedTitle: 'Failed to Load Configuration',
+      loadFailedTitle: 'Failed to load configuration',
       loadFailedPrefix: 'Failed to load configuration: ',
-      saveSuccess: 'Configuration Saved',
-      saveFailedTitle: 'Failed to Save Configuration',
+      saveSuccess: 'Configuration saved',
+      saveFailedTitle: 'Failed to save configuration',
       saveFailedFallback: 'Save failed',
       saveFailedPrefix: 'Failed to save configuration: '
     }
