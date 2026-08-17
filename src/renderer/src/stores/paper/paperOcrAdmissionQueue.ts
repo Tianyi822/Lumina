@@ -1,4 +1,5 @@
 import type { OcrProgressInfo } from '@shared/types/paper'
+import { i18n } from '@renderer/i18n'
 
 interface OcrStartResult {
   success: boolean
@@ -116,7 +117,10 @@ export function createPaperOcrAdmissionQueue(deps: PaperOcrAdmissionQueueDeps) {
         deps.onOcrStarted?.(paperId)
         const startResult = await deps.startOcr(paperId)
         if (!startResult.success) {
-          deps.onOcrStartFailed?.(paperId, startResult.error || 'OCR 启动失败')
+          deps.onOcrStartFailed?.(
+            paperId,
+            startResult.error || i18n.t('notifications.paper.ocrStartFailed')
+          )
           currentOcrPaperId = null
           continue
         }

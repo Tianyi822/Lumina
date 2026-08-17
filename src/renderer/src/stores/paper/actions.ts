@@ -1,6 +1,7 @@
 import type { PaperDocument } from '@shared/types/paper'
 import { notifyWarning } from '@renderer/composables/notificationCore'
 import { usePdfPageRasterizer } from '@renderer/composables/usePdfPageRasterizer'
+import { i18n } from '@renderer/i18n'
 import { useUIStateStore } from '@renderer/stores/uiStateStore'
 import { isPaperReadableStatus, createIdleOcrProgress, decodeBase64ToArrayBuffer } from './shared'
 import { usePaperListStore } from './usePaperListStore'
@@ -89,8 +90,8 @@ function maybeShowOcrQualityNotice(paper: PaperDocument): void {
 
   markOcrQualityNoticeShown(paper.id)
   notifyWarning(
-    'OCR 结果仅供参考',
-    '论文正文由 OCR/解析结果生成，复杂表格、公式和跨页排版可能不准确。遇到异常内容时，请优先对照原 PDF。',
+    i18n.t('notifications.paper.ocrDisclaimerTitle'),
+    i18n.t('notifications.paper.ocrDisclaimerMessage'),
     {
       source: 'paper',
       duration: 10000,
@@ -240,12 +241,12 @@ async function uploadAndRenderPdfs(): Promise<{
     if (selection.error) {
       return { success: false, error: selection.error }
     }
-    return { success: false, error: '未选择文件' }
+    return { success: false, error: i18n.t('notifications.paper.noFileSelected') }
   }
 
   const files = selection.data ?? []
   if (files.length === 0) {
-    return { success: false, error: '未选择文件' }
+    return { success: false, error: i18n.t('notifications.paper.noFileSelected') }
   }
 
   const paperIds: string[] = []
@@ -264,8 +265,8 @@ async function uploadAndRenderPdfs(): Promise<{
 
   if (errors.length > 0) {
     notifyWarning(
-      '部分论文上传失败',
-      errors.slice(0, 3).join('\n') + (errors.length > 3 ? `\n…等共 ${errors.length} 项失败` : ''),
+      i18n.t('notifications.paper.partialUploadTitle'),
+      `${errors.slice(0, 3).join('\n')}${i18n.t('notifications.paper.partialUploadSuffix', { count: errors.length })}`,
       { source: 'paper', duration: 10000 }
     )
   }
@@ -273,7 +274,7 @@ async function uploadAndRenderPdfs(): Promise<{
   if (paperIds.length === 0) {
     return {
       success: false,
-      error: errors[0] || '论文上传失败'
+      error: errors[0] || i18n.t('notifications.paper.uploadFailed')
     }
   }
 
@@ -330,18 +331,18 @@ export async function retryPaper(paperId: string): Promise<{ success: boolean; e
   // 检查是否有活跃的渲染管线（渲染进程侧状态）
   const renderProgress = listStore.renderProgressByPaperId[paperId]
   if (renderProgress?.stage === 'rendering') {
-    return { success: false, error: '论文正在处理中，请稍后再试' }
+    return { success: false, error: i18n.t('notifications.paper.processingRetryLater') }
   }
 
   // 检查主进程 OCR 管道是否活跃（IPC 确认，不受页面刷新影响）
   const ocrActiveResult = await window.api.paper.isOcrActive(paperId)
   if (ocrActiveResult.success && ocrActiveResult.data) {
-    return { success: false, error: '论文正在处理中，请稍后再试' }
+    return { success: false, error: i18n.t('notifications.paper.processingRetryLater') }
   }
 
   const paper = listStore.papers.find((item) => item.id === paperId)
   if (!paper) {
-    return { success: false, error: '论文不存在' }
+    return { success: false, error: i18n.t('notifications.paper.paperMissing') }
   }
 
   const totalPages = paper.pageCount
@@ -449,7 +450,7 @@ export async function toggleTranslationVisible(): Promise<{
 }> {
   const currentPaperId = usePaperListStore.getState().currentPaperId
   if (!currentPaperId) {
-    return { success: false, error: '当前没有打开论文' }
+    return { success: false, error: i18n.t('notifications.paper.noOpenPaper') }
   }
 
   const translationStore = usePaperTranslationStore.getState()
@@ -546,14 +547,17 @@ export async function ensurePaperChatSession(
       if (!paper) {
         const paperResult = await window.api.paper.get(paperId)
         if (!paperResult.success || !paperResult.data) {
-          return { success: false, error: paperResult.error || '论文不存在' }
+          return {
+            success: false,
+            error: paperResult.error || i18n.t('notifications.paper.paperMissing')
+          }
         }
         paper = paperResult.data
         usePaperListStore.getState().upsertPaper(paper)
       }
 
       if (!isPaperReadableStatus(paper.status)) {
-        return { success: false, error: '论文尚未完成 OCR，无法创建对话' }
+        return { success: false, error: i18n.t('notifications.paper.ocrNotDone') }
       }
 
       if (paper.chatSessionId) {
@@ -563,19 +567,19 @@ export async function ensurePaperChatSession(
         }
       }
 
-      const title = `论文对话：${paper.fileName}`
+      const title = i18n.t('paper.chat.sessionTitle', { name: paper.fileName })
       const createdSession = await window.api.session.create(title, 'paper')
       if (!createdSession.success || !createdSession.data) {
         return {
           success: false,
-          error: createdSession.error || '创建会话失败'
+          error: createdSession.error || i18n.t('notifications.paper.createSessionFailed')
         }
       }
       const bindResult = await setPaperChatSession(paper.id, createdSession.data.sessionId)
       if (!bindResult.success) {
         return {
           success: false,
-          error: bindResult.error || '绑定论文聊天会话失败'
+          error: bindResult.error || i18n.t('notifications.paper.bindSessionFailed')
         }
       }
 
