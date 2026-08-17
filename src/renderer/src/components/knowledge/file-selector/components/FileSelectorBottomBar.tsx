@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import type { FileItem } from '@renderer/types'
 import styles from './FileSelectorBottomBar.module.css'
 
@@ -20,29 +21,33 @@ export default function FileSelectorBottomBar({
   onDeselectAll,
   onLinkSelected
 }: FileSelectorBottomBarProps) {
+  const { t } = useTranslation()
+
   return (
     <div className={styles['bottom-bar']}>
       <div className={styles['left-actions']}>
-        <span className={styles['selection-count']}>已选择 {selectedCount} 个文件</span>
+        <span className={styles['selection-count']}>
+          {t('knowledge.fileSelector.selectedCount', { count: selectedCount })}
+        </span>
         <div className={styles['selection-actions']}>
           <button className={styles['btn-link']} onClick={onSelectAll}>
-            全选
+            {t('knowledge.fileSelector.selectAll')}
           </button>
           <button className={styles['btn-link']} onClick={onDeselectAll}>
-            取消全选
+            {t('knowledge.fileSelector.deselectAll')}
           </button>
         </div>
       </div>
       <div className={styles['actions']}>
         <button className="sm-button sm-button--secondary" onClick={onClose}>
-          取消
+          {t('common.cancel')}
         </button>
         <button
           className="sm-button sm-button--primary"
           disabled={!hasSelectedFiles}
           onClick={onLinkSelected}
         >
-          添加到知识库
+          {t('knowledge.fileSelector.addToKnowledge')}
         </button>
       </div>
     </div>
