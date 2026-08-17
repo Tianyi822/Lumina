@@ -37,7 +37,8 @@ const chat: Resources['notifications']['chat'] = {
   parseToolArgsFailed: 'Failed to parse tool arguments: {{error}}',
   mcpServerNotFound: 'MCP server not found: {{serverName}}',
   unknownPaperTool: 'Unknown paper tool: {{toolName}}, only search_context is supported',
-  paperIdNotSet: 'Paper ID is not set, cannot retrieve paper context'
+  paperIdNotSet: 'Paper ID is not set, cannot retrieve paper context',
+  operationTimeout: '{{operation}} timed out'
 }
 
 export default chat

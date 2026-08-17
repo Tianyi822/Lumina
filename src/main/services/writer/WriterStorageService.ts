@@ -24,7 +24,6 @@ import {
 
 const WRITER_SCHEMA_VERSION = 1
 const MAX_RECENT_DOCUMENTS = 50
-const DEFAULT_DOCUMENT_TITLE = '未命名文档'
 
 interface WriterStorageServiceOptions {
   rootPath?: string
@@ -181,7 +180,7 @@ export class WriterStorageService {
     return this.enqueueWrite(async () => {
       try {
         await this.ensureInitialized()
-        const normalizedTitle = title?.trim() || DEFAULT_DOCUMENT_TITLE
+        const normalizedTitle = title?.trim() || t('notifications.writer.untitledDocument')
         if (normalizedTitle.length > 200) {
           return this.invalidInput<WriterDocument>(
             t('notifications.writer.titleTooLong', { max: 200 })
@@ -273,7 +272,7 @@ export class WriterStorageService {
         const now = new Date().toISOString()
         const next = writerDocumentSchema.parse({
           ...currentResult.data,
-          title: validRequest.title.trim() || DEFAULT_DOCUMENT_TITLE,
+          title: validRequest.title.trim() || t('notifications.writer.untitledDocument'),
           content: validRequest.content,
           revision: validRequest.expectedRevision + 1,
           updatedAt: now

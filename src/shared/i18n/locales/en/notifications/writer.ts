@@ -64,6 +64,7 @@ const writer: Resources['notifications']['writer'] = {
   invalidTitle: 'Invalid document title',
   titleRequired: 'Document title cannot be empty',
   titleTooLong: 'Document title cannot exceed {{max}} characters',
+  untitledDocument: 'Untitled document',
   invalidFolderId: 'Invalid folder ID',
   invalidFolderName: 'Invalid folder name',
   invalidFavorite: 'Invalid favorite value',

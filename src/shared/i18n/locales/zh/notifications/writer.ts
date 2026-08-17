@@ -62,6 +62,7 @@ const writer = {
   invalidTitle: '无效的文档标题',
   titleRequired: '文档标题不能为空',
   titleTooLong: '文档标题不能超过 {{max}} 个字符',
+  untitledDocument: '未命名文档',
   invalidFolderId: '无效的文件夹 ID',
   invalidFolderName: '无效的文件夹名称',
   invalidFavorite: '无效的收藏状态',

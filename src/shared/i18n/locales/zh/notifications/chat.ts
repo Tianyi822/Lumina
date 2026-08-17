@@ -31,7 +31,8 @@ const chat = {
   parseToolArgsFailed: '解析工具参数失败: {{error}}',
   mcpServerNotFound: '未找到 MCP 服务器: {{serverName}}',
   unknownPaperTool: '未知的论文工具: {{toolName}}，当前仅支持 search_context',
-  paperIdNotSet: '论文 ID 未设置，无法检索论文上下文'
+  paperIdNotSet: '论文 ID 未设置，无法检索论文上下文',
+  operationTimeout: '{{operation}} 超时'
 }
 
 export default chat
