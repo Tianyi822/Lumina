@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 
 /** 通知系统确认对话框：带标题、消息和确认/取消按钮，支持危险操作高亮 */
 interface NotificationConfirmDialogProps {
@@ -16,6 +17,8 @@ export default function NotificationConfirmDialog({
   onConfirm,
   onCancel
 }: NotificationConfirmDialogProps) {
+  const { t } = useTranslation()
+
   useEffect(() => {
     function handleKeydown(event: KeyboardEvent): void {
       if (event.key === 'Escape') {
@@ -40,7 +43,7 @@ export default function NotificationConfirmDialog({
         <div className="sm-confirm-surface__message">{message}</div>
         <div className="sm-confirm-surface__actions">
           <button className="sm-confirm-surface__btn" onClick={onCancel}>
-            取消
+            {t('common.cancel')}
           </button>
           <button
             className={['sm-confirm-surface__btn', danger && 'sm-confirm-surface__btn--danger']
@@ -48,7 +51,7 @@ export default function NotificationConfirmDialog({
               .join(' ')}
             onClick={onConfirm}
           >
-            确认
+            {t('common.confirm')}
           </button>
         </div>
       </div>

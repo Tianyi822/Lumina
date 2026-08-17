@@ -21,7 +21,9 @@ const zh = {
     copying: '复制中...',
     connect: '连接',
     connecting: '连接中...',
-    disconnect: '断开'
+    disconnect: '断开',
+    confirm: '确认',
+    confirmAction: '确认操作'
   },
   settings: {
     title: '设置中心',
@@ -333,6 +335,9 @@ const zh = {
       confirmDiscard: '其他同步组中的设备、Manifest、block 引用和会话快照将被永久删除，无法恢复。',
       confirmDiscardTitle: '永久放弃其他同步组'
     }
+  },
+  notifications: {
+    dismiss: '关闭通知'
   }
 }
 

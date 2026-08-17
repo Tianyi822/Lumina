@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { i18n } from '@renderer/i18n'
 import type { NotificationType, NotifyOptions, ConfirmOptions } from '@renderer/types/notification'
 import { useNotificationCenterStore } from '@renderer/stores/notificationCenterStore'
 import {
@@ -43,7 +44,11 @@ export function useNotification(): {
       confirm: (message: string, options?: ConfirmOptions) =>
         useNotificationCenterStore
           .getState()
-          .requestConfirm(message, options?.title ?? '确认操作', options?.danger ?? false),
+          .requestConfirm(
+            message,
+            options?.title ?? i18n.t('common.confirmAction'),
+            options?.danger ?? false
+          ),
       logOnly: notifyLog
     }),
     []

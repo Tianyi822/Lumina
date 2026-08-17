@@ -23,7 +23,9 @@ const en: Resources = {
     copying: 'Copying...',
     connect: 'Connect',
     connecting: 'Connecting...',
-    disconnect: 'Disconnect'
+    disconnect: 'Disconnect',
+    confirm: 'Confirm',
+    confirmAction: 'Confirm Action'
   },
   settings: {
     title: 'Settings',
@@ -353,6 +355,9 @@ const en: Resources = {
         'Devices, Manifests, block references, and session snapshots in other sync groups will be permanently deleted. This cannot be undone.',
       confirmDiscardTitle: 'Permanently Discard Other Sync Groups'
     }
+  },
+  notifications: {
+    dismiss: 'Dismiss notification'
   }
 }
 
