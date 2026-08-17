@@ -3,6 +3,7 @@ import { existsSync } from 'fs'
 import { mkdir, open, readFile, readdir, rename, rm } from 'fs/promises'
 import { join, relative, resolve, sep } from 'path'
 import { logger } from '@main/services/logger'
+import { t } from '@main/services/i18n'
 import { saveWriterDocumentRequestSchema, writerDocumentSchema } from '@shared/schemas/writerSchema'
 import type {
   SaveWriterDocumentRequest,
@@ -168,7 +169,10 @@ export class WriterStorageService {
         const index = await this.initializeCore()
         return { success: true, data: structuredClone(index) }
       } catch (error) {
-        return this.toIoError<WriterIndex>('初始化写作存储失败', error)
+        return this.toIoError<WriterIndex>(
+          'notifications.writer.operations.initializeStorage',
+          error
+        )
       }
     })
   }
@@ -179,7 +183,9 @@ export class WriterStorageService {
         await this.ensureInitialized()
         const normalizedTitle = title?.trim() || DEFAULT_DOCUMENT_TITLE
         if (normalizedTitle.length > 200) {
-          return this.invalidInput<WriterDocument>('文档标题不能超过 200 个字符')
+          return this.invalidInput<WriterDocument>(
+            t('notifications.writer.titleTooLong', { max: 200 })
+          )
         }
 
         const now = new Date().toISOString()
@@ -198,7 +204,10 @@ export class WriterStorageService {
         await this.upsertSummary(document)
         return { success: true, data: structuredClone(document) }
       } catch (error) {
-        return this.toIoError<WriterDocument>('创建写作文档失败', error)
+        return this.toIoError<WriterDocument>(
+          'notifications.writer.operations.createDocument',
+          error
+        )
       }
     })
   }
@@ -209,14 +218,17 @@ export class WriterStorageService {
         await this.ensureInitialized()
         return { success: true, data: structuredClone(this.index) }
       } catch (error) {
-        return this.toIoError<WriterIndex>('读取写作文档索引失败', error)
+        return this.toIoError<WriterIndex>(
+          'notifications.writer.operations.readDocumentIndex',
+          error
+        )
       }
     })
   }
 
   async getDocument(id: string): Promise<WriterResult<WriterDocument>> {
     if (!isValidWriterDocumentId(id)) {
-      return this.invalidInput<WriterDocument>('文档 ID 无效')
+      return this.invalidInput<WriterDocument>(t('notifications.writer.invalidId'))
     }
     return this.enqueueWrite(async () => {
       try {
@@ -232,7 +244,7 @@ export class WriterStorageService {
         await this.writeIndexAtomically(this.index)
         return { success: true, data: structuredClone(result.data) }
       } catch (error) {
-        return this.toIoError<WriterDocument>('读取写作文档失败', error)
+        return this.toIoError<WriterDocument>('notifications.writer.operations.readDocument', error)
       }
     })
   }
@@ -240,7 +252,7 @@ export class WriterStorageService {
   async saveDocument(request: SaveWriterDocumentRequest): Promise<WriterResult<WriterDocument>> {
     const parsedRequest = saveWriterDocumentRequestSchema.safeParse(request)
     if (!parsedRequest.success) {
-      return this.invalidInput<WriterDocument>('保存请求无效')
+      return this.invalidInput<WriterDocument>(t('notifications.writer.invalidSaveRequest'))
     }
     const validRequest = parsedRequest.data
     return this.enqueueWrite(async () => {
@@ -251,7 +263,11 @@ export class WriterStorageService {
           return currentResult
         }
         if (currentResult.data.revision !== validRequest.expectedRevision) {
-          return { success: false, code: 'revision_conflict', error: '文档已被其他保存更新' }
+          return {
+            success: false,
+            code: 'revision_conflict',
+            error: t('notifications.writer.revisionConflict')
+          }
         }
 
         const now = new Date().toISOString()
@@ -266,14 +282,14 @@ export class WriterStorageService {
         await this.upsertSummary(next)
         return { success: true, data: structuredClone(next) }
       } catch (error) {
-        return this.toIoError<WriterDocument>('保存写作文档失败', error)
+        return this.toIoError<WriterDocument>('notifications.writer.operations.saveDocument', error)
       }
     })
   }
 
   async deleteDocument(id: string): Promise<WriterResult<void>> {
     if (!isValidWriterDocumentId(id) || !this.isSafeDocumentDirectory(id)) {
-      return this.invalidInput<void>('文档 ID 无效')
+      return this.invalidInput<void>(t('notifications.writer.invalidId'))
     }
     return this.enqueueWrite(async () => {
       try {
@@ -290,7 +306,7 @@ export class WriterStorageService {
         await this.writeIndexAtomically(this.index)
         return { success: true }
       } catch (error) {
-        return this.toIoError<void>('永久删除写作文档失败', error)
+        return this.toIoError<void>('notifications.writer.operations.deleteDocument', error)
       }
     })
   }
@@ -301,7 +317,7 @@ export class WriterStorageService {
         await this.ensureInitialized()
         const normalizedName = name.trim()
         if (!normalizedName || normalizedName.length > 100) {
-          return this.invalidInput<WriterFolder>('文件夹名称无效')
+          return this.invalidInput<WriterFolder>(t('notifications.writer.invalidFolderName'))
         }
         const now = new Date().toISOString()
         const folder: WriterFolder = {
@@ -315,7 +331,7 @@ export class WriterStorageService {
         await this.writeIndexAtomically(this.index)
         return { success: true, data: structuredClone(folder) }
       } catch (error) {
-        return this.toIoError<WriterFolder>('创建写作文件夹失败', error)
+        return this.toIoError<WriterFolder>('notifications.writer.operations.createFolder', error)
       }
     })
   }
@@ -327,17 +343,21 @@ export class WriterStorageService {
         const normalizedName = name.trim()
         const folder = this.index.folders.find((item) => item.id === id)
         if (!folder) {
-          return { success: false, code: 'not_found', error: '文件夹不存在' }
+          return {
+            success: false,
+            code: 'not_found',
+            error: t('notifications.writer.folderNotFound')
+          }
         }
         if (!normalizedName || normalizedName.length > 100) {
-          return this.invalidInput<WriterFolder>('文件夹名称无效')
+          return this.invalidInput<WriterFolder>(t('notifications.writer.invalidFolderName'))
         }
         folder.name = normalizedName
         folder.updatedAt = new Date().toISOString()
         await this.writeIndexAtomically(this.index)
         return { success: true, data: structuredClone(folder) }
       } catch (error) {
-        return this.toIoError<WriterFolder>('重命名写作文件夹失败', error)
+        return this.toIoError<WriterFolder>('notifications.writer.operations.renameFolder', error)
       }
     })
   }
@@ -347,7 +367,11 @@ export class WriterStorageService {
       try {
         await this.ensureInitialized()
         if (!this.index.folders.some((folder) => folder.id === id)) {
-          return { success: false, code: 'not_found', error: '文件夹不存在' }
+          return {
+            success: false,
+            code: 'not_found',
+            error: t('notifications.writer.folderNotFound')
+          }
         }
         const documents = await this.readAllDocuments()
         for (const document of documents) {
@@ -360,20 +384,24 @@ export class WriterStorageService {
         await this.writeIndexAtomically(this.index)
         return { success: true }
       } catch (error) {
-        return this.toIoError<void>('删除写作文件夹失败', error)
+        return this.toIoError<void>('notifications.writer.operations.deleteFolder', error)
       }
     })
   }
 
   async moveDocument(id: string, folderId?: string): Promise<WriterResult<WriterDocument>> {
     if (!isValidWriterDocumentId(id)) {
-      return this.invalidInput<WriterDocument>('文档 ID 无效')
+      return this.invalidInput<WriterDocument>(t('notifications.writer.invalidId'))
     }
     return this.enqueueWrite(async () => {
       try {
         await this.ensureInitialized()
         if (folderId && !this.index.folders.some((folder) => folder.id === folderId)) {
-          return { success: false, code: 'not_found', error: '文件夹不存在' }
+          return {
+            success: false,
+            code: 'not_found',
+            error: t('notifications.writer.folderNotFound')
+          }
         }
         const result = await this.readDocument(id)
         if (!result.success || !result.data) {
@@ -382,14 +410,14 @@ export class WriterStorageService {
         const next = await this.updateStoredDocument(result.data, { folderId })
         return { success: true, data: structuredClone(next) }
       } catch (error) {
-        return this.toIoError<WriterDocument>('移动写作文档失败', error)
+        return this.toIoError<WriterDocument>('notifications.writer.operations.moveDocument', error)
       }
     })
   }
 
   async setFavorite(id: string, favorite: boolean): Promise<WriterResult<WriterDocument>> {
     if (!isValidWriterDocumentId(id) || typeof favorite !== 'boolean') {
-      return this.invalidInput<WriterDocument>('收藏请求无效')
+      return this.invalidInput<WriterDocument>(t('notifications.writer.invalidFavorite'))
     }
     return this.enqueueWrite(async () => {
       try {
@@ -401,7 +429,10 @@ export class WriterStorageService {
         const next = await this.updateStoredDocument(result.data, { favorite })
         return { success: true, data: structuredClone(next) }
       } catch (error) {
-        return this.toIoError<WriterDocument>('更新写作文档收藏状态失败', error)
+        return this.toIoError<WriterDocument>(
+          'notifications.writer.operations.updateFavorite',
+          error
+        )
       }
     })
   }
@@ -426,7 +457,7 @@ export class WriterStorageService {
         return {
           success: false,
           code: 'revision_conflict',
-          error: '本地 revision 更新，跳过远端下行'
+          error: t('notifications.writer.localRevisionNewer')
         }
       }
       await this.writeDocumentAtomically(doc)
@@ -439,7 +470,7 @@ export class WriterStorageService {
   applySyncedDeletedDocument(documentId: string): Promise<WriterResult<true>> {
     return this.enqueueWrite(async () => {
       if (!isValidWriterDocumentId(documentId) || !this.isSafeDocumentDirectory(documentId)) {
-        return this.invalidInput<true>('文档 ID 无效')
+        return this.invalidInput<true>(t('notifications.writer.invalidId'))
       }
       try {
         await rm(getWriterDocumentDir(documentId, this.rootPath), { recursive: true, force: true })
@@ -532,21 +563,36 @@ export class WriterStorageService {
 
   private async readDocument(id: string): Promise<WriterResult<WriterDocument>> {
     if (!isValidWriterDocumentId(id) || !this.isSafeDocumentDirectory(id)) {
-      return this.invalidInput<WriterDocument>('文档 ID 无效')
+      return this.invalidInput<WriterDocument>(t('notifications.writer.invalidId'))
     }
     try {
       const content = await readFile(getWriterDocumentPath(id, this.rootPath), 'utf-8')
       const migration = migrateWriterDocument(JSON.parse(content) as unknown)
       if (!migration) {
-        return { success: false, code: 'io_error', error: '文档数据无效' }
+        return {
+          success: false,
+          code: 'io_error',
+          error: t('notifications.writer.invalidDocumentData')
+        }
       }
       if (migration.document.id !== id) {
-        return { success: false, code: 'io_error', error: '文档数据与目录不匹配' }
+        return {
+          success: false,
+          code: 'io_error',
+          error: t('notifications.writer.documentDirectoryMismatch')
+        }
       }
       return { success: true, data: migration.document }
     } catch (error) {
       const code = this.isNotFoundError(error) ? 'not_found' : 'io_error'
-      return { success: false, code, error: code === 'not_found' ? '文档不存在' : '读取文档失败' }
+      return {
+        success: false,
+        code,
+        error:
+          code === 'not_found'
+            ? t('notifications.writer.documentNotFound')
+            : t('notifications.writer.readDocumentFailed')
+      }
     }
   }
 
@@ -672,8 +718,9 @@ export class WriterStorageService {
     return { success: false, code: 'invalid_input', error }
   }
 
-  private toIoError<T>(message: string, error: unknown): WriterResult<T> {
+  private toIoError<T>(operationKey: string, error: unknown): WriterResult<T> {
     const detail = error instanceof Error ? error.message : String(error)
+    const message = t('notifications.writer.operationFailed', { operation: t(operationKey) })
     logger.error(message, 'main', { error: detail, rootPath: this.rootPath })
     return { success: false, code: 'io_error', error: message }
   }
