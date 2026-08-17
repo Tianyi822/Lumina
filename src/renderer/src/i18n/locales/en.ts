@@ -560,6 +560,47 @@ const en: Resources = {
         ocrSaved: 'OCR configuration saved',
         translationSaved: 'Translation model configuration saved'
       }
+    },
+    sync: {
+      title: 'Data Sync',
+      connectRelayFallback: 'Unable to reach the Relay service',
+      relayOk: 'Relay service connection is healthy',
+      connectFallback: 'Failed to connect the sync service',
+      loginSuccess: 'Device signed in',
+      registerSuccess: 'Account registered and connected',
+      insecureStorageWarning:
+        'System secure storage is unavailable; this identity expires when the app quits',
+      disconnected: 'Disconnected and local sync identity cleared',
+      disconnectFallback: 'Failed to disconnect sync',
+      renewFallback: 'Failed to extend the session',
+      renewed: 'Session extended',
+      generateCodeFallback: 'Failed to generate the sync code',
+      redeemCodeFallback: 'Failed to redeem the sync code',
+      alreadyInGroup: 'Device is already in the same sync group',
+      mergeSuccess: 'Sync groups merged',
+      listDevicesFallback: 'Failed to load the device list',
+      revokeFallback: 'Failed to revoke the device',
+      revoked: 'Device revoked',
+      alreadyRevoked: 'Device is already revoked',
+      discardFallback: 'Failed to discard other sync groups',
+      discarded: 'Other sync groups discarded; {{count}} devices revoked',
+      reconcileDone: 'Reconciliation complete',
+      reconcileFallback: 'Reconciliation failed',
+      sessionSyncFallback: 'Session sync failed',
+      configSyncFallback: 'Config sync failed',
+      writerSyncFallback: 'Writing sync failed',
+      knowledgeSyncFallback: 'Knowledge base sync failed',
+      paperSyncFallback: 'Paper sync failed',
+      allDomainsDone: 'All domains synced',
+      domainsFailed: 'Sync finished with {{count}} domain(s) failed; see each module status',
+      deviceRevokedWarning: 'This device has been revoked. Sign in again',
+      invalidCredentials: 'Incorrect username or password',
+      invalidSyncCode: 'Sync code is invalid, expired, or belongs to another account',
+      rateLimited: 'Too many requests. Please try again later',
+      deviceRevoked: 'This device has been revoked. Please sign in again',
+      relayNotInitialized: 'Relay service is not initialized yet',
+      quotaExceeded: 'Account storage quota exceeded. Clean up remote data or contact your admin',
+      bodyTooLarge: 'File too large; exceeds the per-file sync limit'
     }
   }
 }

@@ -3,8 +3,13 @@ import test, { mock } from 'node:test'
 
 import type { SyncApi } from '../../../preload/types/sync'
 import type { SyncStatus } from '@shared/types/sync'
+import { initI18n } from '@renderer/i18n'
 import { useNotificationCenterStore } from './notificationCenterStore'
 import { useSyncStore } from './syncStore'
+
+// i18next 未初始化时 t() 返回 undefined，通知标题为 undefined 会让通知日志桥接崩溃；
+// 初始化后缺失的 key 原样返回 key 字符串，通知路径可安全走通
+await initI18n()
 
 const DEVICE_ID = '22222222-2222-4222-8222-222222222222'
 const GROUP_ID = '33333333-3333-4333-8333-333333333333'
