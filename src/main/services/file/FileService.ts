@@ -241,7 +241,11 @@ function buildPaperNotesContent(paper: PaperDocument, annotations: PaperAnnotati
  */
 function buildPaperNotesSummary(paper: PaperDocument, annotations: PaperAnnotation[]): string {
   const latestUpdatedAt = getLatestTimestamp(annotations.map((annotation) => annotation.updatedAt))
-  return `${paper.fileName} · ${annotations.length} 条笔记 · 最近更新 ${latestUpdatedAt}`
+  return t('notifications.file.paperNotesSummary', {
+    fileName: paper.fileName,
+    count: annotations.length,
+    latestUpdatedAt
+  })
 }
 
 /**
@@ -646,7 +650,7 @@ export class FileService {
           paperId: paper.id,
           paperName: paper.fileName,
           displayName: '论文',
-          summary: `论文：${paper.fileName}`,
+          summary: t('knowledge.fileSource.paperWithName', { name: paper.fileName }),
           allowExternalOpen: true,
           allowDelete: false,
           updatedAt: paper.updatedAt
@@ -865,7 +869,7 @@ export class FileService {
       )
       const noteFile: FileItem = {
         id: fileId,
-        name: `${paper.fileName} - 论文笔记.md`,
+        name: t('notifications.file.paperNotesFileName', { fileName: paper.fileName }),
         filePath: `paper://${paper.id}/notes.md`,
         absolutePath: '',
         fileType: 'md',

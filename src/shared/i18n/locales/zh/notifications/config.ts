@@ -11,7 +11,10 @@ const config = {
   validateApiKeyRequired: 'API Key 不能为空',
   validateModelNameRequired: '模型名称不能为空',
   noActiveConfig: '无法更新：当前没有有效配置',
-  initUnexpectedErrorPrefix: '配置初始化时发生意外错误: '
+  initUnexpectedErrorPrefix: '配置初始化时发生意外错误: ',
+  createFileFailed: '无法创建配置文件: {{detail}}',
+  loadFailed: '配置加载失败: {{detail}}',
+  saveFailed: '配置保存失败: {{detail}}'
 }
 
 export default config

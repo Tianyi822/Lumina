@@ -242,9 +242,10 @@ export class ConfigManager {
             config: emptyConfig
           }
         } catch (createError) {
-          const errorMessage = `无法创建配置文件: ${createError instanceof Error ? createError.message : String(createError)}`
-          logger.error(errorMessage)
+          const detail = createError instanceof Error ? createError.message : String(createError)
+          logger.error(`无法创建配置文件: ${detail}`)
           this.loaded = true
+          const errorMessage = t('notifications.config.createFileFailed', { detail })
           this.loadError = errorMessage
           return {
             success: false,
@@ -270,9 +271,10 @@ export class ConfigManager {
         config
       }
     } catch (error) {
-      const errorMessage = `配置加载失败: ${error instanceof Error ? error.message : String(error)}`
-      logger.error(errorMessage)
+      const detail = error instanceof Error ? error.message : String(error)
+      logger.error(`配置加载失败: ${detail}`)
       this.loaded = true
+      const errorMessage = t('notifications.config.loadFailed', { detail })
       this.loadError = errorMessage
       return {
         success: false,
@@ -294,9 +296,9 @@ export class ConfigManager {
       logger.info('配置保存成功')
       return { success: true }
     } catch (error) {
-      const errorMessage = `配置保存失败: ${error instanceof Error ? error.message : String(error)}`
-      logger.error(errorMessage)
-      return { success: false, error: errorMessage }
+      const detail = error instanceof Error ? error.message : String(error)
+      logger.error(`配置保存失败: ${detail}`)
+      return { success: false, error: t('notifications.config.saveFailed', { detail }) }
     }
   }
 

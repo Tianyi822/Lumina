@@ -13,7 +13,10 @@ const config: Resources['notifications']['config'] = {
   validateApiKeyRequired: 'API Key cannot be empty',
   validateModelNameRequired: 'Model name cannot be empty',
   noActiveConfig: 'Cannot update: no valid configuration available',
-  initUnexpectedErrorPrefix: 'Unexpected error during configuration initialization: '
+  initUnexpectedErrorPrefix: 'Unexpected error during configuration initialization: ',
+  createFileFailed: 'Cannot create the configuration file: {{detail}}',
+  loadFailed: 'Failed to load configuration: {{detail}}',
+  saveFailed: 'Failed to save configuration: {{detail}}'
 }
 
 export default config

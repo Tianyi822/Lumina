@@ -192,9 +192,12 @@ export class MCPConfigManager {
 
       return result
     } catch (error) {
-      const errorMessage = `保存 MCP 配置失败: ${error instanceof Error ? error.message : String(error)}`
-      logger.error(errorMessage)
-      return { success: false, error: errorMessage }
+      const detail = error instanceof Error ? error.message : String(error)
+      logger.error(`保存 MCP 配置失败: ${detail}`)
+      return {
+        success: false,
+        error: t('notifications.settings.mcp.saveConfigFailed', { detail })
+      }
     }
   }
 
@@ -241,9 +244,12 @@ export class MCPConfigManager {
 
       return result
     } catch (error) {
-      const errorMessage = `批量保存 MCP 配置失败: ${error instanceof Error ? error.message : String(error)}`
-      logger.error(errorMessage)
-      return { success: false, error: errorMessage }
+      const detail = error instanceof Error ? error.message : String(error)
+      logger.error(`批量保存 MCP 配置失败: ${detail}`)
+      return {
+        success: false,
+        error: t('notifications.settings.mcp.batchSaveConfigFailed', { detail })
+      }
     }
   }
 
@@ -281,9 +287,12 @@ export class MCPConfigManager {
 
       return result
     } catch (error) {
-      const errorMessage = `删除 MCP 配置失败: ${error instanceof Error ? error.message : String(error)}`
-      logger.error(errorMessage)
-      return { success: false, error: errorMessage }
+      const detail = error instanceof Error ? error.message : String(error)
+      logger.error(`删除 MCP 配置失败: ${detail}`)
+      return {
+        success: false,
+        error: t('notifications.settings.mcp.deleteConfigFailed', { detail })
+      }
     }
   }
 
@@ -356,12 +365,12 @@ export class MCPConfigManager {
       logger.info(`MCP 配置导入完成: 成功 ${result.imported} 个, 失败 ${result.errors.length} 个`)
       return result
     } catch (error) {
-      const errorMessage = `解析 JSON 失败: ${error instanceof Error ? error.message : String(error)}`
-      logger.error(errorMessage)
+      const detail = error instanceof Error ? error.message : String(error)
+      logger.error(`解析 JSON 失败: ${detail}`)
       return {
         success: false,
         imported: 0,
-        errors: [errorMessage]
+        errors: [t('notifications.settings.mcp.parseJsonFailed', { detail })]
       }
     }
   }

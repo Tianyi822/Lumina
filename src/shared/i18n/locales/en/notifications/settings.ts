@@ -62,7 +62,11 @@ const settings: Resources['notifications']['settings'] = {
     validateConfigNameRequired: 'Configuration name cannot be empty',
     validateImportContentRequired: 'Import content cannot be empty',
     importFormatInvalid: 'Invalid configuration format: missing mcpServers field',
-    importBatchSaveFailedPrefix: 'Batch save failed: '
+    importBatchSaveFailedPrefix: 'Batch save failed: ',
+    saveConfigFailed: 'Failed to save the MCP configuration: {{detail}}',
+    batchSaveConfigFailed: 'Failed to batch save MCP configurations: {{detail}}',
+    deleteConfigFailed: 'Failed to delete the MCP configuration: {{detail}}',
+    parseJsonFailed: 'Failed to parse JSON: {{detail}}'
   },
   knowledgeMcp: {
     title: 'Knowledge base MCP',

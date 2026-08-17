@@ -45,7 +45,12 @@ const file: Resources['notifications']['file'] = {
   openFailed: 'Failed to open the file: {{error}}',
   notInMetadata: 'File {{fileId}} is not in the metadata',
   onlyUploadedWritable: 'Only uploaded files can receive content',
-  pathOutsideStorage: 'Invalid file path (outside the storage directory): {{path}}'
+  pathOutsideStorage: 'Invalid file path (outside the storage directory): {{path}}',
+  fileTypeDocument: 'Documents',
+  fileTypeAll: 'All files',
+  paperNotesSummary_one: '{{fileName}} · {{count}} note · Last updated {{latestUpdatedAt}}',
+  paperNotesSummary_other: '{{fileName}} · {{count}} notes · Last updated {{latestUpdatedAt}}',
+  paperNotesFileName: '{{fileName}} - Paper notes.md'
 }
 
 export default file

@@ -41,9 +41,9 @@ export class SessionService {
       this.initialized = true
       logger.info('会话服务初始化成功')
     } catch (error) {
-      const errorMessage = `会话服务初始化失败: ${error instanceof Error ? error.message : String(error)}`
-      logger.error(errorMessage)
-      throw new Error(errorMessage)
+      const detail = error instanceof Error ? error.message : String(error)
+      logger.error(`会话服务初始化失败: ${detail}`)
+      throw new Error(t('notifications.session.initFailed', { detail }))
     }
   }
 
@@ -75,9 +75,9 @@ export class SessionService {
       await this.storage.rewriteSession(normalized)
       return { success: true }
     } catch (error) {
-      const errorMessage = `会话保存失败: ${error instanceof Error ? error.message : String(error)}`
-      logger.error(errorMessage)
-      return { success: false, error: errorMessage }
+      const detail = error instanceof Error ? error.message : String(error)
+      logger.error(`会话保存失败: ${detail}`)
+      return { success: false, error: t('notifications.session.saveFailed', { detail }) }
     }
   }
 
@@ -92,9 +92,9 @@ export class SessionService {
         ? { success: true }
         : { success: false, error: t('notifications.session.sessionNotFound') }
     } catch (error) {
-      const errorMessage = `追加消息失败: ${error instanceof Error ? error.message : String(error)}`
-      logger.error(errorMessage)
-      return { success: false, error: errorMessage }
+      const detail = error instanceof Error ? error.message : String(error)
+      logger.error(`追加消息失败: ${detail}`)
+      return { success: false, error: t('notifications.session.appendMessagesFailed', { detail }) }
     }
   }
 
@@ -111,9 +111,9 @@ export class SessionService {
         ? { success: true }
         : { success: false, error: t('notifications.session.sessionNotFound') }
     } catch (error) {
-      const errorMessage = `更新会话元数据失败: ${error instanceof Error ? error.message : String(error)}`
-      logger.error(errorMessage)
-      return { success: false, error: errorMessage }
+      const detail = error instanceof Error ? error.message : String(error)
+      logger.error(`更新会话元数据失败: ${detail}`)
+      return { success: false, error: t('notifications.session.updateMetaFailed', { detail }) }
     }
   }
 
@@ -142,9 +142,9 @@ export class SessionService {
         ? { success: true }
         : { success: false, error: t('notifications.session.sessionNotFound') }
     } catch (error) {
-      const errorMessage = `会话删除失败: ${error instanceof Error ? error.message : String(error)}`
-      logger.error(errorMessage)
-      return { success: false, error: errorMessage }
+      const detail = error instanceof Error ? error.message : String(error)
+      logger.error(`会话删除失败: ${detail}`)
+      return { success: false, error: t('notifications.session.deleteFailed', { detail }) }
     }
   }
 

@@ -60,7 +60,11 @@ const settings = {
     validateConfigNameRequired: '配置名称不能为空',
     validateImportContentRequired: '导入内容不能为空',
     importFormatInvalid: '无效的配置格式：缺少 mcpServers 字段',
-    importBatchSaveFailedPrefix: '批量保存失败: '
+    importBatchSaveFailedPrefix: '批量保存失败: ',
+    saveConfigFailed: '保存 MCP 配置失败: {{detail}}',
+    batchSaveConfigFailed: '批量保存 MCP 配置失败: {{detail}}',
+    deleteConfigFailed: '删除 MCP 配置失败: {{detail}}',
+    parseJsonFailed: '解析 JSON 失败: {{detail}}'
   },
   knowledgeMcp: {
     title: '知识库 MCP',

@@ -40,7 +40,12 @@ const file = {
   openFailed: '打开文件失败: {{error}}',
   notInMetadata: '文件 {{fileId}} 不在元数据中',
   onlyUploadedWritable: '仅 uploaded 类型可写入内容',
-  pathOutsideStorage: '非法文件路径（越出存储目录）：{{path}}'
+  pathOutsideStorage: '非法文件路径（越出存储目录）：{{path}}',
+  fileTypeDocument: '文档',
+  fileTypeAll: '所有文件',
+  paperNotesSummary_one: '{{fileName}} · {{count}} 条笔记 · 最近更新 {{latestUpdatedAt}}',
+  paperNotesSummary_other: '{{fileName}} · {{count}} 条笔记 · 最近更新 {{latestUpdatedAt}}',
+  paperNotesFileName: '{{fileName}} - 论文笔记.md'
 }
 
 export default file

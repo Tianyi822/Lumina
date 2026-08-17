@@ -224,8 +224,11 @@ export function registerFileHandlers(): void {
       const result = await dialog.showOpenDialog({
         properties: ['openFile', 'multiSelections'],
         filters: [
-          { name: '文档', extensions: ['pdf', 'doc', 'docx', 'txt', 'md', 'json', 'csv'] },
-          { name: '所有文件', extensions: ['*'] }
+          {
+            name: t('notifications.file.fileTypeDocument'),
+            extensions: ['pdf', 'doc', 'docx', 'txt', 'md', 'json', 'csv']
+          },
+          { name: t('notifications.file.fileTypeAll'), extensions: ['*'] }
         ]
       })
       if (result.canceled || result.filePaths.length === 0) {
