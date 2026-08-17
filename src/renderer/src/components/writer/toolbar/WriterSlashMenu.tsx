@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { CSSProperties, MouseEvent } from 'react'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import type { Editor } from '@tiptap/core'
 import {
   closeWriterSlashMenuGate,
@@ -31,96 +33,99 @@ interface SlashMenuItem {
   run: (editor: Editor) => void
 }
 
-const SLASH_MENU_ITEMS: SlashMenuItem[] = [
-  {
-    id: 'paragraph',
-    label: '正文',
-    keywords: 'paragraph text',
-    run: (editor) => {
-      editor.chain().focus().setParagraph().run()
+/** slash 菜单项随界面语言重取，故由函数构建而非模块级常量 */
+function buildSlashMenuItems(t: TFunction): SlashMenuItem[] {
+  return [
+    {
+      id: 'paragraph',
+      label: t('writer.slashMenu.paragraph'),
+      keywords: 'paragraph text',
+      run: (editor) => {
+        editor.chain().focus().setParagraph().run()
+      }
+    },
+    ...([1, 2, 3, 4, 5, 6] as const).map((level) => ({
+      id: `heading-${level}`,
+      label: t('writer.slashMenu.heading', { level }),
+      keywords: `heading h${level} 标题`,
+      run: (editor: Editor) => {
+        editor.chain().focus().setHeading({ level }).run()
+      }
+    })),
+    {
+      id: 'bullet-list',
+      label: t('writer.slashMenu.bulletList'),
+      keywords: 'bullet list',
+      run: (editor) => {
+        editor.chain().focus().toggleBulletList().run()
+      }
+    },
+    {
+      id: 'ordered-list',
+      label: t('writer.slashMenu.orderedList'),
+      keywords: 'ordered number list',
+      run: (editor) => {
+        editor.chain().focus().toggleOrderedList().run()
+      }
+    },
+    {
+      id: 'task-list',
+      label: t('writer.slashMenu.taskList'),
+      keywords: 'task todo checklist',
+      run: (editor) => {
+        editor.chain().focus().toggleTaskList().run()
+      }
+    },
+    {
+      id: 'blockquote',
+      label: t('writer.slashMenu.quote'),
+      keywords: 'quote blockquote',
+      run: (editor) => {
+        editor.chain().focus().toggleBlockquote().run()
+      }
+    },
+    {
+      id: 'code-block',
+      label: t('writer.slashMenu.codeBlock'),
+      keywords: 'code fence',
+      run: (editor) => {
+        editor.chain().focus().setCodeBlock().run()
+      }
+    },
+    {
+      id: 'block-math',
+      label: t('writer.slashMenu.mathBlock'),
+      keywords: 'math latex formula 公式',
+      run: (editor) => {
+        editor.chain().focus().insertBlockMath({ latex: 'x' }).run()
+      }
+    },
+    {
+      id: 'horizontal-rule',
+      label: t('writer.slashMenu.divider'),
+      keywords: 'divider horizontal rule',
+      run: (editor) => {
+        editor.chain().focus().setHorizontalRule().run()
+      }
+    },
+    {
+      id: 'table',
+      label: t('writer.slashMenu.table'),
+      keywords: 'table',
+      run: (editor) => {
+        editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()
+      }
+    },
+    {
+      id: 'footnote',
+      label: t('writer.slashMenu.footnote'),
+      keywords: 'footnote note 脚注 注释',
+      run: (editor) => {
+        editor.chain().focus().insertFootnote().run()
+      }
     }
-  },
-  ...([1, 2, 3, 4, 5, 6] as const).map((level) => ({
-    id: `heading-${level}`,
-    label: `${level} 级标题`,
-    keywords: `heading h${level} 标题`,
-    run: (editor: Editor) => {
-      editor.chain().focus().setHeading({ level }).run()
-    }
-  })),
-  {
-    id: 'bullet-list',
-    label: '无序列表',
-    keywords: 'bullet list',
-    run: (editor) => {
-      editor.chain().focus().toggleBulletList().run()
-    }
-  },
-  {
-    id: 'ordered-list',
-    label: '有序列表',
-    keywords: 'ordered number list',
-    run: (editor) => {
-      editor.chain().focus().toggleOrderedList().run()
-    }
-  },
-  {
-    id: 'task-list',
-    label: '任务列表',
-    keywords: 'task todo checklist',
-    run: (editor) => {
-      editor.chain().focus().toggleTaskList().run()
-    }
-  },
-  {
-    id: 'blockquote',
-    label: '引用',
-    keywords: 'quote blockquote',
-    run: (editor) => {
-      editor.chain().focus().toggleBlockquote().run()
-    }
-  },
-  {
-    id: 'code-block',
-    label: '代码块',
-    keywords: 'code fence',
-    run: (editor) => {
-      editor.chain().focus().setCodeBlock().run()
-    }
-  },
-  {
-    id: 'block-math',
-    label: '块级公式',
-    keywords: 'math latex formula 公式',
-    run: (editor) => {
-      editor.chain().focus().insertBlockMath({ latex: 'x' }).run()
-    }
-  },
-  {
-    id: 'horizontal-rule',
-    label: '分隔线',
-    keywords: 'divider horizontal rule',
-    run: (editor) => {
-      editor.chain().focus().setHorizontalRule().run()
-    }
-  },
-  {
-    id: 'table',
-    label: '表格',
-    keywords: 'table',
-    run: (editor) => {
-      editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()
-    }
-  },
-  {
-    id: 'footnote',
-    label: '脚注',
-    keywords: 'footnote note 脚注 注释',
-    run: (editor) => {
-      editor.chain().focus().insertFootnote().run()
-    }
-  }
-]
+  ]
+}
 
 function readSlashMenuState(editor: Editor): SlashMenuState | null {
   const { selection } = editor.state
@@ -147,6 +152,7 @@ function readSlashMenuState(editor: Editor): SlashMenuState | null {
 }
 
 export default function WriterSlashMenu({ editor, onSelectImage }: WriterSlashMenuProps) {
+  const { t } = useTranslation()
   const [menuState, setMenuState] = useState<SlashMenuState | null>(null)
   const [selectedIndex, setSelectedIndex] = useState(0)
   const menuStateRef = useRef<SlashMenuState | null>(null)
@@ -154,10 +160,10 @@ export default function WriterSlashMenu({ editor, onSelectImage }: WriterSlashMe
   const gateRef = useRef<WriterSlashMenuGate>({ suppressed: false })
 
   const availableItems: SlashMenuItem[] = [
-    ...SLASH_MENU_ITEMS,
+    ...buildSlashMenuItems(t),
     {
       id: 'image',
-      label: '图片',
+      label: t('writer.slashMenu.image'),
       keywords: 'image figure 图片',
       run: onSelectImage
     }
@@ -247,7 +253,7 @@ export default function WriterSlashMenu({ editor, onSelectImage }: WriterSlashMe
       className={styles.slashMenu}
       style={position}
       role="listbox"
-      aria-label="插入内容"
+      aria-label={t('writer.slashMenu.ariaLabel')}
       aria-activedescendant={
         items[selectedIndex] ? `writer-slash-${items[selectedIndex].id}` : undefined
       }
@@ -275,7 +281,7 @@ export default function WriterSlashMenu({ editor, onSelectImage }: WriterSlashMe
           </button>
         ))
       ) : (
-        <div className={styles.emptyState}>没有匹配的块</div>
+        <div className={styles.emptyState}>{t('writer.slashMenu.empty')}</div>
       )}
     </div>
   )
