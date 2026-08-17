@@ -103,13 +103,15 @@ export default function SyncSettings() {
     lastError: string | null
   }
 
-  /** 五个同步模块的展示配置（驱动统一渲染） */
+  /** 五个同步模块的展示配置（驱动统一渲染，id 为稳定 React key，name 随语言变化） */
   const SYNC_MODULES: Array<{
+    id: string
     name: string
     state: SyncStateView
     resultFormat: (r: unknown) => string
   }> = [
     {
+      id: 'session',
       name: t('settings.sync.moduleSession'),
       state: sessionSync,
       resultFormat: (r) => {
@@ -124,6 +126,7 @@ export default function SyncSettings() {
       }
     },
     {
+      id: 'config',
       name: t('settings.sync.moduleConfig'),
       state: configSync,
       resultFormat: (r) => {
@@ -137,6 +140,7 @@ export default function SyncSettings() {
       }
     },
     {
+      id: 'writer',
       name: t('settings.sync.moduleWriter'),
       state: writerSync,
       resultFormat: (r) => {
@@ -150,6 +154,7 @@ export default function SyncSettings() {
       }
     },
     {
+      id: 'knowledge',
       name: t('settings.sync.moduleKnowledge'),
       state: knowledgeSync,
       resultFormat: (r) => {
@@ -164,6 +169,7 @@ export default function SyncSettings() {
       }
     },
     {
+      id: 'paper',
       name: t('settings.sync.modulePaper'),
       state: paperSync,
       resultFormat: (r) => {
@@ -618,7 +624,7 @@ export default function SyncSettings() {
                 const isError = state.phase === 'error'
                 const isRunning = state.phase === 'running'
                 return (
-                  <div key={mod.name} className={styles['sync-settings__module-row']}>
+                  <div key={mod.id} className={styles['sync-settings__module-row']}>
                     <div className={styles['sync-settings__module-info']}>
                       <span className={styles['sync-settings__module-name']}>
                         <span

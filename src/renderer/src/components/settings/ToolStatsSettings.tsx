@@ -1,12 +1,13 @@
 import { useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
+import { getDateLocale } from '@renderer/i18n'
 import { useToolStats } from './hooks/useToolStats'
 import type { TimeRangeKey, CategoryFilter } from './hooks/useToolStats'
 import styles from './ToolStatsSettings.module.css'
 
-/** 格式化数字为中文千分位字符串 */
+/** 格式化数字为当前语言 locale 的千分位字符串 */
 function formatNumber(n: number): string {
-  return n.toLocaleString('zh-CN')
+  return n.toLocaleString(getDateLocale())
 }
 
 /** 格式化毫秒为可读时长（ms 或 s） */
@@ -20,7 +21,7 @@ function formatDuration(ms: number | undefined): string {
 function formatTime(date: Date | undefined): string {
   if (!date) return '-'
   const d = new Date(date)
-  return d.toLocaleString('zh-CN', {
+  return d.toLocaleString(getDateLocale(), {
     month: '2-digit',
     day: '2-digit',
     hour: '2-digit',

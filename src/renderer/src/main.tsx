@@ -15,8 +15,14 @@ async function bootstrap(): Promise<void> {
   await loadPlatformStyles()
   // Pinia 已完全迁移为 Zustand，不再需要 setActivePinia
 
-  // i18n 资源同步内嵌，await 保证首帧即为正确语言
-  await initI18n()
+  // i18n 资源同步内嵌，await 保证首帧即为正确语言；失败时按默认中文继续渲染
+  try {
+    await initI18n()
+  } catch (error) {
+    window.api.logger?.error('[main] i18n 初始化失败，按默认中文继续', {
+      error: error instanceof Error ? error.message : String(error)
+    })
+  }
 
   const rootEl = document.getElementById('root')
   if (!rootEl) {

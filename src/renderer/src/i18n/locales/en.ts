@@ -115,7 +115,9 @@ const en: Resources = {
       title: 'MCP Servers',
       description: 'Manage tool service connections, transports, and JSON config import.',
       listTitle: 'Server List',
-      listDescription: '{{count}} MCP server configurations. Test, connect, or edit each one.',
+      listDescription_one: '{{count}} MCP server configuration. Test, connect, or edit it.',
+      listDescription_other:
+        '{{count}} MCP server configurations. Test, connect, or edit each one.',
       empty: 'No MCP servers configured',
       addServer: 'Add MCP Server',
       importJson: 'Import JSON Config',
@@ -134,7 +136,8 @@ const en: Resources = {
       envVars: 'Environment Variables (KEY=VALUE, one per line)',
       serviceUrl: 'Server URL',
       authHeaders: 'Auth Headers (KEY=VALUE, one per line)',
-      availableTools: 'Available Tools ({{count}})',
+      availableTools_one: 'Available Tool ({{count}})',
+      availableTools_other: 'Available Tools ({{count}})',
       noTools: 'No tools available',
       serverName: 'Server Name',
       serverNamePlaceholder: 'E.g. filesystem, github',
@@ -224,7 +227,8 @@ const en: Resources = {
       errorCount: 'Errors',
       lastCalled: 'Last Called',
       topErrors: 'Top Errors:',
-      errorTimes: '{{count}} times'
+      errorTimes_one: '{{count}} time',
+      errorTimes_other: '{{count}} times'
     },
     update: {
       currentVersion: 'Current Version',

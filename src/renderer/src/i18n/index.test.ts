@@ -184,6 +184,28 @@ test('reconcileLanguageFromConfig：相同/缺失/非法值均不改变当前语
   assert.equal(i18n.language, 'zh')
 })
 
+test('reconcileLanguageFromConfig：等待期间用户切换语言则放弃对账', async () => {
+  const stub = installGlobals()
+  await initI18n()
+  // getConfig 改为手动闸门，保证用户切换先于 config 返回（ref 对象绕开 TS 对闭包赋值的窄化）
+  const resolveConfigRef: { current: ((value: { language: string }) => void) | null } = {
+    current: null
+  }
+  const windowApi = (globalThis as { window: { api: { config: { getConfig: unknown } } } }).window
+  windowApi.api.config.getConfig = () =>
+    new Promise<{ language: string }>((resolve) => {
+      resolveConfigRef.current = resolve
+    })
+
+  const reconcilePromise = reconcileLanguageFromConfig()
+  await changeAppLanguage('en')
+  resolveConfigRef.current?.({ language: 'zh' })
+  await reconcilePromise
+
+  assert.equal(i18n.language, 'en')
+  assert.equal(stub.stored.getItem(LANGUAGE_STORAGE_KEY), 'en')
+})
+
 test('getDateLocale 随当前语言返回 locale 标识', async () => {
   installGlobals()
   await initI18n()

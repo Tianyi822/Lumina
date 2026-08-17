@@ -108,7 +108,8 @@ const zh = {
       title: 'MCP 服务配置',
       description: '管理工具服务的连接、传输方式和导入配置，保持与聊天工作区同一套工程控制台语言。',
       listTitle: '服务清单',
-      listDescription: '当前共 {{count}} 个 MCP 服务配置，可逐项测试、连接或编辑。',
+      listDescription_one: '当前共 {{count}} 个 MCP 服务配置，可逐项测试、连接或编辑。',
+      listDescription_other: '当前共 {{count}} 个 MCP 服务配置，可逐项测试、连接或编辑。',
       empty: '暂无 MCP 服务配置',
       addServer: '添加 MCP 服务器',
       importJson: '导入 JSON 配置',
@@ -127,7 +128,8 @@ const zh = {
       envVars: '环境变量 (KEY=VALUE 格式，每行一个)',
       serviceUrl: '服务地址',
       authHeaders: '认证头 (KEY=VALUE 格式，每行一个)',
-      availableTools: '可用工具 ({{count}})',
+      availableTools_one: '可用工具 ({{count}})',
+      availableTools_other: '可用工具 ({{count}})',
       noTools: '暂无可用工具',
       serverName: '服务器名称',
       serverNamePlaceholder: '例如: filesystem, github',
@@ -213,7 +215,8 @@ const zh = {
       errorCount: '错误次数',
       lastCalled: '最后调用',
       topErrors: '高频错误：',
-      errorTimes: '{{count}}次'
+      errorTimes_one: '{{count}}次',
+      errorTimes_other: '{{count}}次'
     },
     update: {
       currentVersion: '当前版本',

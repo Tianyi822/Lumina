@@ -84,9 +84,12 @@ export async function changeAppLanguage(language: AppLanguage): Promise<void> {
 /** 启动后以 config.json 为权威源校正语言（多端同步的语言在此生效）；无效值保持现状 */
 export async function reconcileLanguageFromConfig(): Promise<void> {
   try {
+    const languageAtStart = i18n.language
     const config = (await window.api.config.getConfig()) as { language?: unknown } | null
     const remote = config?.language
     if (remote !== 'zh' && remote !== 'en') return
+    // 等待 config 期间用户已手动切换：以用户选择为准，放弃本次对账
+    if (i18n.language !== languageAtStart) return
     if (remote !== i18n.language) {
       await i18n.changeLanguage(remote)
       writeStoredLanguage(remote)
