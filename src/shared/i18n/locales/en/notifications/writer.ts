@@ -83,7 +83,47 @@ const writer: Resources['notifications']['writer'] = {
   invalidDocumentData: 'Invalid document data',
   documentDirectoryMismatch: 'Document data does not match its directory',
   readDocumentFailed: 'Failed to read document',
-  localRevisionNewer: 'Local revision is newer; skipped remote download'
+  localRevisionNewer: 'Local revision is newer; skipped remote download',
+  formulaRasterizeDowngraded: 'Formula rasterization failed; downgraded to LaTeX text: {{latex}}',
+  imageAssetMissing: 'Image asset missing: {{assetPath}}',
+  printHtmlRenderFailed: 'Failed to render print HTML',
+  pdfOutputEmpty: 'PDF output is empty',
+  printPageRenderTimeout: 'Print page rendering timed out',
+  imageImportRequestInvalid: 'Invalid image import request',
+  assetPathInvalid: 'Invalid asset path',
+  importAssetFailed: 'Failed to import writer image asset',
+  documentIdOrRefInvalid: 'Invalid document ID or asset reference',
+  assetDirectoryInvalid: 'Invalid asset directory',
+  cleanupAssetsFailed: 'Failed to clean up writer image assets',
+  imageSizeExceeded: 'Image asset cannot exceed 20MB',
+  imageFileNameInvalid: 'Invalid image file name',
+  imageSignatureInvalid: 'Invalid image extension or content signature',
+  imageMimeMismatch: 'Image MIME type does not match its content',
+  assetDirectoryEscape: 'Asset directory escapes its root',
+  duplicateAssetNotFile: 'Duplicate asset is not a regular file',
+  duplicateAssetHashMismatch: 'Duplicate asset hash mismatch',
+  assetDirectorySymlink: 'Asset directory cannot be a symbolic link',
+  formulaEmpty: 'Formula content is empty',
+  formulaCaptureInvalidPng: 'Formula capture did not return a valid PNG',
+  formulaRasterizeFailed: 'Formula rasterization failed',
+  formulaRenderNodeMissing: 'Formula render node not found',
+  formulaRenderTimeout: 'Formula rendering timed out',
+  mapDocumentFailed: 'Failed to map writer document',
+  nodeDowngradedToText: 'Node {{type}} cannot be fully represented; downgraded to plain text',
+  unexportableNodeLabel: 'Unexportable node',
+  inlineNodeDowngradedToText:
+    'Inline node {{type}} cannot be fully represented; downgraded to plain text',
+  imageAssetPathMissing: 'Image lacks a valid assetPath; skipped',
+  footnoteRefMissingNumber: 'Footnote reference lacks a number; skipped',
+  footnoteDefinitionMissing: 'Footnote {{footnoteId}} lacks a definition; empty content emitted',
+  invalidRendererId: 'Invalid Renderer ID',
+  exportDialog: {
+    title: 'Export {{format}}',
+    overwrite: 'Overwrite',
+    overwriteAssetsTitle: 'Overwrite exported assets',
+    overwriteAssetsMessage:
+      'The target directory already has an assets folder with the same name:\n{{assetsDir}}\n\nOverwrite it?'
+  }
 }
 
 export default writer

@@ -261,7 +261,7 @@ export class WriterService {
   ): Promise<WriterResult<WriterExportOutcome>> {
     const defaultName = `${sanitizeExportBaseName(title)}.md`
     const saveResult = await this.exportDialog.showSaveDialog({
-      title: '导出 Markdown',
+      title: t('notifications.writer.exportDialog.title', { format: 'Markdown' }),
       defaultPath: defaultName,
       filters: [{ name: 'Markdown', extensions: ['md'] }]
     })
@@ -275,11 +275,11 @@ export class WriterService {
     if (existsSync(assetsDir)) {
       const confirm = await this.exportDialog.showMessageBox({
         type: 'warning',
-        buttons: ['取消', '覆盖'],
+        buttons: [t('common.cancel'), t('notifications.writer.exportDialog.overwrite')],
         cancelId: 0,
         defaultId: 0,
-        title: '覆盖导出资源',
-        message: `目标目录已存在同名资源文件夹：\n${assetsDir}\n\n是否覆盖？`
+        title: t('notifications.writer.exportDialog.overwriteAssetsTitle'),
+        message: t('notifications.writer.exportDialog.overwriteAssetsMessage', { assetsDir })
       })
       if (confirm.response !== 1) {
         return { success: true, data: { canceled: true } }
@@ -313,7 +313,7 @@ export class WriterService {
   ): Promise<WriterResult<WriterExportOutcome>> {
     const defaultName = `${sanitizeExportBaseName(title)}.docx`
     const saveResult = await this.exportDialog.showSaveDialog({
-      title: '导出 DOCX',
+      title: t('notifications.writer.exportDialog.title', { format: 'DOCX' }),
       defaultPath: defaultName,
       filters: [{ name: 'Word Document', extensions: ['docx'] }]
     })
@@ -348,7 +348,7 @@ export class WriterService {
   ): Promise<WriterResult<WriterExportOutcome>> {
     const defaultName = `${sanitizeExportBaseName(title)}.pdf`
     const saveResult = await this.exportDialog.showSaveDialog({
-      title: '导出 PDF',
+      title: t('notifications.writer.exportDialog.title', { format: 'PDF' }),
       defaultPath: defaultName,
       filters: [{ name: 'PDF', extensions: ['pdf'] }]
     })

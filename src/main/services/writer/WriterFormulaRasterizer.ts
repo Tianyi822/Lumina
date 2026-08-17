@@ -2,6 +2,7 @@ import { createRequire } from 'node:module'
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import katex from 'katex'
+import { t } from '@main/services/i18n'
 import type { WriterResult } from '@shared/types/writer'
 
 const require = createRequire(import.meta.url)
@@ -31,21 +32,30 @@ export class WriterFormulaRasterizer {
   async rasterize(latex: string, displayMode: boolean): Promise<WriterResult<Buffer>> {
     const trimmed = latex.trim()
     if (!trimmed) {
-      return { success: false, code: 'invalid_input', error: '公式内容为空' }
+      return {
+        success: false,
+        code: 'invalid_input',
+        error: t('notifications.writer.formulaEmpty')
+      }
     }
 
     try {
       const html = this.buildFormulaHtml(trimmed, displayMode)
       const png = await this.captureHtmlToPng(html)
       if (!isPngBuffer(png)) {
-        return { success: false, code: 'io_error', error: '公式截图未返回有效 PNG' }
+        return {
+          success: false,
+          code: 'io_error',
+          error: t('notifications.writer.formulaCaptureInvalidPng')
+        }
       }
       return { success: true, data: png }
     } catch (error) {
       return {
         success: false,
         code: 'io_error',
-        error: error instanceof Error ? error.message : '公式栅格化失败'
+        error:
+          error instanceof Error ? error.message : t('notifications.writer.formulaRasterizeFailed')
       }
     }
   }
@@ -144,7 +154,7 @@ async function captureHtmlWithHiddenWindow(html: string): Promise<Buffer> {
     `)) as { x: number; y: number; width: number; height: number } | null
 
     if (!bounds) {
-      throw new Error('未找到公式渲染节点')
+      throw new Error(t('notifications.writer.formulaRenderNodeMissing'))
     }
 
     const image = await window.webContents.capturePage(bounds)
@@ -167,7 +177,10 @@ function waitForRendererIdle(window: {
   webContents: { executeJavaScript: (code: string) => Promise<unknown> }
 }): Promise<void> {
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error('公式渲染超时')), 8_000)
+    const timer = setTimeout(
+      () => reject(new Error(t('notifications.writer.formulaRenderTimeout'))),
+      8_000
+    )
     window.webContents
       .executeJavaScript('document.fonts ? document.fonts.ready.then(() => true) : true')
       .then(() => {

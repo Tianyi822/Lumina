@@ -10,6 +10,7 @@ import {
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { t } from '@main/services/i18n'
 import type { WriterExportDocument, WriterResult } from '@shared/types/writer'
 import type { WriterPrintHtmlRenderer } from './WriterPrintHtmlRenderer'
 
@@ -37,7 +38,7 @@ export class WriterPrintExporter {
       return {
         success: false,
         code: rendered.code ?? 'io_error',
-        error: rendered.error ?? '打印 HTML 渲染失败'
+        error: rendered.error ?? t('notifications.writer.printHtmlRenderFailed')
       }
     }
 
@@ -50,7 +51,7 @@ export class WriterPrintExporter {
 
       const pdfBuffer = await this.pdfPort.printHtmlToPdf(rendered.data)
       if (!pdfBuffer || pdfBuffer.length < 4) {
-        return { success: false, code: 'io_error', error: 'PDF 输出为空' }
+        return { success: false, code: 'io_error', error: t('notifications.writer.pdfOutputEmpty') }
       }
 
       const fd = openSync(tempPdfPath, 'w')
@@ -70,7 +71,7 @@ export class WriterPrintExporter {
       return {
         success: false,
         code: 'io_error',
-        error: error instanceof Error ? error.message : 'PDF 导出失败'
+        error: error instanceof Error ? error.message : t('notifications.writer.pdfExportFailed')
       }
     }
   }
@@ -120,7 +121,10 @@ function waitForRendererIdle(window: {
   webContents: { executeJavaScript: (code: string) => Promise<unknown> }
 }): Promise<void> {
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error('打印页面渲染超时')), 15_000)
+    const timer = setTimeout(
+      () => reject(new Error(t('notifications.writer.printPageRenderTimeout'))),
+      15_000
+    )
     window.webContents
       .executeJavaScript('document.fonts ? document.fonts.ready.then(() => true) : true')
       .then(() => {

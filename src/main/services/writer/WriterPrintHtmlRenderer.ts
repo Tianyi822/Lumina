@@ -2,6 +2,7 @@ import { createRequire } from 'node:module'
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import katex from 'katex'
+import { t } from '@main/services/i18n'
 import type {
   WriterExportDocument,
   WriterExportListItem,
@@ -64,7 +65,8 @@ ${body}
       return {
         success: false,
         code: 'io_error',
-        error: error instanceof Error ? error.message : '打印 HTML 渲染失败'
+        error:
+          error instanceof Error ? error.message : t('notifications.writer.printHtmlRenderFailed')
       }
     }
   }

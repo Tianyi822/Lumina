@@ -1,3 +1,4 @@
+import { t } from '@main/services/i18n'
 import type { WriterResult } from '@shared/types/writer'
 
 const WRITER_FLUSH_REQUEST_CHANNEL = 'writer:flush-request'
@@ -46,7 +47,11 @@ export function acknowledgeWriterFlushFromEvent(
   acknowledge: (webContentsId: number) => void
 ): WriterResult<void> {
   if (!Number.isInteger(event.sender.id) || (event.sender.id as number) <= 0) {
-    return { success: false, code: 'invalid_input', error: '无效的 Renderer ID' }
+    return {
+      success: false,
+      code: 'invalid_input',
+      error: t('notifications.writer.invalidRendererId')
+    }
   }
   acknowledge(event.sender.id as number)
   return { success: true }

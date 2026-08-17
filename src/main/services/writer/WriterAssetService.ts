@@ -2,6 +2,7 @@ import { createHash, randomUUID } from 'crypto'
 import { link, lstat, mkdir, open, readdir, readFile, rm, unlink } from 'fs/promises'
 import { basename, dirname, extname, join, relative, resolve, sep } from 'path'
 import { logger } from '@main/services/logger'
+import { t } from '@main/services/i18n'
 import type { WriterAsset, WriterAssetImportInput, WriterResult } from '@shared/types/writer'
 import {
   getWriterAssetsDir,
@@ -102,7 +103,7 @@ export class WriterAssetService {
       return {
         success: false,
         code: validation.code ?? 'invalid_input',
-        error: validation.error ?? '图片导入请求无效'
+        error: validation.error ?? t('notifications.writer.imageImportRequestInvalid')
       }
     }
 
@@ -114,7 +115,7 @@ export class WriterAssetService {
       const assetsPath = await this.ensureSafeAssetsDirectory(documentId)
       const targetPath = resolve(assetsPath, storedFileName)
       if (!this.isPathInside(assetsPath, targetPath)) {
-        return this.invalidInput<WriterAsset>('资源路径无效')
+        return this.invalidInput<WriterAsset>(t('notifications.writer.assetPathInvalid'))
       }
       await this.writeDeduplicatedFile(targetPath, bytes, sha256)
       return {
@@ -130,7 +131,7 @@ export class WriterAssetService {
         }
       }
     } catch (error) {
-      return this.toIoError<WriterAsset>('导入写作图片资源失败', error)
+      return this.toIoError<WriterAsset>(t('notifications.writer.importAssetFailed'), error)
     }
   }
 
@@ -139,13 +140,13 @@ export class WriterAssetService {
     referencedPaths: string[]
   ): Promise<WriterResult<number>> {
     if (!isValidWriterDocumentId(documentId) || !Array.isArray(referencedPaths)) {
-      return this.invalidInput<number>('文档 ID 或资源引用无效')
+      return this.invalidInput<number>(t('notifications.writer.documentIdOrRefInvalid'))
     }
 
     try {
       const assetsPath = getWriterAssetsDir(documentId, this.rootPath)
       if (!this.isSafeAssetsPath(documentId, assetsPath)) {
-        return this.invalidInput<number>('资源目录无效')
+        return this.invalidInput<number>(t('notifications.writer.assetDirectoryInvalid'))
       }
       const referencedFileNames = new Set(
         referencedPaths.flatMap((path) => this.toSafeReferencedFileName(path))
@@ -168,7 +169,7 @@ export class WriterAssetService {
       if (this.isNotFoundError(error)) {
         return { success: true, data: 0 }
       }
-      return this.toIoError<number>('清理写作图片资源失败', error)
+      return this.toIoError<number>(t('notifications.writer.cleanupAssetsFailed'), error)
     }
   }
 
@@ -183,23 +184,23 @@ export class WriterAssetService {
       typeof input.declaredMimeType !== 'string' ||
       !(input.bytes instanceof Uint8Array)
     ) {
-      return this.invalidInput('图片导入请求无效')
+      return this.invalidInput(t('notifications.writer.imageImportRequestInvalid'))
     }
     if (input.bytes.byteLength > MAX_ASSET_BYTES) {
-      return this.invalidInput('图片资源不能超过 20MB')
+      return this.invalidInput(t('notifications.writer.imageSizeExceeded'))
     }
     if (!hasSafeFileName(input.fileName)) {
-      return this.invalidInput('图片文件名无效')
+      return this.invalidInput(t('notifications.writer.imageFileNameInvalid'))
     }
     const fileExtension = extname(input.fileName).slice(1).toLowerCase()
     const declaredFormat = IMAGE_FORMATS[fileExtension]
     const bytes = Buffer.from(input.bytes)
     const detectedFormat = detectImageFormat(bytes)
     if (!declaredFormat || !detectedFormat || declaredFormat.mimeType !== detectedFormat.mimeType) {
-      return this.invalidInput('图片扩展名或内容签名无效')
+      return this.invalidInput(t('notifications.writer.imageSignatureInvalid'))
     }
     if (input.declaredMimeType.toLowerCase() !== detectedFormat.mimeType) {
-      return this.invalidInput('图片 MIME 类型与内容不匹配')
+      return this.invalidInput(t('notifications.writer.imageMimeMismatch'))
     }
     return { success: true, data: { bytes, format: detectedFormat } }
   }
@@ -207,7 +208,7 @@ export class WriterAssetService {
   private async ensureSafeAssetsDirectory(documentId: string): Promise<string> {
     const assetsPath = getWriterAssetsDir(documentId, this.rootPath)
     if (!this.isSafeAssetsPath(documentId, assetsPath)) {
-      throw new Error('资源目录越界')
+      throw new Error(t('notifications.writer.assetDirectoryEscape'))
     }
     await mkdir(assetsPath, { recursive: true })
     await this.assertRealDirectory(this.rootPath)
@@ -252,11 +253,11 @@ export class WriterAssetService {
   private async verifyExistingFile(path: string, sha256: string): Promise<void> {
     const stat = await lstat(path)
     if (!stat.isFile() || stat.isSymbolicLink()) {
-      throw new Error('重复资源不是普通文件')
+      throw new Error(t('notifications.writer.duplicateAssetNotFile'))
     }
     const existing = await readFile(path)
     if (createHash('sha256').update(existing).digest('hex') !== sha256) {
-      throw new Error('重复资源哈希不一致')
+      throw new Error(t('notifications.writer.duplicateAssetHashMismatch'))
     }
   }
 
@@ -284,7 +285,7 @@ export class WriterAssetService {
   private async assertRealDirectory(path: string): Promise<void> {
     const stat = await lstat(path)
     if (!stat.isDirectory() || stat.isSymbolicLink()) {
-      throw new Error('资源目录不能是符号链接')
+      throw new Error(t('notifications.writer.assetDirectorySymlink'))
     }
   }
 
