@@ -191,8 +191,11 @@ export function initializeApp(): void {
     // 初始化配置，即使失败也不阻止应用启动
     initializeConfig()
 
-    // 装配主进程 i18n 语言读取器（config 未加载时缺省中文），供主进程 t() 即时读取当前语言
-    setLanguageProvider(() => configManager.getConfig()?.language ?? 'zh')
+    // 装配主进程 i18n 语言读取器，供主进程 t() 即时读取当前语言；
+    // 未显式选择时跟随系统语言（与渲染进程 detectSystemLanguage 口径一致）
+    setLanguageProvider(
+      () => configManager.getConfig()?.language ?? (app.getLocale().startsWith('zh') ? 'zh' : 'en')
+    )
 
     // 注册 lumina:// 自定义协议（必须在 ready 后、窗口创建前）
     registerLuminaProtocol()
