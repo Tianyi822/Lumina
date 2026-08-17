@@ -6,6 +6,7 @@
  */
 import { xchacha20poly1305 } from '@noble/ciphers/chacha.js'
 import { randomBytes } from 'node:crypto'
+import { t } from '@main/services/i18n'
 import { utf8ToBytes } from '../crypto/base64url'
 
 /** AAD 前缀（固定长度，拼接无歧义） */
@@ -26,7 +27,9 @@ function buildAad(sessionId: string): Uint8Array {
 
 function assertDek(dek: Uint8Array): void {
   if (dek.length !== DEK_BYTES) {
-    throw new Error(`DEK 长度非法：期望 ${DEK_BYTES} 字节，实际 ${dek.length}`)
+    throw new Error(
+      t('notifications.sync.dekLengthInvalid', { expected: DEK_BYTES, actual: dek.length })
+    )
   }
 }
 
@@ -53,7 +56,11 @@ export function openSessionSnapshot(
 ): Uint8Array {
   assertDek(dek)
   if (ciphertext.length < NONCE_BYTES + TAG_BYTES + 1) {
-    throw new Error(`会话快照密文长度非法：${ciphertext.length} 字节`)
+    throw new Error(
+      t('notifications.sync.sessionSnapshotCiphertextLengthInvalid', {
+        length: ciphertext.length
+      })
+    )
   }
   const nonce = ciphertext.subarray(0, NONCE_BYTES)
   const sealed = ciphertext.subarray(NONCE_BYTES)

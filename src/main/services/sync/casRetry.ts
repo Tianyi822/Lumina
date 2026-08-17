@@ -11,6 +11,7 @@
  * （内容指纹 CAS，无字段级 merge）——这两者保持各自内联的冲突处理。
  */
 import type { RelayErrorCode, SyncResult } from '@shared/types/sync'
+import { t } from '@main/services/i18n'
 
 /** 默认 CAS 重试上限（与各引擎原 CAS_RETRY_LIMIT 一致） */
 const DEFAULT_CAS_RETRY_LIMIT = 2
@@ -87,7 +88,11 @@ export async function casPutWithMerge(params: {
     }
     // 非 stale 错误：透传调用方处理
     if (put.code !== 'stale_session_file' && put.code !== 'stale_manifest') {
-      return { ok: false, code: put.code ?? 'unknown_error', error: put.error ?? '上传失败' }
+      return {
+        ok: false,
+        code: put.code ?? 'unknown_error',
+        error: put.error ?? t('notifications.sync.uploadFailed')
+      }
     }
     // stale：最后一次循环不再 rebase，直接耗尽
     if (attempt >= retryLimit) break
@@ -101,5 +106,5 @@ export async function casPutWithMerge(params: {
     bytes = conflict.bytes
     base = conflict.nextBase
   }
-  return { ok: false, code: 'unknown_error', error: '版本冲突重试耗尽' }
+  return { ok: false, code: 'unknown_error', error: t('notifications.sync.casRetryExhausted') }
 }

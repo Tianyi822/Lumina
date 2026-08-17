@@ -8,6 +8,7 @@
 import { readdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { logger } from '@main/services/logger'
+import { t } from '@main/services/i18n'
 import type { WriterDocument, WriterIndex } from '@shared/types/writer'
 import type { WriterSyncResult, WriterSyncState, SyncResult } from '@shared/types/sync'
 import type { SyncService } from '../SyncService'
@@ -163,10 +164,14 @@ export class WriterSyncService {
 
   async syncNow(): Promise<SyncResult<WriterSyncResult>> {
     if (!this.isConnected()) {
-      return { success: false, code: 'not_connected', error: '尚未连接同步服务' }
+      return { success: false, code: 'not_connected', error: t('notifications.sync.notConnected') }
     }
     if (Date.now() < this.rateLimitedUntil) {
-      return { success: false, code: 'rate_limited', error: '同步请求被限流，请稍后重试' }
+      return {
+        success: false,
+        code: 'rate_limited',
+        error: t('notifications.sync.rateLimitedRetryLater')
+      }
     }
     this.kickoff()
     if (this.chain) await this.chain
@@ -175,7 +180,7 @@ export class WriterSyncService {
       return {
         success: false,
         code: Date.now() < this.rateLimitedUntil ? 'rate_limited' : 'unknown_error',
-        error: this.state.lastError ?? '写作同步失败',
+        error: this.state.lastError ?? t('notifications.sync.writerSyncFallback'),
         data: last ?? undefined
       }
     }
@@ -211,7 +216,9 @@ export class WriterSyncService {
         phase: failed ? 'error' : 'idle',
         lastSyncAt: new Date().toISOString(),
         lastResult: result,
-        lastError: failed ? `${result.errors.length} 项写作同步失败` : null
+        lastError: failed
+          ? t('notifications.sync.lastErrorWriter', { count: result.errors.length })
+          : null
       })
       logger.info('写作同步完成', 'main', {
         uploaded: result.uploaded,
@@ -303,7 +310,9 @@ export class WriterSyncService {
         this.rateLimitedUntil = Date.now() + retryAfterMs
       }
       throw new Error(
-        `拉取 session-files 列表失败：${remoteList.error ?? remoteList.code ?? '未知错误'}`
+        t('notifications.sync.listSessionFilesFailed', {
+          detail: remoteList.error ?? remoteList.code ?? t('notifications.sync.unknownError')
+        })
       )
     }
     const remoteMap = new Map(
@@ -448,7 +457,11 @@ export class WriterSyncService {
         const localResult = await this.storage.listDocuments()
         if (!localResult.success || !localResult.data) {
           // 本地索引不可读时无法安全合并，直接失败（不做空索引兜底，避免抹掉本地摘要）
-          throw new Error(`读取本地写作索引失败：${localResult.error ?? '未知错误'}`)
+          throw new Error(
+            t('notifications.sync.readLocalWriterIndexFailed', {
+              detail: localResult.error ?? t('notifications.sync.unknownError')
+            })
+          )
         }
         const merge = mergeWriterIndex({ local: localResult.data, remote: remoteIndex })
         if (merge.changed) {
@@ -532,17 +545,17 @@ export class WriterSyncService {
         // 409：拉最新 → 按 key 类型合并 → 重试
         const latest = await client.getSessionFile(key)
         if (!latest.success || !latest.data) {
-          return { resolved: 'failed', error: '冲突后拉取最新版本失败' }
+          return { resolved: 'failed', error: t('notifications.sync.conflictFetchLatestFailed') }
         }
         let remoteBytes: Uint8Array
         try {
           remoteBytes = openWriterFile(dek, latest.data.bytes)
         } catch {
-          return { resolved: 'failed', error: '冲突合并解密失败' }
+          return { resolved: 'failed', error: t('notifications.sync.conflictMergeDecryptFailed') }
         }
         const parsed = parseWriterKey(key)
         if (!parsed) {
-          return { resolved: 'failed', error: '冲突合并 key 解析失败' }
+          return { resolved: 'failed', error: t('notifications.sync.conflictMergeKeyParseFailed') }
         }
         // 合并
         if (parsed.kind === 'document') {
@@ -552,7 +565,10 @@ export class WriterSyncService {
             remoteDoc = JSON.parse(new TextDecoder().decode(remoteBytes)) as WriterDocument
             localDoc = JSON.parse(new TextDecoder().decode(currentBytes)) as WriterDocument
           } catch {
-            return { resolved: 'failed', error: '冲突合并 JSON 解析失败' }
+            return {
+              resolved: 'failed',
+              error: t('notifications.sync.conflictMergeJsonParseFailed')
+            }
           }
           if (localDoc.revision >= remoteDoc.revision) {
             // 本地胜出：用本地内容重试
@@ -568,7 +584,9 @@ export class WriterSyncService {
           if (!applyResult.success) {
             return {
               resolved: 'failed',
-              error: `冲突后落盘远端版本失败：${applyResult.error ?? '未知'}`
+              error: t('notifications.sync.conflictApplyRemoteFailed', {
+                detail: applyResult.error ?? t('notifications.sync.unknown')
+              })
             }
           }
           const reread = await this.rereadLocalFile(parsed)

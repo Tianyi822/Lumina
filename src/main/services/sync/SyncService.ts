@@ -8,6 +8,7 @@
 import { hostname } from 'node:os'
 import { randomUUID } from 'node:crypto'
 import { logger } from '@main/services/logger'
+import { t } from '@main/services/i18n'
 import type {
   Bootstrap,
   ConnectResult,
@@ -151,15 +152,19 @@ export class SyncService {
       return {
         success: false,
         code: 'invalid_input',
-        error: error instanceof Error ? error.message : 'Relay 地址非法'
+        error: error instanceof Error ? error.message : t('notifications.sync.relayUrlInvalid')
       }
     }
     const result = await client.discover()
     if (!result.success || !result.data) {
-      return this.handleFailure(result, '服务发现失败')
+      return this.handleFailure(result, t('notifications.sync.discoveryFailed'))
     }
     if (!isValidDiscovery(result.data)) {
-      return { success: false, code: 'invalid_response', error: 'Relay 服务发现响应非法' }
+      return {
+        success: false,
+        code: 'invalid_response',
+        error: t('notifications.sync.relayDiscoveryResponseInvalid')
+      }
     }
     return result
   }
@@ -179,11 +184,15 @@ export class SyncService {
       return {
         success: false,
         code: 'invalid_input',
-        error: '用户名需为 3-64 位字母、数字、点、下划线或连字符'
+        error: t('notifications.sync.usernameInvalid')
       }
     }
     if (password.length === 0) {
-      return { success: false, code: 'invalid_input', error: '密码不能为空' }
+      return {
+        success: false,
+        code: 'invalid_input',
+        error: t('notifications.sync.passwordEmpty')
+      }
     }
     let client: RelayClient
     try {
@@ -192,7 +201,7 @@ export class SyncService {
       return {
         success: false,
         code: 'invalid_input',
-        error: error instanceof Error ? error.message : 'Relay 地址非法'
+        error: error instanceof Error ? error.message : t('notifications.sync.relayUrlInvalid')
       }
     }
 
@@ -202,11 +211,15 @@ export class SyncService {
       return {
         success: false,
         code: discovery.code ?? 'network_error',
-        error: discovery.error ?? '服务发现失败'
+        error: discovery.error ?? t('notifications.sync.discoveryFailed')
       }
     }
     if (!isValidDiscovery(discovery.data)) {
-      return { success: false, code: 'invalid_response', error: 'Relay 服务发现响应非法' }
+      return {
+        success: false,
+        code: 'invalid_response',
+        error: t('notifications.sync.relayDiscoveryResponseInvalid')
+      }
     }
     const instanceId = discovery.data.instanceId
     const serverTimeOffsetMs = discovery.data.serverTimeMs - Date.now()
@@ -218,14 +231,22 @@ export class SyncService {
       return {
         success: false,
         code: start.code ?? 'network_error',
-        error: start.error ?? '开启连接失败'
+        error: start.error ?? t('notifications.sync.startConnectFailed')
       }
     }
     if (!isValidConnectStart(start.data)) {
-      return { success: false, code: 'invalid_response', error: 'Relay 连接响应非法' }
+      return {
+        success: false,
+        code: 'invalid_response',
+        error: t('notifications.sync.relayConnectResponseInvalid')
+      }
     }
     if (!isSupportedKdf(start.data.kdf)) {
-      return { success: false, code: 'invalid_response', error: 'Relay 返回了不支持的密码派生参数' }
+      return {
+        success: false,
+        code: 'invalid_response',
+        error: t('notifications.sync.kdfParamsUnsupported')
+      }
     }
     let authSalt: Uint8Array
     let challenge: Uint8Array
@@ -233,7 +254,11 @@ export class SyncService {
       authSalt = decodeBase64Url(start.data.authSalt, 16)
       challenge = decodeBase64Url(start.data.challenge, 32)
     } catch {
-      return { success: false, code: 'invalid_response', error: 'Relay 连接挑战格式非法' }
+      return {
+        success: false,
+        code: 'invalid_response',
+        error: t('notifications.sync.relayConnectChallengeInvalid')
+      }
     }
     const attemptId = start.data.attemptId
 
@@ -245,7 +270,7 @@ export class SyncService {
       return {
         success: false,
         code: 'unknown_error',
-        error: error instanceof Error ? error.message : '密码派生失败'
+        error: error instanceof Error ? error.message : t('notifications.sync.passwordDeriveFailed')
       }
     }
     const loginSeed = deriveLoginSeed(passwordRoot)
@@ -329,12 +354,16 @@ export class SyncService {
       return {
         success: false,
         code: complete.code ?? 'network_error',
-        error: complete.error ?? '连接失败'
+        error: complete.error ?? t('notifications.sync.connectFailed')
       }
     }
 
     if (!isValidConnectionResult(complete.data)) {
-      return { success: false, code: 'invalid_response', error: 'Relay 连接结果非法' }
+      return {
+        success: false,
+        code: 'invalid_response',
+        error: t('notifications.sync.relayConnectResultInvalid')
+      }
     }
     const { session, bootstrap } = complete.data
 
@@ -349,7 +378,11 @@ export class SyncService {
       try {
         dek = openDek(envelopeKey, decodeBase64Url(bootstrap.dekEnvelope), aad)
       } catch {
-        return { success: false, code: 'password_incorrect', error: '密码错误，无法解开数据密钥' }
+        return {
+          success: false,
+          code: 'password_incorrect',
+          error: t('notifications.sync.wrongPasswordCannotUnlock')
+        }
       }
     }
 
@@ -370,7 +403,11 @@ export class SyncService {
       serverTimeOffsetMs
     }
     if (!this.persist(client, state, deviceSeed, dek, session.token)) {
-      return { success: false, code: 'storage_error', error: '同步身份写入安全存储失败' }
+      return {
+        success: false,
+        code: 'storage_error',
+        error: t('notifications.sync.identityPersistFailed')
+      }
     }
 
     logger.info('同步连接成功', 'main', {
@@ -387,17 +424,21 @@ export class SyncService {
   /** 会话续期（无需密码，用设备私钥续签） */
   async renewSession(): Promise<SyncResult<SyncStatus>> {
     if (!this.client || !this.state || !this.deviceSeed) {
-      return { success: false, code: 'not_connected', error: '尚未连接同步服务' }
+      return { success: false, code: 'not_connected', error: t('notifications.sync.notConnected') }
     }
     const challengeResult = await this.client.sessionChallenge(this.state.deviceId)
     if (!challengeResult.success || !challengeResult.data) {
-      return this.handleFailure(challengeResult, '会话挑战失败')
+      return this.handleFailure(challengeResult, t('notifications.sync.sessionChallengeFailed'))
     }
     let challenge: Uint8Array
     try {
       challenge = decodeBase64Url(challengeResult.data.challenge, 32)
     } catch {
-      return { success: false, code: 'invalid_response', error: 'Relay 会话挑战格式非法' }
+      return {
+        success: false,
+        code: 'invalid_response',
+        error: t('notifications.sync.sessionChallengeInvalid')
+      }
     }
     const transcript = buildSessionTranscript({
       instanceId: this.state.instanceId,
@@ -408,19 +449,31 @@ export class SyncService {
     const signature = encodeBase64Url(sign(transcript, this.deviceSeed))
     const result = await this.client.sessions(challengeResult.data.attemptId, signature)
     if (!result.success || !result.data) {
-      return this.handleFailure(result, '会话续期失败')
+      return this.handleFailure(result, t('notifications.sync.sessionRenewFailed'))
     }
     if (!isValidConnectionResult(result.data)) {
-      return { success: false, code: 'invalid_response', error: 'Relay 会话响应非法' }
+      return {
+        success: false,
+        code: 'invalid_response',
+        error: t('notifications.sync.relaySessionResponseInvalid')
+      }
     }
     const secretsSaved = this.saveSecrets(result.data.session.token)
     if (!secretsSaved && this.secretStore.isAvailable()) {
-      return { success: false, code: 'storage_error', error: '新会话写入安全存储失败' }
+      return {
+        success: false,
+        code: 'storage_error',
+        error: t('notifications.sync.sessionPersistFailed')
+      }
     }
     this.client.setAuthContext({ sessionToken: result.data.session.token })
     this.state.sessionExpiresAt = result.data.session.expiresAt
     if (!this.applyBootstrap(result.data.bootstrap)) {
-      return { success: false, code: 'storage_error', error: '同步状态持久化失败' }
+      return {
+        success: false,
+        code: 'storage_error',
+        error: t('notifications.sync.statePersistFailed')
+      }
     }
     this.startAutoRenew()
     return { success: true, data: this.getStatus() }
@@ -471,33 +524,45 @@ export class SyncService {
   /** 刷新 bootstrap 根状态 */
   async refreshBootstrap(): Promise<SyncResult<SyncStatus>> {
     if (!this.client || !this.state) {
-      return { success: false, code: 'not_connected', error: '尚未连接同步服务' }
+      return { success: false, code: 'not_connected', error: t('notifications.sync.notConnected') }
     }
     const result = await this.client.getBootstrap()
     if (!result.success || !result.data) {
-      return this.handleFailure(result, '刷新失败')
+      return this.handleFailure(result, t('notifications.sync.refreshFailed'))
     }
     if (!this.applyBootstrap(result.data)) {
-      return { success: false, code: 'storage_error', error: '同步状态持久化失败' }
+      return {
+        success: false,
+        code: 'storage_error',
+        error: t('notifications.sync.statePersistFailed')
+      }
     }
     return { success: true, data: this.getStatus() }
   }
 
   /** 生成六位同步码 */
   async generateSyncCode(): Promise<SyncResult<SyncCodeResult>> {
-    if (!this.client) return { success: false, code: 'not_connected', error: '尚未连接同步服务' }
+    if (!this.client) {
+      return { success: false, code: 'not_connected', error: t('notifications.sync.notConnected') }
+    }
     return this.client.generateSyncCode()
   }
 
   /** 兑换六位同步码（成功或已在同组时刷新 bootstrap） */
   async redeemSyncCode(code: string): Promise<SyncResult<RedeemResult>> {
-    if (!this.client) return { success: false, code: 'not_connected', error: '尚未连接同步服务' }
+    if (!this.client) {
+      return { success: false, code: 'not_connected', error: t('notifications.sync.notConnected') }
+    }
     if (!SYNC_CODE_PATTERN.test(code)) {
-      return { success: false, code: 'invalid_input', error: '同步码必须为 6 位数字' }
+      return {
+        success: false,
+        code: 'invalid_input',
+        error: t('notifications.sync.syncCodeInvalid')
+      }
     }
     const result = await this.client.redeemSyncCode(code)
     if (!result.success && result.code !== 'already_joined') {
-      return this.handleFailure(result, '兑换同步码失败')
+      return this.handleFailure(result, t('notifications.sync.redeemCodeFallback'))
     }
     const refreshed = await this.refreshBootstrap()
     if (!refreshed.success) {
@@ -523,29 +588,37 @@ export class SyncService {
 
   /** 列出同步组内设备 */
   async listDevices(): Promise<SyncResult<RelayDevice[]>> {
-    if (!this.client) return { success: false, code: 'not_connected', error: '尚未连接同步服务' }
+    if (!this.client) {
+      return { success: false, code: 'not_connected', error: t('notifications.sync.notConnected') }
+    }
     const result = await this.client.listDevices()
     if (!result.success || !result.data) {
-      return this.handleFailure(result, '获取设备失败')
+      return this.handleFailure(result, t('notifications.sync.listDevicesFailed'))
     }
     return { success: true, data: result.data.devices }
   }
 
   /** 吊销组内设备 */
   async revokeDevice(deviceId: string): Promise<SyncResult<{ revoked: boolean }>> {
-    if (!this.client) return { success: false, code: 'not_connected', error: '尚未连接同步服务' }
+    if (!this.client) {
+      return { success: false, code: 'not_connected', error: t('notifications.sync.notConnected') }
+    }
     if (!UUID_PATTERN.test(deviceId)) {
-      return { success: false, code: 'invalid_input', error: '设备 ID 格式非法' }
+      return {
+        success: false,
+        code: 'invalid_input',
+        error: t('notifications.sync.deviceIdInvalid')
+      }
     }
     const result = await this.client.revokeDevice(deviceId)
-    if (!result.success) return this.handleFailure(result, '吊销设备失败')
+    if (!result.success) return this.handleFailure(result, t('notifications.sync.revokeFallback'))
     return result
   }
 
   /** 放弃当前组以外的其他同步组（account-auth key 签名） */
   async discardOtherGroups(): Promise<SyncResult<DiscardResult>> {
     if (!this.client || !this.state || !this.dek) {
-      return { success: false, code: 'not_connected', error: '尚未连接同步服务' }
+      return { success: false, code: 'not_connected', error: t('notifications.sync.notConnected') }
     }
     // 先刷新 bootstrap 取最新 groupRevision / syncGroupId
     const refreshed = await this.refreshBootstrap()
@@ -553,7 +626,7 @@ export class SyncService {
       return {
         success: false,
         code: refreshed.code ?? 'network_error',
-        error: refreshed.error ?? '刷新失败'
+        error: refreshed.error ?? t('notifications.sync.refreshFailed')
       }
     }
     const accountAuthSeed = deriveAccountAuthSeed(this.dek)
@@ -577,17 +650,19 @@ export class SyncService {
         }
       }
     } else {
-      return this.handleFailure(result, '放弃其他同步组失败')
+      return this.handleFailure(result, t('notifications.sync.discardFallback'))
     }
     return result
   }
 
   /** 创建 WebSocket 事件票据（渲染进程用它打开 WebSocket） */
   async createEventTicket(): Promise<SyncResult<EventTicketResult>> {
-    if (!this.client) return { success: false, code: 'not_connected', error: '尚未连接同步服务' }
+    if (!this.client) {
+      return { success: false, code: 'not_connected', error: t('notifications.sync.notConnected') }
+    }
     const result = await this.client.createEventTicket()
     if (!result.success || !result.data) {
-      return this.handleFailure(result, '创建事件票据失败')
+      return this.handleFailure(result, t('notifications.sync.eventTicketCreateFailed'))
     }
     return {
       success: true,
@@ -602,23 +677,29 @@ export class SyncService {
 
   /** 断线重连后的全量对账（§9.4，不落地真实数据） */
   async reconcile(): Promise<SyncResult<ReconcileSummary>> {
-    if (!this.client) return { success: false, code: 'not_connected', error: '尚未连接同步服务' }
+    if (!this.client) {
+      return { success: false, code: 'not_connected', error: t('notifications.sync.notConnected') }
+    }
     const [manifests, sessionFiles, bootstrap] = await Promise.all([
       this.client.listManifests(),
       this.client.listSessionFiles(),
       this.client.getBootstrap()
     ])
     if (!manifests.success || !manifests.data) {
-      return this.handleFailure(manifests, '对账失败')
+      return this.handleFailure(manifests, t('notifications.sync.reconcileFallback'))
     }
     if (!sessionFiles.success || !sessionFiles.data) {
-      return this.handleFailure(sessionFiles, '对账失败')
+      return this.handleFailure(sessionFiles, t('notifications.sync.reconcileFallback'))
     }
     if (!bootstrap.success || !bootstrap.data) {
-      return this.handleFailure(bootstrap, '刷新根状态失败')
+      return this.handleFailure(bootstrap, t('notifications.sync.bootstrapRefreshFailed'))
     }
     if (!this.applyBootstrap(bootstrap.data)) {
-      return { success: false, code: 'storage_error', error: '同步状态持久化失败' }
+      return {
+        success: false,
+        code: 'storage_error',
+        error: t('notifications.sync.statePersistFailed')
+      }
     }
     const heads: ManifestHead[] = manifests.data.heads
     const sessions: SessionFileMeta[] = sessionFiles.data.sessions

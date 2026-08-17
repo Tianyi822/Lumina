@@ -9,6 +9,7 @@ import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { createHash } from 'node:crypto'
 import { logger } from '@main/services/logger'
+import { t } from '@main/services/i18n'
 import type { PaperDocument, PaperAnnotationStore } from '@shared/types/paper'
 import type { PaperSyncResult, PaperSyncState, SyncResult } from '@shared/types/sync'
 import type { SyncService } from '../SyncService'
@@ -200,11 +201,16 @@ export class PaperSyncService {
   }
 
   async syncNow(): Promise<SyncResult<PaperSyncResult>> {
-    if (!this.isConnected())
-      return { success: false, code: 'not_connected', error: '尚未连接同步服务' }
+    if (!this.isConnected()) {
+      return { success: false, code: 'not_connected', error: t('notifications.sync.notConnected') }
+    }
     // 限流窗口内明确返回 rate_limited，不拿上一轮陈旧结果冒充成功
     if (Date.now() < this.rateLimitedUntil) {
-      return { success: false, code: 'rate_limited', error: '同步请求被限流，请稍后重试' }
+      return {
+        success: false,
+        code: 'rate_limited',
+        error: t('notifications.sync.rateLimitedRetryLater')
+      }
     }
     this.kickoff()
     if (this.chain) await this.chain
@@ -213,7 +219,7 @@ export class PaperSyncService {
       return {
         success: false,
         code: 'unknown_error',
-        error: this.state.lastError ?? '论文同步失败',
+        error: this.state.lastError ?? t('notifications.sync.paperSyncFallback'),
         data: last ?? undefined
       }
     }
@@ -269,7 +275,9 @@ export class PaperSyncService {
         phase: failed ? 'error' : 'idle',
         lastSyncAt: new Date().toISOString(),
         lastResult: result,
-        lastError: failed ? `${result.errors.length} 项论文同步失败` : null
+        lastError: failed
+          ? t('notifications.sync.lastErrorPaper', { count: result.errors.length })
+          : null
       })
       logger.info('论文同步完成', 'main', {
         uploaded: result.uploaded,
@@ -423,7 +431,9 @@ export class PaperSyncService {
         this.rateLimitedUntil = Date.now() + retryAfterMs
       }
       throw new Error(
-        `拉取 session-files 列表失败：${remoteList.error ?? remoteList.code ?? '未知错误'}`
+        t('notifications.sync.listSessionFilesFailed', {
+          detail: remoteList.error ?? remoteList.code ?? t('notifications.sync.unknownError')
+        })
       )
     }
     const remoteMap = new Map(
@@ -678,17 +688,17 @@ export class PaperSyncService {
         // 409：拉最新 → 解密 → merge → 落盘 → 重读
         const latest = await client.getSessionFile(key)
         if (!latest.success || !latest.data) {
-          return { resolved: 'failed', error: '冲突后拉取失败' }
+          return { resolved: 'failed', error: t('notifications.sync.conflictFetchFailed') }
         }
         const nextBase = latest.data.version ?? 0
         let remoteBytes: Uint8Array
         try {
           remoteBytes = open(dek, latest.data.bytes)
         } catch {
-          return { resolved: 'failed', error: '冲突合并解密失败' }
+          return { resolved: 'failed', error: t('notifications.sync.conflictMergeDecryptFailed') }
         }
         if (!parsed) {
-          return { resolved: 'failed', error: '冲突合并 key 解析失败' }
+          return { resolved: 'failed', error: t('notifications.sync.conflictMergeKeyParseFailed') }
         }
         try {
           if (parsed.kind === 'meta') {
@@ -702,7 +712,12 @@ export class PaperSyncService {
                 merge.merged
               )
               if (!applyResult.success) {
-                return { resolved: 'failed', error: `冲突合并落盘失败：${applyResult.error}` }
+                return {
+                  resolved: 'failed',
+                  error: t('notifications.sync.conflictMergeApplyFailedWithReason', {
+                    detail: applyResult.error
+                  })
+                }
               }
               if (applyResult.data) {
                 currentBytes = applyResult.data
@@ -722,12 +737,20 @@ export class PaperSyncService {
                 merge.merged
               )
               if (!applyResult.success) {
-                return { resolved: 'failed', error: `冲突合并落盘失败：${applyResult.error}` }
+                return {
+                  resolved: 'failed',
+                  error: t('notifications.sync.conflictMergeApplyFailedWithReason', {
+                    detail: applyResult.error
+                  })
+                }
               }
             }
           }
         } catch {
-          return { resolved: 'failed', error: '冲突合并 JSON 解析失败' }
+          return {
+            resolved: 'failed',
+            error: t('notifications.sync.conflictMergeJsonParseFailed')
+          }
         }
         // merge.changed===false（本地已是最新或更优）：保留本地字节重试
         return { resolved: 'rebased', bytes: currentBytes, nextBase }

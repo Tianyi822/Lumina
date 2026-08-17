@@ -7,6 +7,7 @@
  */
 import { xchacha20poly1305 } from '@noble/ciphers/chacha.js'
 import { randomBytes } from 'node:crypto'
+import { t } from '@main/services/i18n'
 
 /** XChaCha20-Poly1305 的 nonce 字节数 */
 const NONCE_BYTES = 24
@@ -45,7 +46,12 @@ export function openDek(
   aad: Uint8Array
 ): Uint8Array {
   if (envelope.length !== DEK_ENVELOPE_BYTES) {
-    throw new Error(`DEK 信封长度非法：期望 ${DEK_ENVELOPE_BYTES} 字节，实际 ${envelope.length}`)
+    throw new Error(
+      t('notifications.sync.dekEnvelopeLengthInvalid', {
+        expected: DEK_ENVELOPE_BYTES,
+        actual: envelope.length
+      })
+    )
   }
   const nonce = envelope.subarray(0, NONCE_BYTES)
   const sealed = envelope.subarray(NONCE_BYTES)

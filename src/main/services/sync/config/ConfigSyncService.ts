@@ -9,6 +9,7 @@
  */
 import { readFile, stat } from 'node:fs/promises'
 import { logger } from '@main/services/logger'
+import { t } from '@main/services/i18n'
 import type { AppConfig } from '@shared/types/config'
 import type { ConfigSyncResult, ConfigSyncState, SyncResult } from '@shared/types/sync'
 import type { SyncService } from '../SyncService'
@@ -127,10 +128,14 @@ export class ConfigSyncService {
   /** 手动触发并等待完成；限流期内直接返回 rate_limited（不拿上轮结果冒充成功） */
   async syncNow(): Promise<SyncResult<ConfigSyncResult>> {
     if (!this.isConnected()) {
-      return { success: false, code: 'not_connected', error: '尚未连接同步服务' }
+      return { success: false, code: 'not_connected', error: t('notifications.sync.notConnected') }
     }
     if (Date.now() < this.rateLimitedUntil) {
-      return { success: false, code: 'rate_limited', error: '同步限流中，请稍后重试' }
+      return {
+        success: false,
+        code: 'rate_limited',
+        error: t('notifications.sync.configRateLimited')
+      }
     }
     this.kickoff()
     if (this.chain) await this.chain
@@ -139,7 +144,7 @@ export class ConfigSyncService {
       return {
         success: false,
         code: 'unknown_error',
-        error: this.state.lastError ?? '配置同步失败',
+        error: this.state.lastError ?? t('notifications.sync.configSyncFallback'),
         data: last ?? undefined
       }
     }
@@ -179,7 +184,9 @@ export class ConfigSyncService {
         phase: failed ? 'error' : 'idle',
         lastSyncAt: new Date().toISOString(),
         lastResult: result,
-        lastError: failed ? `${result.errors.length} 项配置同步失败` : null
+        lastError: failed
+          ? t('notifications.sync.lastErrorConfig', { count: result.errors.length })
+          : null
       })
       logger.info('配置同步完成', 'main', {
         uploaded: result.uploaded,
@@ -216,7 +223,9 @@ export class ConfigSyncService {
       localMtime = st.mtime.toISOString()
     } catch (error) {
       throw new Error(
-        `读取本地 config 失败：${error instanceof Error ? error.message : String(error)}`
+        t('notifications.sync.readLocalConfigFailed', {
+          detail: error instanceof Error ? error.message : String(error)
+        })
       )
     }
     const localConfig = JSON.parse(localBytes.toString('utf-8')) as AppConfig
@@ -238,7 +247,9 @@ export class ConfigSyncService {
         this.rateLimitedUntil = Date.now() + retryAfterMs
       }
       throw new Error(
-        `拉取 manifest 列表失败：${remoteList.error ?? remoteList.code ?? '未知错误'}`
+        t('notifications.sync.listManifestsFailed', {
+          detail: remoteList.error ?? remoteList.code ?? t('notifications.sync.unknownError')
+        })
       )
     }
     const heads = remoteList.data.heads

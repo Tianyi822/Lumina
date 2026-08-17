@@ -6,6 +6,7 @@
  */
 import { xchacha20poly1305 } from '@noble/ciphers/chacha.js'
 import { randomBytes } from 'node:crypto'
+import { t } from '@main/services/i18n'
 import { utf8ToBytes } from '../crypto/base64url'
 
 const WRITER_FILE_AAD = utf8ToBytes('lumina-writer-file:')
@@ -15,7 +16,9 @@ const DEK_BYTES = 32
 
 function assertDek(dek: Uint8Array): void {
   if (dek.length !== DEK_BYTES) {
-    throw new Error(`DEK 长度非法：期望 ${DEK_BYTES} 字节，实际 ${dek.length} 字节`)
+    throw new Error(
+      t('notifications.sync.dekLengthInvalid', { expected: DEK_BYTES, actual: dek.length })
+    )
   }
 }
 
@@ -34,7 +37,9 @@ export function sealWriterFile(dek: Uint8Array, plaintext: Uint8Array): Uint8Arr
 export function openWriterFile(dek: Uint8Array, ciphertext: Uint8Array): Uint8Array {
   assertDek(dek)
   if (ciphertext.length < NONCE_BYTES + TAG_BYTES + 1) {
-    throw new Error(`writing 文件密文长度非法：${ciphertext.length} 字节`)
+    throw new Error(
+      t('notifications.sync.writerFileCiphertextLengthInvalid', { length: ciphertext.length })
+    )
   }
   const nonce = ciphertext.subarray(0, NONCE_BYTES)
   const sealed = ciphertext.subarray(NONCE_BYTES)

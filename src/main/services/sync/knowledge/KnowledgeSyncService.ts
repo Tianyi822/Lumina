@@ -14,6 +14,7 @@ import { readFile, stat } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
 import { join, resolve, sep } from 'node:path'
 import { logger } from '@main/services/logger'
+import { t } from '@main/services/i18n'
 import {
   KNOWLEDGE_BASES_FILE_NAME,
   FILES_METADATA_FILE_NAME,
@@ -194,10 +195,15 @@ export class KnowledgeSyncService {
   }
 
   async syncNow(): Promise<SyncResult<KnowledgeSyncResult>> {
-    if (!this.isConnected())
-      return { success: false, code: 'not_connected', error: '尚未连接同步服务' }
+    if (!this.isConnected()) {
+      return { success: false, code: 'not_connected', error: t('notifications.sync.notConnected') }
+    }
     if (Date.now() < this.rateLimitedUntil) {
-      return { success: false, code: 'rate_limited', error: '同步请求被限流，请稍后重试' }
+      return {
+        success: false,
+        code: 'rate_limited',
+        error: t('notifications.sync.rateLimitedRetryLater')
+      }
     }
     this.kickoff()
     if (this.chain) await this.chain
@@ -206,7 +212,7 @@ export class KnowledgeSyncService {
       return {
         success: false,
         code: Date.now() < this.rateLimitedUntil ? 'rate_limited' : 'unknown_error',
-        error: this.state.lastError ?? '知识库同步失败',
+        error: this.state.lastError ?? t('notifications.sync.knowledgeSyncFallback'),
         data: last ?? undefined
       }
     }
@@ -242,7 +248,9 @@ export class KnowledgeSyncService {
         phase: failed ? 'error' : 'idle',
         lastSyncAt: new Date().toISOString(),
         lastResult: result,
-        lastError: failed ? `${result.errors.length} 项知识库同步失败` : null
+        lastError: failed
+          ? t('notifications.sync.lastErrorKnowledge', { count: result.errors.length })
+          : null
       })
       logger.info('知识库同步完成', 'main', {
         uploaded: result.uploaded,
@@ -312,10 +320,10 @@ export class KnowledgeSyncService {
     try {
       fileItems = JSON.parse(fmBytes.toString('utf-8'))
     } catch {
-      throw new Error('files-metadata.json 解析失败，中止本轮同步（避免误判文件缺失而删除远端）')
+      throw new Error(t('notifications.sync.filesMetadataParseAborted'))
     }
     if (!Array.isArray(fileItems)) {
-      throw new Error('files-metadata.json 内容非法（非数组），中止本轮同步')
+      throw new Error(t('notifications.sync.filesMetadataInvalidAborted'))
     }
     this.scannedFileItems = fileItems as FileItem[]
     for (const file of this.scannedFileItems) {
@@ -384,7 +392,9 @@ export class KnowledgeSyncService {
         this.rateLimitedUntil = Date.now() + retryAfterMs
       }
       throw new Error(
-        `拉取 session-files 列表失败：${remoteList.error ?? remoteList.code ?? '未知错误'}`
+        t('notifications.sync.listSessionFilesFailed', {
+          detail: remoteList.error ?? remoteList.code ?? t('notifications.sync.unknownError')
+        })
       )
     }
     const remoteMap = new Map(
@@ -646,7 +656,7 @@ export class KnowledgeSyncService {
         // 409：拉最新 → 按 key 类型 merge → 落盘 → 重读
         const latest = await client.getSessionFile(key)
         if (!latest.success || !latest.data) {
-          return { resolved: 'failed', error: '冲突后拉取失败' }
+          return { resolved: 'failed', error: t('notifications.sync.conflictFetchFailed') }
         }
         const nextBase = latest.data.version ?? 0
 
@@ -660,7 +670,7 @@ export class KnowledgeSyncService {
         try {
           remoteBytes = openKnowledgeFile(dek, latest.data.bytes)
         } catch {
-          return { resolved: 'failed', error: '冲突合并解密失败' }
+          return { resolved: 'failed', error: t('notifications.sync.conflictMergeDecryptFailed') }
         }
         try {
           if (parsed.kind === 'bases') {
@@ -672,7 +682,10 @@ export class KnowledgeSyncService {
                 merge.merged
               )
               if (!applyResult.success) {
-                return { resolved: 'failed', error: '冲突合并落盘失败' }
+                return {
+                  resolved: 'failed',
+                  error: t('notifications.sync.conflictMergeApplyFailed')
+                }
               }
               for (const kb of merge.merged) {
                 if (
@@ -693,18 +706,24 @@ export class KnowledgeSyncService {
                 merge.merged
               )
               if (!applyResult.success) {
-                return { resolved: 'failed', error: '冲突合并落盘失败' }
+                return {
+                  resolved: 'failed',
+                  error: t('notifications.sync.conflictMergeApplyFailed')
+                }
               }
             }
           }
         } catch {
-          return { resolved: 'failed', error: '冲突合并 JSON 解析失败' }
+          return {
+            resolved: 'failed',
+            error: t('notifications.sync.conflictMergeJsonParseFailed')
+          }
         }
 
         // 重读本地合并后产物
         const reread = await this.readLocalEntry(parsed)
         if (!reread) {
-          return { resolved: 'failed', error: '冲突合并后重读本地失败' }
+          return { resolved: 'failed', error: t('notifications.sync.conflictMergeRereadFailed') }
         }
         currentBytes = reread.bytes
         return { resolved: 'rebased', bytes: reread.bytes, nextBase }

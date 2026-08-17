@@ -10,6 +10,7 @@
  */
 import { xchacha20poly1305 } from '@noble/ciphers/chacha.js'
 import { randomBytes } from 'node:crypto'
+import { t } from '@main/services/i18n'
 import { utf8ToBytes } from '../crypto/base64url'
 import { sha256Hex } from '../crypto/hash'
 
@@ -22,7 +23,9 @@ const DEK_BYTES = 32
 
 function assertDek(dek: Uint8Array): void {
   if (dek.length !== DEK_BYTES) {
-    throw new Error(`DEK 长度非法：期望 ${DEK_BYTES} 字节，实际 ${dek.length} 字节`)
+    throw new Error(
+      t('notifications.sync.dekLengthInvalid', { expected: DEK_BYTES, actual: dek.length })
+    )
   }
 }
 
@@ -40,11 +43,11 @@ function openWithAad(
   dek: Uint8Array,
   aad: Uint8Array,
   ciphertext: Uint8Array,
-  label: string
+  lengthErrorKey: string
 ): Uint8Array {
   assertDek(dek)
   if (ciphertext.length < NONCE_BYTES + TAG_BYTES + 1) {
-    throw new Error(`${label} 密文长度非法：${ciphertext.length} 字节`)
+    throw new Error(t(lengthErrorKey, { length: ciphertext.length }))
   }
   const nonce = ciphertext.subarray(0, NONCE_BYTES)
   const sealed = ciphertext.subarray(NONCE_BYTES)
@@ -58,7 +61,12 @@ export function sealKnowledgeFile(dek: Uint8Array, plaintext: Uint8Array): Uint8
 
 /** 解开 knowledge 文件密文；tag 校验失败/长度非法抛异常 */
 export function openKnowledgeFile(dek: Uint8Array, ciphertext: Uint8Array): Uint8Array {
-  return openWithAad(dek, KNOWLEDGE_FILE_AAD, ciphertext, 'knowledge 文件')
+  return openWithAad(
+    dek,
+    KNOWLEDGE_FILE_AAD,
+    ciphertext,
+    'notifications.sync.knowledgeFileCiphertextLengthInvalid'
+  )
 }
 
 /** 块加密：返回密文与 blockId（blockId = sha256(密文)，对齐 relay blocks 通道契约） */
@@ -72,7 +80,12 @@ export function sealKnowledgeBlock(
 
 /** 解开 knowledge 块密文；tag 校验失败/长度非法抛异常 */
 export function openKnowledgeBlock(dek: Uint8Array, ciphertext: Uint8Array): Uint8Array {
-  return openWithAad(dek, KNOWLEDGE_BLOCK_AAD, ciphertext, 'knowledge 块')
+  return openWithAad(
+    dek,
+    KNOWLEDGE_BLOCK_AAD,
+    ciphertext,
+    'notifications.sync.knowledgeBlockCiphertextLengthInvalid'
+  )
 }
 
 /** 用 DEK 密封 knowledge 文件块清单明文（manifest，走 session-files 通道） */
@@ -82,5 +95,10 @@ export function sealKnowledgeManifest(dek: Uint8Array, plaintext: Uint8Array): U
 
 /** 解开 knowledge 文件块清单密文；tag 校验失败/长度非法抛异常 */
 export function openKnowledgeManifest(dek: Uint8Array, ciphertext: Uint8Array): Uint8Array {
-  return openWithAad(dek, KNOWLEDGE_MANIFEST_AAD, ciphertext, 'knowledge 清单')
+  return openWithAad(
+    dek,
+    KNOWLEDGE_MANIFEST_AAD,
+    ciphertext,
+    'notifications.sync.knowledgeManifestCiphertextLengthInvalid'
+  )
 }
