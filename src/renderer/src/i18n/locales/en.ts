@@ -606,7 +606,20 @@ const en: Resources = {
       deviceRevoked: 'This device has been revoked. Please sign in again',
       relayNotInitialized: 'Relay service is not initialized yet',
       quotaExceeded: 'Account storage quota exceeded. Clean up remote data or contact your admin',
-      bodyTooLarge: 'File too large; exceeds the per-file sync limit'
+      bodyTooLarge: 'File too large; exceeds the per-file sync limit',
+      refreshStatusFallback: 'Failed to load sync status',
+      eventTicketFallback: 'Failed to fetch the event connection ticket',
+      eventConnectFallback: 'Failed to establish the event connection',
+      lastErrorSession_one: '{{count}} session failed to sync',
+      lastErrorSession_other: '{{count}} sessions failed to sync',
+      lastErrorConfig_one: '{{count}} config failed to sync',
+      lastErrorConfig_other: '{{count}} configs failed to sync',
+      lastErrorWriter_one: '{{count}} document failed to sync',
+      lastErrorWriter_other: '{{count}} documents failed to sync',
+      lastErrorKnowledge_one: '{{count}} knowledge base failed to sync',
+      lastErrorKnowledge_other: '{{count}} knowledge bases failed to sync',
+      lastErrorPaper_one: '{{count}} paper failed to sync',
+      lastErrorPaper_other: '{{count}} papers failed to sync'
     },
     config: {
       loadFailedTitle: 'Failed to Load Configuration',

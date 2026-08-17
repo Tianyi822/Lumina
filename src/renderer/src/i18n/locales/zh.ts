@@ -582,7 +582,20 @@ const zh = {
       deviceRevoked: '当前设备已被吊销，请重新登录',
       relayNotInitialized: 'Relay 服务尚未初始化',
       quotaExceeded: '账户存储配额不足，请清理远端数据或联系管理员扩容',
-      bodyTooLarge: '文件过大，超过同步单文件上限'
+      bodyTooLarge: '文件过大，超过同步单文件上限',
+      refreshStatusFallback: '读取同步状态失败',
+      eventTicketFallback: '事件连接票据获取失败',
+      eventConnectFallback: '事件连接创建失败',
+      lastErrorSession_one: '{{count}} 个会话同步失败',
+      lastErrorSession_other: '{{count}} 个会话同步失败',
+      lastErrorConfig_one: '{{count}} 个配置同步失败',
+      lastErrorConfig_other: '{{count}} 个配置同步失败',
+      lastErrorWriter_one: '{{count}} 个文档同步失败',
+      lastErrorWriter_other: '{{count}} 个文档同步失败',
+      lastErrorKnowledge_one: '{{count}} 个知识库同步失败',
+      lastErrorKnowledge_other: '{{count}} 个知识库同步失败',
+      lastErrorPaper_one: '{{count}} 个论文同步失败',
+      lastErrorPaper_other: '{{count}} 个论文同步失败'
     },
     config: {
       loadFailedTitle: '配置加载失败',

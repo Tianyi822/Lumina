@@ -387,7 +387,10 @@ export const useSyncStore = create<SyncStoreState>()((set, get) => ({
   refreshStatus: async () => {
     const result = await window.api.sync.getStatus()
     if (!result.success || !result.data) {
-      set({ status: 'error', error: formatFailure(result, '读取同步状态失败') })
+      set({
+        status: 'error',
+        error: formatFailure(result, i18n.t('notifications.sync.refreshStatusFallback'))
+      })
       return
     }
     set(patchFromStatus(result.data))
@@ -540,7 +543,11 @@ export const useSyncStore = create<SyncStoreState>()((set, get) => ({
           lastSyncAt: new Date().toISOString(),
           lastResult: result.data,
           lastError:
-            result.data.errors.length > 0 ? `${result.data.errors.length} 个会话同步失败` : null
+            result.data.errors.length > 0
+              ? i18n.t('notifications.sync.lastErrorSession', {
+                  count: result.data.errors.length
+                })
+              : null
         }
       })
     }
@@ -576,7 +583,9 @@ export const useSyncStore = create<SyncStoreState>()((set, get) => ({
           lastSyncAt: new Date().toISOString(),
           lastResult: syncResult,
           lastError:
-            syncResult.errors.length > 0 ? `${syncResult.errors.length} 项配置同步失败` : null
+            syncResult.errors.length > 0
+              ? i18n.t('notifications.sync.lastErrorConfig', { count: syncResult.errors.length })
+              : null
         }
       })
     }
@@ -610,7 +619,9 @@ export const useSyncStore = create<SyncStoreState>()((set, get) => ({
           lastSyncAt: new Date().toISOString(),
           lastResult: syncResult,
           lastError:
-            syncResult.errors.length > 0 ? `${syncResult.errors.length} 篇写作同步失败` : null
+            syncResult.errors.length > 0
+              ? i18n.t('notifications.sync.lastErrorWriter', { count: syncResult.errors.length })
+              : null
         }
       })
     }
@@ -644,7 +655,9 @@ export const useSyncStore = create<SyncStoreState>()((set, get) => ({
           lastSyncAt: new Date().toISOString(),
           lastResult: syncResult,
           lastError:
-            syncResult.errors.length > 0 ? `${syncResult.errors.length} 项知识库同步失败` : null
+            syncResult.errors.length > 0
+              ? i18n.t('notifications.sync.lastErrorKnowledge', { count: syncResult.errors.length })
+              : null
         }
       })
     }
@@ -680,7 +693,9 @@ export const useSyncStore = create<SyncStoreState>()((set, get) => ({
           lastSyncAt: new Date().toISOString(),
           lastResult: syncResult,
           lastError:
-            syncResult.errors.length > 0 ? `${syncResult.errors.length} 篇论文同步失败` : null,
+            syncResult.errors.length > 0
+              ? i18n.t('notifications.sync.lastErrorPaper', { count: syncResult.errors.length })
+              : null,
           downloads: get().paperSync.downloads
         }
       })
@@ -744,7 +759,10 @@ export const useSyncStore = create<SyncStoreState>()((set, get) => ({
       if (!ticketResult.success || !ticketResult.data || !shouldReconnect) {
         // 主动断开/清理期间落地的在飞请求：静默丢弃，不误报为连接失败
         if (!shouldReconnect) return
-        set({ eventConnected: false, error: formatFailure(ticketResult, '事件连接票据获取失败') })
+        set({
+          eventConnected: false,
+          error: formatFailure(ticketResult, i18n.t('notifications.sync.eventTicketFallback'))
+        })
         scheduleReconnect(get)
         return
       }
@@ -756,7 +774,10 @@ export const useSyncStore = create<SyncStoreState>()((set, get) => ({
       } catch (error) {
         set({
           eventConnected: false,
-          error: error instanceof Error ? error.message : '事件连接创建失败'
+          error:
+            error instanceof Error
+              ? error.message
+              : i18n.t('notifications.sync.eventConnectFallback')
         })
         scheduleReconnect(get)
         return
