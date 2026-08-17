@@ -249,7 +249,18 @@ const INDIRECT_KEY_WHITELIST = [
   'chrome.nav.writer',
   'chrome.nav.addPaper',
   'chrome.nav.addKnowledge',
-  'chrome.nav.addDocument'
+  'chrome.nav.addDocument',
+  // SettingsModal.tsx 的 SETTINGS_CATEGORIES labelKey
+  'settings.nav.paper',
+  'settings.nav.knowledge',
+  'settings.nav.advanced',
+  'settings.nav.display',
+  'settings.nav.sync',
+  'settings.nav.update',
+  // WriterSidebarSection.tsx 的 collectionItems labelKey
+  'chrome.sidebar.favorite',
+  'chrome.sidebar.recent',
+  'chrome.sidebar.all'
 ]
 
 test('渲染进程 t() 字面量引用的 key 均存在于 zh 资源', () => {
@@ -297,7 +308,7 @@ test('含 count 的资源 key 均以 _one/_other 成对定义', () => {
       if (!keySet.has(`${key.slice(0, -6)}_one`)) offenders.push(`${key} 缺少 _one 配对`)
     } else {
       const value = getValueAt(zh, key)
-      if (typeof value === 'string' && value.includes('{{count}}')) {
+      if (typeof value === 'string' && /\{\{\s*count\s*\}\}/.test(value)) {
         offenders.push(`${key} 含 {{count}} 但未用 _one/_other 成对定义`)
       }
     }
