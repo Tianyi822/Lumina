@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { Message } from '@renderer/types'
 import type { PaperQuote } from '@shared/types/chat'
-import { estimateTokenCount } from '@renderer/utils/tokenEstimate'
+import { estimateTokenCount, formatTokenCount } from '@renderer/utils/tokenEstimate'
 import { usePaperChatStreamingReveal } from '../hooks/usePaperChatStreamingReveal'
 import PaperChatMessageAttachments from './PaperChatMessageAttachments'
 import PaperChatMessageContent from './PaperChatMessageContent'
@@ -115,7 +115,9 @@ export default function PaperChatMessage({
 
   const userTokenUsageLabel =
     message.role === 'user' && !isVisuallyStreaming
-      ? t('paper.chat.message.inputTokens', { count: estimateTokenCount(message.content) })
+      ? t('paper.chat.message.inputTokens', {
+          formatted: formatTokenCount(estimateTokenCount(message.content))
+        })
       : ''
 
   if (!shouldRender) {

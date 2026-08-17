@@ -245,16 +245,14 @@ const zh = {
         readingContext: '模型正在读取论文上下文'
       },
       reasoning: {
-        tokens_one: '约 {{count}}',
-        tokens_other: '约 {{count}}',
+        tokens: '约 {{formatted}}',
         title: '思考过程'
       },
       tokens: {
         summary: '总计: {{total}} | 缓存输入: {{cached}} ({{rate}})'
       },
       message: {
-        inputTokens_one: '输入: 约 {{count}}',
-        inputTokens_other: '输入: 约 {{count}}'
+        inputTokens: '输入: 约 {{formatted}}'
       }
     }
   },

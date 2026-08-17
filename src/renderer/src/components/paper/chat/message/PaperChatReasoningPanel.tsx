@@ -40,7 +40,9 @@ export default function PaperChatReasoningPanel({
     if (reasoningTokens !== undefined) {
       return formatTokenCount(reasoningTokens)
     }
-    return t('paper.chat.reasoning.tokens', { count: estimateTokenCount(content) })
+    return t('paper.chat.reasoning.tokens', {
+      formatted: formatTokenCount(estimateTokenCount(content))
+    })
   }, [content, reasoningTokens, t])
 
   function toggle(): void {

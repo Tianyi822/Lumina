@@ -264,11 +264,14 @@ async function uploadAndRenderPdfs(): Promise<{
   }
 
   if (errors.length > 0) {
-    notifyWarning(
-      i18n.t('notifications.paper.partialUploadTitle'),
-      `${errors.slice(0, 3).join('\n')}${i18n.t('notifications.paper.partialUploadSuffix', { count: errors.length })}`,
-      { source: 'paper', duration: 10000 }
-    )
+    const failureDetail =
+      errors.length > 3
+        ? `${errors.slice(0, 3).join('\n')}${i18n.t('notifications.paper.partialUploadSuffix', { count: errors.length })}`
+        : errors.slice(0, 3).join('\n')
+    notifyWarning(i18n.t('notifications.paper.partialUploadTitle'), failureDetail, {
+      source: 'paper',
+      duration: 10000
+    })
   }
 
   if (paperIds.length === 0) {

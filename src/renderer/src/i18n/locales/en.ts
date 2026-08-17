@@ -250,16 +250,14 @@ const en: Resources = {
         readingContext: 'The model is reading the paper context'
       },
       reasoning: {
-        tokens_one: '~{{count}} token',
-        tokens_other: '~{{count}} tokens',
+        tokens: '~{{formatted}} tokens',
         title: 'Reasoning'
       },
       tokens: {
         summary: 'Total: {{total}} | Cached input: {{cached}} ({{rate}})'
       },
       message: {
-        inputTokens_one: 'Input: ~{{count}} token',
-        inputTokens_other: 'Input: ~{{count}} tokens'
+        inputTokens: 'Input: ~{{formatted}} tokens'
       }
     }
   },
