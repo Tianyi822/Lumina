@@ -43,8 +43,8 @@ const paper = {
   ocrDisclaimerMessage:
     '论文正文由 OCR/解析结果生成，复杂表格、公式和跨页排版可能不准确。遇到异常内容时，请优先对照原 PDF。',
   partialUploadTitle: '部分论文上传失败',
-  partialUploadSuffix_one: '\n…等共 {{count}} 项失败',
-  partialUploadSuffix_other: '\n…等共 {{count}} 项失败',
+  partialUploadSuffix_one: '\n...等共 {{count}} 项失败',
+  partialUploadSuffix_other: '\n...等共 {{count}} 项失败',
   notesUpdatedTitle: '论文笔记已更新',
   notesUpdatedLine1: '以下知识库需要重新索引以确保检索结果使用最新笔记内容：',
   notesUpdatedLine3: '请前往知识库页面点击"重新索引"。',

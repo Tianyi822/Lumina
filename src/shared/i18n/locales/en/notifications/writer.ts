@@ -3,7 +3,7 @@ import type { Resources } from '../../zh'
 const writer: Resources['notifications']['writer'] = {
   confirmIrreversible: 'This cannot be undone.',
   deleteDocumentTitle: 'Delete document permanently',
-  deleteFolderMessage: 'Deleting the folder moves its documents back to All Documents.',
+  deleteFolderMessage: 'Deleting the folder moves its documents back to all documents.',
   deleteFolderTitle: 'Delete folder',
   exportFailedTitle: 'Export failed',
   exportFailedFallback: 'Unable to export the document',
@@ -119,7 +119,7 @@ const writer: Resources['notifications']['writer'] = {
   imageAssetPathMissing: 'Image lacks a valid assetPath; skipped',
   footnoteRefMissingNumber: 'Footnote reference lacks a number; skipped',
   footnoteDefinitionMissing: 'Footnote {{footnoteId}} lacks a definition; empty content emitted',
-  invalidRendererId: 'Invalid Renderer ID',
+  invalidRendererId: 'Invalid renderer ID',
   exportDialog: {
     title: 'Export {{format}}',
     overwrite: 'Overwrite',

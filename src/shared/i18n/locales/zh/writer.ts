@@ -9,7 +9,7 @@ const writer = {
     titleAriaLabel: '文档标题',
     untitled: '无标题文档',
     imagePickerAriaLabel: '选择写作图片',
-    placeholder: '开始写作…',
+    placeholder: '开始写作...',
     unreferencedLabel: '未引用'
   },
   slashMenu: {
@@ -84,7 +84,7 @@ const writer = {
     removeColumn: '− 列',
     toggleHeader: '切换表头',
     cellAlign: '单元格对齐',
-    imageImporting: '正在导入图片…',
+    imageImporting: '正在导入图片...',
     mathRenderFailed: '公式渲染失败'
   },
   outline: {
@@ -93,9 +93,9 @@ const writer = {
     untitledItem: '无标题'
   },
   suggestions: {
-    rewriting: 'AI 正在改写…',
-    continuing: 'AI 正在续写…',
-    generating: 'AI 正在生成建议…',
+    rewriting: 'AI 正在改写...',
+    continuing: 'AI 正在续写...',
+    generating: 'AI 正在生成建议...',
     ariaLabel: 'AI 编辑建议',
     pendingCount_one: '{{count}} 项待确认',
     pendingCount_other: '{{count}} 项待确认',

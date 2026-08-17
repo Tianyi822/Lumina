@@ -37,7 +37,7 @@ const chrome = {
     folders: '文件夹',
     deleteFolderNamed: '删除文件夹 {{name}}',
     folderEmpty: '文件夹内暂无文档',
-    loadingDocuments: '正在加载文档…',
+    loadingDocuments: '正在加载文档...',
     noMatchDocument: '未找到匹配的文档',
     emptyDocument: '暂无文档',
     favoriteRemove: '取消收藏',
@@ -83,7 +83,7 @@ const chrome = {
     selectPaperTitle: '选择一篇论文开始阅读',
     selectPaperBody: '从左侧列表中选择已有文献，或直接上传 PDF 开始阅读。',
     uploadPdf: '上传 PDF',
-    loadingDocument: '正在加载文档…',
+    loadingDocument: '正在加载文档...',
     loadDocumentFailed: '加载文档失败',
     selectDocumentTitle: '选择一个文档，或开始新的写作',
     newDocument: '新建文档'

@@ -11,7 +11,7 @@ const writer: Resources['writer'] = {
     titleAriaLabel: 'Document title',
     untitled: 'Untitled document',
     imagePickerAriaLabel: 'Choose a writing image',
-    placeholder: 'Start writing…',
+    placeholder: 'Start writing...',
     unreferencedLabel: 'Unreferenced'
   },
   slashMenu: {
@@ -86,7 +86,7 @@ const writer: Resources['writer'] = {
     removeColumn: '− Column',
     toggleHeader: 'Toggle header',
     cellAlign: 'Cell alignment',
-    imageImporting: 'Importing image…',
+    imageImporting: 'Importing image...',
     mathRenderFailed: 'Formula rendering failed'
   },
   outline: {
@@ -95,9 +95,9 @@ const writer: Resources['writer'] = {
     untitledItem: 'Untitled'
   },
   suggestions: {
-    rewriting: 'AI is rewriting…',
-    continuing: 'AI is continuing…',
-    generating: 'AI is generating suggestions…',
+    rewriting: 'AI is rewriting...',
+    continuing: 'AI is continuing...',
+    generating: 'AI is generating suggestions...',
     ariaLabel: 'AI edit suggestions',
     pendingCount_one: '{{count}} pending',
     pendingCount_other: '{{count}} pending',
@@ -118,10 +118,10 @@ const writer: Resources['writer'] = {
     requestFailed: 'The model request failed. Retry later or switch models.',
     interrupted: 'Connection interrupted ({{message}}). Retry later or switch models.',
     timeout: 'The request timed out or was interrupted ({{message}}). Retry later.',
-    saveFailed: 'Failed to save the Writer chat session',
-    createFailed: 'Failed to create the Writer chat session',
-    notReady: 'Writer chat session not ready',
-    noModel: 'Select a model first'
+    saveFailed: 'Failed to save the Writer chat session.',
+    createFailed: 'Failed to create the Writer chat session.',
+    notReady: 'Writer chat session not ready.',
+    noModel: 'Select a model first.'
   }
 }
 
