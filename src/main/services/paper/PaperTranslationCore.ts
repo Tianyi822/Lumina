@@ -1277,6 +1277,12 @@ export class PaperTranslationCore {
     const isReferenceSegment = isPaperReferenceLikeSegment(currentEntry)
     // 仅目标词随语言切换，指令骨架保持中文不动
     const targetLanguageName = targetLanguage === 'en' ? '英文' : '中文'
+    // 规则 2 的机构/地名处理同样随目标语言对称切换：
+    // zh 译为常用中文译法；en 保留英文原文/采用常用英文写法
+    const affiliationTargetRule =
+      targetLanguage === 'en'
+        ? '2. 作者姓名、人名、邮箱、ORCID 保持原样不要翻译；机构、院系、实验室、学校和地名请保留英文原文或采用常用英文写法，必要时可附原文缩写。'
+        : '2. 作者姓名、人名、邮箱、ORCID 保持原样不要翻译；机构、院系、实验室、学校和地名请翻译为常用中文译法，必要时保留英文缩写。'
 
     const parts = [
       `你是一个专业的学术论文翻译助手，请将当前 Markdown 段落翻译成${targetLanguageName}。`,
@@ -1284,7 +1290,7 @@ export class PaperTranslationCore {
       '<previous_context> 和 <next_context> 仅用于术语与语境参考，绝不能复述、复制或翻译到输出中。',
       '翻译要求：',
       '1. 只输出翻译后的 Markdown，不要输出解释、前言、注释或额外说明。',
-      '2. 作者姓名、人名、邮箱、ORCID 保持原样不要翻译；机构、院系、实验室、学校和地名请翻译为常用中文译法，必要时保留英文缩写。',
+      affiliationTargetRule,
       '3. 保留公式、变量名、引用编号、列表序号、链接、图片语法、表格结构和列表层级。',
       `4. 如原文已经是${targetLanguageName}，仅做必要的学术化润色并保持原意。`,
       '5. 不要遗漏内容，也不要补充原文没有的信息。',

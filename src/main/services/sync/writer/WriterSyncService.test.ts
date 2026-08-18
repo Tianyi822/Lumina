@@ -45,6 +45,8 @@ class FakeRelayClient {
   files = new Map<string, { bytes: Uint8Array; version: number }>()
   /** 下一次 putSessionFile(key) 强制返回一次 stale，模拟对端抢先写入触发 CAS 冲突 */
   private readonly forceStaleOnce = new Set<string>()
+  /** getSessionFile(key) 持续失败，模拟 stale rebase 拉取最新失败 */
+  readonly failGetSessionKeys = new Set<string>()
   /** listSessionFiles 返回的 version 覆盖，模拟 list→put 并发窗口中的过期快照 */
   readonly listVersionOverride = new Map<string, number>()
   /** 模拟 429：listSessionFiles 返回限流并携带 retryAfterMs */
@@ -79,6 +81,9 @@ class FakeRelayClient {
   async getSessionFile(
     key: string
   ): Promise<SyncResult<{ bytes: Uint8Array; version: number | null }>> {
+    if (this.failGetSessionKeys.has(key)) {
+      return { success: false, code: 'network_error', error: '模拟拉取最新失败' }
+    }
     const file = this.files.get(key)
     if (!file) return { success: false, code: 'session_file_not_found', error: '不存在' }
     return { success: true, data: { bytes: file.bytes, version: file.version } }
@@ -193,6 +198,33 @@ function makeDoc(id: string, revision: number, title = '测试'): WriterDocument
   } as WriterDocument
 }
 
+/** 构造引用指定资产（image 节点 assetPath/src）的文档，模拟真实 Tiptap 内容 */
+function makeDocWithAssets(id: string, revision: number, assetFileNames: string[]): WriterDocument {
+  const doc = makeDoc(id, revision)
+  doc.content = {
+    type: 'doc',
+    content: assetFileNames.map((fileName) => ({
+      type: 'image',
+      attrs: {
+        assetPath: `assets/${fileName}`,
+        src: `lumina://writing/${id}/assets/${fileName}`
+      }
+    }))
+  }
+  return doc
+}
+
+/** 解密并解析 relay 上的 manifest，返回文件名列表（断言远端清单内容用） */
+function parseRemoteManifestFiles(relay: FakeRelayClient, key: string): string[] {
+  const stored = relay.files.get(key)
+  assert.ok(stored)
+  const manifest = parseWriterAssetManifest(
+    new TextDecoder().decode(openWriterAssetManifest(DEK, stored.bytes))
+  )
+  assert.ok(manifest)
+  return manifest.files.map((f) => f.fileName)
+}
+
 function makeEmptyIndex(): WriterIndex {
   return { schemaVersion: 1, folders: [], documents: [], recentDocumentIds: [] }
 }
@@ -265,13 +297,52 @@ function makeHarness(connected = true): Harness {
     getClient: () => relay as unknown as RelayClient
   }
 
+  // 模拟 WriterService.collectDocumentGarbage：读已落盘文档 JSON 的 image 引用，
+  // 清理该文档 assets 目录下未被引用的文件（与真实单文档 GC 行为一致）
+  const collectDocumentGarbage = async (
+    documentId: string
+  ): Promise<{ success: boolean; data?: number; error?: string }> => {
+    try {
+      const doc = JSON.parse(
+        readFileSync(join(documentsDir, documentId, 'document.json'), 'utf-8')
+      ) as unknown
+      const referenced = new Set<string>()
+      const visit = (node: unknown): void => {
+        if (!node || typeof node !== 'object') return
+        const n = node as { type?: unknown; attrs?: unknown; content?: unknown }
+        if (n.type === 'image') {
+          const assetPath = (n.attrs as { assetPath?: unknown } | undefined)?.assetPath
+          if (typeof assetPath === 'string') referenced.add(assetPath)
+        }
+        if (Array.isArray(n.content)) n.content.forEach(visit)
+      }
+      visit(doc)
+      const assetsDir = join(documentsDir, documentId, 'assets')
+      let removed = 0
+      for (const name of readdirSync(assetsDir)) {
+        if (!referenced.has(`assets/${name}`)) {
+          rmSync(join(assetsDir, name))
+          removed += 1
+        }
+      }
+      return { success: true, data: removed }
+    } catch (error) {
+      // 与真实 WriterAssetService.collectGarbage 一致：目录不存在视为无垃圾
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        return { success: true, data: 0 }
+      }
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
+    }
+  }
+
   const engine = new WriterSyncService({
     syncService,
     storage,
     assetService,
     tracker,
     broadcast: () => {},
-    writingRootProvider: () => writingRoot
+    writingRootProvider: () => writingRoot,
+    collectDocumentGarbage
   })
 
   return {
@@ -854,6 +925,98 @@ test('限流窗口内 syncNow 返回 rate_limited 而非陈旧成功结果', asy
     const stillLimited = await h.engine.syncNow()
     assert.equal(stillLimited.success, false)
     assert.equal(stillLimited.code, 'rate_limited', '限流窗口内入口前置检查应拦截')
+  } finally {
+    h.cleanup()
+  }
+})
+
+test('远端文档应用后单文档 GC：对端删除的资产不因本地磁盘残留复活', async () => {
+  const h = makeHarness()
+  try {
+    // 基线：B 端文档引用 a1/b2 两资产，首轮上行 manifest 含 2 文件
+    const docId = 'writer-abc12345'
+    const docDir = join(h.dir, 'documents', docId)
+    mkdirSync(join(docDir, 'assets'), { recursive: true })
+    writeFileSync(join(docDir, 'assets', 'a1b2c3d4.png'), PNG_BYTES)
+    writeFileSync(join(docDir, 'assets', 'b2c3d4e5.gif'), GIF_BYTES)
+    writeFileSync(
+      join(docDir, 'document.json'),
+      JSON.stringify(makeDocWithAssets(docId, 1, ['a1b2c3d4.png', 'b2c3d4e5.gif']), null, 2),
+      'utf-8'
+    )
+    await h.engine.syncNow()
+    const manifestKey = makeAssetsManifestKey(docId)
+    assert.equal(parseRemoteManifestFiles(h.relay, manifestKey).length, 2)
+
+    // 模拟 A 端删除 b2：文档收窄引用（revision 2）+ manifest 只剩 a1（version 2）
+    const remoteDoc = makeDocWithAssets(docId, 2, ['a1b2c3d4.png'])
+    h.relay.files.set(makeDocKey(docId), {
+      bytes: sealWriterFile(DEK, new TextEncoder().encode(JSON.stringify(remoteDoc, null, 2))),
+      version: 2
+    })
+    injectRemoteManifest(h.relay, docId, [{ fileName: 'a1b2c3d4.png', bytes: PNG_BYTES }], 2)
+
+    // B 端同步：应用收窄文档后立即 GC 未引用的 b2
+    const r2 = await h.engine.syncNow()
+    assert.ok(r2.data)
+    assert.equal(r2.data.errors.length, 0)
+    assert.deepEqual(
+      readdirSync(join(docDir, 'assets')).sort(),
+      ['a1b2c3d4.png'],
+      '未引用资产应在文档应用后被清理'
+    )
+    // 本轮 phase (d) 不得以磁盘残留为源回推加宽远端 manifest
+    assert.deepEqual(parseRemoteManifestFiles(h.relay, manifestKey), ['a1b2c3d4.png'])
+
+    // 下一轮：manifest 不复活（条目不回宽、版本不抬升）
+    const r3 = await h.engine.syncNow()
+    assert.ok(r3.data)
+    assert.equal(r3.data.errors.length, 0)
+    assert.deepEqual(parseRemoteManifestFiles(h.relay, manifestKey), ['a1b2c3d4.png'])
+    assert.equal(h.relay.files.get(manifestKey)?.version, 2)
+    assert.deepEqual(readdirSync(join(docDir, 'assets')).sort(), ['a1b2c3d4.png'])
+  } finally {
+    h.cleanup()
+  }
+})
+
+test('manifest stale rebase 拉取最新失败 → 记拉取失败错误，不以 base=0 盲试至重试耗尽', async () => {
+  const h = makeHarness()
+  try {
+    const docId = 'writer-abc12345'
+    const docDir = join(h.dir, 'documents', docId)
+    mkdirSync(join(docDir, 'assets'), { recursive: true })
+    writeFileSync(join(docDir, 'assets', 'a1b2c3d4.png'), PNG_BYTES)
+    await h.engine.syncNow() // 基线：manifest v1
+    const manifestKey = makeAssetsManifestKey(docId)
+
+    // 本地新增资产 → manifest dirty；put 注入 stale 且 rebase 拉取最新持续失败
+    writeFileSync(join(docDir, 'assets', 'b2c3d4e5.gif'), GIF_BYTES)
+    h.relay.forceStaleOnNextPut(manifestKey)
+    h.relay.failGetSessionKeys.add(manifestKey)
+
+    const r = await h.engine.syncNow()
+    assert.ok(r.data)
+    assert.equal(r.data.errors.length, 1)
+    assert.ok(
+      r.data.errors.some((e) => e.key === manifestKey && e.message.includes('拉取最新')),
+      '应如实记“拉取最新失败”而非误导性的“重试耗尽”'
+    )
+    assert.ok(!r.data.errors.some((e) => e.message.includes('重试耗尽')))
+    // tracker 基线不更新，远端 manifest 未被 base=0 误传
+    assert.equal(h.tracker.getData().keys[manifestKey]?.version, 1)
+    assert.equal(h.relay.files.get(manifestKey)?.version, 1)
+
+    // 恢复后下一轮可正常重试成功
+    h.relay.failGetSessionKeys.delete(manifestKey)
+    const r2 = await h.engine.syncNow()
+    assert.ok(r2.data)
+    assert.equal(r2.data.errors.length, 0)
+    assert.equal(h.relay.files.get(manifestKey)?.version, 2)
+    assert.deepEqual(parseRemoteManifestFiles(h.relay, manifestKey).sort(), [
+      'a1b2c3d4.png',
+      'b2c3d4e5.gif'
+    ])
   } finally {
     h.cleanup()
   }

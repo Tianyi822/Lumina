@@ -4,7 +4,12 @@
  */
 import { getMainWindow } from '@main/core/window'
 import { getSyncService } from '@main/services/sync'
-import { getWritingRootPath, writerAssetService, writerStorageService } from '@main/services/writer'
+import {
+  getWritingRootPath,
+  writerAssetService,
+  writerService,
+  writerStorageService
+} from '@main/services/writer'
 import { WriterSyncService } from './WriterSyncService'
 import { WriterSyncTracker } from './writerSyncTracker'
 
@@ -18,6 +23,8 @@ export function getWriterSyncService(): WriterSyncService {
       // 复用 writerService 的底层存储/资源单例，共享同一写队列
       storage: writerStorageService,
       assetService: writerAssetService,
+      // 远端文档应用后触发单文档 GC，收敛对端删除的资产（防磁盘残留回推复活）
+      collectDocumentGarbage: (documentId) => writerService.collectDocumentGarbage(documentId),
       tracker: new WriterSyncTracker(),
       broadcast: (state) => {
         getMainWindow()?.webContents.send('sync:writerSyncState', state)

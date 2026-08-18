@@ -171,6 +171,10 @@ const sync: Resources['notifications']['sync'] = {
   writerAssetManifestOverLimit: 'The writer asset manifest exceeds the 4 MiB limit',
   writerAssetManifestUploadFailed: 'Failed to upload the writer asset manifest: {{detail}}',
   writerAssetManifestCasRetryExhausted: 'Writer asset manifest version conflict retries exhausted',
+  writerAssetManifestFetchLatestFailed:
+    'Failed to fetch the latest writer asset manifest after a conflict: {{detail}}',
+  writerAssetCleanupFailed:
+    'Failed to clean up unreferenced writer assets after applying the remote document: {{detail}}',
   legacyFileKeyMigrationDeleteFailed:
     'Failed to delete the legacy file key during migration: {{detail}}',
   contentApplyFailed: 'Failed to apply the content: {{detail}}',

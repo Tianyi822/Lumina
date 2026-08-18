@@ -1550,6 +1550,9 @@ test('buildPrompt 目标词随 targetLanguage=en 切换且指令骨架保持中�
     assert.doesNotMatch(prompt, /翻译成中文/)
     assert.match(prompt, /如原文已经是英文，仅做必要的学术化润色并保持原意。/)
     assert.doesNotMatch(prompt, /如原文已经是中文/)
+    // 规则 2 的机构/地名目标词随目标语言切换：en 保留英文原文/常用英文写法
+    assert.match(prompt, /机构、院系、实验室、学校和地名请保留英文原文或采用常用英文写法/)
+    assert.doesNotMatch(prompt, /常用中文译法/)
     // 指令骨架保持中文不动
     assert.match(prompt, /你是一个专业的学术论文翻译助手/)
     assert.match(prompt, /只翻译 <current_segment> 标签内的内容。/)
@@ -1593,6 +1596,13 @@ test('默认目标 zh 时 buildPrompt 保持既有中文文案逐字不变', asy
   for (const prompt of prompts) {
     assert.ok(prompt.includes('你是一个专业的学术论文翻译助手，请将当前 Markdown 段落翻译成中文。'))
     assert.ok(prompt.includes('4. 如原文已经是中文，仅做必要的学术化润色并保持原意。'))
+    // 规则 2 逐字锁定：机构/地名译为常用中文译法（en 分支文案不得混入）
+    assert.ok(
+      prompt.includes(
+        '2. 作者姓名、人名、邮箱、ORCID 保持原样不要翻译；机构、院系、实验室、学校和地名请翻译为常用中文译法，必要时保留英文缩写。'
+      )
+    )
+    assert.ok(!prompt.includes('常用英文写法'))
     assert.ok(!prompt.includes('翻译成英文'))
     assert.ok(!prompt.includes('如原文已经是英文'))
   }

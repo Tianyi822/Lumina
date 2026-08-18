@@ -7,6 +7,7 @@ import type {
 } from '@shared/types/paper'
 import { hasPaperTranslationResult } from '@shared/utils/paperTranslation'
 import { buildFigureCaptionTranslationMap } from '@shared/utils/paperTranslation'
+import { i18n } from '@renderer/i18n'
 import { upsertTranslationEntry, mergeTranslationEntries } from './composables/paperTranslationCore'
 import { createIdleTranslationTaskState, type PaperTranslationTaskState } from './shared'
 import { usePaperListStore } from './usePaperListStore'
@@ -206,7 +207,8 @@ export const usePaperTranslationStore = create<PaperTranslationState>()((set, ge
       })
 
       if (result.data.isRunning) {
-        await window.api.paper.startTranslation(paperId)
+        // 恢复路径同样携带当前界面语言，避免 handler 端缺省 zh 与运行中任务的目标语言不符
+        await window.api.paper.startTranslation(paperId, i18n.language === 'en' ? 'en' : 'zh')
       }
     },
 

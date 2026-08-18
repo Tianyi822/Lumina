@@ -156,6 +156,8 @@ const sync = {
   writerAssetManifestOverLimit: '写作资产清单超过 4MiB 上限',
   writerAssetManifestUploadFailed: '写作资产清单上行失败：{{detail}}',
   writerAssetManifestCasRetryExhausted: '写作资产清单版本冲突重试耗尽',
+  writerAssetManifestFetchLatestFailed: '写作资产清单冲突后拉取最新失败：{{detail}}',
+  writerAssetCleanupFailed: '远端文档应用后清理未引用资产失败：{{detail}}',
   legacyFileKeyMigrationDeleteFailed: '迁移删除旧 file key 失败：{{detail}}',
   contentApplyFailed: '内容应用失败：{{detail}}',
   fileChunkUploadFailed: '文件切块/上传失败：{{detail}}',

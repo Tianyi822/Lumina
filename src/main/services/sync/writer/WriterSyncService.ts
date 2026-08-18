@@ -82,6 +82,10 @@ type WriterAssetLike = {
     input: { fileName: string; declaredMimeType: string; bytes: Uint8Array }
   ): Promise<{ success: boolean; error?: string }>
 }
+/** 单文档 GC：读文档引用并清理该文档未引用资产（装配层接 WriterService.collectDocumentGarbage） */
+type WriterDocumentGarbageCollector = (
+  documentId: string
+) => Promise<{ success: boolean; data?: number; error?: string }>
 
 export interface WriterSyncServiceDeps {
   syncService: SyncServiceLike
@@ -92,6 +96,7 @@ export interface WriterSyncServiceDeps {
   writingRootProvider?: () => string
   intervalMs?: number
   eventDebounceMs?: number
+  collectDocumentGarbage?: WriterDocumentGarbageCollector
 }
 
 interface LocalFile {
@@ -175,6 +180,7 @@ export class WriterSyncService {
   private readonly writingRoot: () => string
   private readonly intervalMs: number
   private readonly eventDebounceMs: number
+  private readonly collectDocumentGarbage: WriterDocumentGarbageCollector | undefined
 
   private state: WriterSyncState = {
     phase: 'idle',
@@ -197,6 +203,7 @@ export class WriterSyncService {
     this.writingRoot = deps.writingRootProvider ?? getWritingRootPath
     this.intervalMs = deps.intervalMs ?? DEFAULT_INTERVAL_MS
     this.eventDebounceMs = deps.eventDebounceMs ?? DEFAULT_EVENT_DEBOUNCE_MS
+    this.collectDocumentGarbage = deps.collectDocumentGarbage
   }
 
   getState(): WriterSyncState {
@@ -519,6 +526,10 @@ export class WriterSyncService {
           contentHash: reread ?? sha256Hex(plainBytes)
         })
         result.downloaded++
+        // 远端文档应用后立即收敛：清理该文档未引用资产，防止对端删除经本地磁盘残留回推复活
+        if (parsed.kind === 'document') {
+          await this.collectGarbageAfterRemoteDocument(parsed.documentId, key, localAssets, result)
+        }
       } else if (downloadResult === 'ignored') {
         // 本地更新，不更新 tracker.version（保留旧值），让上行阶段处理
       } else if ('failed' in downloadResult) {
@@ -569,7 +580,8 @@ export class WriterSyncService {
         local.bytes,
         tracked?.version ?? 0,
         result,
-        local.hash
+        local.hash,
+        localAssets
       )
     }
 
@@ -660,6 +672,37 @@ export class WriterSyncService {
     }
   }
 
+  /**
+   * 远端文档应用成功后的收敛 GC：清理该文档不再引用的本地资产。
+   * 否则对端删除的资产仅从 manifest 收窄，本地磁盘残留会让下一轮
+   * uploadAssetBlocks 以磁盘扫描为源把条目加回 manifest，删除被跨端复活。
+   * GC 改写磁盘后须刷新 localAssets 快照（无论成败都按磁盘现状），
+   * 让本轮 phase (d) 的指纹 diff 基于清理后的真实状态，不再回推加宽清单。
+   */
+  private async collectGarbageAfterRemoteDocument(
+    documentId: string,
+    key: string,
+    localAssets: Map<string, LocalAssetsEntry>,
+    result: WriterSyncResult
+  ): Promise<void> {
+    if (!this.collectDocumentGarbage) return
+    const gc = await this.collectDocumentGarbage(documentId)
+    if (!gc.success) {
+      result.errors.push({
+        key,
+        message: t('notifications.sync.writerAssetCleanupFailed', {
+          detail: gc.error ?? t('notifications.sync.unknown')
+        })
+      })
+    } else if (gc.data && gc.data > 0) {
+      logger.info('远端文档应用后清理未引用写作资产', 'main', { documentId, removed: gc.data })
+    }
+    const refreshed = await this.scanAssetsDir(documentId)
+    const manifestKey = makeAssetsManifestKey(documentId)
+    if (refreshed.files.length > 0) localAssets.set(manifestKey, refreshed)
+    else localAssets.delete(manifestKey)
+  }
+
   /** 上行单文件（含 409 重试） */
   private async uploadWriterFile(
     client: NonNullable<ReturnType<SyncServiceLike['getClient']>>,
@@ -668,7 +711,8 @@ export class WriterSyncService {
     bytes: Uint8Array,
     baseVersion: number,
     result: WriterSyncResult,
-    contentHash: string
+    contentHash: string,
+    localAssets: Map<string, LocalAssetsEntry>
   ): Promise<void> {
     let currentBytes = bytes
 
@@ -724,6 +768,8 @@ export class WriterSyncService {
               })
             }
           }
+          // 与下行路径同样在远端文档应用后收敛 GC（冲突胜出的远端文档同样可能收窄了引用）
+          await this.collectGarbageAfterRemoteDocument(parsed.documentId, key, localAssets, result)
           const reread = await this.rereadLocalFile(parsed)
           this.tracker.setKey(key, {
             version: latest.data.version ?? 0,
@@ -1045,9 +1091,19 @@ export class WriterSyncService {
         })
         return
       }
-      // stale：拉最新取新 base 重推（合并策略见方法头注释）
+      // stale：拉最新取新 base 重推（合并策略见方法头注释）；
+      // 拉取失败即记错返回，不得以 base=0 盲试到"重试耗尽"误导排查
       const latest = await client.getSessionFile(key)
-      base = latest.data?.version ?? 0
+      if (!latest.success || !latest.data) {
+        result.errors.push({
+          key,
+          message: t('notifications.sync.writerAssetManifestFetchLatestFailed', {
+            detail: latest.error ?? latest.code ?? t('notifications.sync.unknownError')
+          })
+        })
+        return
+      }
+      base = latest.data.version ?? 0
     }
     if (!putOk) {
       result.errors.push({
