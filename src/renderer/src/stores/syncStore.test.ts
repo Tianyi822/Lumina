@@ -96,6 +96,8 @@ function createSyncApi(overrides: Partial<SyncApi> = {}): SyncApi {
         downloaded: 0,
         deletedLocal: 0,
         deletedRemote: 0,
+        blocksUploaded: 0,
+        blocksDownloaded: 0,
         skipped: 1,
         errors: []
       }
@@ -504,6 +506,8 @@ test('syncAllNow 的 pendingAction 在全部模块完成前保持 sync-all', asy
             downloaded: 0,
             deletedLocal: 0,
             deletedRemote: 0,
+            blocksUploaded: 0,
+            blocksDownloaded: 0,
             skipped: 0,
             errors: []
           }

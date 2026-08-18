@@ -307,6 +307,10 @@ export interface WriterSyncResult {
   downloaded: number
   deletedLocal: number
   deletedRemote: number
+  /** 资产切块上行成功数（走 blocks 通道，参照 KnowledgeSyncResult.blocksUploaded） */
+  blocksUploaded: number
+  /** 资产切块下行成功数（走 blocks 通道，参照 KnowledgeSyncResult.blocksDownloaded） */
+  blocksDownloaded: number
   skipped: number
   errors: WriterSyncErrorItem[]
 }
@@ -318,6 +322,73 @@ export interface WriterSyncState {
   lastSyncAt: string | null
   lastResult: WriterSyncResult | null
   lastError: string | null
+}
+
+/** 写作资产 manifest 单文件条目（磁盘文件名为 sha256hex.ext，与 WriterAssetService 命名一致） */
+export interface WriterAssetManifestFileEntry {
+  fileName: string
+  /** 文件明文大小（字节） */
+  size: number
+  /** 文件明文 sha256 */
+  sha256: string
+  /** 每块 blockId = sha256(密文块)；有序，下载时按序拼接 */
+  blockIds: string[]
+}
+
+/** 写作资产块清单（每文档一个 manifest：manifest 走 session-files，内容切块走 blocks 通道） */
+export interface WriterAssetManifest {
+  schemaVersion: 1
+  documentId: string
+  updatedAt: string
+  files: WriterAssetManifestFileEntry[]
+}
+
+/** 写作资产磁盘文件名正则（小写 hex + 图片扩展名白名单） */
+const WRITER_ASSET_FILE_NAME_PATTERN = /^[a-f0-9]+\.(png|jpg|webp|gif)$/
+const HEX_64_PATTERN = /^[a-f0-9]{64}$/
+/** 单写作资产文件大小上限（20MiB） */
+const MAX_WRITER_ASSET_BYTES = 20 * 1024 * 1024
+
+function isRecordValue(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+/** 解析并校验写作资产 manifest（JSON 字符串）；任何字段非法返回 null */
+export function parseWriterAssetManifest(json: string): WriterAssetManifest | null {
+  try {
+    const value: unknown = JSON.parse(json)
+    if (!isRecordValue(value) || value.schemaVersion !== 1) return null
+    if (typeof value.documentId !== 'string' || value.documentId.length === 0) return null
+    if (typeof value.updatedAt !== 'string') return null
+    if (!Array.isArray(value.files)) return null
+    for (const entry of value.files) {
+      if (!isRecordValue(entry)) return null
+      if (
+        typeof entry.fileName !== 'string' ||
+        !WRITER_ASSET_FILE_NAME_PATTERN.test(entry.fileName)
+      ) {
+        return null
+      }
+      // isRecordValue 把 entry 收窄为 Record<string, unknown>，需用局部变量收窄 size 后再做比较
+      const size: unknown = entry.size
+      if (
+        !Number.isSafeInteger(size) ||
+        (size as number) < 0 ||
+        (size as number) > MAX_WRITER_ASSET_BYTES
+      ) {
+        return null
+      }
+      if (typeof entry.sha256 !== 'string' || !HEX_64_PATTERN.test(entry.sha256)) return null
+      if (!Array.isArray(entry.blockIds)) return null
+      if ((size as number) > 0 && entry.blockIds.length === 0) return null
+      for (const id of entry.blockIds) {
+        if (typeof id !== 'string' || !HEX_64_PATTERN.test(id)) return null
+      }
+    }
+    return value as unknown as WriterAssetManifest
+  } catch {
+    return null
+  }
 }
 
 /** knowledge 同步引擎状态 */

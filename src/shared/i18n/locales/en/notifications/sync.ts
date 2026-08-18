@@ -130,6 +130,12 @@ const sync: Resources['notifications']['sync'] = {
   knowledgeManifestCiphertextLengthInvalid:
     'Invalid knowledge manifest ciphertext length: {{length}} bytes',
   writerFileCiphertextLengthInvalid: 'Invalid writing file ciphertext length: {{length}} bytes',
+  writerAssetBlockCiphertextLengthInvalid:
+    'Invalid writing asset block ciphertext length: {{length}} bytes',
+  writerAssetBlockIdMismatch:
+    'Writing asset blockId does not match the ciphertext sha256: {{blockId}}',
+  writerAssetManifestCiphertextLengthInvalid:
+    'Invalid writing asset manifest ciphertext length: {{length}} bytes',
   configBlockCiphertextLengthInvalid: 'Invalid config block ciphertext length: {{length}} bytes',
   configManifestCiphertextLengthInvalid: 'Invalid manifest ciphertext length: {{length}} bytes',
   paperMetaCiphertextLengthInvalid: 'Invalid paper meta ciphertext length: {{length}} bytes',

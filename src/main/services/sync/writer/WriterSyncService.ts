@@ -68,7 +68,16 @@ interface LocalFile {
 }
 
 function emptyResult(): WriterSyncResult {
-  return { uploaded: 0, downloaded: 0, deletedLocal: 0, deletedRemote: 0, skipped: 0, errors: [] }
+  return {
+    uploaded: 0,
+    downloaded: 0,
+    deletedLocal: 0,
+    deletedRemote: 0,
+    blocksUploaded: 0,
+    blocksDownloaded: 0,
+    skipped: 0,
+    errors: []
+  }
 }
 
 /** asset 文件名正则（sha256 + 扩展名） */
@@ -520,6 +529,11 @@ export class WriterSyncService {
           }
         }
         return 'downloaded'
+      }
+      case 'assets-manifest': {
+        // 资产 manifest 通道化基座：远端 manifest 下行暂未实现（后续任务接入块下载），
+        // 本轮忽略且不更新 tracker，避免误删/误覆盖
+        return 'ignored'
       }
     }
   }
