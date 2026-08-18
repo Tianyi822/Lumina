@@ -12,7 +12,8 @@ import type {
   PaperTranslationProgress,
   PaperTranslationProgressBatch,
   PaperTranslationSummary,
-  PaperTranslationState
+  PaperTranslationState,
+  PagesPurgeSummary
 } from '@shared/types/paper'
 
 export type {
@@ -27,6 +28,7 @@ export type {
   PaperLayoutBlock,
   PaperPageAsset,
   PaperPageOcrResult,
+  PagesPurgeSummary,
   PaperReadingProgress,
   PaperReaderDocument,
   PaperReaderSegment,
@@ -213,6 +215,12 @@ export interface PaperApi {
     success: boolean
     data?: string
     error?: string
+  }>
+
+  /** 取走最近一次启动存量页图清理摘要（一次性） */
+  consumePagesPurgeSummary: () => Promise<{
+    success: boolean
+    data?: PagesPurgeSummary | null
   }>
 
   /** 更新论文状态 */

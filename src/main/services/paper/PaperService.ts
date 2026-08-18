@@ -10,6 +10,10 @@ import { getKnowledgeServiceManager } from '@main/services/knowledge'
 import { paperStorageService } from './index'
 import { PaperOcrService, type OcrProgressInfo } from './PaperOcrService'
 import {
+  purgeRenderedPageImages,
+  consumePagesPurgeSummary as consumePagesPurgeSummaryOnce
+} from './pageImagePurge'
+import {
   buildReaderDocument,
   extractPaperFigureData,
   type ExtractedPaperFigureData
@@ -32,6 +36,7 @@ import type {
   PaperReaderDocument,
   PaperReaderSegment,
   PaperPageOcrResult,
+  PagesPurgeSummary,
   UpdatePaperAnnotationPayload
 } from '@shared/types/paper'
 import { PAPER_ANNOTATION_NOTE_COLOR_KEY } from '@shared/types/paper'
@@ -858,6 +863,20 @@ export class PaperService {
   ): Promise<{ success: boolean; code?: string; error?: string }> {
     logger.info('重试单页 OCR', 'main', { paperId, pageIndex })
     return this.ocrService.retryPage(paperId, pageIndex)
+  }
+
+  /**
+   * 启动时存量页图清理：OCR 全部完成的论文删除 pages/ 目录（不阻塞启动主流程）
+   */
+  async purgeRenderedPageImages(): Promise<PagesPurgeSummary> {
+    return purgeRenderedPageImages(paperStorageService)
+  }
+
+  /**
+   * 取走最近一次存量清理摘要（一次性；无清理结果为 null）
+   */
+  consumePagesPurgeSummary(): PagesPurgeSummary | null {
+    return consumePagesPurgeSummaryOnce()
   }
 
   onOcrProgress(paperId: string, callback: (progress: OcrProgressInfo) => void): void {

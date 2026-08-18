@@ -372,6 +372,13 @@ export function registerPaperHandlers(): void {
   )
 
   /**
+   * 取走最近一次启动存量页图清理摘要（一次性）
+   */
+  ipcMain.handle('paper:consumePagesPurgeSummary', async () => {
+    return { success: true, data: getPaperService().consumePagesPurgeSummary() }
+  })
+
+  /**
    * 更新论文状态
    * 参数: { paperId: string, status: PaperStatus, errorMessage?: string }
    */

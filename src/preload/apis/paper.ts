@@ -11,7 +11,8 @@ import type {
   PaperTranslationProgress,
   PaperTranslationProgressBatch,
   PaperTranslationSummary,
-  PaperTranslationState
+  PaperTranslationState,
+  PagesPurgeSummary
 } from '@shared/types/paper'
 import type { AppLanguage, OcrProviderId } from '@shared/types/config'
 
@@ -297,6 +298,16 @@ export const paperApi = {
    */
   getPageImage: (params: { paperId: string; pageIndex: number }): Promise<PageImageReadResult> => {
     return ipcRenderer.invoke('paper:getPageImage', params)
+  },
+
+  /**
+   * 取走最近一次启动存量页图清理摘要（一次性；无则 null）
+   */
+  consumePagesPurgeSummary: (): Promise<{
+    success: boolean
+    data?: PagesPurgeSummary | null
+  }> => {
+    return ipcRenderer.invoke('paper:consumePagesPurgeSummary')
   },
 
   /**
