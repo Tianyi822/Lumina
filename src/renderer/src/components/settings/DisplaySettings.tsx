@@ -53,45 +53,14 @@ export default function DisplaySettings({ onThemeChange }: DisplaySettingsProps)
   }
 
   return (
-    <div className={['sm-settings-page', styles['display-settings']].join(' ')}>
-      <header className="sm-settings-page__header">
-        <h2 className="sm-settings-page__title">{t('settings.display.title')}</h2>
-        <p className="sm-settings-page__description">{t('settings.display.description')}</p>
-      </header>
-
+    <>
       <LanguageSettings />
 
-      <button
-        type="button"
-        className={styles['auto-theme-toggle']}
-        aria-pressed={isAutoMode}
-        onClick={handleToggleAutoTheme}
-      >
-        <span className={styles['auto-theme-toggle__copy']}>
-          <span className={styles['auto-theme-toggle__title']}>
-            {t('settings.display.theme.followSystem')}
-          </span>
-          <span className={styles['auto-theme-toggle__desc']}>
-            {isAutoMode
-              ? t('settings.display.theme.followSystemAuto', { mode: systemThemeLabel })
-              : t('settings.display.theme.followSystemManual', { mode: systemThemeLabel })}
-          </span>
-        </span>
-
-        <span className={styles['auto-theme-toggle__control']} aria-hidden="true">
-          <span className={styles['auto-theme-toggle__track']}>
-            <span className={styles['auto-theme-toggle__thumb']}></span>
-          </span>
-        </span>
-      </button>
-
-      <section className="sm-settings-page__section">
-        <div className="sm-settings-page__section-header">
+      <div className={['sm-settings-page', styles['theme-page']].join(' ')}>
+        <header className={['sm-settings-page__header', styles['theme-page-header']].join(' ')}>
           <div>
-            <h3 className="sm-settings-page__section-title">
-              {t('settings.display.theme.available')}
-            </h3>
-            <p className="sm-settings-page__section-description">
+            <h2 className="sm-settings-page__title">{t('settings.display.theme.title')}</h2>
+            <p className="sm-settings-page__description">
               {isAutoMode
                 ? t('settings.display.theme.availableDescAuto')
                 : t('settings.display.theme.availableDescManual')}
@@ -104,66 +73,92 @@ export default function DisplaySettings({ onThemeChange }: DisplaySettingsProps)
                 AVAILABLE_THEMES.find((theme) => theme.id === currentTheme)?.name || currentTheme
             })}
           </span>
-        </div>
+        </header>
 
-        <div className={styles['theme-grid']}>
-          {AVAILABLE_THEMES.map((theme) => (
-            <button
-              key={theme.id}
-              type="button"
-              className={[
-                styles['theme-card'],
-                isSelected(theme.id) && styles['is-selected'],
-                isAutoMode && styles['is-disabled']
-              ]
-                .filter(Boolean)
-                .join(' ')}
-              aria-label={t('settings.display.theme.applyTheme', { name: theme.name })}
-              aria-pressed={!isAutoMode && isSelected(theme.id)}
-              disabled={isAutoMode}
-              onClick={() => handleSelectTheme(theme.id)}
-            >
-              <div className={styles['theme-preview']}>
-                {theme.previewColors && (
-                  <>
-                    <div
-                      className={[styles['preview-color'], styles.primary].join(' ')}
-                      style={{ backgroundColor: theme.previewColors.primary }}
-                    />
-                    <div
-                      className={[styles['preview-color'], styles.secondary].join(' ')}
-                      style={{ backgroundColor: theme.previewColors.secondary }}
-                    />
-                    <div
-                      className={[styles['preview-color'], styles.accent].join(' ')}
-                      style={{ backgroundColor: theme.previewColors.accent }}
-                    />
-                    {theme.previewColors.extra1 && (
-                      <div
-                        className={[styles['preview-color'], styles.extra].join(' ')}
-                        style={{ backgroundColor: theme.previewColors.extra1 }}
-                      />
-                    )}
-                    {theme.previewColors.extra2 && (
-                      <div
-                        className={[styles['preview-color'], styles.extra].join(' ')}
-                        style={{ backgroundColor: theme.previewColors.extra2 }}
-                      />
-                    )}
-                  </>
-                )}
-              </div>
+        <button
+          type="button"
+          className={styles['auto-theme-toggle']}
+          aria-pressed={isAutoMode}
+          onClick={handleToggleAutoTheme}
+        >
+          <span className={styles['auto-theme-toggle__copy']}>
+            <span className={styles['auto-theme-toggle__title']}>
+              {t('settings.display.theme.followSystem')}
+            </span>
+            <span className={styles['auto-theme-toggle__desc']}>
+              {isAutoMode
+                ? t('settings.display.theme.followSystemAuto', { mode: systemThemeLabel })
+                : t('settings.display.theme.followSystemManual', { mode: systemThemeLabel })}
+            </span>
+          </span>
 
-              <div className={styles['theme-info']}>
-                <span className={styles['theme-name']}>{theme.name}</span>
-                <span className={styles['theme-desc']}>
-                  {THEME_DESC_KEYS[theme.id] ? t(THEME_DESC_KEYS[theme.id]) : ''}
-                </span>
-              </div>
-            </button>
-          ))}
-        </div>
-      </section>
-    </div>
+          <span className={styles['auto-theme-toggle__control']} aria-hidden="true">
+            <span className={styles['auto-theme-toggle__track']}>
+              <span className={styles['auto-theme-toggle__thumb']}></span>
+            </span>
+          </span>
+        </button>
+
+        <section className="sm-settings-page__section">
+          <div className={styles['theme-grid']}>
+            {AVAILABLE_THEMES.map((theme) => (
+              <button
+                key={theme.id}
+                type="button"
+                className={[
+                  styles['theme-card'],
+                  isSelected(theme.id) && styles['is-selected'],
+                  isAutoMode && styles['is-disabled']
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+                aria-label={t('settings.display.theme.applyTheme', { name: theme.name })}
+                aria-pressed={!isAutoMode && isSelected(theme.id)}
+                disabled={isAutoMode}
+                onClick={() => handleSelectTheme(theme.id)}
+              >
+                <div className={styles['theme-preview']}>
+                  {theme.previewColors && (
+                    <>
+                      <div
+                        className={[styles['preview-color'], styles.primary].join(' ')}
+                        style={{ backgroundColor: theme.previewColors.primary }}
+                      />
+                      <div
+                        className={[styles['preview-color'], styles.secondary].join(' ')}
+                        style={{ backgroundColor: theme.previewColors.secondary }}
+                      />
+                      <div
+                        className={[styles['preview-color'], styles.accent].join(' ')}
+                        style={{ backgroundColor: theme.previewColors.accent }}
+                      />
+                      {theme.previewColors.extra1 && (
+                        <div
+                          className={[styles['preview-color'], styles.extra].join(' ')}
+                          style={{ backgroundColor: theme.previewColors.extra1 }}
+                        />
+                      )}
+                      {theme.previewColors.extra2 && (
+                        <div
+                          className={[styles['preview-color'], styles.extra].join(' ')}
+                          style={{ backgroundColor: theme.previewColors.extra2 }}
+                        />
+                      )}
+                    </>
+                  )}
+                </div>
+
+                <div className={styles['theme-info']}>
+                  <span className={styles['theme-name']}>{theme.name}</span>
+                  <span className={styles['theme-desc']}>
+                    {THEME_DESC_KEYS[theme.id] ? t(THEME_DESC_KEYS[theme.id]) : ''}
+                  </span>
+                </div>
+              </button>
+            ))}
+          </div>
+        </section>
+      </div>
+    </>
   )
 }

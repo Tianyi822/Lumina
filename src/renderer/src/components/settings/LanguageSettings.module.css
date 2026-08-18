@@ -1,3 +1,7 @@
+.language-page {
+  gap: var(--sm-space-5);
+}
+
 .language-options {
   display: flex;
   gap: 12px;

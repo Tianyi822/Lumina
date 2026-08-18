@@ -1,11 +1,20 @@
-.display-settings {
-  gap: var(--sm-space-3);
+.theme-page {
+  gap: var(--sm-space-5);
+  /* 与上方语言子页拉开距离，避免两个子页黏在一起 */
+  margin-top: var(--sm-space-4);
+}
+
+.theme-page-header {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sm-space-4);
 }
 
 .theme-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 16px;
+  gap: var(--sm-space-4);
 }
 
 .auto-theme-toggle {
