@@ -138,6 +138,7 @@ const paper: Resources['notifications']['paper'] = {
   ocrPagesNotReady: 'The paper page images are not rendered yet',
   ocrAllPagesFailed: 'OCR failed for all pages',
   pageImageUnavailable: 'The page image does not exist',
+  pageImagesPurgedNeedRender: 'Page image cache has been cleared; pages must be re-rendered before OCR.',
   ocrRequestFailed: 'The OCR request failed',
   ocrImageDownloadFailed: 'Failed to download OCR images: {{failed}}',
   ocrProviderUnknown: 'Unknown OCR provider',

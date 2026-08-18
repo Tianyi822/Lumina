@@ -837,7 +837,9 @@ export class PaperService {
   /**
    * 启动论文 OCR 处理管线
    */
-  async startOcr(paperId: string): Promise<{ success: boolean; error?: string }> {
+  async startOcr(
+    paperId: string
+  ): Promise<{ success: boolean; code?: string; error?: string }> {
     logger.info('启动 OCR 任务', 'main', { paperId })
     return this.ocrService.startOcr(paperId)
   }
@@ -853,7 +855,7 @@ export class PaperService {
   async retryPage(
     paperId: string,
     pageIndex: number
-  ): Promise<{ success: boolean; error?: string }> {
+  ): Promise<{ success: boolean; code?: string; error?: string }> {
     logger.info('重试单页 OCR', 'main', { paperId, pageIndex })
     return this.ocrService.retryPage(paperId, pageIndex)
   }

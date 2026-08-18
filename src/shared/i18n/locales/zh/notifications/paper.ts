@@ -129,6 +129,7 @@ const paper = {
   ocrPagesNotReady: '论文页图尚未渲染完成',
   ocrAllPagesFailed: '所有页面 OCR 均失败',
   pageImageUnavailable: '页图不存在',
+  pageImagesPurgedNeedRender: '页图缓存已清理，需要重新渲染页图后才能执行 OCR',
   ocrRequestFailed: 'OCR 请求失败',
   ocrImageDownloadFailed: 'OCR 图片下载失败: {{failed}}',
   ocrProviderUnknown: '未知的 OCR 服务提供商',
