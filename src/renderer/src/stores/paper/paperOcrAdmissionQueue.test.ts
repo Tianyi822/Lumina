@@ -149,3 +149,26 @@ test('OCR 启动失败后会继续处理下一篇', async () => {
   assert.deepEqual(failed, ['paper-1'])
   assert.deepEqual(started, ['paper-1', 'paper-2'])
 })
+
+test('startOcr 返回 pages_missing 时走 onPagesMissing 而非失败回调', async () => {
+  const missing: string[] = []
+  const failed: string[] = []
+
+  const queue = createPaperOcrAdmissionQueue({
+    startOcr: async () => ({ success: false, code: 'pages_missing' }),
+    waitForOcrTerminal: () => new Promise(() => {}),
+    onPagesMissing: (paperId) => {
+      missing.push(paperId)
+    },
+    onOcrStartFailed: (paperId) => {
+      failed.push(paperId)
+    }
+  })
+
+  queue.registerPaper('paper-1')
+  queue.markRenderComplete('paper-1')
+  await sleep(10)
+
+  assert.deepEqual(missing, ['paper-1'])
+  assert.deepEqual(failed, [])
+})

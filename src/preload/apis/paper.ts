@@ -328,7 +328,7 @@ export const paperApi = {
     return ipcRenderer.invoke('paper:testOcrConnection', params)
   },
 
-  startOcr: (paperId: string): Promise<{ success: boolean; error?: string }> => {
+  startOcr: (paperId: string): Promise<{ success: boolean; code?: string; error?: string }> => {
     return ipcRenderer.invoke('paper:startOcr', paperId)
   },
 
@@ -349,6 +349,7 @@ export const paperApi = {
     pageIndex: number
   }): Promise<{
     success: boolean
+    code?: string
     error?: string
   }> => {
     return ipcRenderer.invoke('paper:retryPage', params)

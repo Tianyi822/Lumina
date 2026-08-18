@@ -241,6 +241,7 @@ export interface PaperApi {
 
   startOcr: (paperId: string) => Promise<{
     success: boolean
+    code?: string
     error?: string
   }>
 
@@ -260,6 +261,7 @@ export interface PaperApi {
 
   retryPage: (params: { paperId: string; pageIndex: number }) => Promise<{
     success: boolean
+    code?: string
     error?: string
   }>
 
