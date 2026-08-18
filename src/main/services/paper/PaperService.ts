@@ -842,9 +842,7 @@ export class PaperService {
   /**
    * 启动论文 OCR 处理管线
    */
-  async startOcr(
-    paperId: string
-  ): Promise<{ success: boolean; code?: string; error?: string }> {
+  async startOcr(paperId: string): Promise<{ success: boolean; code?: string; error?: string }> {
     logger.info('启动 OCR 任务', 'main', { paperId })
     return this.ocrService.startOcr(paperId)
   }

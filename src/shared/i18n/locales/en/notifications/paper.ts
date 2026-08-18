@@ -138,7 +138,8 @@ const paper: Resources['notifications']['paper'] = {
   ocrPagesNotReady: 'The paper page images are not rendered yet',
   ocrAllPagesFailed: 'OCR failed for all pages',
   pageImageUnavailable: 'The page image does not exist',
-  pageImagesPurgedNeedRender: 'Page image cache has been cleared; pages must be re-rendered before OCR.',
+  pageImagesPurgedNeedRender:
+    'Page image cache has been cleared; pages must be re-rendered before OCR.',
   pagesPurgedTitle: 'Page image cache cleaned',
   pagesPurgedMessage_one: 'Cleared cached page images for {{count}} paper, freeing {{size}}.',
   pagesPurgedMessage_other: 'Cleared cached page images for {{count}} papers, freeing {{size}}.',

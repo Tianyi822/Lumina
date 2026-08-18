@@ -97,10 +97,7 @@ test('purgePageImages：pages 目录不存在时幂等成功', async () => {
 
 test('savePageImage：重渲染保存页图时清除清理标记', async () => {
   const paperId = 'paper-purge-rerender'
-  setupPaper(
-    paperId,
-    makeMeta(paperId, { pageImagesPurgedAt: '2026-08-18T00:00:00.000Z' })
-  )
+  setupPaper(paperId, makeMeta(paperId, { pageImagesPurgedAt: '2026-08-18T00:00:00.000Z' }))
   try {
     const saveResult = await paperStorageService.savePageImage(
       paperId,

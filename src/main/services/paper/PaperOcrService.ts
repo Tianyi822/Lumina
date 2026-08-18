@@ -371,9 +371,7 @@ export class PaperOcrService {
    * 3. 根据结果更新论文状态
    * 4. 生成合并 Markdown
    */
-  async startOcr(
-    paperId: string
-  ): Promise<{ success: boolean; code?: string; error?: string }> {
+  async startOcr(paperId: string): Promise<{ success: boolean; code?: string; error?: string }> {
     const metaResult = await paperStorageService.readMeta(paperId)
     if (!metaResult.success || !metaResult.data) {
       return { success: false, error: metaResult.error || t('notifications.paper.metaMissing') }

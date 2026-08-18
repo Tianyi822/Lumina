@@ -73,10 +73,7 @@ test('isPaperFullyOcrCompleted：纯函数判定', () => {
   assert.equal(isPaperFullyOcrCompleted(completed, 2), true)
   assert.equal(isPaperFullyOcrCompleted(completed, 3), false)
   assert.equal(
-    isPaperFullyOcrCompleted(
-      [completed[0], { ...completed[1], status: 'failed' as const }],
-      2
-    ),
+    isPaperFullyOcrCompleted([completed[0], { ...completed[1], status: 'failed' as const }], 2),
     false
   )
   assert.equal(isPaperFullyOcrCompleted([], 0), true)
@@ -111,10 +108,7 @@ test('purgeIfOcrComplete：全部完成才删，含失败页保留', async () =>
 
 test('purgeIfOcrComplete：已清理过的论文不重复清理', async () => {
   const paperId = 'paper-pipec-idempotent'
-  setupPaper(
-    paperId,
-    makeMeta(paperId, { pageImagesPurgedAt: '2026-08-18T00:00:00.000Z' })
-  )
+  setupPaper(paperId, makeMeta(paperId, { pageImagesPurgedAt: '2026-08-18T00:00:00.000Z' }))
   try {
     const result = await purgeIfOcrComplete(paperStorageService, paperId)
     assert.equal(result.success, true)
