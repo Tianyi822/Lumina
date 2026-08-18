@@ -165,6 +165,12 @@ const sync: Resources['notifications']['sync'] = {
   writerIndexApplyFailed: 'Failed to persist the index: {{detail}}',
   writerDocumentApplyFailed: 'Failed to persist the document: {{detail}}',
   writerAssetApplyFailed: 'Failed to persist the asset: {{detail}}',
+  writerAssetChunkFailed: 'Failed to chunk/upload the writer asset: {{detail}}',
+  writerAssetDownloadFailed: 'Failed to download the writer asset manifest: {{detail}}',
+  writerAssetManifestParseFailed: 'Failed to parse the writer asset manifest',
+  writerAssetManifestOverLimit: 'The writer asset manifest exceeds the 4 MiB limit',
+  writerAssetManifestUploadFailed: 'Failed to upload the writer asset manifest: {{detail}}',
+  writerAssetManifestCasRetryExhausted: 'Writer asset manifest version conflict retries exhausted',
   legacyFileKeyMigrationDeleteFailed:
     'Failed to delete the legacy file key during migration: {{detail}}',
   contentApplyFailed: 'Failed to apply the content: {{detail}}',
