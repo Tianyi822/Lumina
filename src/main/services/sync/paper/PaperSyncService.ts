@@ -31,6 +31,7 @@ import type { TrackedPaperPack, TrackedPaperPackFile } from './paperSyncTracker'
 import { mergePaperMeta, mergePaperAnnotations } from './paperMerge'
 import {
   chunkFile,
+  filterPaperPackManifest,
   parsePaperPackManifest,
   type PaperPackManifest,
   type PaperPackFileEntry
@@ -50,9 +51,9 @@ const DEFAULT_EVENT_DEBOUNCE_MS = 2_000
 const CAS_RETRY_LIMIT = 2
 const MAX_SESSION_FILE_BYTES = 4 * 1024 * 1024
 
-/** pack allowlist 文件正则（相对论文目录，正斜杠） */
+/** pack allowlist 文件正则（相对论文目录，正斜杠）；页图不参与同步（OCR 输入缓存，可从 source.pdf 再生） */
 const PACK_ALLOWLIST =
-  /^(source\.pdf|translation\.json|merged\.md|pages\/[^/]+\.jpg|assets\/.+|ocr\/normalized\/[^/]+\.json)$/
+  /^(source\.pdf|translation\.json|merged\.md|assets\/.+|ocr\/normalized\/[^/]+\.json)$/
 
 type SyncServiceLike = Pick<SyncService, 'getStatus' | 'getDataKey' | 'getClient'>
 type PaperStorageLike = {
@@ -957,7 +958,7 @@ export class PaperSyncService {
     const client = this.deps.syncService.getClient() as unknown as RelayClientLike | null
     if (!dek || !client) return 0
 
-    const remoteManifest = pack.remoteManifest
+    const remoteManifest = filterPaperPackManifest(pack.remoteManifest)
     let blocksDownloaded = 0
     try {
       const totalFiles = remoteManifest.files.length
