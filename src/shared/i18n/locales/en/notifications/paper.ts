@@ -25,6 +25,7 @@ const paper: Resources['notifications']['paper'] = {
   restoreTitle: 'Annotation restore',
   restoreMessage_one: '{{count}} annotation lost its highlight after a text change',
   restoreMessage_other: '{{count}} annotations lost their highlights after a text change',
+  translationNotNeeded: 'The paper is already in your language; no translation needed.',
   retranslateFailedTitle: 'Retranslation failed',
   retryLaterFallback: 'Please try again later',
   requestFailedTitle: 'Paper chat request failed',

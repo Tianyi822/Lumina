@@ -233,6 +233,8 @@ export default function PaperReaderPage() {
   }, [currentPaperId, isOcrCompleted, setPaperChatPanelOpen])
 
   // Markdown 加载完成后根据阅读进度自动打开翻译
+  // 复用 toggleTranslationVisible：内部按当前设置语言调 ensureTranslation，
+  // 原文语言与设置一致时短路（translationVisible 保持 false 并弹 info 提示）
   const wasMarkdownLoadingRef = useRef(visibleMarkdownLoading)
   useEffect(() => {
     const wasLoading = wasMarkdownLoadingRef.current

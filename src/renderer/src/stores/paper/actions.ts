@@ -1,5 +1,5 @@
 import type { PaperDocument } from '@shared/types/paper'
-import { notifyWarning } from '@renderer/composables/notificationCore'
+import { notifyInfo, notifyWarning } from '@renderer/composables/notificationCore'
 import { usePdfPageRasterizer } from '@renderer/composables/usePdfPageRasterizer'
 import { i18n } from '@renderer/i18n'
 import { useUIStateStore } from '@renderer/stores/uiStateStore'
@@ -454,6 +454,7 @@ export async function retryPaper(paperId: string): Promise<{ success: boolean; e
 /** 切换翻译 — 原 toggleTranslationVisible（需要检查 currentPaperId） */
 export async function toggleTranslationVisible(): Promise<{
   success: boolean
+  skippedReason?: 'sameLanguage'
   error?: string
 }> {
   const currentPaperId = usePaperListStore.getState().currentPaperId
@@ -467,13 +468,21 @@ export async function toggleTranslationVisible(): Promise<{
     return { success: true }
   }
 
-  usePaperTranslationStore.setState({ translationVisible: true })
-  const result = await translationStore.ensureTranslation(currentPaperId)
+  // 先拿 ensure 结果再置可见：原文语言与设置语言一致时短路，译文保持隐藏并提示
+  const targetLanguage = i18n.language === 'en' ? 'en' : 'zh'
+  const result = await translationStore.ensureTranslation(currentPaperId, targetLanguage)
+  if (result.skippedReason === 'sameLanguage') {
+    notifyInfo(i18n.t('notifications.paper.translationNotNeeded'), undefined, {
+      source: 'paper',
+      dedupeKey: `paper-translation-not-needed:${currentPaperId}`
+    })
+    return { success: true, skippedReason: 'sameLanguage' }
+  }
   if (!result.success) {
-    usePaperTranslationStore.setState({ translationVisible: false })
     return result
   }
 
+  usePaperTranslationStore.setState({ translationVisible: true })
   return { success: true }
 }
 

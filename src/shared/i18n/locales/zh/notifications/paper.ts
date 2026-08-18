@@ -23,6 +23,7 @@ const paper = {
   restoreTitle: '批注恢复',
   restoreMessage_one: '{{count}} 条批注因文本变化未能恢复高亮',
   restoreMessage_other: '{{count}} 条批注因文本变化未能恢复高亮',
+  translationNotNeeded: '论文原文已是当前语言，无需翻译',
   retranslateFailedTitle: '重新翻译失败',
   retryLaterFallback: '请稍后再试',
   requestFailedTitle: '论文对话请求失败',

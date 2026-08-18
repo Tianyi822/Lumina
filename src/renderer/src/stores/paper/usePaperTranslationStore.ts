@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import type { AppLanguage } from '@shared/types/config'
 import type {
   PaperTranslationCache,
   PaperTranslationProgressBatch,
@@ -29,7 +30,10 @@ interface PaperTranslationState {
 
   // Actions
   loadTranslationState: (paperId: string) => Promise<void>
-  ensureTranslation: (paperId: string) => Promise<{ success: boolean; error?: string }>
+  ensureTranslation: (
+    paperId: string,
+    targetLanguage?: AppLanguage
+  ) => Promise<{ success: boolean; skippedReason?: 'sameLanguage'; error?: string }>
   loadTranslationStatus: (paperIds: string[]) => Promise<void>
   deleteTranslation: (paperId: string) => Promise<{ success: boolean; error?: string }>
   retranslateSegment: (
@@ -206,12 +210,20 @@ export const usePaperTranslationStore = create<PaperTranslationState>()((set, ge
       }
     },
 
-    ensureTranslation: async (paperId: string): Promise<{ success: boolean; error?: string }> => {
+    ensureTranslation: async (
+      paperId: string,
+      targetLanguage?: AppLanguage
+    ): Promise<{ success: boolean; skippedReason?: 'sameLanguage'; error?: string }> => {
       get().ensureTranslationProgressListener()
 
       const taskState = get().translationTaskByPaperId[paperId] || createIdleTranslationTaskState()
 
-      const result = await window.api.paper.startTranslation(paperId)
+      const result = await window.api.paper.startTranslation(paperId, targetLanguage)
+      // 原文语言与目标语言一致时短路：无进度事件，由调用方按返回值提示并保持译文隐藏
+      if (result.skippedReason === 'sameLanguage') {
+        return { success: true, skippedReason: 'sameLanguage' }
+      }
+
       if (!result.success) {
         get().setTranslationTaskState(paperId, {
           ...taskState,
