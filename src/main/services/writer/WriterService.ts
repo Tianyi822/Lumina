@@ -15,7 +15,7 @@ import type {
   WriterJsonNode,
   WriterResult
 } from '@shared/types/writer'
-import type { WriterOperationKey } from '@main/ipc/handlers/writerHandlers'
+import type { WriterOperationKey } from './writerOperationKeys'
 import type { WriterAssetService } from './WriterAssetService'
 import { WriterDocumentMapper } from './WriterDocumentMapper'
 import { WriterDocxExporter } from './WriterDocxExporter'

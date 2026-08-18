@@ -14,7 +14,7 @@ import type {
   WriterJsonDocument,
   WriterResult
 } from '@shared/types/writer'
-import type { WriterOperationKey } from '@main/ipc/handlers/writerHandlers'
+import type { WriterOperationKey } from './writerOperationKeys'
 import {
   getWriterAssetsDir,
   getWriterDocumentDir,
