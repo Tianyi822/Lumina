@@ -11,7 +11,7 @@ const LANGUAGE_OPTIONS: Array<{ value: AppLanguage; label: string }> = [
   { value: 'en', label: 'English' }
 ]
 
-/** 语言选择 section：分段选择器，点击即切换并持久化；radiogroup 支持方向键漫游 */
+/** 语言选择页面：分段选择器，点击即切换并持久化；radiogroup 支持方向键漫游 */
 export default function LanguageSettings() {
   const { t, i18n } = useTranslation()
   const current: AppLanguage = i18n.language === 'en' ? 'en' : 'zh'
@@ -52,47 +52,45 @@ export default function LanguageSettings() {
   )
 
   return (
-    <section className="sm-settings-page__section">
-      <div className="sm-settings-page__section-header">
-        <div>
-          <h3 className="sm-settings-page__section-title">
-            {t('settings.display.language.title')}
-          </h3>
-          <p className="sm-settings-page__section-description">
-            {t('settings.display.language.description')}
-          </p>
-        </div>
-      </div>
+    <div className={['sm-settings-page', styles['language-page']].join(' ')}>
+      <header className="sm-settings-page__header">
+        <h2 className="sm-settings-page__title">{t('settings.display.language.title')}</h2>
+        <p className="sm-settings-page__description">
+          {t('settings.display.language.description')}
+        </p>
+      </header>
 
-      <div
-        className={styles['language-options']}
-        role="radiogroup"
-        aria-label={t('settings.display.language.title')}
-        onKeyDown={handleKeyDown}
-      >
-        {LANGUAGE_OPTIONS.map((option) => (
-          <button
-            key={option.value}
-            ref={(node) => {
-              if (node) optionRefs.current.set(option.value, node)
-              else optionRefs.current.delete(option.value)
-            }}
-            type="button"
-            role="radio"
-            aria-checked={current === option.value}
-            tabIndex={current === option.value ? 0 : -1}
-            className={[
-              styles['language-option'],
-              current === option.value && styles['is-selected']
-            ]
-              .filter(Boolean)
-              .join(' ')}
-            onClick={() => void changeAppLanguage(option.value)}
-          >
-            {option.label}
-          </button>
-        ))}
-      </div>
-    </section>
+      <section className="sm-settings-page__section">
+        <div
+          className={styles['language-options']}
+          role="radiogroup"
+          aria-label={t('settings.display.language.title')}
+          onKeyDown={handleKeyDown}
+        >
+          {LANGUAGE_OPTIONS.map((option) => (
+            <button
+              key={option.value}
+              ref={(node) => {
+                if (node) optionRefs.current.set(option.value, node)
+                else optionRefs.current.delete(option.value)
+              }}
+              type="button"
+              role="radio"
+              aria-checked={current === option.value}
+              tabIndex={current === option.value ? 0 : -1}
+              className={[
+                styles['language-option'],
+                current === option.value && styles['is-selected']
+              ]
+                .filter(Boolean)
+                .join(' ')}
+              onClick={() => void changeAppLanguage(option.value)}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      </section>
+    </div>
   )
 }

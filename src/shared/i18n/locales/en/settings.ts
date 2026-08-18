@@ -12,20 +12,17 @@ const settings: Resources['settings'] = {
     update: 'Updates'
   },
   display: {
-    title: 'Display',
-    description:
-      'Choose your interface language and appearance. Changes apply instantly and sync with the native UI.',
     language: {
       title: 'Language',
       description: 'Choose the interface language. The switch takes effect immediately.'
     },
     theme: {
+      title: 'Theme',
       followSystem: 'Follow system theme',
       followSystemAuto: 'Your system is in {{mode}} mode and the app follows it automatically.',
       followSystemManual: 'Your system is in {{mode}} mode. You can pick a theme manually.',
       systemDark: 'dark',
       systemLight: 'light',
-      available: 'Available themes',
       availableDescAuto:
         'Following the system theme. Cards preview the current mapping; turn off auto mode to pick manually.',
       availableDescManual:
