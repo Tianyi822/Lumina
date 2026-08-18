@@ -88,6 +88,8 @@ export interface PaperDocument {
   completedPageCount: number
   /** 已持久化的页面图片资源 */
   pageAssets?: PaperPageAsset[]
+  /** 页图清理时间（OCR 全部成功后删除 pages/ 目录；null 表示页图已重渲染恢复） */
+  pageImagesPurgedAt?: string | null
   /** 绑定的论文聊天会话 ID */
   chatSessionId?: string
   /** 错误信息（可选） */
@@ -658,4 +660,16 @@ export interface PaperAnnotationAffectedKnowledgeBase {
   id: string
   /** 知识库名称 */
   name: string
+}
+
+/**
+ * 存量页图清理摘要
+ */
+export interface PagesPurgeSummary {
+  /** 清理的论文篇数 */
+  purgedCount: number
+  /** 释放的字节数 */
+  freedBytes: number
+  /** 清理执行时间 */
+  at: string
 }
