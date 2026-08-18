@@ -8,6 +8,7 @@ import type {
   PaperWebSearchToolInput
 } from '@shared/types/paper-web-search'
 import type { PaperWebSearchService } from './PaperWebSearchService'
+import { t } from '@main/services/i18n'
 
 /**
  * 论文网页搜索工具定义
@@ -84,7 +85,7 @@ export class PaperWebSearchToolAdapter implements ToolAdapter {
     if (normalizedToolName !== 'search') {
       return {
         success: false,
-        error: `未知的工具名称: ${toolName}，当前仅支持 search`
+        error: t('notifications.paper.webSearchUnknownTool', { tool: toolName })
       }
     }
 
@@ -94,13 +95,13 @@ export class PaperWebSearchToolAdapter implements ToolAdapter {
     if (typeof query !== 'string' || !query.trim()) {
       return {
         success: false,
-        error: '缺少必需的参数: query（搜索关键词）'
+        error: t('notifications.paper.webSearchQueryRequired')
       }
     }
     if (typeof reason !== 'string' || !reason.trim()) {
       return {
         success: false,
-        error: '缺少必需的参数: reason（搜索原因）'
+        error: t('notifications.paper.webSearchReasonRequired')
       }
     }
 
@@ -108,7 +109,7 @@ export class PaperWebSearchToolAdapter implements ToolAdapter {
     if (!this.paperContext) {
       return {
         success: false,
-        error: '论文上下文未设置，无法执行搜索。请先设置论文上下文后再调用。'
+        error: t('notifications.paper.webSearchContextMissing')
       }
     }
 
@@ -133,7 +134,7 @@ export class PaperWebSearchToolAdapter implements ToolAdapter {
     if (!output.success) {
       return {
         success: false,
-        error: output.error || '搜索执行失败'
+        error: output.error || t('notifications.paper.webSearchExecutionFailed')
       }
     }
 

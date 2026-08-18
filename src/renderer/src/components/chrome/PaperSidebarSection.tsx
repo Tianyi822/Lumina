@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, memo } from 'react'
+import { useTranslation } from 'react-i18next'
 import PaperSidebar from '@renderer/components/paper/PaperSidebar'
 import { usePaperListStore } from '@renderer/stores/paper'
 import { usePaperTranslationStore } from '@renderer/stores/paper'
@@ -13,6 +14,7 @@ import styles from './WorkspaceSidebarHost.module.css'
  * 提供论文搜索、列表展示、选中/删除/重试以及译文删除等功能
  */
 const PaperSidebarSection = memo(function PaperSidebarSection() {
+  const { t } = useTranslation()
   const papers = usePaperListStore((s) => s.papers)
   const currentPaperId = usePaperListStore((s) => s.currentPaperId)
   const renderProgressByPaperId = usePaperListStore((s) => s.renderProgressByPaperId)
@@ -43,8 +45,8 @@ const PaperSidebarSection = memo(function PaperSidebarSection() {
   const handleDeletePaper = useCallback(
     async (paperId: string): Promise<void> => {
       // 删除前确认用户意图
-      const confirmed = await notify.confirm('此操作不可撤销。', {
-        title: '删除论文',
+      const confirmed = await notify.confirm(t('notifications.paper.confirmIrreversible'), {
+        title: t('notifications.paper.confirmTitle'),
         source: 'paper',
         danger: true
       })
@@ -52,20 +54,28 @@ const PaperSidebarSection = memo(function PaperSidebarSection() {
 
       const success = await deletePaper(paperId)
       if (!success) {
-        notify.error('删除论文失败', '请稍后重试或查看日志获取更多信息。', { source: 'paper' })
+        notify.error(
+          t('notifications.paper.deleteFailedTitle'),
+          t('notifications.paper.deleteFailedMessage'),
+          { source: 'paper' }
+        )
       }
     },
-    [notify]
+    [notify, t]
   )
 
   const handleRetryPaper = useCallback(
     async (paperId: string): Promise<void> => {
       const result = await retryPaper(paperId)
       if (!result.success) {
-        notify.error('重试失败', result.error || '未知错误', { source: 'paper' })
+        notify.error(
+          t('notifications.paper.retryFailedTitle'),
+          result.error || t('notifications.paper.unknownError'),
+          { source: 'paper' }
+        )
       }
     },
-    [notify]
+    [notify, t]
   )
 
   const handleDeleteTranslation = useCallback(
@@ -77,23 +87,31 @@ const PaperSidebarSection = memo(function PaperSidebarSection() {
 
       if (translationSummary.totalCount > 0) {
         const confirmLines = [
-          '当前译文里已经有标注内容。',
-          `其中包含 ${translationSummary.totalCount} 条译文标注。`
+          t('notifications.paper.translationAnnotatedLine1'),
+          t('notifications.paper.translationAnnotatedLine2', {
+            count: translationSummary.totalCount
+          })
         ]
 
         if (translationSummary.noteCount > 0) {
-          confirmLines.push(`笔记 ${translationSummary.noteCount} 条`)
+          confirmLines.push(
+            t('notifications.paper.translationNotes', { count: translationSummary.noteCount })
+          )
         }
 
         if (translationSummary.highlightCount > 0) {
-          confirmLines.push(`标记 ${translationSummary.highlightCount} 条`)
+          confirmLines.push(
+            t('notifications.paper.translationHighlights', {
+              count: translationSummary.highlightCount
+            })
+          )
         }
 
-        confirmLines.push('删除译文后，这些译文标注也会一起删除。')
-        confirmLines.push('确定继续删除译文吗？')
+        confirmLines.push(t('notifications.paper.translationAnnotatedLine3'))
+        confirmLines.push(t('notifications.paper.translationAnnotatedLine4'))
 
         const confirmed = await notify.confirm(confirmLines.join('\n'), {
-          title: '删除译文',
+          title: t('notifications.paper.deleteTranslationTitle'),
           source: 'paper',
           danger: true
         })
@@ -103,10 +121,14 @@ const PaperSidebarSection = memo(function PaperSidebarSection() {
 
       const result = await deleteTranslation(paperId)
       if (!result.success) {
-        notify.error('删除译文失败', result.error || '未知错误', { source: 'paper' })
+        notify.error(
+          t('notifications.paper.deleteTranslationFailedTitle'),
+          result.error || t('notifications.paper.unknownError'),
+          { source: 'paper' }
+        )
       }
     },
-    [annotationsByPaperId, deleteTranslation, loadAnnotations, notify]
+    [annotationsByPaperId, deleteTranslation, loadAnnotations, notify, t]
   )
 
   return (
@@ -119,7 +141,7 @@ const PaperSidebarSection = memo(function PaperSidebarSection() {
         <input
           type="text"
           className="sm-input"
-          placeholder="搜索论文"
+          placeholder={t('chrome.sidebar.searchPaper')}
           value={paperSearchQuery}
           onChange={(e) => setPaperSearchQuery(e.target.value)}
         />

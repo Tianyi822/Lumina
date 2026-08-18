@@ -3,6 +3,7 @@ import { appendFile, mkdir, open, readFile, readdir, rename, rm, unlink } from '
 import { join } from 'path'
 import { createInterface } from 'readline'
 import { logger } from '@main/services/logger'
+import { t } from '@main/services/i18n'
 import type {
   SessionData,
   SessionJsonlRecord,
@@ -144,7 +145,7 @@ export class SessionStorageService {
   private sessionFilePath(sessionId: string): string {
     // 统一防线：拒绝非法 ID，防止路径遍历（写/删路径均经过此处）
     if (!isValidSessionId(sessionId)) {
-      throw new Error(`非法的会话 ID: ${sessionId}`)
+      throw new Error(t('notifications.session.illegalSessionId', { sessionId }))
     }
     return join(this.rootDir, getSessionJsonlFileName(sessionId))
   }

@@ -1,5 +1,6 @@
 import { Component } from 'react'
 import type { ErrorInfo, ReactNode } from 'react'
+import { i18n } from '@renderer/i18n'
 
 /** 错误边界组件：捕获子组件渲染错误，展示错误信息并提供重新加载按钮 */
 interface Props {
@@ -45,7 +46,9 @@ export class ErrorBoundary extends Component<Props, State> {
             backgroundColor: '#1a1a1a'
           }}
         >
-          <h2 style={{ marginBottom: '1rem', fontSize: '1.25rem' }}>应用出现错误</h2>
+          <h2 style={{ marginBottom: '1rem', fontSize: '1.25rem' }}>
+            {i18n.t('chrome.app.errorTitle')}
+          </h2>
           <pre
             style={{
               maxWidth: '600px',
@@ -75,7 +78,7 @@ export class ErrorBoundary extends Component<Props, State> {
               fontSize: '0.875rem'
             }}
           >
-            重新加载
+            {i18n.t('chrome.app.reload')}
           </button>
         </div>
       )

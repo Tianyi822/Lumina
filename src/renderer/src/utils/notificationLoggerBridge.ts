@@ -14,6 +14,8 @@ function hasUnreadableText(value: string): boolean {
 }
 
 function sanitizeLogText(value: string): string {
+  // pre-init 的 i18next t() 会返回 undefined：空值直接放行为空串，防御 .includes 抛错
+  if (!value) return ''
   if (!hasUnreadableText(value)) {
     return value
   }

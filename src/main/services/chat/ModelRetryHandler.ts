@@ -1,5 +1,6 @@
 import OpenAI from 'openai'
 import type { Logger } from '../logger'
+import { t } from '@main/services/i18n'
 import {
   hasPromptCacheParameters,
   isPromptCacheParameterUnsupportedError,
@@ -127,11 +128,11 @@ export class ModelRetryHandler {
       status === 429 &&
       (lowerMessage.includes('overloaded') || lowerMessage.includes('try again later'))
     ) {
-      return `模型服务当前繁忙（429），请稍后重试或切换其他模型。原始错误: ${rawMessage}`
+      return t('notifications.chat.modelBusyRetryLater', { reason: rawMessage })
     }
 
     if (status === 429) {
-      return `模型请求过于频繁（429），请稍后重试。原始错误: ${rawMessage}`
+      return t('notifications.chat.modelRateLimited', { reason: rawMessage })
     }
 
     return rawMessage

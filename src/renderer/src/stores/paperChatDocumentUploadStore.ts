@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { formatFileSize } from '@shared/utils'
+import { i18n } from '@renderer/i18n'
 
 export interface PendingDocument {
   fileName: string
@@ -75,7 +76,7 @@ export const usePaperChatDocumentUploadStore = create<PaperChatDocumentUploadSta
         const result = await window.api.document.uploadAndParse(file)
 
         if (!result.success || !result.data) {
-          throw new Error(result.error || '上传失败')
+          throw new Error(result.error || i18n.t('notifications.paper.documentUploadFailed'))
         }
 
         set((state) => {

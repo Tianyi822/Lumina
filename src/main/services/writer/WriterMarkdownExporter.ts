@@ -1,5 +1,6 @@
 import { copyFileSync, existsSync, mkdirSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { basename, dirname, join } from 'node:path'
+import { t } from '@main/services/i18n'
 import type {
   WriterExportDocument,
   WriterExportFootnote,
@@ -81,7 +82,8 @@ export class WriterMarkdownExporter {
       return {
         success: false,
         code: 'io_error',
-        error: error instanceof Error ? error.message : 'Markdown 导出失败'
+        error:
+          error instanceof Error ? error.message : t('notifications.writer.markdownExportFailed')
       }
     }
   }

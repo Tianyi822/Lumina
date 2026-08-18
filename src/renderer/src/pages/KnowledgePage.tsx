@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useKnowledgeStore } from '@renderer/stores/knowledgeStore'
 import { useUIStateStore } from '@renderer/stores/uiStateStore'
 import { useNotification } from '@renderer/composables/useNotification'
@@ -28,6 +29,7 @@ export default function KnowledgePage() {
   const closeKnowledgeFileManager = useUIStateStore((s) => s.closeKnowledgeFileManager)
 
   const notify = useNotification()
+  const { t } = useTranslation()
 
   const [showFileSelector, setShowFileSelector] = useState(false)
   const [currentKBIdForSelector, setCurrentKBIdForSelector] = useState('')
@@ -58,12 +60,14 @@ export default function KnowledgePage() {
     }) => {
       const success = await handleFormSubmit(data)
       if (!success) {
-        notify.error('创建知识库失败', useKnowledgeStore.getState().error || '未知错误', {
-          source: 'knowledge'
-        })
+        notify.error(
+          t('notifications.knowledge.createKbFailedTitle'),
+          useKnowledgeStore.getState().error || t('notifications.knowledge.unknownError'),
+          { source: 'knowledge' }
+        )
       }
     },
-    [handleFormSubmit, notify]
+    [handleFormSubmit, notify, t]
   )
 
   const handleAddFiles = useCallback((kbId: string) => {

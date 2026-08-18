@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { KnowledgeBase } from '@renderer/types'
 import styles from './PaperChatKnowledgeBasePanel.module.css'
 
@@ -9,9 +10,8 @@ interface PaperChatKnowledgeBasePanelProps {
   onSelectionChange: (knowledgeBases: KnowledgeBase[]) => void
 }
 
-function getDocumentCountText(kb: KnowledgeBase): string {
-  const count = kb.linkedFileIds?.length ?? kb.documentCount ?? 0
-  return `${count} 个文档`
+function getDocumentCount(kb: KnowledgeBase): number {
+  return kb.linkedFileIds?.length ?? kb.documentCount ?? 0
 }
 
 /** 知识库选择面板组件，支持搜索、多选、展开/收起描述，可通过弹出面板或内嵌模式展示 */
@@ -21,6 +21,7 @@ export default function PaperChatKnowledgeBasePanel({
   embedded = false,
   onSelectionChange
 }: PaperChatKnowledgeBasePanelProps) {
+  const { t } = useTranslation()
   const [localSelectedKBs, setLocalSelectedKBs] = useState<KnowledgeBase[]>(selectedKnowledgeBases)
   const [allKnowledgeBases, setAllKnowledgeBases] = useState<KnowledgeBase[]>([])
   const [showPanel, setShowPanel] = useState(false)
@@ -223,10 +224,10 @@ export default function PaperChatKnowledgeBasePanel({
         >
           {localSelectedKBs.length > 0 ? (
             <span className={styles['paper-chat-knowledge__selected-name']}>
-              已选 {localSelectedKBs.length} 个知识库
+              {t('paper.chat.kb.selected', { count: localSelectedKBs.length })}
             </span>
           ) : (
-            <span>{compact ? '知识' : '知识库'}</span>
+            <span>{compact ? t('paper.chat.kb.compactLabel') : t('paper.chat.kb.label')}</span>
           )}
           {allKnowledgeBases.length > 0 && (
             <span className={styles['paper-chat-knowledge__count']}>
@@ -259,10 +260,10 @@ export default function PaperChatKnowledgeBasePanel({
           {!embedded && (
             <div className={styles['paper-chat-knowledge-panel__header']}>
               <span className={styles['paper-chat-knowledge-panel__title']}>
-                知识库选择（多选）
+                {t('paper.chat.kb.panelTitle')}
               </span>
               <span className={styles['paper-chat-knowledge-panel__info']}>
-                {allKnowledgeBases.length} 个知识库可用
+                {t('paper.chat.kb.availableCount', { count: allKnowledgeBases.length })}
               </span>
             </div>
           )}
@@ -272,8 +273,8 @@ export default function PaperChatKnowledgeBasePanel({
               className={`input ${styles['paper-chat-knowledge-panel__search-input']}`}
               type="text"
               value={searchQuery}
-              placeholder="搜索知识库..."
-              aria-label="搜索知识库"
+              placeholder={t('paper.chat.kb.searchPlaceholder')}
+              aria-label={t('paper.chat.kb.searchAria')}
               onChange={(event) => setSearchQuery(event.target.value)}
             />
           </div>
@@ -285,7 +286,7 @@ export default function PaperChatKnowledgeBasePanel({
                 type="button"
                 onClick={toggleSelectAll}
               >
-                {isAllSelected ? '取消全选' : '全选'}
+                {isAllSelected ? t('paper.chat.kb.deselectAll') : t('paper.chat.kb.selectAll')}
               </button>
             </div>
           )}
@@ -293,11 +294,11 @@ export default function PaperChatKnowledgeBasePanel({
           <div className={styles['paper-chat-knowledge-panel__list']}>
             {allKnowledgeBases.length === 0 ? (
               <div className={styles['paper-chat-knowledge-panel__empty']}>
-                <p>暂无知识库，请在知识库管理页面创建</p>
+                <p>{t('paper.chat.kb.empty')}</p>
               </div>
             ) : filteredKnowledgeBases.length === 0 ? (
               <div className={styles['paper-chat-knowledge-panel__empty']}>
-                <p>未找到匹配的知识库</p>
+                <p>{t('paper.chat.kb.noMatch')}</p>
               </div>
             ) : (
               filteredKnowledgeBases.map((kb) => {
@@ -331,7 +332,7 @@ export default function PaperChatKnowledgeBasePanel({
                     </div>
                     <div className={styles['paper-chat-knowledge-panel__meta']}>
                       <span className={styles['paper-chat-knowledge-panel__doc-count']}>
-                        {getDocumentCountText(kb)}
+                        {t('paper.chat.kb.documentCount', { count: getDocumentCount(kb) })}
                       </span>
                     </div>
                     {kb.description && (
@@ -356,7 +357,7 @@ export default function PaperChatKnowledgeBasePanel({
                               toggleDescription(kb.id)
                             }}
                           >
-                            {expanded ? '收起' : '展开'}
+                            {expanded ? t('paper.chat.kb.collapse') : t('paper.chat.kb.expand')}
                           </button>
                         )}
                       </div>

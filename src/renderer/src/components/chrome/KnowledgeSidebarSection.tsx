@@ -1,18 +1,12 @@
 import { useState, useMemo, useCallback, memo } from 'react'
 import type { CSSProperties } from 'react'
+import { useTranslation } from 'react-i18next'
 import SvgIcon from '@renderer/components/icons/SvgIcon'
 import { CssTransitionGroup } from '@renderer/components/motion/CssTransition'
 import { getSidebarListItemMotionStyle } from '@renderer/utils/sidebarListMotion'
 import { useKnowledgeStore, useUIStateStore } from '@renderer/stores'
 import { useNotification } from '@renderer/composables/useNotification'
 import styles from './WorkspaceSidebarHost.module.css'
-
-function formatDocumentCount(linkedFileIds?: string[]): string {
-  const count = linkedFileIds?.length || 0
-  if (count === 0) return '0 个文档'
-  if (count === 1) return '1 个文档'
-  return `${count} 个文档`
-}
 
 function needsReindex(kb: {
   linkedFileIds?: string[]
@@ -28,6 +22,7 @@ function needsReindex(kb: {
  * 提供知识库列表搜索、切换、创建、删除及文件管理入口
  */
 const KnowledgeSidebarSection = memo(function KnowledgeSidebarSection() {
+  const { t } = useTranslation()
   const knowledgeBases = useKnowledgeStore((s) => s.knowledgeBases)
   const activeKbId = useKnowledgeStore((s) => s.activeKbId)
   const setActiveKb = useKnowledgeStore((s) => s.setActiveKb)
@@ -68,8 +63,8 @@ const KnowledgeSidebarSection = memo(function KnowledgeSidebarSection() {
 
   const handleDeleteKnowledgeBase = useCallback(
     async (kbId: string): Promise<void> => {
-      const confirmed = await notify.confirm('此操作不可撤销。', {
-        title: '删除知识库',
+      const confirmed = await notify.confirm(t('notifications.knowledge.confirmIrreversible'), {
+        title: t('notifications.knowledge.deleteKbTitle'),
         source: 'knowledge',
         danger: true
       })
@@ -77,10 +72,14 @@ const KnowledgeSidebarSection = memo(function KnowledgeSidebarSection() {
 
       const success = await deleteKnowledgeBase(kbId)
       if (!success) {
-        notify.error('删除知识库失败', knowledgeError || '未知错误', { source: 'knowledge' })
+        notify.error(
+          t('notifications.knowledge.deleteKbFailedTitle'),
+          knowledgeError || t('notifications.knowledge.unknownError'),
+          { source: 'knowledge' }
+        )
       }
     },
-    [deleteKnowledgeBase, knowledgeError, notify]
+    [deleteKnowledgeBase, knowledgeError, notify, t]
   )
 
   return (
@@ -90,7 +89,7 @@ const KnowledgeSidebarSection = memo(function KnowledgeSidebarSection() {
           <input
             type="text"
             className="sm-input"
-            placeholder="搜索知识库"
+            placeholder={t('chrome.sidebar.searchKnowledge')}
             value={knowledgeSearchQuery}
             onChange={(e) => setKnowledgeSearchQuery(e.target.value)}
           />
@@ -103,7 +102,7 @@ const KnowledgeSidebarSection = memo(function KnowledgeSidebarSection() {
           ].join(' ')}
           onClick={handleManageKnowledgeFiles}
         >
-          管理文件
+          {t('chrome.sidebar.manageFiles')}
         </button>
       </div>
 
@@ -145,17 +144,17 @@ const KnowledgeSidebarSection = memo(function KnowledgeSidebarSection() {
                     <div className={styles['sm-workspace-sidebar-host__kb-name']}>{kb.name}</div>
                     {needsReindex(kb) && (
                       <span className={styles['sm-workspace-sidebar-host__kb-stale']}>
-                        需重索引
+                        {t('chrome.sidebar.needsReindex')}
                       </span>
                     )}
                   </div>
                   <div className={styles['sm-workspace-sidebar-host__kb-meta']}>
-                    {formatDocumentCount(kb.linkedFileIds)}
+                    {t('chrome.sidebar.documentCount', { count: kb.linkedFileIds?.length ?? 0 })}
                   </div>
                 </div>
                 <button
                   className={styles['sm-workspace-sidebar-host__kb-delete']}
-                  title="删除知识库"
+                  title={t('chrome.sidebar.deleteKnowledgeBase')}
                   onClick={(e) => {
                     e.stopPropagation()
                     void handleDeleteKnowledgeBase(kb.id)
@@ -169,14 +168,16 @@ const KnowledgeSidebarSection = memo(function KnowledgeSidebarSection() {
           {filteredKnowledgeBases.length === 0 && (
             <div className={styles['sm-workspace-sidebar-host__empty']}>
               <div className={styles['sm-workspace-sidebar-host__empty-text']}>
-                {knowledgeSearchQuery ? '未找到匹配的知识库' : '暂无知识库'}
+                {knowledgeSearchQuery
+                  ? t('chrome.sidebar.noMatchKnowledge')
+                  : t('chrome.sidebar.emptyKnowledge')}
               </div>
               {!knowledgeSearchQuery && (
                 <button
                   className="sm-button sm-button--secondary sm-button--small"
                   onClick={handleCreateKnowledgeBase}
                 >
-                  创建第一个知识库
+                  {t('chrome.sidebar.createFirstKnowledge')}
                 </button>
               )}
             </div>

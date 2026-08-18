@@ -13,6 +13,7 @@ import {
   getPaperFigureAssetRelativePath,
   getPaperOcrNormalizedDirPath
 } from './paperPaths'
+import { t } from '@main/services/i18n'
 
 type PaperAssetDownloader = (remoteUrl: string, localPath: string) => Promise<boolean>
 
@@ -51,7 +52,7 @@ function replaceAllLiteral(content: string, searchValue: string, replacement: st
 }
 
 function createLocalAssetImageMarkup(localRelativePath: string): string {
-  return `<div style='text-align: center;'><img src='${localRelativePath}' alt='OCR图片'/></div>`
+  return `<div style='text-align: center;'><img src='${localRelativePath}' alt='${t('notifications.paper.ocrImageAlt')}'/></div>`
 }
 
 function wrapBareLocalAssetReferences(markdown: string, localRelativePath: string): string {

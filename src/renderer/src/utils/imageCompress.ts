@@ -3,6 +3,8 @@
  * 使用 Canvas API 在渲染进程中完成图片压缩和 Base64 编码
  */
 
+import { i18n } from '@renderer/i18n'
+
 // ==================== 常量 ====================
 
 /** 支持的图片扩展名 */
@@ -142,21 +144,26 @@ export function validateImageFile(file: File): ImageValidationResult {
 
   // 检查是否为不支持的动图格式
   if (ext === '.gif' || mimeType === 'image/gif') {
-    return { valid: false, error: `不支持 GIF 动图格式` }
+    return { valid: false, error: i18n.t('notifications.common.imageGifUnsupported') }
   }
 
   // 检查是否为支持的图片格式
   if (!resolveImageExtension(file) && !getSupportedMimeType(file)) {
     return {
       valid: false,
-      error: `图片格式不支持，仅支持 ${IMAGE_SUPPORTED_EXTENSIONS.join(', ')}`
+      error: i18n.t('notifications.common.imageTypeUnsupported', {
+        extensions: IMAGE_SUPPORTED_EXTENSIONS.join(', ')
+      })
     }
   }
 
   // 检查文件大小
   if (file.size > IMAGE_MAX_SIZE) {
     const sizeMB = (file.size / (1024 * 1024)).toFixed(1)
-    return { valid: false, error: `图片 "${file.name}" 过大（${sizeMB}MB），最大支持 5MB` }
+    return {
+      valid: false,
+      error: i18n.t('notifications.common.imageTooLarge', { name: file.name, size: sizeMB })
+    }
   }
 
   return { valid: true }
@@ -171,10 +178,12 @@ function loadImageFromFile(file: File): Promise<HTMLImageElement> {
     reader.onload = () => {
       const img = new Image()
       img.onload = () => resolve(img)
-      img.onerror = () => reject(new Error(`无法加载图片: ${file.name}`))
+      img.onerror = () =>
+        reject(new Error(i18n.t('notifications.common.imageLoadFailed', { name: file.name })))
       img.src = reader.result as string
     }
-    reader.onerror = () => reject(new Error(`无法读取文件: ${file.name}`))
+    reader.onerror = () =>
+      reject(new Error(i18n.t('notifications.common.imageReadFailed', { name: file.name })))
     reader.readAsDataURL(file)
   })
 }
@@ -186,7 +195,7 @@ function loadImageFromDataURL(dataURL: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image()
     img.onload = () => resolve(img)
-    img.onerror = () => reject(new Error('无法加载图片'))
+    img.onerror = () => reject(new Error(i18n.t('notifications.common.imageLoadFailedBare')))
     img.src = dataURL
   })
 }
@@ -263,7 +272,7 @@ export async function compressImage(file: File): Promise<CompressedImage> {
 
   const ctx = canvas.getContext('2d')
   if (!ctx) {
-    throw new Error('无法创建 Canvas 上下文')
+    throw new Error(i18n.t('notifications.common.canvasContextFailed'))
   }
 
   // 绘制图片
@@ -310,7 +319,7 @@ async function generateThumbnail(
 
   const ctx = canvas.getContext('2d')
   if (!ctx) {
-    throw new Error('无法创建 Canvas 上下文')
+    throw new Error(i18n.t('notifications.common.canvasContextFailed'))
   }
 
   ctx.drawImage(img, 0, 0, scaled.width, scaled.height)

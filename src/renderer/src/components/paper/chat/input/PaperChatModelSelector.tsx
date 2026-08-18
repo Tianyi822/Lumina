@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { AppConfig } from '@renderer/types'
 import { useUIStateStore } from '@renderer/stores/uiStateStore'
 import styles from './PaperChatModelSelector.module.css'
@@ -64,6 +65,7 @@ export default function PaperChatModelSelector({
   disabled,
   onUpdateSelectedModel
 }: PaperChatModelSelectorProps) {
+  const { t } = useTranslation()
   const [showDropdown, setShowDropdown] = useState(false)
   const selectorRef = useRef<HTMLDivElement | null>(null)
   const modelOptions = useConfiguredModels(selectedModel, onUpdateSelectedModel)
@@ -104,7 +106,7 @@ export default function PaperChatModelSelector({
         disabled={disabled || modelOptions.length === 0}
         onClick={toggleDropdown}
       >
-        <span>{selectedModel || '选择模型'}</span>
+        <span>{selectedModel || t('paper.chat.modelSelector.select')}</span>
         <span
           className={[
             styles['model-selector__arrow'],
@@ -119,7 +121,9 @@ export default function PaperChatModelSelector({
       {showDropdown && (
         <div className={styles['model-selector__dropdown']}>
           {modelOptions.length === 0 ? (
-            <div className={styles['model-selector__option--empty']}>暂无模型配置</div>
+            <div className={styles['model-selector__option--empty']}>
+              {t('paper.chat.modelSelector.empty')}
+            </div>
           ) : (
             modelOptions.map((model) => (
               <div

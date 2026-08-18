@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import { formatTokenCount } from '@renderer/utils/tokenEstimate'
 import type { TokenUsage } from '@shared/types/chat'
 import styles from './PaperChatTokenStats.module.css'
@@ -25,21 +27,27 @@ function formatCacheHitRate(rate: number, cachedPromptTokens: number): string {
   return `${Math.round(percent)}%`
 }
 
-function formatTokenUsage(usage: NonNullable<PaperChatTokenStatsProps['usage']>): string {
+function formatTokenUsage(
+  usage: NonNullable<PaperChatTokenStatsProps['usage']>,
+  t: TFunction
+): string {
   const cachedPromptTokens = usage.cached_prompt_tokens ?? 0
   const hitRate = formatCacheHitRate(usage.prompt_cache_hit_rate ?? 0, cachedPromptTokens)
-  return `总计: ${formatTokenCount(usage.total_tokens)} | 缓存输入: ${formatTokenCount(
-    cachedPromptTokens
-  )} (${hitRate})`
+  return t('paper.chat.tokens.summary', {
+    total: formatTokenCount(usage.total_tokens),
+    cached: formatTokenCount(cachedPromptTokens),
+    rate: hitRate
+  })
 }
 
 export default function PaperChatTokenStats({ usage, userTokenLabel }: PaperChatTokenStatsProps) {
+  const { t } = useTranslation()
   if (userTokenLabel) {
     return <div className={styles['token-usage']}>{userTokenLabel}</div>
   }
 
   if (usage) {
-    return <div className={styles['token-usage']}>{formatTokenUsage(usage)}</div>
+    return <div className={styles['token-usage']}>{formatTokenUsage(usage, t)}</div>
   }
 
   return null

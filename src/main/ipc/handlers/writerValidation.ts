@@ -1,4 +1,5 @@
 import { basename } from 'path'
+import { t } from '@main/services/i18n'
 import { saveWriterDocumentRequestSchema } from '@shared/schemas/writerSchema'
 import { isValidWriterDocumentId } from '@main/services/writer/writerPaths'
 import type { SaveWriterDocumentRequest, WriterAssetImportInput } from '@shared/types/writer'
@@ -20,13 +21,13 @@ export interface ImportWriterAssetPayload extends WriterAssetImportInput {
 export function validateDeleteWriterPayload(documentId: unknown): string | null {
   return typeof documentId === 'string' && isValidWriterDocumentId(documentId)
     ? null
-    : '无效的文档 ID'
+    : t('notifications.writer.invalidId')
 }
 
 /** 校验跨 IPC 传入的图片资源，较大载荷在进入服务前立即拒绝 */
 export function validateImportWriterAssetPayload(payload: unknown): string | null {
   if (!isObject(payload)) {
-    return '无效的图片导入请求'
+    return t('notifications.writer.invalidAssetImportRequest')
   }
   const documentIdError = validateDeleteWriterPayload(payload.documentId)
   if (documentIdError) {
@@ -39,19 +40,19 @@ export function validateImportWriterAssetPayload(payload: unknown): string | nul
     payload.fileName.includes('\\') ||
     payload.fileName.includes('\0')
   ) {
-    return '无效的图片文件名'
+    return t('notifications.writer.invalidImageFileName')
   }
   if (
     typeof payload.declaredMimeType !== 'string' ||
     !SUPPORTED_WRITER_ASSET_MIME_TYPES.has(payload.declaredMimeType.toLowerCase())
   ) {
-    return '不支持的图片 MIME 类型'
+    return t('notifications.writer.unsupportedImageMime')
   }
   if (!(payload.bytes instanceof Uint8Array)) {
-    return '无效的图片字节'
+    return t('notifications.writer.invalidImageBytes')
   }
   if (payload.bytes.byteLength > MAX_WRITER_ASSET_BYTES) {
-    return '单张图片不能超过 20MB'
+    return t('notifications.writer.imageTooLarge', { max: 20 })
   }
   return null
 }
@@ -61,12 +62,12 @@ export function validateWriterTitle(title: unknown, optional = false): string | 
     return null
   }
   if (typeof title !== 'string') {
-    return '无效的文档标题'
+    return t('notifications.writer.invalidTitle')
   }
   if (!optional && title.trim().length === 0) {
-    return '文档标题不能为空'
+    return t('notifications.writer.titleRequired')
   }
-  return title.length <= 200 ? null : '文档标题不能超过 200 个字符'
+  return title.length <= 200 ? null : t('notifications.writer.titleTooLong', { max: 200 })
 }
 
 export function validateSaveWriterPayload(payload: unknown): payload is SaveWriterDocumentRequest {
@@ -79,22 +80,24 @@ export function validateWriterFolderId(folderId: unknown, optional = false): str
   }
   return typeof folderId === 'string' && WRITER_FOLDER_ID_PATTERN.test(folderId)
     ? null
-    : '无效的文件夹 ID'
+    : t('notifications.writer.invalidFolderId')
 }
 
 export function validateWriterFolderName(name: unknown): string | null {
   return typeof name === 'string' && name.trim().length > 0 && name.length <= 100
     ? null
-    : '无效的文件夹名称'
+    : t('notifications.writer.invalidFolderName')
 }
 
 export function validateWriterFavorite(favorite: unknown): string | null {
-  return typeof favorite === 'boolean' ? null : '无效的收藏状态'
+  return typeof favorite === 'boolean' ? null : t('notifications.writer.invalidFavorite')
 }
 
 /** 校验导出格式；Task 14 起 IPC 层先拒绝未知取值 */
 export function validateWriterExportFormat(format: unknown): string | null {
-  return format === 'markdown' || format === 'docx' || format === 'pdf' ? null : '无效的导出格式'
+  return format === 'markdown' || format === 'docx' || format === 'pdf'
+    ? null
+    : t('notifications.writer.invalidExportFormat')
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {

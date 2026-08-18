@@ -1,3 +1,5 @@
+import type { AppLanguage } from './config'
+
 /**
  * 论文状态
  */
@@ -319,6 +321,8 @@ export interface PaperTranslationCache {
   translationRevisionId?: string
   /** 当前翻译使用的模型名 */
   modelName?: string
+  /** 翻译目标语言（存量缓存缺省视为 'zh'，新建缓存必填） */
+  targetLanguage?: AppLanguage
   /** 内容哈希版本 */
   sourceHashVersion?: 1 | 2
   /** 段落总数 */

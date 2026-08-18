@@ -2,6 +2,7 @@ import { net } from 'electron'
 import { readFile, mkdir, writeFile, access } from 'fs/promises'
 import { dirname } from 'path'
 import { logger } from '@main/services/logger'
+import { t } from '@main/services/i18n'
 import { configManager } from '@main/services/config'
 import {
   DEFAULT_OCR_PROVIDER,
@@ -372,17 +373,17 @@ export class PaperOcrService {
   async startOcr(paperId: string): Promise<{ success: boolean; error?: string }> {
     const { apiKey, provider, concurrency } = this.getOcrConfig()
     if (!apiKey) {
-      return { success: false, error: '请先在设置中配置 GLM-OCR API Key' }
+      return { success: false, error: t('notifications.paper.ocrApiKeyMissing') }
     }
 
     const metaResult = await paperStorageService.readMeta(paperId)
     if (!metaResult.success || !metaResult.data) {
-      return { success: false, error: metaResult.error || '论文元信息不存在' }
+      return { success: false, error: metaResult.error || t('notifications.paper.metaMissing') }
     }
 
     const meta = metaResult.data
     if (!meta.pageAssets || meta.pageAssets.length === 0) {
-      return { success: false, error: '论文页图尚未渲染完成' }
+      return { success: false, error: t('notifications.paper.ocrPagesNotReady') }
     }
 
     this.abortControllers.delete(paperId)
@@ -459,7 +460,7 @@ export class PaperOcrService {
         progress.status = 'partial_failed'
         await paperStorageService.updateMeta(paperId, { status: 'partial_failed' })
       } else {
-        progress.errorMessage = '所有页面 OCR 均失败'
+        progress.errorMessage = t('notifications.paper.ocrAllPagesFailed')
         progress.status = 'failed'
         await paperStorageService.updateMeta(paperId, {
           status: 'failed',
@@ -479,7 +480,10 @@ export class PaperOcrService {
     })
 
     if (progress.status === 'failed') {
-      return { success: false, error: progress.errorMessage || '所有页面 OCR 均失败' }
+      return {
+        success: false,
+        error: progress.errorMessage || t('notifications.paper.ocrAllPagesFailed')
+      }
     }
 
     return { success: true }
@@ -494,7 +498,7 @@ export class PaperOcrService {
   ): Promise<{ success: boolean; error?: string }> {
     const { apiKey, provider } = this.getOcrConfig()
     if (!apiKey) {
-      return { success: false, error: '请先在设置中配置 GLM-OCR API Key' }
+      return { success: false, error: t('notifications.paper.ocrApiKeyMissing') }
     }
 
     const result = await this.processPage(paperId, pageIndex, apiKey, provider)
@@ -521,7 +525,7 @@ export class PaperOcrService {
         markdown: '',
         blocks: [],
         status: 'failed',
-        errorMessage: pageImageResult.error || '页图不存在'
+        errorMessage: pageImageResult.error || t('notifications.paper.pageImageUnavailable')
       }
       await this.saveOcrResults(paperId, pageIndex, null, result)
       return result
@@ -542,7 +546,7 @@ export class PaperOcrService {
         markdown: '',
         blocks: [],
         status: 'failed',
-        errorMessage: response.error || 'OCR 请求失败'
+        errorMessage: response.error || t('notifications.paper.ocrRequestFailed')
       }
       await this.saveOcrResults(paperId, pageIndex, response.data, result)
       logger.warn(`第 ${pageIndex + 1} 页 OCR 失败`, 'main', {
@@ -586,7 +590,7 @@ export class PaperOcrService {
         requestId: normalized.requestId,
         taskId: normalized.taskId,
         status: 'failed',
-        errorMessage: `OCR 图片下载失败: ${failedBlocks}`
+        errorMessage: t('notifications.paper.ocrImageDownloadFailed', { failed: failedBlocks })
       }
       await this.saveOcrResults(paperId, pageIndex, rawResponse, result)
       logger.warn(`第 ${pageIndex + 1} 页 OCR 图片下载失败`, 'main', {
@@ -672,7 +676,7 @@ export class PaperOcrService {
     try {
       const metaResult = await paperStorageService.readMeta(paperId)
       if (!metaResult.success || !metaResult.data) {
-        return { success: false, error: '论文元信息不存在' }
+        return { success: false, error: t('notifications.paper.metaMissing') }
       }
 
       const totalPages = metaResult.data.pageCount

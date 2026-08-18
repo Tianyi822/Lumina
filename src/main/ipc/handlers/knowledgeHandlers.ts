@@ -4,6 +4,7 @@ import { getVectorDBService } from '@main/services/vector'
 import { logger } from '@main/services/logger'
 import { getMainWindow } from '@main/core/window'
 import { getFileService } from '@main/services/file/FileService'
+import { t } from '@main/services/i18n'
 import type { KnowledgeBase, KnowledgeReindexOptions } from '@shared/types/knowledge'
 
 // 初始化知识库服务，在应用启动时加载知识库数据
@@ -28,7 +29,9 @@ export function registerKnowledgeHandlers(): void {
         data: knowledgeBases
       }
     } catch (error) {
-      const errorMessage = `获取知识库列表失败: ${error instanceof Error ? error.message : String(error)}`
+      const errorMessage = t('notifications.knowledge.fetchListFailed', {
+        error: error instanceof Error ? error.message : String(error)
+      })
       logger.error(errorMessage)
       return {
         success: false,
@@ -44,7 +47,7 @@ export function registerKnowledgeHandlers(): void {
       if (!knowledgeBase) {
         return {
           success: false,
-          error: '知识库不存在'
+          error: t('notifications.knowledge.kbNotFound')
         }
       }
       return {
@@ -52,7 +55,9 @@ export function registerKnowledgeHandlers(): void {
         data: knowledgeBase
       }
     } catch (error) {
-      const errorMessage = `获取知识库失败: ${error instanceof Error ? error.message : String(error)}`
+      const errorMessage = t('notifications.knowledge.fetchKbFailed', {
+        error: error instanceof Error ? error.message : String(error)
+      })
       logger.error(errorMessage)
       return {
         success: false,
@@ -72,7 +77,9 @@ export function registerKnowledgeHandlers(): void {
           data: newKB
         }
       } catch (error) {
-        const errorMessage = `创建知识库失败: ${error instanceof Error ? error.message : String(error)}`
+        const errorMessage = t('notifications.knowledge.createKbFailed', {
+          error: error instanceof Error ? error.message : String(error)
+        })
         logger.error(errorMessage)
         return {
           success: false,
@@ -91,7 +98,7 @@ export function registerKnowledgeHandlers(): void {
         if (!updatedKB) {
           return {
             success: false,
-            error: '知识库不存在'
+            error: t('notifications.knowledge.kbNotFound')
           }
         }
         return {
@@ -99,7 +106,9 @@ export function registerKnowledgeHandlers(): void {
           data: updatedKB
         }
       } catch (error) {
-        const errorMessage = `更新知识库失败: ${error instanceof Error ? error.message : String(error)}`
+        const errorMessage = t('notifications.knowledge.updateKbFailed', {
+          error: error instanceof Error ? error.message : String(error)
+        })
         logger.error(errorMessage)
         return {
           success: false,
@@ -115,7 +124,9 @@ export function registerKnowledgeHandlers(): void {
       const result = await getKnowledgeServiceManager().deleteKnowledgeBase(id)
       return result
     } catch (error) {
-      const errorMessage = `删除知识库失败: ${error instanceof Error ? error.message : String(error)}`
+      const errorMessage = t('notifications.knowledge.deleteKbFailed', {
+        error: error instanceof Error ? error.message : String(error)
+      })
       logger.error(errorMessage)
       return {
         success: false,
@@ -133,7 +144,9 @@ export function registerKnowledgeHandlers(): void {
         data: { stopped: success }
       }
     } catch (error) {
-      const errorMessage = `停止知识库索引失败: ${error instanceof Error ? error.message : String(error)}`
+      const errorMessage = t('notifications.knowledge.stopIndexingFailed', {
+        error: error instanceof Error ? error.message : String(error)
+      })
       logger.error(errorMessage)
       return {
         success: false,
@@ -147,7 +160,7 @@ export function registerKnowledgeHandlers(): void {
     try {
       const kb = await getKnowledgeServiceManager().getKnowledgeBaseById(kbId)
       if (!kb) {
-        return { success: false, error: '知识库不存在' }
+        return { success: false, error: t('notifications.knowledge.kbNotFound') }
       }
 
       const manager = getKnowledgeServiceManager()
@@ -168,7 +181,9 @@ export function registerKnowledgeHandlers(): void {
       }
       return result as { success: boolean; error?: string }
     } catch (error) {
-      const errorMessage = `索引文件失败: ${error instanceof Error ? error.message : String(error)}`
+      const errorMessage = t('notifications.knowledge.indexFileFailed', {
+        error: error instanceof Error ? error.message : String(error)
+      })
       logger.error(errorMessage)
       return {
         success: false,
@@ -182,14 +197,16 @@ export function registerKnowledgeHandlers(): void {
     try {
       const kb = await getKnowledgeServiceManager().getKnowledgeBaseById(kbId)
       if (!kb) {
-        return { success: false, error: '知识库不存在' }
+        return { success: false, error: t('notifications.knowledge.kbNotFound') }
       }
 
       const service = getKnowledgeServiceManager().getOrCreateInstance(kbId, kb)
       const result = await service.removeFileIndex(kbId, fileId)
       return result
     } catch (error) {
-      const errorMessage = `移除文件索引失败: ${error instanceof Error ? error.message : String(error)}`
+      const errorMessage = t('notifications.knowledge.removeFileIndexFailed', {
+        error: error instanceof Error ? error.message : String(error)
+      })
       logger.error(errorMessage)
       return {
         success: false,
@@ -205,7 +222,7 @@ export function registerKnowledgeHandlers(): void {
       try {
         const kb = await getKnowledgeServiceManager().getKnowledgeBaseById(kbId)
         if (!kb) {
-          return { success: false, error: '知识库不存在' }
+          return { success: false, error: t('notifications.knowledge.kbNotFound') }
         }
 
         const manager = getKnowledgeServiceManager()
@@ -259,7 +276,9 @@ export function registerKnowledgeHandlers(): void {
           error: result.error
         }
       } catch (error) {
-        const errorMessage = `重新索引知识库失败: ${error instanceof Error ? error.message : String(error)}`
+        const errorMessage = t('notifications.knowledge.reindexKbFailed', {
+          error: error instanceof Error ? error.message : String(error)
+        })
         logger.error(errorMessage)
         return {
           success: false,
@@ -276,14 +295,16 @@ export function registerKnowledgeHandlers(): void {
       try {
         const kb = await getKnowledgeServiceManager().getKnowledgeBaseById(kbId)
         if (!kb) {
-          return { success: false, error: '知识库不存在' }
+          return { success: false, error: t('notifications.knowledge.kbNotFound') }
         }
 
         const service = getKnowledgeServiceManager().getOrCreateInstance(kbId, kb)
         const result = await service.search(kbId, query, limit)
         return result
       } catch (error) {
-        const errorMessage = `搜索知识库失败: ${error instanceof Error ? error.message : String(error)}`
+        const errorMessage = t('notifications.knowledge.searchKbFailed', {
+          error: error instanceof Error ? error.message : String(error)
+        })
         logger.error(errorMessage)
         return {
           success: false,
@@ -298,14 +319,16 @@ export function registerKnowledgeHandlers(): void {
     try {
       const kb = await getKnowledgeServiceManager().getKnowledgeBaseById(kbId)
       if (!kb) {
-        return { success: false, error: '知识库不存在' }
+        return { success: false, error: t('notifications.knowledge.kbNotFound') }
       }
 
       const service = getKnowledgeServiceManager().getOrCreateInstance(kbId, kb)
       const result = await service.getStats(kbId)
       return result
     } catch (error) {
-      const errorMessage = `获取知识库统计失败: ${error instanceof Error ? error.message : String(error)}`
+      const errorMessage = t('notifications.knowledge.fetchStatsFailed', {
+        error: error instanceof Error ? error.message : String(error)
+      })
       logger.error(errorMessage)
       return {
         success: false,
@@ -323,7 +346,9 @@ export function registerKnowledgeHandlers(): void {
         data: { size }
       }
     } catch (error) {
-      const errorMessage = `获取数据库大小失败: ${error instanceof Error ? error.message : String(error)}`
+      const errorMessage = t('notifications.knowledge.fetchDbSizeFailed', {
+        error: error instanceof Error ? error.message : String(error)
+      })
       logger.error(errorMessage)
       return {
         success: false,
@@ -382,7 +407,9 @@ export function registerKnowledgeHandlers(): void {
         }
       }
     } catch (error) {
-      const errorMessage = `获取索引状态失败: ${error instanceof Error ? error.message : String(error)}`
+      const errorMessage = t('notifications.knowledge.fetchIndexingStatusFailed', {
+        error: error instanceof Error ? error.message : String(error)
+      })
       logger.error(errorMessage)
       return {
         success: false,

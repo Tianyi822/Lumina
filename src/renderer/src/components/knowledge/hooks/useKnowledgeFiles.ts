@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useFileStore } from '@renderer/stores/fileStore'
 import { useKnowledgeIndexStore } from '@renderer/stores/knowledgeIndexStore'
 import { useNotification } from '@renderer/composables/useNotification'
@@ -12,6 +13,7 @@ export function useKnowledgeFiles(
   onFileUnlinked: (kbId: string, fileId: string) => void,
   onStatsNeedUpdate: () => Promise<void>
 ) {
+  const { t } = useTranslation()
   const fileStore = useFileStore()
   const indexStore = useKnowledgeIndexStore()
   const notify = useNotification()
@@ -49,9 +51,13 @@ export function useKnowledgeFiles(
         if (!result.success) {
           window.api.logger.error('[KnowledgeMain] 索引文件失败', {
             fileName: file.name,
-            error: result.error || '索引失败'
+            error: result.error || t('notifications.knowledge.indexFailed')
           })
-          indexStore.setFileFailed(kbId, file.id, result.error || '索引失败')
+          indexStore.setFileFailed(
+            kbId,
+            file.id,
+            result.error || t('notifications.knowledge.indexFailed')
+          )
         } else {
           window.api.logger.info('[KnowledgeMain] 文件索引成功', { fileName: file.name })
           await onStatsNeedUpdate()
@@ -60,7 +66,7 @@ export function useKnowledgeFiles(
         indexStore.markIndexCallFinished(kbId, file.id)
       }
     },
-    [kbId, indexStore, onStatsNeedUpdate]
+    [kbId, indexStore, onStatsNeedUpdate, t]
   )
 
   const handleFilesLinked = useCallback(
@@ -93,8 +99,8 @@ export function useKnowledgeFiles(
     async (fileId: string): Promise<void> => {
       if (!kbId) return
 
-      const confirmed = await notify.confirm('将从知识库移除该文档，并删除对应索引。', {
-        title: '移除知识库文档',
+      const confirmed = await notify.confirm(t('notifications.knowledge.unlinkConfirmBody'), {
+        title: t('notifications.knowledge.unlinkConfirmTitle'),
         source: 'knowledge',
         danger: true
       })
@@ -110,10 +116,14 @@ export function useKnowledgeFiles(
         await onStatsNeedUpdate()
         onFileUnlinked(kbId, fileId)
       } else {
-        notify.error('取消关联失败', result.error || '未知错误', { source: 'knowledge' })
+        notify.error(
+          t('notifications.knowledge.unlinkFailedTitle'),
+          result.error || t('common.unknownError'),
+          { source: 'knowledge' }
+        )
       }
     },
-    [kbId, fileStore, notify, onStatsNeedUpdate, onFileUnlinked]
+    [kbId, fileStore, notify, onStatsNeedUpdate, onFileUnlinked, t]
   )
 
   const handleAddFiles = useCallback(() => {
@@ -148,7 +158,9 @@ export function useKnowledgeFiles(
       setIsDragging(false)
 
       if (!kbId) {
-        notify.warning('请先选择知识库', undefined, { source: 'knowledge' })
+        notify.warning(t('notifications.knowledge.selectKbFirst'), undefined, {
+          source: 'knowledge'
+        })
         return
       }
 
@@ -157,7 +169,7 @@ export function useKnowledgeFiles(
 
       await uploadAndLinkFiles(Array.from(files))
     },
-    [kbId, notify]
+    [kbId, notify, t]
   )
 
   const uploadAndLinkFiles = useCallback(
@@ -171,7 +183,7 @@ export function useKnowledgeFiles(
         try {
           const ext = '.' + file.name.split('.').pop()?.toLowerCase()
           if (!isSupportedDocumentExtension(ext)) {
-            errors.push(`${file.name}: 不支持的文件类型`)
+            errors.push(t('notifications.knowledge.fileTypeUnsupported', { name: file.name }))
             continue
           }
 
@@ -179,10 +191,14 @@ export function useKnowledgeFiles(
           if (result.success && result.file) {
             uploadedFiles.push(result.file)
           } else {
-            errors.push(`${file.name}: ${result.error || '上传失败'}`)
+            errors.push(
+              `${file.name}: ${result.error || t('notifications.knowledge.uploadFailed')}`
+            )
           }
         } catch (error) {
-          errors.push(`${file.name}: ${error instanceof Error ? error.message : '上传失败'}`)
+          errors.push(
+            `${file.name}: ${error instanceof Error ? error.message : t('notifications.knowledge.uploadFailed')}`
+          )
         }
       }
 
@@ -196,17 +212,19 @@ export function useKnowledgeFiles(
 
       if (errors.length > 0) {
         notify.warning(
-          '文件上传完成',
-          `成功 ${uploadedFiles.length} 个，失败 ${errors.length} 个\n${errors.join('\n')}`,
+          t('notifications.knowledge.uploadCompleteTitle'),
+          `${t('notifications.knowledge.uploadCompleteBody', { uploaded: uploadedFiles.length, failed: errors.length })}\n${errors.join('\n')}`,
           { source: 'knowledge' }
         )
       } else if (uploadedFiles.length > 0) {
-        notify.success('文件已添加', `成功上传并索引 ${uploadedFiles.length} 个文件`, {
-          source: 'knowledge'
-        })
+        notify.success(
+          t('notifications.knowledge.uploadSuccessTitle'),
+          t('notifications.knowledge.uploadSuccess', { count: uploadedFiles.length }),
+          { source: 'knowledge' }
+        )
       }
     },
-    [kbId, fileStore, handleFilesLinked, notify]
+    [kbId, fileStore, handleFilesLinked, notify, t]
   )
 
   return {

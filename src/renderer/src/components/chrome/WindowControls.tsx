@@ -1,8 +1,10 @@
+import { useTranslation } from 'react-i18next'
 import { useWindowControls } from './hooks/useWindowControls'
 import styles from './WindowControls.module.css'
 
 /** 窗口控制按钮组（最小化/最大化/关闭），仅 macOS 标题栏使用 */
 export default function WindowControls() {
+  const { t } = useTranslation()
   const { isMaximized, minimize, maximize, close } = useWindowControls()
   const maximizeIcon = isMaximized ? '' : ''
 
@@ -10,8 +12,8 @@ export default function WindowControls() {
     <div className={styles['sm-window-controls']}>
       <button
         className={styles['sm-window-controls__button']}
-        title="最小化"
-        aria-label="最小化窗口"
+        title={t('chrome.window.minimize')}
+        aria-label={t('chrome.window.minimizeAria')}
         type="button"
         onClick={minimize}
       >
@@ -27,8 +29,8 @@ export default function WindowControls() {
 
       <button
         className={styles['sm-window-controls__button']}
-        title={isMaximized ? '还原' : '最大化'}
-        aria-label={isMaximized ? '还原窗口' : '最大化窗口'}
+        title={isMaximized ? t('chrome.window.restore') : t('chrome.window.maximize')}
+        aria-label={isMaximized ? t('chrome.window.restoreAria') : t('chrome.window.maximizeAria')}
         type="button"
         onClick={maximize}
       >
@@ -47,8 +49,8 @@ export default function WindowControls() {
           styles['sm-window-controls__button'],
           styles['sm-window-controls__button--close']
         ].join(' ')}
-        title="关闭"
-        aria-label="关闭窗口"
+        title={t('chrome.window.close')}
+        aria-label={t('chrome.window.closeAria')}
         type="button"
         onClick={close}
       >

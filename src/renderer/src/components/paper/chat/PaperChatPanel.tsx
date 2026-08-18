@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useUIStateStore } from '@renderer/stores/uiStateStore'
 import { usePaperChatStreamStore } from '@renderer/stores'
 import { useNotification } from '@renderer/composables/useNotification'
@@ -33,6 +34,7 @@ function getLatestAssistantMessage(messages: Message[]): Message | null {
 
 /** 论文对话主面板组件，管理会话生命周期、消息流式传输和快速回复 */
 export default function PaperChatPanel({ paper }: PaperChatPanelProps) {
+  const { t } = useTranslation()
   const notify = useNotification()
   const { scrollToQuote } = usePaperQuoteContext()
   const [dismissedQuickReplyIds, setDismissedQuickReplyIds] = useState<Set<string>>(new Set())
@@ -64,9 +66,11 @@ export default function PaperChatPanel({ paper }: PaperChatPanelProps) {
     saveCurrentSession: sessionState.saveCurrentSession,
     setError: sessionState.setError,
     onRequestError: () => {
-      notify.error('论文对话请求失败', '模型请求失败，请稍后重试或换一个模型。', {
-        source: 'chat'
-      })
+      notify.error(
+        t('notifications.paper.requestFailedTitle'),
+        t('notifications.paper.modelRequestFailed'),
+        { source: 'chat' }
+      )
     }
   })
 
@@ -142,12 +146,14 @@ export default function PaperChatPanel({ paper }: PaperChatPanelProps) {
   async function handleClearContext(): Promise<void> {
     // 流式回复进行中时禁止清空，防止中断异常
     if (streamState.isSending) {
-      notify.warning('论文对话', '请先停止当前回复，再清空上下文。', { source: 'chat' })
+      notify.warning(t('notifications.paper.chatTitle'), t('notifications.paper.stopFirst'), {
+        source: 'chat'
+      })
       return
     }
 
-    const confirmed = await notify.confirm('聊天记录会被清空。', {
-      title: '清空当前论文聊天上下文？',
+    const confirmed = await notify.confirm(t('notifications.paper.clearConfirm'), {
+      title: t('notifications.paper.clearConfirmTitle'),
       danger: true
     })
     if (!confirmed) return
@@ -156,7 +162,9 @@ export default function PaperChatPanel({ paper }: PaperChatPanelProps) {
     if (success && sessionState.sessionId) {
       usePaperChatStreamStore.getState().resetPlanState(sessionState.sessionId)
       setDismissedQuickReplyIds(new Set())
-      notify.success('论文对话', '上下文已清空', { source: 'chat' })
+      notify.success(t('notifications.paper.chatTitle'), t('notifications.paper.cleared'), {
+        source: 'chat'
+      })
     }
   }
 
@@ -166,23 +174,27 @@ export default function PaperChatPanel({ paper }: PaperChatPanelProps) {
       const envInfo = await window.api.paperWebSearch.checkEnvironment()
       if (!envInfo.available) {
         notify.warning(
-          '联网搜索不可用',
-          envInfo.error || 'Electron 搜索运行时不可用，请重启应用后重试。',
+          t('notifications.paper.webSearchUnavailable'),
+          envInfo.error || t('notifications.paper.webSearchRuntimeUnavailable'),
           { source: 'chat' }
         )
         return false
       }
       return true
     } catch {
-      notify.warning('联网搜索不可用', '环境检查失败，请稍后重试。', { source: 'chat' })
+      notify.warning(
+        t('notifications.paper.webSearchUnavailable'),
+        t('notifications.paper.webSearchCheckFailed'),
+        { source: 'chat' }
+      )
       return false
     }
-  }, [notify])
+  }, [notify, t])
 
   return (
     <div ref={panelRef} className={styles['paper-chat-panel']}>
       <AssistantPanelShell
-        title="论文对话"
+        title={t('paper.chat.panelTitle')}
         subtitle={paper.fileName}
         status={sessionState.error || undefined}
         loading={sessionState.loading}
@@ -234,7 +246,7 @@ export default function PaperChatPanel({ paper }: PaperChatPanelProps) {
               <button
                 className={styles['paper-chat-panel__scroll-button']}
                 type="button"
-                aria-label="滚动到底部"
+                aria-label={t('paper.chat.scrollToBottomAria')}
                 onClick={() => messageListRef.current?.scrollToBottom()}
               >
                 <SvgIcon name="arrow-down" size={16} />

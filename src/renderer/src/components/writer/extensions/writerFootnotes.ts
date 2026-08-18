@@ -4,6 +4,7 @@ import { Plugin, PluginKey } from '@tiptap/pm/state'
 import type { EditorView } from '@tiptap/pm/view'
 import { Decoration, DecorationSet } from '@tiptap/pm/view'
 import type { WriterJsonDocument, WriterJsonNode } from '@shared/types/writer'
+import { i18n } from '@renderer/i18n'
 
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
@@ -208,7 +209,11 @@ function buildFootnoteDecorations(doc: PMNode): DecorationSet {
       const attrs: Record<string, string> = {
         'data-number': number !== undefined ? String(number) : ''
       }
-      if ((counts.get(footnoteId) ?? 0) === 0) attrs['data-unreferenced'] = 'true'
+      if ((counts.get(footnoteId) ?? 0) === 0) {
+        attrs['data-unreferenced'] = 'true'
+        // "未引用"标签创建期定型（与 placeholder 同惯例），不随语言切换追溯
+        attrs['data-unreferenced-label'] = i18n.t('writer.editor.unreferencedLabel')
+      }
       decorations.push(Decoration.node(pos, pos + node.nodeSize, attrs))
     }
   })

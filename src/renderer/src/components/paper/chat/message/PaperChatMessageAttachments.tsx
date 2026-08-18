@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import SvgIcon from '@renderer/components/icons/SvgIcon'
 import { getFileTypeIcon } from '@renderer/utils/fileIcons'
 import type { Message } from '@renderer/types'
@@ -16,12 +17,16 @@ interface PaperChatMessageAttachmentsProps {
 
 const QUOTE_PREVIEW_MAX_LENGTH = 42
 
-/** 生成引文的显示标签，按视图类型（原文/译文）独立编号 */
-function getQuoteLabel(quotes: PaperQuote[], quote: PaperQuote, index: number): string {
+/** 生成引文的显示标签，按视图类型（原文/译文）独立编号；viewLabel 由调用方传入译文 */
+function getQuoteLabel(
+  quotes: PaperQuote[],
+  quote: PaperQuote,
+  index: number,
+  viewLabel: string
+): string {
   const quoteIndex = quotes
     .slice(0, index + 1)
     .filter((item) => item.viewKind === quote.viewKind).length
-  const viewLabel = quote.viewKind === 'original' ? '原文引用' : '译文引用'
   return `${viewLabel} ${quoteIndex}`
 }
 
@@ -39,6 +44,7 @@ export default function PaperChatMessageAttachments({
   attachments,
   onQuoteClick
 }: PaperChatMessageAttachmentsProps) {
+  const { t } = useTranslation()
   const documents = attachments.documents || []
   const images = attachments.images || []
   const quotes = attachments.quotes || []
@@ -83,13 +89,20 @@ export default function PaperChatMessageAttachments({
             >
               <SvgIcon className={styles['quote-badge__icon']} name="quote" size={12} />
               <span className={styles['quote-badge__label']}>
-                {getQuoteLabel(quotes, quote, index)}
+                {getQuoteLabel(
+                  quotes,
+                  quote,
+                  index,
+                  quote.viewKind === 'original'
+                    ? t('paper.chat.quoteOriginal')
+                    : t('paper.chat.quoteTranslation')
+                )}
               </span>
               <span className={styles['quote-badge__preview']} title={quote.selectedText}>
                 {getQuotePreview(quote)}
               </span>
               {quote.surroundingContext?.contextualText.trim() && (
-                <span className={styles['quote-badge__context']}>上下文</span>
+                <span className={styles['quote-badge__context']}>{t('paper.chat.context')}</span>
               )}
             </button>
           ))}

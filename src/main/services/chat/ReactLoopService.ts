@@ -38,6 +38,7 @@ import {
   recordPromptCacheDiagnostics
 } from './PromptCacheOptimizer'
 import { WriterContextFormatter } from '../writer/WriterContextFormatter'
+import { t } from '@main/services/i18n'
 
 /**
  * 从消息列表中提取最近一条用户的文本输入作为原始查询
@@ -175,13 +176,15 @@ export class ReactLoopService {
       modelKey,
       messageCount: messages.length,
       toolCount: request.selectedTools?.length,
-      selectedToolNames: request.selectedTools?.map((t) => `${t.serverName}/${t.toolName}`),
+      selectedToolNames: request.selectedTools?.map(
+        (tool) => `${tool.serverName}/${tool.toolName}`
+      ),
       maxReactIterations
     })
 
     const llmConfig = this.validateAndGetLLMConfig(modelKey, sessionId, webContents, turnId)
     if (!llmConfig) {
-      return { success: false, error: '配置验证失败' }
+      return { success: false, error: t('notifications.chat.configValidationFailed') }
     }
 
     if (this.stopController.isStopped(sessionId)) {

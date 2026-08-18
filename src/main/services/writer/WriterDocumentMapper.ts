@@ -1,4 +1,5 @@
 import { basename, join } from 'node:path'
+import { t } from '@main/services/i18n'
 import type {
   WriterDocument,
   WriterExportDocument,
@@ -76,7 +77,7 @@ export class WriterDocumentMapper {
       return {
         success: false,
         code: 'invalid_input',
-        error: error instanceof Error ? error.message : '映射写作文档失败'
+        error: error instanceof Error ? error.message : t('notifications.writer.mapDocumentFailed')
       }
     }
   }
@@ -127,16 +128,15 @@ export class WriterDocumentMapper {
       default: {
         const fallbackText = collectText(node).trim()
         const label = typeof node.attrs?.label === 'string' ? node.attrs.label : node.type
-        ctx.warnings.push(`节点 ${node.type} 无法完整表达，已降级为纯文本`)
+        ctx.warnings.push(t('notifications.writer.nodeDowngradedToText', { type: node.type }))
+        const marker = `[${t('notifications.writer.unexportableNodeLabel')}: ${label}]`
         return [
           {
             kind: 'paragraph',
             runs: [
               {
                 kind: 'text',
-                text: fallbackText
-                  ? `[无法导出的节点: ${label}] ${fallbackText}`
-                  : `[无法导出的节点: ${label}]`
+                text: fallbackText ? `${marker} ${fallbackText}` : marker
               }
             ]
           }
@@ -152,7 +152,7 @@ export class WriterDocumentMapper {
     const width = typeof node.attrs?.width === 'number' ? node.attrs.width : 100
 
     if (!relativePath || !relativePath.startsWith('assets/')) {
-      ctx.warnings.push('图片缺少有效 assetPath，已跳过')
+      ctx.warnings.push(t('notifications.writer.imageAssetPathMissing'))
       return []
     }
 
@@ -248,14 +248,16 @@ export class WriterDocumentMapper {
         if (number != null) {
           runs.push({ kind: 'footnoteRef', number })
         } else {
-          ctx.warnings.push('脚注引用缺少编号，已跳过')
+          ctx.warnings.push(t('notifications.writer.footnoteRefMissingNumber'))
         }
         continue
       }
       // 未知行内节点：降级为纯文本
       const text = collectText(child)
       if (text) {
-        ctx.warnings.push(`行内节点 ${child.type} 无法完整表达，已降级为纯文本`)
+        ctx.warnings.push(
+          t('notifications.writer.inlineNodeDowngradedToText', { type: child.type })
+        )
         runs.push({ kind: 'text', text: `[${child.type}] ${text}` })
       }
     }
@@ -275,7 +277,7 @@ export class WriterDocumentMapper {
     for (const [footnoteId, number] of ordered) {
       const definition = definitions.get(footnoteId)
       if (!definition) {
-        warnings.push(`脚注 ${footnoteId} 缺少定义，已输出空内容`)
+        warnings.push(t('notifications.writer.footnoteDefinitionMissing', { footnoteId }))
         items.push({ number, runs: [] })
         continue
       }

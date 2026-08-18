@@ -1,5 +1,6 @@
 import { createHash } from 'crypto'
-import type { LLMConfig } from '../../../shared/types/config'
+import { t } from '@main/services/i18n'
+import type { AppLanguage, LLMConfig } from '../../../shared/types/config'
 import type {
   PaperFigureItem,
   PaperTranslationCache,
@@ -52,7 +53,8 @@ export interface PaperTranslationCoreDependencies {
     llmConfig: LLMConfig,
     prompt: string,
     segment: PaperTranslationSegment,
-    signal: AbortSignal
+    signal: AbortSignal,
+    targetLanguage: AppLanguage
   ) => Promise<string>
   now?: () => string
 }
@@ -60,6 +62,8 @@ export interface PaperTranslationCoreDependencies {
 interface ActiveTranslationTask {
   paperId: string
   sourceHash: string
+  /** 本任务翻译目标语言 */
+  targetLanguage: AppLanguage
   cache: PaperTranslationCache
   abortController: AbortController
   promise: Promise<void> | null
@@ -104,6 +108,10 @@ interface TranslationTagMatch {
 
 const DEFAULT_CONCURRENCY = 3
 const PAPER_TRANSLATION_SOURCE_HASH_VERSION = 2
+/** 语言检测取样正文段落数上限 */
+const PAPER_LANGUAGE_DETECT_SAMPLE_SEGMENT_LIMIT = 20
+/** CJK 字符占非空白字符比超过该阈值判定为中文论文 */
+const PAPER_LANGUAGE_CJK_RATIO_THRESHOLD = 0.15
 const FIGURE_CAPTION_TRANSLATION_ID_PREFIX = 'fig-caption-'
 const PROMPT_ARTIFACT_LINE_PATTERN =
   /^\s*(?:\[(?:上一段(?:原文)?参考|下一段(?:原文)?参考|当前(?:需要翻译的)?段落|翻译输出)\]|(?:上一段(?:原文)?参考|下一段(?:原文)?参考|当前(?:需要翻译的)?段落|翻译输出)|(?:previous_context|next_context|current_segment|translation))\s*:?\s*$/i
@@ -387,6 +395,26 @@ function shouldSkipTranslationSegment(segment: PaperTranslationSegment): boolean
   )
 }
 
+/**
+ * 检测论文正文语言：取样前若干个自然语言段落（标题/正文/列表/引用），
+ * 统计 CJK 字符占非空白字符比，超过阈值判为中文（zh），否则为英文（en）
+ */
+export function detectPaperLanguage(markdown: string): AppLanguage {
+  const sampleText = parsePaperTranslationSegments(markdown)
+    .filter((segment) => NATURAL_LANGUAGE_KINDS.has(segment.kind))
+    .slice(0, PAPER_LANGUAGE_DETECT_SAMPLE_SEGMENT_LIMIT)
+    .map((segment) => segment.originalText)
+    .join('')
+
+  const nonWhitespaceChars = sampleText.replace(/\s/g, '')
+  if (!nonWhitespaceChars) {
+    return 'en'
+  }
+
+  const cjkCount = (nonWhitespaceChars.match(/[\u4e00-\u9fff]/g) || []).length
+  return cjkCount / nonWhitespaceChars.length > PAPER_LANGUAGE_CJK_RATIO_THRESHOLD ? 'zh' : 'en'
+}
+
 function stripPromptArtifacts(content: string): string {
   const translationMatch = content.match(/<translation\b[^>]*>([\s\S]*?)<\/translation>/i)
   const strippedContent = translationMatch ? translationMatch[1] : content
@@ -436,18 +464,18 @@ function extractTaggedTranslationForSegment(
     return {
       translatedMarkdown: matchedById.content,
       alignmentWarning:
-        matches.length > 1 ? '模型返回多个翻译标签，已按段落 ID 提取当前段落译文' : undefined
+        matches.length > 1 ? t('notifications.paper.translationMultiTagExtracted') : undefined
     }
   }
 
   if (matches.length === 1 && !matches[0].id) {
     return {
       translatedMarkdown: matches[0].content,
-      alignmentWarning: '模型返回无段落 ID 的翻译标签，已按唯一标签提取译文'
+      alignmentWarning: t('notifications.paper.translationSingleTagExtracted')
     }
   }
 
-  throw new Error('模型返回的翻译标签与当前段落 ID 不匹配')
+  throw new Error(t('notifications.paper.translationTagMismatch'))
 }
 
 function splitMeaningfulTranslationBlocks(content: string): string[] {
@@ -471,7 +499,7 @@ function constrainTranslatedBlocksToSegment(
 ): SanitizedTranslatedMarkdown {
   const blocks = splitMeaningfulTranslationBlocks(content)
   if (blocks.length === 0) {
-    throw new Error('模型未返回有效翻译结果')
+    throw new Error(t('notifications.paper.translationEmptyResult'))
   }
 
   const expectedBlockCount = getExpectedTranslationBlockCount(segment)
@@ -481,7 +509,10 @@ function constrainTranslatedBlocksToSegment(
 
   return {
     translatedMarkdown: blocks.slice(0, expectedBlockCount).join('\n\n'),
-    alignmentWarning: `模型返回 ${blocks.length} 个翻译块，已按当前段落结构保留前 ${expectedBlockCount} 个块`
+    alignmentWarning: t('notifications.paper.translationBlocksTruncated', {
+      actual: blocks.length,
+      expected: expectedBlockCount
+    })
   }
 }
 
@@ -648,7 +679,9 @@ export class PaperTranslationCore {
     error?: string
   }> {
     const source = buildPaperTranslationSource(markdown, figures)
-    const validCache = await this.readValidCache(paperId, source)
+    // 只读查询：以既有缓存记录的目标语言校验（存量缺省中文），不改变语言归属
+    const targetLanguage = await this.resolveCacheTargetLanguage(paperId)
+    const validCache = await this.readValidCache(paperId, source, targetLanguage)
     const runningTask = this.tasks.get(paperId)
 
     if (!runningTask && validCache) {
@@ -680,20 +713,36 @@ export class PaperTranslationCore {
    * @param paperId - 论文 ID
    * @param markdown - 论文 Markdown 文本
    * @param figures - 图表列表（可选，用于翻译图表标题）
+   * @param targetLanguage - 翻译目标语言（缺省 'zh'）；与检测出的原文语言一致时短路跳过
    */
   async startTranslation(
     paperId: string,
     markdown: string,
-    figures?: PaperFigureItem[]
-  ): Promise<{ success: boolean; alreadyRunning?: boolean; error?: string }> {
+    figures?: PaperFigureItem[],
+    targetLanguage: AppLanguage = 'zh'
+  ): Promise<{
+    success: boolean
+    alreadyRunning?: boolean
+    skippedReason?: 'sameLanguage'
+    error?: string
+  }> {
+    // 原文语言与目标语言一致时短路：不建任务、不落缓存、不触发进度
+    if (detectPaperLanguage(markdown) === targetLanguage) {
+      return { success: true, skippedReason: 'sameLanguage' }
+    }
+
     const source = buildPaperTranslationSource(markdown, figures)
 
     if (source.segments.length === 0) {
-      return { success: false, error: '没有可翻译的正文内容' }
+      return { success: false, error: t('notifications.paper.noTranslatableContent') }
     }
 
     const existingTask = this.tasks.get(paperId)
-    if (existingTask && existingTask.sourceHash === source.sourceHash) {
+    if (
+      existingTask &&
+      existingTask.sourceHash === source.sourceHash &&
+      existingTask.targetLanguage === targetLanguage
+    ) {
       return { success: true, alreadyRunning: true }
     }
 
@@ -702,7 +751,7 @@ export class PaperTranslationCore {
       this.tasks.delete(paperId)
     }
 
-    const cache = await this.buildCache(paperId, source)
+    const cache = await this.buildCache(paperId, source, targetLanguage)
 
     const pendingEntries = cache.entries.filter(
       (entry) => entry.status === 'queued' || entry.status === 'failed'
@@ -712,7 +761,7 @@ export class PaperTranslationCore {
     if (pendingEntries.length > 0) {
       llmConfig = this.deps.getDefaultLlmConfig()
       if (!llmConfig) {
-        return { success: false, error: '未找到可用的默认模型配置' }
+        return { success: false, error: t('notifications.paper.defaultModelMissing') }
       }
 
       cache.modelName = llmConfig.model_name
@@ -734,6 +783,7 @@ export class PaperTranslationCore {
     const task: ActiveTranslationTask = {
       paperId,
       sourceHash: source.sourceHash,
+      targetLanguage,
       cache,
       abortController: new AbortController(),
       promise: null,
@@ -748,9 +798,20 @@ export class PaperTranslationCore {
     return { success: true }
   }
 
+  /** 无显式目标语言的读路径：以既有缓存记录的目标语言为准（存量缺省中文） */
+  private async resolveCacheTargetLanguage(paperId: string): Promise<AppLanguage> {
+    const cachedResult = await this.deps.readCache(paperId)
+    if (!cachedResult.success || !cachedResult.data) {
+      return 'zh'
+    }
+
+    return cachedResult.data.targetLanguage ?? 'zh'
+  }
+
   private async readValidCache(
     paperId: string,
-    source: PaperTranslationSource
+    source: PaperTranslationSource,
+    targetLanguage: AppLanguage
   ): Promise<PaperTranslationCache | null> {
     const cachedResult = await this.deps.readCache(paperId)
     if (!cachedResult.success || !cachedResult.data) {
@@ -758,16 +819,33 @@ export class PaperTranslationCore {
     }
 
     const cachedCache = cachedResult.data
+    // 目标语言不一致：旧译文语言不符，整体失效（切换语言后自动重译）
+    if ((cachedCache.targetLanguage ?? 'zh') !== targetLanguage) {
+      const clearResult = await this.deps.clearCache(paperId)
+      if (!clearResult.success) {
+        this.deps.logger.warn('翻译缓存目标语言不一致清理失败', 'main', {
+          paperId,
+          cacheTargetLanguage: cachedCache.targetLanguage ?? 'zh',
+          targetLanguage,
+          error: clearResult.error
+        })
+      }
+
+      return null
+    }
+
     if (
       cachedCache.sourceHash === source.sourceHash &&
       cachedCache.sourceHashVersion === source.sourceHashVersion
     ) {
       if (cachedCache.translationRevisionId) {
-        return cachedCache
+        // 存量缓存缺省视为 zh，读取时在内存中补记目标语言
+        return cachedCache.targetLanguage ? cachedCache : { ...cachedCache, targetLanguage }
       }
 
       const upgradedCache: PaperTranslationCache = {
         ...cachedCache,
+        targetLanguage,
         translationRevisionId: createPaperTranslationRevisionId(
           cachedCache.sourceHash,
           cachedCache.updatedAt
@@ -792,6 +870,7 @@ export class PaperTranslationCore {
       const upgradedCache: PaperTranslationCache = {
         ...cachedCache,
         paperId,
+        targetLanguage,
         sourceHash: source.sourceHash,
         translationRevisionId:
           cachedCache.translationRevisionId ||
@@ -833,9 +912,10 @@ export class PaperTranslationCore {
 
   private async buildCache(
     paperId: string,
-    source: PaperTranslationSource
+    source: PaperTranslationSource,
+    targetLanguage: AppLanguage
   ): Promise<PaperTranslationCache> {
-    const existingCache = await this.readValidCache(paperId, source)
+    const existingCache = await this.readValidCache(paperId, source, targetLanguage)
     const previousEntries = new Map(
       (existingCache?.entries ?? []).map((entry) => [entry.id, entry] as const)
     )
@@ -897,6 +977,7 @@ export class PaperTranslationCore {
         existingCache?.translationRevisionId ||
         createPaperTranslationRevisionId(source.sourceHash, updatedAt),
       modelName: existingCache?.modelName,
+      targetLanguage,
       sourceHashVersion: source.sourceHashVersion,
       totalSegments: entries.length,
       completedSegments: countCompletedSegments(entries),
@@ -915,12 +996,12 @@ export class PaperTranslationCore {
     const runningTask = this.tasks.get(paperId)
     if (runningTask) {
       if (runningTask.sourceHash !== source.sourceHash) {
-        return { success: false, error: '翻译任务正在进行中，请稍后再试' }
+        return { success: false, error: t('notifications.paper.translationInProgress') }
       }
 
       const entryIndex = runningTask.cache.entries.findIndex((e) => e.id === segmentId)
       if (entryIndex === -1) {
-        return { success: false, error: '未找到指定段落' }
+        return { success: false, error: t('notifications.paper.segmentNotFound') }
       }
 
       const entry = runningTask.cache.entries[entryIndex]
@@ -945,19 +1026,21 @@ export class PaperTranslationCore {
       return { success: true, entry: cloneEntry(entry) }
     }
 
-    let cache = await this.readValidCache(paperId, source)
+    // 独立重译：目标语言沿用任务/缓存上下文记录（存量缺省中文），保证重译语言与原任务一致
+    const targetLanguage = await this.resolveCacheTargetLanguage(paperId)
+    let cache = await this.readValidCache(paperId, source, targetLanguage)
     if (!cache) {
-      cache = await this.buildCache(paperId, source)
+      cache = await this.buildCache(paperId, source, targetLanguage)
     }
 
     const entryIndex = cache.entries.findIndex((e) => e.id === segmentId)
     if (entryIndex === -1) {
-      return { success: false, error: '未找到指定段落' }
+      return { success: false, error: t('notifications.paper.segmentNotFound') }
     }
 
     const llmConfig = this.deps.getDefaultLlmConfig()
     if (!llmConfig) {
-      return { success: false, error: '未找到可用的默认模型配置' }
+      return { success: false, error: t('notifications.paper.defaultModelMissing') }
     }
 
     const entry = cache.entries[entryIndex]
@@ -970,6 +1053,7 @@ export class PaperTranslationCore {
     const tempTask: ActiveTranslationTask = {
       paperId,
       sourceHash: cache.sourceHash,
+      targetLanguage: cache.targetLanguage ?? targetLanguage,
       cache,
       abortController: new AbortController(),
       promise: null,
@@ -981,15 +1065,21 @@ export class PaperTranslationCore {
     this.emitProgress(tempTask, entry)
 
     try {
-      const prompt = this.buildPrompt(cache.entries, entryIndex)
+      const prompt = this.buildPrompt(cache.entries, entryIndex, cache.targetLanguage ?? targetLanguage)
       const sanitized = this.sanitizeTranslatedMarkdown(
         entry,
-        await this.deps.translateSegment(llmConfig, prompt, entry, tempTask.abortController.signal)
+        await this.deps.translateSegment(
+          llmConfig,
+          prompt,
+          entry,
+          tempTask.abortController.signal,
+          cache.targetLanguage ?? targetLanguage
+        )
       )
       const translatedMarkdown = sanitized.translatedMarkdown
 
       if (tempTask.abortController.signal.aborted) {
-        return { success: false, error: '翻译已取消' }
+        return { success: false, error: t('notifications.paper.translationCancelled') }
       }
 
       entry.status = 'completed'
@@ -1009,7 +1099,7 @@ export class PaperTranslationCore {
       return { success: true, entry: cloneEntry(entry) }
     } catch (error) {
       if (tempTask.abortController.signal.aborted) {
-        return { success: false, error: '翻译已取消' }
+        return { success: false, error: t('notifications.paper.translationCancelled') }
       }
 
       const errorMessage = error instanceof Error ? error.message : String(error)
@@ -1126,10 +1216,16 @@ export class PaperTranslationCore {
       this.emitProgress(task, entry)
 
       try {
-        const prompt = this.buildPrompt(task.cache.entries, entryIndex)
+        const prompt = this.buildPrompt(task.cache.entries, entryIndex, task.targetLanguage)
         const sanitized = this.sanitizeTranslatedMarkdown(
           entry,
-          await this.deps.translateSegment(llmConfig, prompt, entry, task.abortController.signal)
+          await this.deps.translateSegment(
+            llmConfig,
+            prompt,
+            entry,
+            task.abortController.signal,
+            task.targetLanguage
+          )
         )
         const translatedMarkdown = sanitized.translatedMarkdown
 
@@ -1169,22 +1265,34 @@ export class PaperTranslationCore {
     }
   }
 
-  private buildPrompt(entries: PaperTranslationEntry[], currentIndex: number): string {
+  private buildPrompt(
+    entries: PaperTranslationEntry[],
+    currentIndex: number,
+    targetLanguage: AppLanguage
+  ): string {
     const currentEntry = entries[currentIndex]
     const previousEntry = entries[currentIndex - 1]
     const nextEntry = entries[currentIndex + 1]
     const isAffiliationSegment = isPaperAffiliationLikeSegment(currentEntry)
     const isReferenceSegment = isPaperReferenceLikeSegment(currentEntry)
+    // 仅目标词随语言切换，指令骨架保持中文不动
+    const targetLanguageName = targetLanguage === 'en' ? '英文' : '中文'
+    // 规则 2 的机构/地名处理同样随目标语言对称切换：
+    // zh 译为常用中文译法；en 保留英文原文/采用常用英文写法
+    const affiliationTargetRule =
+      targetLanguage === 'en'
+        ? '2. 作者姓名、人名、邮箱、ORCID 保持原样不要翻译；机构、院系、实验室、学校和地名请保留英文原文或采用常用英文写法，必要时可附原文缩写。'
+        : '2. 作者姓名、人名、邮箱、ORCID 保持原样不要翻译；机构、院系、实验室、学校和地名请翻译为常用中文译法，必要时保留英文缩写。'
 
     const parts = [
-      '你是一个专业的学术论文翻译助手，请将当前 Markdown 段落翻译成中文。',
+      `你是一个专业的学术论文翻译助手，请将当前 Markdown 段落翻译成${targetLanguageName}。`,
       '只翻译 <current_segment> 标签内的内容。',
       '<previous_context> 和 <next_context> 仅用于术语与语境参考，绝不能复述、复制或翻译到输出中。',
       '翻译要求：',
       '1. 只输出翻译后的 Markdown，不要输出解释、前言、注释或额外说明。',
-      '2. 作者姓名、人名、邮箱、ORCID 保持原样不要翻译；机构、院系、实验室、学校和地名请翻译为常用中文译法，必要时保留英文缩写。',
+      affiliationTargetRule,
       '3. 保留公式、变量名、引用编号、列表序号、链接、图片语法、表格结构和列表层级。',
-      '4. 如原文已经是中文，仅做必要的学术化润色并保持原意。',
+      `4. 如原文已经是${targetLanguageName}，仅做必要的学术化润色并保持原意。`,
       '5. 不要遗漏内容，也不要补充原文没有的信息。',
       '6. 如果当前段落是标题，只输出标题本身，不要并入后续正文。',
       '7. 不要输出任何 XML 标签。',
@@ -1242,7 +1350,7 @@ export class PaperTranslationCore {
     content = stripPromptArtifacts(content)
 
     if (!content) {
-      throw new Error('模型未返回有效翻译结果')
+      throw new Error(t('notifications.paper.translationEmptyResult'))
     }
 
     const constrainedResult = constrainTranslatedBlocksToSegment(segment, content)
@@ -1262,7 +1370,7 @@ export class PaperTranslationCore {
           .trim()
 
         if (!headingText) {
-          throw new Error('标题段翻译结果为空')
+          throw new Error(t('notifications.paper.headingTranslationEmpty'))
         }
 
         content = `${headingPrefix} ${headingText}`

@@ -1,5 +1,6 @@
 import { ipcMain } from 'electron'
 import { capabilityManager } from '@main/services/chat/tools/CapabilityManager'
+import { t } from '@main/services/i18n'
 
 /**
  * 注册能力系统相关的 IPC 处理程序
@@ -9,7 +10,7 @@ export function registerCapabilityHandlers(): void {
   // 为会话添加指定的能力
   ipcMain.handle('capability:add', async (_event, sessionId: string, capabilityId: string) => {
     const state = capabilityManager.addCapability(sessionId, capabilityId)
-    if (!state) return { success: false, error: '会话不存在' }
+    if (!state) return { success: false, error: t('notifications.chat.sessionNotFound') }
     return { success: true, data: state }
   })
 

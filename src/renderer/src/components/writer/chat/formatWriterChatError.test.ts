@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { initI18n } from '@renderer/i18n'
 import { formatWriterChatError } from './formatWriterChatError'
+
+// formatWriterChatError 改走 i18n.t：先初始化（测试环境默认 zh，既有中文断言不变）
+await initI18n()
 
 test('空错误回退到通用文案', () => {
   assert.match(formatWriterChatError(''), /模型请求失败/)

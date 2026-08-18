@@ -1,10 +1,12 @@
 import { useState, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useFileStore } from '@renderer/stores'
 import { useNotification } from '@renderer/composables/useNotification'
 import type { FileItem } from '@renderer/types'
 
 /** 文件删除操作管理：若文件被知识库引用则弹出确认对话框，否则直接删除 */
 export function useFileDelete() {
+  const { t } = useTranslation()
   const fileStore = useFileStore()
   const notify = useNotification()
 
@@ -26,11 +28,15 @@ export function useFileDelete() {
         setFileToDelete(null)
         return true
       } else {
-        notify.error('文件删除', result.error || '删除失败', { source: 'file' })
+        notify.error(
+          t('notifications.knowledge.deleteTitle'),
+          result.error || t('notifications.knowledge.deleteFailed'),
+          { source: 'file' }
+        )
         return false
       }
     },
-    [fileToDelete, fileStore, notify]
+    [fileToDelete, fileStore, notify, t]
   )
 
   const handleDeleteClick = useCallback(

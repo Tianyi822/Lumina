@@ -1,4 +1,5 @@
 import type { CSSProperties, KeyboardEvent, MouseEvent } from 'react'
+import { useTranslation } from 'react-i18next'
 import { NodeViewWrapper } from '@tiptap/react'
 import type { NodeViewProps } from '@tiptap/react'
 import type { WriterImageAlign } from '../extensions/writerImage'
@@ -27,6 +28,7 @@ export default function WriterImageView({
   updateAttributes,
   deleteNode
 }: NodeViewProps) {
+  const { t } = useTranslation()
   const src = readTextAttribute(node.attrs.src)
   const alt = readTextAttribute(node.attrs.alt)
   const caption = readTextAttribute(node.attrs.caption)
@@ -65,7 +67,9 @@ export default function WriterImageView({
       contentEditable={false}
       tabIndex={0}
       role="group"
-      aria-label={alt ? `图片：${alt}` : '图片：尚未填写替代文本'}
+      aria-label={
+        alt ? t('writer.nodes.imageAriaWithAlt', { alt }) : t('writer.nodes.imageAriaNoAlt')
+      }
       onClick={selectImage}
       onKeyDown={handleKeyDown}
     >
@@ -81,33 +85,33 @@ export default function WriterImageView({
         <div
           className={styles.toolbar}
           role="toolbar"
-          aria-label="图片工具"
+          aria-label={t('writer.nodes.imageTools')}
           onClick={stopPropagation}
         >
           <label className={styles.field}>
-            替代文本
+            {t('writer.nodes.altText')}
             <input
               className={styles.textInput}
-              aria-label="图片替代文本"
-              placeholder="请补充替代文本"
+              aria-label={t('writer.nodes.altTextAria')}
+              placeholder={t('writer.nodes.altTextPlaceholder')}
               value={alt}
               onChange={(event) => updateAttributes({ alt: event.target.value })}
             />
           </label>
           <label className={styles.field}>
-            图注
+            {t('writer.nodes.caption')}
             <input
               className={styles.textInput}
-              aria-label="图片图注"
-              placeholder="可选图注"
+              aria-label={t('writer.nodes.captionAria')}
+              placeholder={t('writer.nodes.captionPlaceholder')}
               value={caption}
               onChange={(event) => updateAttributes({ caption: event.target.value })}
             />
           </label>
           <label className={styles.widthField}>
-            宽度 {width}%
+            {t('writer.nodes.widthLabel', { width })}
             <input
-              aria-label="图片宽度"
+              aria-label={t('writer.nodes.imageWidth')}
               type="range"
               min={10}
               max={100}
@@ -116,19 +120,27 @@ export default function WriterImageView({
               onChange={(event) => updateAttributes({ width: Number(event.target.value) })}
             />
           </label>
-          <div className={styles.alignment} role="group" aria-label="图片对齐">
+          <div className={styles.alignment} role="group" aria-label={t('writer.nodes.imageAlign')}>
             {(['left', 'center', 'right'] as const).map((value) => (
               <button
                 key={value}
                 type="button"
                 className={styles.alignButton}
                 aria-label={
-                  value === 'left' ? '图片左对齐' : value === 'right' ? '图片右对齐' : '图片居中'
+                  value === 'left'
+                    ? t('writer.nodes.alignLeftAria')
+                    : value === 'right'
+                      ? t('writer.nodes.alignRightAria')
+                      : t('writer.nodes.alignCenterAria')
                 }
                 aria-pressed={align === value}
                 onClick={() => updateAttributes({ align: value })}
               >
-                {value === 'left' ? '左' : value === 'right' ? '右' : '中'}
+                {value === 'left'
+                  ? t('writer.nodes.alignLeftShort')
+                  : value === 'right'
+                    ? t('writer.nodes.alignRightShort')
+                    : t('writer.nodes.alignCenterShort')}
               </button>
             ))}
           </div>

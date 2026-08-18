@@ -8,6 +8,7 @@ import type {
 } from '@shared/types/paper'
 import { deepClone } from '@shared/utils'
 import { notifyWarning } from '@renderer/composables/notificationCore'
+import { i18n } from '@renderer/i18n'
 import { usePaperListStore } from './usePaperListStore'
 
 // ---------------------------------------------------------------------------
@@ -127,11 +128,11 @@ export const usePaperAnnotationStore = create<PaperAnnotationState>()((set, get)
     if (result.affectedKnowledgeBases?.length) {
       const affectedList = result.affectedKnowledgeBases.map((kb) => `- ${kb.name}`).join('\n')
       notifyWarning(
-        '论文笔记已更新',
+        i18n.t('notifications.paper.notesUpdatedTitle'),
         [
-          '以下知识库需要重新索引以确保检索结果使用最新笔记内容：',
+          i18n.t('notifications.paper.notesUpdatedLine1'),
           affectedList,
-          '请前往知识库页面点击"重新索引"。'
+          i18n.t('notifications.paper.notesUpdatedLine3')
         ].join('\n'),
         {
           source: 'paper',

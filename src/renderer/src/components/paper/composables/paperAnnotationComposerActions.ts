@@ -7,6 +7,7 @@ import type {
   PaperAnnotationTextAnchor
 } from '@shared/types/paper'
 import { PAPER_ANNOTATION_NOTE_COLOR_KEY } from '@shared/types/paper'
+import { i18n } from '@renderer/i18n'
 import type {
   AnnotationHoverPopoverState,
   ComputedRef,
@@ -112,7 +113,7 @@ export function createPaperAnnotationComposerActions(
           ? draft.translationAnchor
           : draft.originalAnchor || draft.translationAnchor
     if (!selectedAnchor) {
-      return { success: false, error: '当前选区无法添加到对话' }
+      return { success: false, error: i18n.t('notifications.paper.selectionInvalid') }
     }
 
     const sourceSegments = options.getSourceSegments()
@@ -168,7 +169,7 @@ export function createPaperAnnotationComposerActions(
     annotationId: string
   ): Promise<{ success: boolean; error?: string }> {
     if (!options.paperId()) {
-      return { success: false, error: '论文不存在' }
+      return { success: false, error: i18n.t('notifications.paper.paperMissing') }
     }
 
     const result = await options.deleteAnnotation(options.paperId(), annotationId)
@@ -207,13 +208,19 @@ export function createPaperAnnotationComposerActions(
     } satisfies CreatePaperAnnotationPayload)
 
     if (!createResult.success) {
-      return { success: false, error: createResult.error || '创建笔记失败' }
+      return {
+        success: false,
+        error: createResult.error || i18n.t('notifications.paper.createNoteFailed')
+      }
     }
 
     // 先创建笔记成功后删除原高亮，保证数据不丢失
     const deleteResult = await options.deleteAnnotation(options.paperId(), annotation.id)
     if (!deleteResult.success) {
-      return { success: false, error: deleteResult.error || '删除原标记失败' }
+      return {
+        success: false,
+        error: deleteResult.error || i18n.t('notifications.paper.deleteHighlightFailed')
+      }
     }
 
     return { success: true }

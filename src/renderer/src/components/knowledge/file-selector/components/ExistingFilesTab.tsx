@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useFileStore } from '@renderer/stores'
 import type { FileItem } from '@renderer/types'
 import { filterFilesByQuery } from '@renderer/utils/filterFilesByQuery'
@@ -34,6 +35,7 @@ export default function ExistingFilesTab({
   onUploadComplete,
   onClose
 }: ExistingFilesTabProps) {
+  const { t } = useTranslation()
   const files = useFileStore((s) => s.files)
   const searchQuery = useFileStore((s) => s.searchQuery)
   const searchFiles = useFileStore((s) => s.searchFiles)
@@ -61,14 +63,16 @@ export default function ExistingFilesTab({
 
       <div className={styles['search-bar']}>
         <div className={styles['search-bar__copy']}>
-          <span className={styles['search-bar__label']}>文件资源池</span>
-          <span className={styles['search-bar__count']}>{availableFiles.length} 个可挂载文件</span>
+          <span className={styles['search-bar__label']}>{t('knowledge.common.poolLabel')}</span>
+          <span className={styles['search-bar__count']}>
+            {t('knowledge.fileSelector.availableCount', { count: availableFiles.length })}
+          </span>
         </div>
         <input
           value={searchQuery}
           type="text"
           className={`sm-input ${styles['search-input']}`}
-          placeholder="搜索文件..."
+          placeholder={t('knowledge.common.searchPlaceholder')}
           onChange={(e) => searchFiles(e.target.value)}
         />
       </div>
@@ -77,14 +81,14 @@ export default function ExistingFilesTab({
         {loading ? (
           <div className={styles['state-message']}>
             <span className="sm-spinner sm-spinner--large"></span>
-            <p>加载中...</p>
+            <p>{t('common.loading')}</p>
           </div>
         ) : availableFiles.length === 0 ? (
           <div className={`sm-empty ${styles['state-message']}`}>
             {searchQuery ? (
-              <p>未找到匹配的文件</p>
+              <p>{t('knowledge.common.noMatchingFiles')}</p>
             ) : (
-              <p>没有可添加的文件，请在上方拖放或选择文件上传</p>
+              <p>{t('knowledge.fileSelector.emptyAvailable')}</p>
             )}
           </div>
         ) : (

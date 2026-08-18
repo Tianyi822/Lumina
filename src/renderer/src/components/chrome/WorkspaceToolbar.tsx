@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useUIStateStore } from '@renderer/stores/uiStateStore'
 import { usePaperListStore } from '@renderer/stores/paper'
 import { usePaperTranslationStore } from '@renderer/stores/paper'
@@ -27,6 +28,7 @@ const EMPTY_FIGURE_TRANSLATION_MAP: Record<string, string> = {}
  * 工作区工具栏：按当前视图在一级侧栏底部展示论文/写作工具
  */
 export default function WorkspaceToolbar() {
+  const { t } = useTranslation()
   const currentView = useUIStateStore((s) => s.currentView)
   const paperChatPanelOpen = useUIStateStore((s) => s.paperChatPanelOpen)
   const togglePaperChatPanel = useUIStateStore((s) => s.togglePaperChatPanel)
@@ -97,15 +99,21 @@ export default function WorkspaceToolbar() {
   // 根据翻译状态生成按钮提示文本
   const translationButtonTitle = useMemo(() => {
     if (translationVisible) {
-      return isCurrentPaperTranslating ? '隐藏译文（后台继续翻译）' : '隐藏译文'
+      return isCurrentPaperTranslating
+        ? t('chrome.toolbar.hideTranslationBackground')
+        : t('chrome.toolbar.hideTranslation')
     }
 
     if (hasTranslationCache) {
-      return isCurrentPaperTranslating ? '显示译文（后台正在翻译）' : '显示译文'
+      return isCurrentPaperTranslating
+        ? t('chrome.toolbar.showTranslationBackground')
+        : t('chrome.toolbar.showTranslation')
     }
 
-    return isCurrentPaperTranslating ? '显示译文（后台正在翻译）' : '翻译论文'
-  }, [hasTranslationCache, isCurrentPaperTranslating, translationVisible])
+    return isCurrentPaperTranslating
+      ? t('chrome.toolbar.showTranslationBackground')
+      : t('chrome.toolbar.translatePaper')
+  }, [hasTranslationCache, isCurrentPaperTranslating, translationVisible, t])
 
   const closeTocPanel = useCallback((): void => {
     setShowTocPanel(false)
@@ -200,9 +208,9 @@ export default function WorkspaceToolbar() {
         const translated = figureCaptionTranslationMap[figure.id]
         if (translated) return translated
       }
-      return figure.caption || figure.subCaption || '暂无图注'
+      return figure.caption || figure.subCaption || t('chrome.toolbar.noCaption')
     },
-    [figureCaptionTranslationMap, translationVisible]
+    [figureCaptionTranslationMap, t, translationVisible]
   )
 
   const getTocEntryDisplayText = useCallback(
@@ -309,7 +317,9 @@ export default function WorkspaceToolbar() {
     <div
       className={styles['sm-workspace-toolbar__sidebar-shell']}
       role="toolbar"
-      aria-label={isWriterToolbar ? '写作工具' : '论文工具'}
+      aria-label={
+        isWriterToolbar ? t('chrome.toolbar.writerTools') : t('chrome.toolbar.paperTools')
+      }
     >
       <div className={styles['sm-workspace-toolbar__controls--sidebar']}>
         {isPaperView && currentPaperId && !originalPdfVisible && (

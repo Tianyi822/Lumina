@@ -7,6 +7,7 @@ import {
   useImperativeHandle,
   forwardRef
 } from 'react'
+import { useTranslation } from 'react-i18next'
 import { usePaperViewStore } from '@renderer/stores/paper'
 import { usePaperAnnotationStore } from '@renderer/stores/paper'
 import { retranslateSegment } from '@renderer/stores/paper'
@@ -19,10 +20,7 @@ import type {
   PaperTranslationCache
 } from '@shared/types/paper'
 import type { PaperQuote } from '@shared/types/chat'
-import {
-  PAPER_ANNOTATION_INDEX_LOADING_MESSAGE,
-  isPaperAnnotationIndexReady
-} from '@shared/utils/paperAnnotationReadiness'
+import { isPaperAnnotationIndexReady } from '@shared/utils/paperAnnotationReadiness'
 import {
   usePaperMarkdownEngine,
   getTranslationRenderKey,
@@ -89,6 +87,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
     ref
   ) {
     const notify = useNotification()
+    const { t } = useTranslation()
     const zoomLevel = usePaperViewStore((state) => state.zoomLevel)
     const setPaperTocOutline = usePaperViewStore((state) => state.setPaperTocOutline)
     const clearPaperToc = usePaperViewStore((state) => state.clearPaperToc)
@@ -108,12 +107,16 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
     const annotationReady = isPaperAnnotationIndexReady(paperId, readerDocument)
     const handleAnnotationUnavailable = useCallback(
       (message: string): void => {
-        notify.warning('论文批注', message || PAPER_ANNOTATION_INDEX_LOADING_MESSAGE, {
-          source: 'paper',
-          dedupeKey: `paper-annotation-index-loading:${paperId}`
-        })
+        notify.warning(
+          t('notifications.paper.annotationTitle'),
+          message || t('notifications.paper.annotationIndexLoading'),
+          {
+            source: 'paper',
+            dedupeKey: `paper-annotation-index-loading:${paperId}`
+          }
+        )
       },
-      [notify, paperId]
+      [notify, paperId, t]
     )
 
     // Zoom anchor
@@ -387,12 +390,16 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
       if (ids.length > 0) {
         unresolvedNotifiedRef.current = true
         const uniqueCount = new Set(ids).size
-        notify.info('批注恢复', `${uniqueCount} 条批注因文本变化未能恢复高亮`, {
-          source: 'paper',
-          dedupeKey: `paper-unresolved-annotations:${paperId}`
-        })
+        notify.info(
+          t('notifications.paper.restoreTitle'),
+          t('notifications.paper.restoreMessage', { count: uniqueCount }),
+          {
+            source: 'paper',
+            dedupeKey: `paper-unresolved-annotations:${paperId}`
+          }
+        )
       }
-    }, [engine.unresolvedAnnotationIds, notify, paperId])
+    }, [engine.unresolvedAnnotationIds, notify, paperId, t])
 
     // Search helpers
     const getSearchContentElement = useCallback((): HTMLElement | null => {
@@ -501,13 +508,17 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
         // 调用 IPC 重新翻译指定段落，失败时显示通知（使用 dedupeKey 避免重复提示）
         const result = await retranslateSegment(paperId, params.segmentId, params.stableId)
         if (!result.success) {
-          notify.error('重新翻译失败', result.error || '请稍后再试', {
-            source: 'paper',
-            dedupeKey: `paper-retranslate:${paperId}:${params.segmentId}:${result.error || ''}`
-          })
+          notify.error(
+            t('notifications.paper.retranslateFailedTitle'),
+            result.error || t('notifications.paper.retryLaterFallback'),
+            {
+              source: 'paper',
+              dedupeKey: `paper-retranslate:${paperId}:${params.segmentId}:${result.error || ''}`
+            }
+          )
         }
       },
-      [paperId, notify]
+      [paperId, notify, t]
     )
 
     // 注册 TOC 跳转回调，组件卸载时注入空函数覆盖，避免调用已卸载的实例
@@ -833,7 +844,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
                 styles['paper-markdown-view__search-input'],
                 'paper-markdown-view__search-input'
               ].join(' ')}
-              placeholder="搜索..."
+              placeholder={t('paper.reader.searchPlaceholder')}
               value={textSearch.query}
               onChange={(e) => textSearch.setQuery(e.target.value)}
               onKeyDown={handleSearchInputKeydown}
@@ -854,7 +865,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
                   'paper-markdown-view__search-count'
                 ].join(' ')}
               >
-                无结果
+                {t('paper.reader.searchNoResult')}
               </span>
             ) : null}
             <button
@@ -864,7 +875,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
               ].join(' ')}
               type="button"
               disabled={!textSearch.hasMatches}
-              title="上一个 (Shift+Enter)"
+              title={t('paper.reader.prevMatch')}
               onClick={textSearch.goToPrevious}
             >
               <svg
@@ -887,7 +898,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
               ].join(' ')}
               type="button"
               disabled={!textSearch.hasMatches}
-              title="下一个 (Enter)"
+              title={t('paper.reader.nextMatch')}
               onClick={textSearch.goToNext}
             >
               <svg
@@ -910,7 +921,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
                 'paper-markdown-view__search-btn--close'
               ].join(' ')}
               type="button"
-              title="关闭 (Esc)"
+              title={t('paper.reader.closeSearch')}
               onClick={textSearch.closeSearch}
             >
               <svg
@@ -947,7 +958,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
                 'paper-markdown-view__loading'
               ].join(' ')}
             >
-              <p>正在加载内容...</p>
+              <p>{t('paper.reader.loadingContent')}</p>
             </div>
           ) : engine.parseError ? (
             <div
@@ -963,7 +974,7 @@ const PaperMarkdownView = forwardRef<PaperMarkdownViewHandle, PaperMarkdownViewP
                 ' '
               )}
             >
-              <p>暂无内容</p>
+              <p>{t('paper.reader.emptyContent')}</p>
             </div>
           ) : (
             <article

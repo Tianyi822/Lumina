@@ -18,6 +18,7 @@ import type {
   SyncResult
 } from '@shared/types/sync'
 import { logger } from '@main/services/logger'
+import { t } from '@main/services/i18n'
 import { encodeBase64Url, utf8ToBytes } from '../crypto/base64url'
 import { sha256Hex } from '../crypto/hash'
 import { sign as ed25519Sign } from '../crypto/keys'
@@ -292,7 +293,13 @@ hex(sha256(bodyBytes))
     }
     if (options.authed) {
       const pop = this.buildPopHeaders(method, path, bodyBytes)
-      if (!pop) return { success: false, code: 'not_connected', error: '尚未连接同步服务' }
+      if (!pop) {
+        return {
+          success: false,
+          code: 'not_connected',
+          error: t('notifications.sync.notConnected')
+        }
+      }
       Object.assign(headers, pop)
     }
     let response: Response
@@ -314,7 +321,9 @@ hex(sha256(bodyBytes))
     bodyBytes: Uint8Array
   ): Promise<SyncResult<T>> {
     const pop = this.buildPopHeaders('PUT', path, bodyBytes)
-    if (!pop) return { success: false, code: 'not_connected', error: '尚未连接同步服务' }
+    if (!pop) {
+      return { success: false, code: 'not_connected', error: t('notifications.sync.notConnected') }
+    }
     const headers: Record<string, string> = { 'Content-Type': 'application/octet-stream', ...pop }
     let response: Response
     try {
@@ -348,7 +357,9 @@ hex(sha256(bodyBytes))
     path: string
   ): Promise<SyncResult<{ bytes: Uint8Array; headers: Headers }>> {
     const pop = this.buildPopHeaders(method, path, new Uint8Array(0))
-    if (!pop) return { success: false, code: 'not_connected', error: '尚未连接同步服务' }
+    if (!pop) {
+      return { success: false, code: 'not_connected', error: t('notifications.sync.notConnected') }
+    }
     let response: Response
     try {
       response = await this.fetchImpl(this.buildUrl(path), { method, headers: pop })
@@ -416,10 +427,10 @@ function normalizeError(err: unknown): string {
 function normalizeBaseUrl(value: string): string {
   const url = new URL(value.trim())
   if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-    throw new Error('Relay 地址仅支持 HTTP 或 HTTPS')
+    throw new Error(t('notifications.sync.relayUrlSchemeInvalid'))
   }
   if (url.username || url.password || url.search || url.hash) {
-    throw new Error('Relay 地址不能包含凭证、查询参数或片段')
+    throw new Error(t('notifications.sync.relayUrlComponentsInvalid'))
   }
   return url.toString().replace(/\/+$/, '')
 }

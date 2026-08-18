@@ -1,4 +1,5 @@
 import { useEffect, useCallback, memo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useFileStore } from '@renderer/stores'
 import { useNotification } from '@renderer/composables/useNotification'
 import type { FileItem } from '@renderer/types'
@@ -21,6 +22,7 @@ interface FileManagerModalProps {
 
 /** 文件管理器弹窗：管理文件上传、列表展示、搜索、删除、预览等功能 */
 function FileManagerModal({ onClose, onPreviewFile }: FileManagerModalProps) {
+  const { t } = useTranslation()
   const loadFiles = useFileStore((s) => s.loadFiles)
   const filteredFiles = useFilteredFiles()
 
@@ -45,21 +47,25 @@ function FileManagerModal({ onClose, onPreviewFile }: FileManagerModalProps) {
 
       if (result.duplicates.length > 0) {
         const names = result.duplicates.map((f) => f.name).join(', ')
-        messages.push(`以下文件已存在，已自动关联：${names}`)
+        messages.push(t('notifications.knowledge.uploadAutoLinked', { names }))
       }
 
       if (result.errors.length > 0) {
-        notify.error('文件上传', `部分文件上传失败：${result.errors.join('；')}`, {
-          source: 'file'
-        })
+        notify.error(
+          t('notifications.knowledge.uploadTitle'),
+          t('notifications.knowledge.uploadPartialFailed', { errors: result.errors.join('；') }),
+          { source: 'file' }
+        )
         return
       }
 
       if (messages.length > 0) {
-        notify.info('文件上传', messages.join(' '), { source: 'file' })
+        notify.info(t('notifications.knowledge.uploadTitle'), messages.join(' '), {
+          source: 'file'
+        })
       }
     },
-    [notify]
+    [notify, t]
   )
 
   const handlePreview = useCallback(

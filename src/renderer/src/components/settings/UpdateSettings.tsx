@@ -1,5 +1,7 @@
 import { useState, useMemo, useEffect, useCallback } from 'react'
 import MarkdownIt from 'markdown-it'
+import { useTranslation } from 'react-i18next'
+import { getDateLocale } from '@renderer/i18n'
 import { useUpdateStore } from '@renderer/stores/updateStore'
 import styles from './UpdateSettings.module.css'
 
@@ -8,6 +10,7 @@ const isDev = import.meta.env.DEV
 
 /** 自动更新设置页面：检查更新、下载进度、版本历史和手动安装 */
 export default function UpdateSettings() {
+  const { t } = useTranslation()
   const status = useUpdateStore((s) => s.status)
   const progress = useUpdateStore((s) => s.progress)
   const latestVersion = useUpdateStore((s) => s.latestVersion)
@@ -43,31 +46,33 @@ export default function UpdateSettings() {
 
   const updateButtonText = useMemo(() => {
     if (status === 'downloading') {
-      return progress ? `${Math.round(progress.percent)}%` : '下载中...'
+      return progress ? `${Math.round(progress.percent)}%` : t('settings.update.downloading')
     }
-    if (status === 'downloaded') return '重启安装'
-    if (status === 'installing') return '正在安装...'
-    return '立即更新'
-  }, [status, progress])
+    if (status === 'downloaded') return t('settings.update.restartInstall')
+    if (status === 'installing') return t('settings.update.installing')
+    return t('settings.update.updateNow')
+  }, [status, progress, t])
 
   const statusText = useMemo(() => {
     switch (status) {
       case 'checking':
-        return '正在检查更新...'
+        return t('settings.update.statusChecking')
       case 'available':
-        return latestVersion ? `发现新版本 v${latestVersion}` : '发现新版本'
+        return latestVersion
+          ? t('settings.update.statusAvailableVersion', { version: latestVersion })
+          : t('settings.update.statusAvailable')
       case 'not-available':
-        return '已是最新版本'
+        return t('settings.update.statusLatest')
       case 'downloaded':
-        return '下载完成，点击"重启安装"完成更新'
+        return t('settings.update.statusDownloaded')
       case 'installing':
-        return '正在重启安装...'
+        return t('settings.update.statusInstalling')
       case 'error':
-        return errorMessage || '检查更新失败，请稍后重试'
+        return errorMessage || t('settings.update.statusError')
       default:
         return ''
     }
-  }, [status, latestVersion, errorMessage])
+  }, [status, latestVersion, errorMessage, t])
 
   const handleCheck = useCallback(() => {
     checkForUpdate()
@@ -95,7 +100,11 @@ export default function UpdateSettings() {
 
   const formatDate = useCallback((dateStr: string) => {
     const date = new Date(dateStr)
-    return date.toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' })
+    return date.toLocaleDateString(getDateLocale(), {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    })
   }, [])
 
   useEffect(() => {
@@ -106,7 +115,9 @@ export default function UpdateSettings() {
     <div className={styles['update-settings']}>
       {/* 当前版本 */}
       <div className={styles['update-settings__section']}>
-        <h3 className={styles['update-settings__section-title']}>当前版本</h3>
+        <h3 className={styles['update-settings__section-title']}>
+          {t('settings.update.currentVersion')}
+        </h3>
         <p className={styles['update-settings__version']}>v{currentVersion}</p>
       </div>
 
@@ -114,7 +125,7 @@ export default function UpdateSettings() {
       <div className={styles['update-settings__section']}>
         <div className={styles['update-settings__actions']}>
           <button className="sm-button" disabled={!canCheck} onClick={handleCheck}>
-            {status === 'checking' ? '检查中...' : '检查更新'}
+            {status === 'checking' ? t('settings.update.checking') : t('settings.update.check')}
           </button>
           <button
             className="sm-button sm-button--primary"
@@ -132,7 +143,7 @@ export default function UpdateSettings() {
               ].join(' ')}
               onClick={handleManualDownload}
             >
-              下载最新版本
+              {t('settings.update.downloadLatest')}
             </button>
           )}
         </div>
@@ -161,15 +172,19 @@ export default function UpdateSettings() {
         )}
 
         {/* 开发模式提示 */}
-        {isDev && <p className={styles['update-settings__dev-hint']}>开发模式下更新功能不可用</p>}
+        {isDev && (
+          <p className={styles['update-settings__dev-hint']}>{t('settings.update.devHint')}</p>
+        )}
       </div>
 
       {/* 版本历史 */}
       <div className={styles['update-settings__section']}>
-        <h3 className={styles['update-settings__section-title']}>历史版本</h3>
+        <h3 className={styles['update-settings__section-title']}>{t('settings.update.history')}</h3>
 
         {loadingReleases && (
-          <div className={styles['update-settings__loading']}>正在加载版本历史...</div>
+          <div className={styles['update-settings__loading']}>
+            {t('settings.update.loadingReleases')}
+          </div>
         )}
 
         {releasesError && <div className={styles['update-settings__error']}>{releasesError}</div>}
@@ -200,7 +215,9 @@ export default function UpdateSettings() {
                     {formatDate(release.publishedAt)}
                   </span>
                   {release.version === currentVersion && (
-                    <span className={styles['update-settings__current-badge']}>当前版本</span>
+                    <span className={styles['update-settings__current-badge']}>
+                      {t('settings.update.currentBadge')}
+                    </span>
                   )}
                 </button>
 

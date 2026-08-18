@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 
 import { notifyError, notifySuccess, notifyWarning } from '@renderer/composables/notificationCore'
+import { i18n } from '@renderer/i18n'
 import type {
   ConfigSyncResult,
   ConfigSyncState,
@@ -172,19 +173,19 @@ function formatFailure(result: SyncResult<unknown>, fallback: string): string {
   switch (result.code) {
     case 'invalid_credentials':
     case 'password_incorrect':
-      return '用户名或密码不正确'
+      return i18n.t('notifications.sync.invalidCredentials')
     case 'invalid_sync_code':
-      return '同步码无效、已过期或不属于当前账号'
+      return i18n.t('notifications.sync.invalidSyncCode')
     case 'rate_limited':
-      return '操作过于频繁，请稍后再试'
+      return i18n.t('notifications.sync.rateLimited')
     case 'device_revoked':
-      return '当前设备已被吊销，请重新登录'
+      return i18n.t('notifications.sync.deviceRevoked')
     case 'relay_not_initialized':
-      return 'Relay 服务尚未初始化'
+      return i18n.t('notifications.sync.relayNotInitialized')
     case 'quota_exceeded':
-      return '账户存储配额不足，请清理远端数据或联系管理员扩容'
+      return i18n.t('notifications.sync.quotaExceeded')
     case 'body_too_large':
-      return '文件过大，超过同步单文件上限'
+      return i18n.t('notifications.sync.bodyTooLarge')
     default:
       return result.error || fallback
   }
@@ -297,11 +298,13 @@ export const useSyncStore = create<SyncStoreState>()((set, get) => ({
     const result = await window.api.sync.discover(relayUrl)
     set({ pendingAction: null })
     if (!result.success) {
-      const message = formatFailure(result, '无法连接 Relay 服务')
+      const message = formatFailure(result, i18n.t('notifications.sync.connectRelayFallback'))
       set({ error: message })
-      notifyError('数据同步', message, { source: 'settings' })
+      notifyError(i18n.t('notifications.sync.title'), message, { source: 'settings' })
     } else {
-      notifySuccess('数据同步', 'Relay 服务连接正常', { source: 'settings' })
+      notifySuccess(i18n.t('notifications.sync.title'), i18n.t('notifications.sync.relayOk'), {
+        source: 'settings'
+      })
     }
     return result
   },
@@ -310,9 +313,9 @@ export const useSyncStore = create<SyncStoreState>()((set, get) => ({
     set({ status: 'connecting', pendingAction: 'connect', error: null })
     const result = await window.api.sync.connect(relayUrl, username, password)
     if (!result.success || !result.data) {
-      const message = formatFailure(result, '连接同步服务失败')
+      const message = formatFailure(result, i18n.t('notifications.sync.connectFallback'))
       set({ status: 'error', pendingAction: null, error: message })
-      notifyError('数据同步', message, { source: 'settings' })
+      notifyError(i18n.t('notifications.sync.title'), message, { source: 'settings' })
       return false
     }
 
@@ -322,13 +325,19 @@ export const useSyncStore = create<SyncStoreState>()((set, get) => ({
       generatedCode: null,
       codeSecondsRemaining: 0
     })
-    notifySuccess('数据同步', result.data.accountExists ? '设备登录成功' : '账号注册并连接成功', {
-      source: 'settings'
-    })
+    notifySuccess(
+      i18n.t('notifications.sync.title'),
+      result.data.accountExists
+        ? i18n.t('notifications.sync.loginSuccess')
+        : i18n.t('notifications.sync.registerSuccess'),
+      { source: 'settings' }
+    )
     if (!result.data.status.secureStorageAvailable) {
-      notifyWarning('数据同步', '系统安全存储不可用，本次身份将在应用退出后失效', {
-        source: 'settings'
-      })
+      notifyWarning(
+        i18n.t('notifications.sync.title'),
+        i18n.t('notifications.sync.insecureStorageWarning'),
+        { source: 'settings' }
+      )
     }
     bindAllSyncStates(get)
     void get().listDevices()
@@ -344,9 +353,15 @@ export const useSyncStore = create<SyncStoreState>()((set, get) => ({
     const username = get().username
     set({ ...initialData, relayUrl, username })
     if (result.success) {
-      notifySuccess('数据同步', '已断开并清除本地同步身份', { source: 'settings' })
+      notifySuccess(i18n.t('notifications.sync.title'), i18n.t('notifications.sync.disconnected'), {
+        source: 'settings'
+      })
     } else {
-      notifyError('数据同步', formatFailure(result, '断开同步失败'), { source: 'settings' })
+      notifyError(
+        i18n.t('notifications.sync.title'),
+        formatFailure(result, i18n.t('notifications.sync.disconnectFallback')),
+        { source: 'settings' }
+      )
     }
   },
 
@@ -355,22 +370,27 @@ export const useSyncStore = create<SyncStoreState>()((set, get) => ({
     const result = await window.api.sync.renewSession()
     set({ pendingAction: null })
     if (!result.success || !result.data) {
-      const message = formatFailure(result, '延长登录有效期失败')
+      const message = formatFailure(result, i18n.t('notifications.sync.renewFallback'))
       set({ error: message, status: result.code === 'device_revoked' ? 'disconnected' : 'error' })
-      notifyError('数据同步', message, { source: 'settings' })
+      notifyError(i18n.t('notifications.sync.title'), message, { source: 'settings' })
       return false
     }
     set(patchFromStatus(result.data))
     bindAllSyncStates(get)
     get().setupEventStream()
-    notifySuccess('数据同步', '登录有效期已延长', { source: 'settings' })
+    notifySuccess(i18n.t('notifications.sync.title'), i18n.t('notifications.sync.renewed'), {
+      source: 'settings'
+    })
     return true
   },
 
   refreshStatus: async () => {
     const result = await window.api.sync.getStatus()
     if (!result.success || !result.data) {
-      set({ status: 'error', error: formatFailure(result, '读取同步状态失败') })
+      set({
+        status: 'error',
+        error: formatFailure(result, i18n.t('notifications.sync.refreshStatusFallback'))
+      })
       return
     }
     set(patchFromStatus(result.data))
@@ -387,9 +407,9 @@ export const useSyncStore = create<SyncStoreState>()((set, get) => ({
     const result = await window.api.sync.generateSyncCode()
     set({ pendingAction: null })
     if (!result.success || !result.data) {
-      const message = formatFailure(result, '生成同步码失败')
+      const message = formatFailure(result, i18n.t('notifications.sync.generateCodeFallback'))
       set({ error: message })
-      notifyError('数据同步', message, { source: 'settings' })
+      notifyError(i18n.t('notifications.sync.title'), message, { source: 'settings' })
       return
     }
     clearCodeTimer()
@@ -408,20 +428,20 @@ export const useSyncStore = create<SyncStoreState>()((set, get) => ({
     const result = await window.api.sync.redeemSyncCode(code)
     set({ pendingAction: null })
     if (!result.success) {
-      const message = formatFailure(result, '兑换同步码失败')
+      const message = formatFailure(result, i18n.t('notifications.sync.redeemCodeFallback'))
       set({ error: message })
-      notifyError('数据同步', message, { source: 'settings' })
+      notifyError(i18n.t('notifications.sync.title'), message, { source: 'settings' })
       return false
     }
     await get().refreshStatus()
     await get().listDevices()
     await get().reconcile()
     notifySuccess(
-      '数据同步',
-      result.data?.joined === false ? '设备已在同一同步组' : '同步组合并成功',
-      {
-        source: 'settings'
-      }
+      i18n.t('notifications.sync.title'),
+      result.data?.joined === false
+        ? i18n.t('notifications.sync.alreadyInGroup')
+        : i18n.t('notifications.sync.mergeSuccess'),
+      { source: 'settings' }
     )
     return true
   },
@@ -434,9 +454,9 @@ export const useSyncStore = create<SyncStoreState>()((set, get) => ({
       set({ devices: result.data })
       return
     }
-    const message = formatFailure(result, '读取设备列表失败')
+    const message = formatFailure(result, i18n.t('notifications.sync.listDevicesFallback'))
     set({ error: message })
-    notifyError('数据同步', message, { source: 'settings' })
+    notifyError(i18n.t('notifications.sync.title'), message, { source: 'settings' })
   },
 
   revokeDevice: async (deviceId) => {
@@ -444,15 +464,19 @@ export const useSyncStore = create<SyncStoreState>()((set, get) => ({
     const result = await window.api.sync.revokeDevice(deviceId)
     set({ pendingAction: null })
     if (!result.success) {
-      const message = formatFailure(result, '吊销设备失败')
+      const message = formatFailure(result, i18n.t('notifications.sync.revokeFallback'))
       set({ error: message })
-      notifyError('数据同步', message, { source: 'settings' })
+      notifyError(i18n.t('notifications.sync.title'), message, { source: 'settings' })
       return false
     }
     await get().listDevices()
-    notifySuccess('数据同步', result.data?.revoked ? '设备已吊销' : '设备已处于吊销状态', {
-      source: 'settings'
-    })
+    notifySuccess(
+      i18n.t('notifications.sync.title'),
+      result.data?.revoked
+        ? i18n.t('notifications.sync.revoked')
+        : i18n.t('notifications.sync.alreadyRevoked'),
+      { source: 'settings' }
+    )
     return true
   },
 
@@ -461,15 +485,15 @@ export const useSyncStore = create<SyncStoreState>()((set, get) => ({
     const result = await window.api.sync.discardOtherGroups()
     set({ pendingAction: null })
     if (!result.success) {
-      const message = formatFailure(result, '放弃其他同步组失败')
+      const message = formatFailure(result, i18n.t('notifications.sync.discardFallback'))
       set({ error: message })
-      notifyError('数据同步', message, { source: 'settings' })
+      notifyError(i18n.t('notifications.sync.title'), message, { source: 'settings' })
       return false
     }
     await get().refreshStatus()
     notifySuccess(
-      '数据同步',
-      `已放弃其他同步组，吊销 ${result.data?.discardedDevices ?? 0} 台设备`,
+      i18n.t('notifications.sync.title'),
+      i18n.t('notifications.sync.discarded', { count: result.data?.discardedDevices ?? 0 }),
       { source: 'settings' }
     )
     return true
@@ -482,7 +506,12 @@ export const useSyncStore = create<SyncStoreState>()((set, get) => ({
     if (manual) set({ pendingAction: null })
     if (result.success && result.data) {
       set({ lastReconcile: result.data, groupRevision: result.data.groupRevision })
-      if (manual) notifySuccess('数据同步', '对账完成', { source: 'settings' })
+      if (manual)
+        notifySuccess(
+          i18n.t('notifications.sync.title'),
+          i18n.t('notifications.sync.reconcileDone'),
+          { source: 'settings' }
+        )
       return
     }
     if (result.code === 'device_revoked') {
@@ -490,9 +519,9 @@ export const useSyncStore = create<SyncStoreState>()((set, get) => ({
       return
     }
     if (manual) {
-      const message = formatFailure(result, '对账失败')
+      const message = formatFailure(result, i18n.t('notifications.sync.reconcileFallback'))
       set({ error: message })
-      notifyError('数据同步', message, { source: 'settings' })
+      notifyError(i18n.t('notifications.sync.title'), message, { source: 'settings' })
     }
   },
 
@@ -502,9 +531,9 @@ export const useSyncStore = create<SyncStoreState>()((set, get) => ({
     const result = await window.api.sync.sessionSyncNow()
     if (!fromSyncAll) set({ pendingAction: null })
     if (!result.success) {
-      const message = formatFailure(result, '会话同步失败')
+      const message = formatFailure(result, i18n.t('notifications.sync.sessionSyncFallback'))
       set({ error: message })
-      notifyError('数据同步', message, { source: 'settings' })
+      notifyError(i18n.t('notifications.sync.title'), message, { source: 'settings' })
       return false
     }
     if (result.data) {
@@ -514,7 +543,11 @@ export const useSyncStore = create<SyncStoreState>()((set, get) => ({
           lastSyncAt: new Date().toISOString(),
           lastResult: result.data,
           lastError:
-            result.data.errors.length > 0 ? `${result.data.errors.length} 个会话同步失败` : null
+            result.data.errors.length > 0
+              ? i18n.t('notifications.sync.lastErrorSession', {
+                  count: result.data.errors.length
+                })
+              : null
         }
       })
     }
@@ -537,9 +570,9 @@ export const useSyncStore = create<SyncStoreState>()((set, get) => ({
     const result = await window.api.sync.configSyncNow()
     if (!fromSyncAll) set({ pendingAction: null })
     if (!result.success) {
-      const message = formatFailure(result, '配置同步失败')
+      const message = formatFailure(result, i18n.t('notifications.sync.configSyncFallback'))
       set({ error: message })
-      notifyError('数据同步', message, { source: 'settings' })
+      notifyError(i18n.t('notifications.sync.title'), message, { source: 'settings' })
       return false
     }
     if (result.data) {
@@ -550,7 +583,9 @@ export const useSyncStore = create<SyncStoreState>()((set, get) => ({
           lastSyncAt: new Date().toISOString(),
           lastResult: syncResult,
           lastError:
-            syncResult.errors.length > 0 ? `${syncResult.errors.length} 项配置同步失败` : null
+            syncResult.errors.length > 0
+              ? i18n.t('notifications.sync.lastErrorConfig', { count: syncResult.errors.length })
+              : null
         }
       })
     }
@@ -571,9 +606,9 @@ export const useSyncStore = create<SyncStoreState>()((set, get) => ({
     const result = await window.api.sync.writerSyncNow()
     if (!fromSyncAll) set({ pendingAction: null })
     if (!result.success) {
-      const message = formatFailure(result, '写作同步失败')
+      const message = formatFailure(result, i18n.t('notifications.sync.writerSyncFallback'))
       set({ error: message })
-      notifyError('数据同步', message, { source: 'settings' })
+      notifyError(i18n.t('notifications.sync.title'), message, { source: 'settings' })
       return false
     }
     if (result.data) {
@@ -584,7 +619,9 @@ export const useSyncStore = create<SyncStoreState>()((set, get) => ({
           lastSyncAt: new Date().toISOString(),
           lastResult: syncResult,
           lastError:
-            syncResult.errors.length > 0 ? `${syncResult.errors.length} 篇写作同步失败` : null
+            syncResult.errors.length > 0
+              ? i18n.t('notifications.sync.lastErrorWriter', { count: syncResult.errors.length })
+              : null
         }
       })
     }
@@ -605,9 +642,9 @@ export const useSyncStore = create<SyncStoreState>()((set, get) => ({
     const result = await window.api.sync.knowledgeSyncNow()
     if (!fromSyncAll) set({ pendingAction: null })
     if (!result.success) {
-      const message = formatFailure(result, '知识库同步失败')
+      const message = formatFailure(result, i18n.t('notifications.sync.knowledgeSyncFallback'))
       set({ error: message })
-      notifyError('数据同步', message, { source: 'settings' })
+      notifyError(i18n.t('notifications.sync.title'), message, { source: 'settings' })
       return false
     }
     if (result.data) {
@@ -618,7 +655,9 @@ export const useSyncStore = create<SyncStoreState>()((set, get) => ({
           lastSyncAt: new Date().toISOString(),
           lastResult: syncResult,
           lastError:
-            syncResult.errors.length > 0 ? `${syncResult.errors.length} 项知识库同步失败` : null
+            syncResult.errors.length > 0
+              ? i18n.t('notifications.sync.lastErrorKnowledge', { count: syncResult.errors.length })
+              : null
         }
       })
     }
@@ -641,9 +680,9 @@ export const useSyncStore = create<SyncStoreState>()((set, get) => ({
     const result = await window.api.sync.paperSyncNow()
     if (!fromSyncAll) set({ pendingAction: null })
     if (!result.success) {
-      const message = formatFailure(result, '论文同步失败')
+      const message = formatFailure(result, i18n.t('notifications.sync.paperSyncFallback'))
       set({ error: message })
-      notifyError('数据同步', message, { source: 'settings' })
+      notifyError(i18n.t('notifications.sync.title'), message, { source: 'settings' })
       return false
     }
     if (result.data) {
@@ -654,7 +693,9 @@ export const useSyncStore = create<SyncStoreState>()((set, get) => ({
           lastSyncAt: new Date().toISOString(),
           lastResult: syncResult,
           lastError:
-            syncResult.errors.length > 0 ? `${syncResult.errors.length} 篇论文同步失败` : null,
+            syncResult.errors.length > 0
+              ? i18n.t('notifications.sync.lastErrorPaper', { count: syncResult.errors.length })
+              : null,
           downloads: get().paperSync.downloads
         }
       })
@@ -683,11 +724,17 @@ export const useSyncStore = create<SyncStoreState>()((set, get) => ({
     set({ pendingAction: null })
     const failed = results.filter((ok) => !ok).length
     if (failed === 0) {
-      notifySuccess('数据同步', '全部领域同步完成', { source: 'settings' })
+      notifySuccess(
+        i18n.t('notifications.sync.title'),
+        i18n.t('notifications.sync.allDomainsDone'),
+        { source: 'settings' }
+      )
     } else {
-      notifyWarning('数据同步', `同步完成，${failed} 个领域失败，详见各模块状态`, {
-        source: 'settings'
-      })
+      notifyWarning(
+        i18n.t('notifications.sync.title'),
+        i18n.t('notifications.sync.domainsFailed', { count: failed }),
+        { source: 'settings' }
+      )
     }
     return results.every((ok) => ok)
   },
@@ -712,7 +759,10 @@ export const useSyncStore = create<SyncStoreState>()((set, get) => ({
       if (!ticketResult.success || !ticketResult.data || !shouldReconnect) {
         // 主动断开/清理期间落地的在飞请求：静默丢弃，不误报为连接失败
         if (!shouldReconnect) return
-        set({ eventConnected: false, error: formatFailure(ticketResult, '事件连接票据获取失败') })
+        set({
+          eventConnected: false,
+          error: formatFailure(ticketResult, i18n.t('notifications.sync.eventTicketFallback'))
+        })
         scheduleReconnect(get)
         return
       }
@@ -724,7 +774,10 @@ export const useSyncStore = create<SyncStoreState>()((set, get) => ({
       } catch (error) {
         set({
           eventConnected: false,
-          error: error instanceof Error ? error.message : '事件连接创建失败'
+          error:
+            error instanceof Error
+              ? error.message
+              : i18n.t('notifications.sync.eventConnectFallback')
         })
         scheduleReconnect(get)
         return
@@ -804,7 +857,11 @@ export const useSyncStore = create<SyncStoreState>()((set, get) => ({
         return
       case 'device_revoked':
         if (event.deviceId === get().deviceInfo?.deviceId) {
-          notifyWarning('数据同步', '当前设备已被吊销，需要重新登录', { source: 'settings' })
+          notifyWarning(
+            i18n.t('notifications.sync.title'),
+            i18n.t('notifications.sync.deviceRevokedWarning'),
+            { source: 'settings' }
+          )
           await get().disconnect()
         } else {
           await get().listDevices()

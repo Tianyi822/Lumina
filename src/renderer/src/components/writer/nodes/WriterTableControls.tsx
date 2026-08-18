@@ -1,4 +1,5 @@
 import type { MouseEvent } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { Editor } from '@tiptap/core'
 import { BubbleMenu } from '@tiptap/react/menus'
 import styles from './WriterTableControls.module.css'
@@ -14,14 +15,15 @@ interface AlignOption {
   label: string
 }
 
-const ALIGN_OPTIONS: AlignOption[] = [
-  { value: 'left', label: '左对齐' },
-  { value: 'center', label: '居中' },
-  { value: 'right', label: '右对齐' }
-]
-
 /** 表格节点工具：只提供新增/删除行列、切换表头与基础对齐，不提供合并/拆分单元格。 */
 export default function WriterTableControls({ editor }: WriterTableControlsProps) {
+  const { t } = useTranslation()
+  const alignOptions: AlignOption[] = [
+    { value: 'left', label: t('writer.nodes.alignLeft') },
+    { value: 'center', label: t('writer.nodes.alignCenter') },
+    { value: 'right', label: t('writer.nodes.alignRight') }
+  ]
+
   const preventFocusLoss = (event: MouseEvent<HTMLButtonElement>): void => {
     event.preventDefault()
   }
@@ -36,7 +38,7 @@ export default function WriterTableControls({ editor }: WriterTableControlsProps
       options={{ placement: 'top', offset: 8 }}
       className={styles.tableControls}
       role="toolbar"
-      aria-label="表格工具"
+      aria-label={t('writer.nodes.tableTools')}
     >
       <button
         type="button"
@@ -45,7 +47,7 @@ export default function WriterTableControls({ editor }: WriterTableControlsProps
         disabled={!editor.can().addRowAfter()}
         onClick={() => editor.chain().focus().addRowAfter().run()}
       >
-        + 行
+        {t('writer.nodes.addRow')}
       </button>
       <button
         type="button"
@@ -54,7 +56,7 @@ export default function WriterTableControls({ editor }: WriterTableControlsProps
         disabled={!editor.can().deleteRow()}
         onClick={() => editor.chain().focus().deleteRow().run()}
       >
-        − 行
+        {t('writer.nodes.removeRow')}
       </button>
       <button
         type="button"
@@ -63,7 +65,7 @@ export default function WriterTableControls({ editor }: WriterTableControlsProps
         disabled={!editor.can().addColumnAfter()}
         onClick={() => editor.chain().focus().addColumnAfter().run()}
       >
-        + 列
+        {t('writer.nodes.addColumn')}
       </button>
       <button
         type="button"
@@ -72,7 +74,7 @@ export default function WriterTableControls({ editor }: WriterTableControlsProps
         disabled={!editor.can().deleteColumn()}
         onClick={() => editor.chain().focus().deleteColumn().run()}
       >
-        − 列
+        {t('writer.nodes.removeColumn')}
       </button>
       <button
         type="button"
@@ -81,10 +83,10 @@ export default function WriterTableControls({ editor }: WriterTableControlsProps
         onMouseDown={preventFocusLoss}
         onClick={() => editor.chain().focus().toggleHeaderRow().run()}
       >
-        切换表头
+        {t('writer.nodes.toggleHeader')}
       </button>
-      <div className={styles.alignGroup} role="group" aria-label="单元格对齐">
-        {ALIGN_OPTIONS.map((option) => (
+      <div className={styles.alignGroup} role="group" aria-label={t('writer.nodes.cellAlign')}>
+        {alignOptions.map((option) => (
           <button
             key={option.value}
             type="button"

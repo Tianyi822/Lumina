@@ -2,6 +2,7 @@ import { ipcMain } from 'electron'
 import { configManager } from '@main/services/config'
 import { getEmbeddingModelService, getEmbeddingService } from '@main/services/embedding'
 import { logger } from '@main/services/logger'
+import { t } from '@main/services/i18n'
 import type { EmbeddingConfig } from '@main/types/config'
 
 // 初始化嵌入模型管理服务，在应用启动时加载所有保存的嵌入模型配置
@@ -10,7 +11,9 @@ export function initializeEmbeddingModels(): void {
     getEmbeddingModelService().initialize()
     logger.info('嵌入模型管理服务已初始化')
   } catch (error) {
-    const errorMessage = `嵌入模型管理服务初始化失败: ${error instanceof Error ? error.message : String(error)}`
+    const errorMessage = t('notifications.embedding.modelServiceInitFailed', {
+      reason: error instanceof Error ? error.message : String(error)
+    })
     logger.error(errorMessage)
   }
 }
@@ -26,7 +29,9 @@ export function registerEmbeddingModelHandlers(): void {
         data: models
       }
     } catch (error) {
-      const errorMessage = `获取嵌入模型列表失败: ${error instanceof Error ? error.message : String(error)}`
+      const errorMessage = t('notifications.embedding.listModelsFailed', {
+        reason: error instanceof Error ? error.message : String(error)
+      })
       logger.error(errorMessage)
       return {
         success: false,
@@ -42,7 +47,7 @@ export function registerEmbeddingModelHandlers(): void {
       if (!model) {
         return {
           success: false,
-          error: '嵌入模型不存在'
+          error: t('notifications.embedding.modelNotFound')
         }
       }
       return {
@@ -50,7 +55,9 @@ export function registerEmbeddingModelHandlers(): void {
         data: model
       }
     } catch (error) {
-      const errorMessage = `获取嵌入模型失败: ${error instanceof Error ? error.message : String(error)}`
+      const errorMessage = t('notifications.embedding.getModelFailed', {
+        reason: error instanceof Error ? error.message : String(error)
+      })
       logger.error(errorMessage)
       return {
         success: false,
@@ -80,7 +87,9 @@ export function registerEmbeddingModelHandlers(): void {
         success: true
       }
     } catch (error) {
-      const errorMessage = `保存嵌入模型失败: ${error instanceof Error ? error.message : String(error)}`
+      const errorMessage = t('notifications.embedding.saveModelFailed', {
+        reason: error instanceof Error ? error.message : String(error)
+      })
       logger.error(errorMessage)
       return {
         success: false,
@@ -97,7 +106,7 @@ export function registerEmbeddingModelHandlers(): void {
       if (!success) {
         return {
           success: false,
-          error: '嵌入模型不存在'
+          error: t('notifications.embedding.modelNotFound')
         }
       }
 
@@ -114,7 +123,9 @@ export function registerEmbeddingModelHandlers(): void {
         success: true
       }
     } catch (error) {
-      const errorMessage = `删除嵌入模型失败: ${error instanceof Error ? error.message : String(error)}`
+      const errorMessage = t('notifications.embedding.deleteModelFailed', {
+        reason: error instanceof Error ? error.message : String(error)
+      })
       logger.error(errorMessage)
       return {
         success: false,
@@ -130,7 +141,7 @@ export function registerEmbeddingModelHandlers(): void {
       if (!model) {
         return {
           success: false,
-          error: '嵌入模型不存在'
+          error: t('notifications.embedding.modelNotFound')
         }
       }
 
@@ -147,7 +158,9 @@ export function registerEmbeddingModelHandlers(): void {
 
       return result
     } catch (error) {
-      const errorMessage = `测试嵌入模型连接失败: ${error instanceof Error ? error.message : String(error)}`
+      const errorMessage = t('notifications.embedding.testModelConnectionFailed', {
+        reason: error instanceof Error ? error.message : String(error)
+      })
       logger.error(errorMessage)
       return {
         success: false,

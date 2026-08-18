@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { MCPServerConfig, MCPConnectionStatus, MCPTransportType } from '@shared/types/mcp'
 import KeyValueEditor from './KeyValueEditor'
 import styles from './MCPServerItem.module.css'
@@ -31,6 +32,7 @@ export default function MCPServerItem({
   onTest,
   onSave
 }: MCPServerItemProps) {
+  const { t } = useTranslation()
   const [localConfig, setLocalConfig] = useState<MCPServerConfig>({ ...config })
   const [argsText, setArgsText] = useState((config.args || []).join('\n'))
   const [warningMessage, setWarningMessage] = useState('')
@@ -68,15 +70,18 @@ export default function MCPServerItem({
   }, [localConfig, argsText])
 
   // 校验配置
-  const validateConfig = useCallback((cfg: MCPServerConfig): string => {
-    if (!cfg.name) return '服务器名称不能为空'
-    if (cfg.transport === 'stdio') {
-      if (!cfg.command) return `MCP 服务"${cfg.name}"的执行命令不能为空`
-    } else if (!cfg.url) {
-      return `MCP 服务"${cfg.name}"的服务地址不能为空`
-    }
-    return ''
-  }, [])
+  const validateConfig = useCallback(
+    (cfg: MCPServerConfig): string => {
+      if (!cfg.name) return t('settings.mcp.validation.nameRequired')
+      if (cfg.transport === 'stdio') {
+        if (!cfg.command) return t('settings.mcp.validation.commandRequired', { name: cfg.name })
+      } else if (!cfg.url) {
+        return t('settings.mcp.validation.urlRequired', { name: cfg.name })
+      }
+      return ''
+    },
+    [t]
+  )
 
   // 持久化配置（失焦保存）
   const persistConfig = useCallback(() => {
@@ -168,7 +173,7 @@ export default function MCPServerItem({
             .join(' ')}
           title={status?.error || ''}
         >
-          {status?.connected ? '已连接' : '未连接'}
+          {status?.connected ? t('settings.mcp.connected') : t('settings.mcp.disconnected')}
         </span>
         <span className={styles['transport-badge']}>{localConfig.transport}</span>
         <div className={styles['mcp-server-actions']}>
@@ -181,7 +186,7 @@ export default function MCPServerItem({
                 onConnect()
               }}
             >
-              {connecting ? '连接中...' : '连接'}
+              {connecting ? t('common.connecting') : t('common.connect')}
             </button>
           ) : (
             <button
@@ -191,7 +196,7 @@ export default function MCPServerItem({
                 onDisconnect()
               }}
             >
-              断开
+              {t('common.disconnect')}
             </button>
           )}
           <button
@@ -202,7 +207,7 @@ export default function MCPServerItem({
               handleTest()
             }}
           >
-            {testing ? '测试中...' : '测试'}
+            {testing ? t('common.testing') : t('common.test')}
           </button>
           <button
             className={[
@@ -216,7 +221,7 @@ export default function MCPServerItem({
               onDelete()
             }}
           >
-            删除
+            {t('common.delete')}
           </button>
         </div>
       </div>
@@ -225,13 +230,13 @@ export default function MCPServerItem({
       {expanded && (
         <div className={styles['mcp-server-details']}>
           <div className={styles['form-group']}>
-            <label>传输类型</label>
+            <label>{t('settings.mcp.transport')}</label>
             <select
               value={localConfig.transport}
               className="sm-select"
               onChange={(e) => updateTransport(e.target.value)}
             >
-              <option value="stdio">stdio (本地进程)</option>
+              <option value="stdio">{t('settings.mcp.transportStdio')}</option>
               <option value="sse">SSE (Server-Sent Events)</option>
               <option value="streamableHttp">Streamable HTTP</option>
             </select>
@@ -241,18 +246,18 @@ export default function MCPServerItem({
           {localConfig.transport === 'stdio' && (
             <>
               <div className={styles['form-group']}>
-                <label>执行命令</label>
+                <label>{t('settings.mcp.command')}</label>
                 <input
                   type="text"
                   className="sm-input"
-                  placeholder="例如: npx, node, python"
+                  placeholder={t('settings.mcp.commandPlaceholder')}
                   value={localConfig.command || ''}
                   onChange={(e) => updateConfig({ command: e.target.value })}
                   onBlur={() => persistConfig()}
                 />
               </div>
               <div className={styles['form-group']}>
-                <label>命令参数 (每行一个)</label>
+                <label>{t('settings.mcp.commandArgs')}</label>
                 <textarea
                   className={['sm-textarea', styles['textarea-small']].join(' ')}
                   placeholder={'-y\n@modelcontextprotocol/server-xxx'}
@@ -262,7 +267,7 @@ export default function MCPServerItem({
                 />
               </div>
               <div className={styles['form-group']}>
-                <label>环境变量 (KEY=VALUE 格式，每行一个)</label>
+                <label>{t('settings.mcp.envVars')}</label>
                 <KeyValueEditor
                   value={localConfig.env || {}}
                   placeholder="API_KEY=xxx"
@@ -276,7 +281,7 @@ export default function MCPServerItem({
           {localConfig.transport !== 'stdio' && (
             <>
               <div className={styles['form-group']}>
-                <label>服务地址</label>
+                <label>{t('settings.mcp.serviceUrl')}</label>
                 <input
                   type="text"
                   className="sm-input"
@@ -287,7 +292,7 @@ export default function MCPServerItem({
                 />
               </div>
               <div className={styles['form-group']}>
-                <label>认证头 (KEY=VALUE 格式，每行一个)</label>
+                <label>{t('settings.mcp.authHeaders')}</label>
                 <KeyValueEditor
                   value={localConfig.headers || {}}
                   placeholder="Authorization=Bearer xxx"
@@ -302,7 +307,9 @@ export default function MCPServerItem({
           {/* 工具列表 */}
           {status?.connected && (
             <div className={styles['tools-section']}>
-              <h4 className={styles['tools-title']}>可用工具 ({status.tools?.length || 0})</h4>
+              <h4 className={styles['tools-title']}>
+                {t('settings.mcp.availableTools', { count: status.tools?.length || 0 })}
+              </h4>
               <div className={styles['tools-list']}>
                 {status.tools?.map((tool) => (
                   <div key={tool.name} className={styles['tool-item']}>
@@ -311,7 +318,7 @@ export default function MCPServerItem({
                   </div>
                 ))}
                 {(!status.tools || status.tools.length === 0) && (
-                  <div className={styles['empty-tools']}>暂无可用工具</div>
+                  <div className={styles['empty-tools']}>{t('settings.mcp.noTools')}</div>
                 )}
               </div>
             </div>

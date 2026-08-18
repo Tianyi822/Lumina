@@ -3,6 +3,7 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import { logger } from '@main/services/logger'
+import { t } from '@main/services/i18n'
 import {
   MCPServerConfig,
   MCPTool,
@@ -44,7 +45,7 @@ export class MCPService {
     switch (config.transport) {
       case 'stdio':
         if (!config.command) {
-          throw new Error('stdio 传输类型需要指定 command')
+          throw new Error(t('notifications.settings.mcp.stdioCommandRequired'))
         }
         return new StdioClientTransport({
           command: config.command,
@@ -54,7 +55,7 @@ export class MCPService {
 
       case 'sse':
         if (!config.url) {
-          throw new Error('SSE 传输类型需要指定 url')
+          throw new Error(t('notifications.settings.mcp.sseUrlRequired'))
         }
         return new SSEClientTransport(new URL(config.url), {
           requestInit: config.headers ? { headers: config.headers } : undefined
@@ -62,14 +63,16 @@ export class MCPService {
 
       case 'streamableHttp':
         if (!config.url) {
-          throw new Error('streamableHttp 传输类型需要指定 url')
+          throw new Error(t('notifications.settings.mcp.streamableHttpUrlRequired'))
         }
         return new StreamableHTTPClientTransport(new URL(config.url), {
           requestInit: config.headers ? { headers: config.headers } : undefined
         })
 
       default:
-        throw new Error(`不支持的传输类型: ${config.transport}`)
+        throw new Error(
+          t('notifications.settings.mcp.unsupportedTransport', { transport: config.transport })
+        )
     }
   }
 
@@ -176,7 +179,7 @@ export class MCPService {
       return {
         success: false,
         serverName,
-        error: '服务器未找到'
+        error: t('notifications.settings.mcp.serverNotFound')
       }
     }
 
@@ -233,7 +236,7 @@ export class MCPService {
       })
       return {
         success: false,
-        error: `服务器未连接: ${serverName}`
+        error: t('notifications.settings.mcp.serverNotConnected', { name: serverName })
       }
     }
 
@@ -241,7 +244,7 @@ export class MCPService {
       logger.error(`服务器连接已断开: ${serverName}`, 'main')
       return {
         success: false,
-        error: `服务器连接已断开: ${serverName}`
+        error: t('notifications.settings.mcp.serverDisconnected', { name: serverName })
       }
     }
 

@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { i18n } from '@renderer/i18n'
 import { useNotificationCenterStore } from '@renderer/stores/notificationCenterStore'
 import type { ViewMode } from '@renderer/components/chrome/workspaceNavigation'
 import type { ThemeConfig, ThemeMode } from '@shared/types/config'
@@ -19,7 +20,6 @@ export type { ViewMode } from '@renderer/components/chrome/workspaceNavigation'
 export interface ThemeMeta {
   id: string
   name: string
-  description?: string
   previewColors?: {
     primary: string
     secondary: string
@@ -33,7 +33,6 @@ export const AVAILABLE_THEMES: ThemeMeta[] = [
   {
     id: 'lumina-dark',
     name: 'Lumina Dark',
-    description: '深色基准主题，统一整个应用的深色、平面和受控交互基线',
     previewColors: {
       primary: '#121212',
       secondary: '#1b1f26',
@@ -45,7 +44,6 @@ export const AVAILABLE_THEMES: ThemeMeta[] = [
   {
     id: 'lumina-light',
     name: 'Lumina Light',
-    description: '浅色主题，清新明亮的界面风格',
     previewColors: {
       primary: '#f5f5f7',
       secondary: '#ffffff',
@@ -351,13 +349,19 @@ export const useUIStateStore = create<UIStateStore>()(
             if (!status.success && status.error) {
               useNotificationCenterStore
                 .getState()
-                .add('error', '配置错误', status.error, { source: 'config', sticky: true })
+                .add('error', i18n.t('notifications.config.statusErrorTitle'), status.error, {
+                  source: 'config',
+                  sticky: true
+                })
             }
           } catch (error) {
-            const msg = `无法获取配置状态: ${error instanceof Error ? error.message : String(error)}`
+            const msg = `${i18n.t('notifications.config.statusFetchFailedPrefix')}${error instanceof Error ? error.message : String(error)}`
             useNotificationCenterStore
               .getState()
-              .add('error', '配置错误', msg, { source: 'config', sticky: true })
+              .add('error', i18n.t('notifications.config.statusErrorTitle'), msg, {
+                source: 'config',
+                sticky: true
+              })
           }
         },
 

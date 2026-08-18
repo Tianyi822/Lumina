@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useKnowledgeIndexStore } from '@renderer/stores'
 import { useNotification } from '@renderer/composables/useNotification'
 import type { FileItem } from '@renderer/types'
@@ -11,6 +12,7 @@ export function useReindex(
   onStatsNeedUpdate: () => Promise<void>,
   onKnowledgeBaseNeedUpdate?: () => Promise<void> | void
 ) {
+  const { t } = useTranslation()
   const indexStore = useKnowledgeIndexStore()
   const notify = useNotification()
   const [reindexProgress, setReindexProgress] = useState({ current: 0, total: 0, currentFile: '' })
@@ -28,16 +30,18 @@ export function useReindex(
     const isPartialReindex = invalidatedFileIdSet.size > 0
 
     if (filesToReindex.length === 0) {
-      notify.info('没有文件需要索引', undefined, { source: 'knowledge' })
+      notify.info(t('notifications.knowledge.nothingToIndex'), undefined, { source: 'knowledge' })
       return
     }
 
     const confirmed = await notify.confirm(
       isPartialReindex
-        ? `将重新索引 ${filesToReindex.length} 个已更新文件。`
-        : '这将删除现有索引并重新构建。',
+        ? t('notifications.knowledge.reindexConfirmPartial', { count: filesToReindex.length })
+        : t('notifications.knowledge.reindexConfirmFull'),
       {
-        title: isPartialReindex ? '重新索引已更新文件' : '重新索引整个知识库',
+        title: isPartialReindex
+          ? t('notifications.knowledge.reindexConfirmPartialTitle')
+          : t('notifications.knowledge.reindexConfirmFullTitle'),
         source: 'knowledge',
         danger: !isPartialReindex
       }
@@ -66,29 +70,40 @@ export function useReindex(
       })
 
       if (result.success) {
-        notify.success('重新索引完成', `成功索引 ${result.data?.indexedCount || 0} 个文件`, {
-          source: 'knowledge'
-        })
+        notify.success(
+          t('notifications.knowledge.reindexDoneTitle'),
+          t('notifications.knowledge.reindexSuccess', { count: result.data?.indexedCount || 0 }),
+          { source: 'knowledge' }
+        )
         await onKnowledgeBaseNeedUpdate?.()
       } else {
         const failedCount = result.data?.failedFiles?.length || 0
         if (failedCount > 0) {
           const errorDetails =
             result.data?.failedErrors?.join('\n') || result.data?.failedFiles.join('\n')
-          notify.warning('重新索引完成', `有 ${failedCount} 个文件失败：\n${errorDetails}`, {
-            source: 'knowledge',
-            sticky: true
-          })
+          notify.warning(
+            t('notifications.knowledge.reindexDoneTitle'),
+            t('notifications.knowledge.reindexPartial', {
+              count: failedCount,
+              details: errorDetails
+            }),
+            { source: 'knowledge', sticky: true }
+          )
           await onKnowledgeBaseNeedUpdate?.()
         } else {
-          notify.error('重新索引失败', result.error || '未知错误', { source: 'knowledge' })
+          notify.error(
+            t('notifications.knowledge.reindexFailedTitle'),
+            result.error || t('common.unknownError'),
+            { source: 'knowledge' }
+          )
         }
       }
     } catch (error) {
-      notify.error('重新索引失败', error instanceof Error ? error.message : String(error), {
-        source: 'knowledge',
-        sticky: true
-      })
+      notify.error(
+        t('notifications.knowledge.reindexFailedTitle'),
+        error instanceof Error ? error.message : String(error),
+        { source: 'knowledge', sticky: true }
+      )
     } finally {
       indexStore.setKBReindexing(kbId, false)
       setReindexProgress({ current: 0, total: 0, currentFile: '' })
@@ -104,7 +119,8 @@ export function useReindex(
     notify,
     indexStore,
     onStatsNeedUpdate,
-    onKnowledgeBaseNeedUpdate
+    onKnowledgeBaseNeedUpdate,
+    t
   ])
 
   return {

@@ -11,6 +11,7 @@ import { WriterFlushCoordinator } from '@main/services/writer/WriterFlushCoordin
 import { WriterService } from '@main/services/writer/WriterService'
 // @ts-expect-error 测试通过 Node loader 跨项目验证主进程真实服务
 import { WriterStorageService } from '@main/services/writer/WriterStorageService'
+import { initI18n } from '@renderer/i18n'
 import type { WriterAsset, WriterResult } from '@shared/types/writer'
 import { Editor } from '@tiptap/core'
 import StarterKit from '@tiptap/starter-kit'
@@ -46,6 +47,9 @@ testWindow.getSelection = () =>
     addRange: () => undefined
   }) as unknown as Selection
 testWindow.document.getSelection = testWindow.getSelection
+
+// importWriterImage 错误文案改走 i18n.t：先初始化（测试环境默认 zh，既有中文断言不变）
+await initI18n()
 
 test('图片节点只接受当前写作文档的安全资源并提取垃圾回收引用', () => {
   const safe = createWriterImageAttrs({

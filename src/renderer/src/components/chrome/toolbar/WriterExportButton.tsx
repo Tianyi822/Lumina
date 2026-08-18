@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { WriterExportFormat } from '@shared/types/writer'
 import SvgIcon from '@renderer/components/icons/SvgIcon'
 import { useNotification } from '@renderer/composables/useNotification'
@@ -17,6 +18,7 @@ const EXPORT_OPTIONS: ReadonlyArray<{ format: WriterExportFormat; label: string 
 
 /** 写作导出按钮：侧栏弹出格式菜单 */
 export default function WriterExportButton({ documentId, disabled }: WriterExportButtonProps) {
+  const { t } = useTranslation()
   const notify = useNotification()
   const [menuOpen, setMenuOpen] = useState(false)
   const [exporting, setExporting] = useState(false)
@@ -53,22 +55,32 @@ export default function WriterExportButton({ documentId, disabled }: WriterExpor
       try {
         const result = await window.api.writer.exportDocument(documentId, format)
         if (!result.success) {
-          notify.error('导出失败', result.error || '无法导出文档', { source: 'chat' })
+          notify.error(
+            t('notifications.writer.exportFailedTitle'),
+            result.error || t('notifications.writer.exportFailedFallback'),
+            { source: 'chat' }
+          )
           return
         }
         if (result.data?.canceled) return
-        notify.success('导出完成', `已导出为 ${format.toUpperCase()}`, { source: 'chat' })
+        notify.success(
+          t('notifications.writer.exportDoneTitle'),
+          t('notifications.writer.exportDoneMessage', { format: format.toUpperCase() }),
+          { source: 'chat' }
+        )
       } catch (exportError) {
         notify.error(
-          '导出失败',
-          exportError instanceof Error ? exportError.message : '无法导出文档',
+          t('notifications.writer.exportFailedTitle'),
+          exportError instanceof Error
+            ? exportError.message
+            : t('notifications.writer.exportFailedFallback'),
           { source: 'chat' }
         )
       } finally {
         setExporting(false)
       }
     },
-    [closeMenu, documentId, exporting, notify]
+    [closeMenu, documentId, exporting, notify, t]
   )
 
   const isDisabled = disabled || !documentId || exporting
@@ -83,7 +95,7 @@ export default function WriterExportButton({ documentId, disabled }: WriterExpor
         ]
           .filter(Boolean)
           .join(' ')}
-        aria-label="导出文档"
+        aria-label={t('chrome.toolbar.exportDocument')}
         aria-expanded={menuOpen}
         aria-haspopup="menu"
         type="button"
@@ -93,13 +105,13 @@ export default function WriterExportButton({ documentId, disabled }: WriterExpor
         <SvgIcon name="export" size={18} />
       </button>
       <span className={styles['sm-workspace-toolbar__tooltip']} role="tooltip">
-        导出文档
+        {t('chrome.toolbar.exportDocument')}
       </span>
       {menuOpen ? (
         <div
           className={styles['sm-workspace-toolbar__writer-export-menu']}
           role="menu"
-          aria-label="导出格式"
+          aria-label={t('chrome.toolbar.exportFormats')}
         >
           {EXPORT_OPTIONS.map((option) => (
             <button

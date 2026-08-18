@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
 import type { MutableRefObject } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { KnowledgeBase, MCPTool, Message, SessionData } from '@renderer/types'
 import { usePaperChatMessageCacheStore } from '@renderer/stores'
 import { useWriterChatStore } from '@renderer/stores/writer'
@@ -49,6 +50,7 @@ function toPlainSessionData(sessionData: SessionData): SessionData {
 export function useWriterChatSession(
   documentId: string | null | undefined
 ): UseWriterChatSessionReturn {
+  const { t } = useTranslation()
   const [session, setSession] = useState<SessionData | null>(null)
   const [messages, setMessagesState] = useState<Message[]>([])
   const [inputMessage, setInputMessage] = useState('')
@@ -117,10 +119,10 @@ export function useWriterChatSession(
         nextMessages: plainSession.messages,
         selectionState,
         cursor: cursorRef.current,
-        errorLabel: '保存写作聊天会话失败'
+        errorLabel: t('writer.chat.saveFailed')
       })
       if (!result.ok) {
-        setErrorState(result.error || '保存写作聊天会话失败')
+        setErrorState(result.error || t('writer.chat.saveFailed'))
         return false
       }
       if (result.nextSession) {
@@ -135,7 +137,7 @@ export function useWriterChatSession(
       () => undefined
     )
     return saveTask
-  }, [])
+  }, [t])
 
   const applySessionData = useCallback(
     (nextSession: SessionData): void => {
@@ -192,19 +194,19 @@ export function useWriterChatSession(
         if (existing) {
           const loaded = await window.api.session.load(existing.sessionId)
           if (!loaded.success || !loaded.data) {
-            setErrorState(loaded.error || '加载写作聊天会话失败')
+            setErrorState(loaded.error || t('notifications.writer.loadSessionFailed'))
             return null
           }
           applySessionData(loaded.data)
           return loaded.data
         }
 
-        const created = await window.api.session.create('写作对话', 'writer', {
+        const created = await window.api.session.create(t('writer.chat.title'), 'writer', {
           kind: 'writer',
           id: currentDocumentId
         })
         if (!created.success || !created.data) {
-          setErrorState(created.error || '创建写作聊天会话失败')
+          setErrorState(created.error || t('writer.chat.createFailed'))
           return null
         }
 
@@ -217,7 +219,7 @@ export function useWriterChatSession(
         setLoading(false)
       }
     })
-  }, [applySessionData])
+  }, [applySessionData, t])
 
   const loadSessionWithContext = useCallback(async (): Promise<boolean> => {
     const ensuredSession = await ensureSession()

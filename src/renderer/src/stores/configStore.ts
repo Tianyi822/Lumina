@@ -8,6 +8,7 @@ import {
   type LLMConfig,
   type PaperReaderConfig
 } from '@shared/types/config'
+import { i18n } from '@renderer/i18n'
 import { useNotificationCenterStore } from '@renderer/stores/notificationCenterStore'
 import { deepClone } from '@shared/utils'
 
@@ -89,8 +90,10 @@ export const useConfigStore = create<ConfigState>()(
             set(patch)
           }
         } catch (error) {
-          const msg = `加载配置失败: ${error instanceof Error ? error.message : String(error)}`
-          notifyError('配置加载失败', msg)
+          const msg = `${i18n.t('notifications.config.loadFailedPrefix')}${
+            error instanceof Error ? error.message : String(error)
+          }`
+          notifyError(i18n.t('notifications.config.loadFailedTitle'), msg)
         } finally {
           set({ loading: false })
         }
@@ -133,17 +136,19 @@ export const useConfigStore = create<ConfigState>()(
           const result = await window.api.config.saveConfig(nextConfig)
           if (result.success) {
             if (!options?.silent) {
-              notifySuccess('配置保存成功', '')
+              notifySuccess(i18n.t('notifications.config.saveSuccess'), '')
             }
             return true
           } else {
-            const msg = result.error || '保存失败'
-            notifyError('配置保存失败', msg)
+            const msg = result.error || i18n.t('notifications.config.saveFailedFallback')
+            notifyError(i18n.t('notifications.config.saveFailedTitle'), msg)
             return false
           }
         } catch (error) {
-          const msg = `保存配置失败: ${error instanceof Error ? error.message : String(error)}`
-          notifyError('配置保存失败', msg)
+          const msg = `${i18n.t('notifications.config.saveFailedPrefix')}${
+            error instanceof Error ? error.message : String(error)
+          }`
+          notifyError(i18n.t('notifications.config.saveFailedTitle'), msg)
           return false
         } finally {
           set({ saving: false })

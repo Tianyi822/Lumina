@@ -1,6 +1,7 @@
 import { ipcMain } from 'electron'
 import { sessionService } from '../../services/session'
 import { logger } from '../../services/logger'
+import { t } from '@main/services/i18n'
 import {
   validateAppendMessages,
   validateSessionMetaPatch,
@@ -96,7 +97,7 @@ export function registerSessionHandlers(): void {
     try {
       const data = await sessionService.loadSession(sessionId)
       if (!data) {
-        return { success: false, error: '会话不存在' }
+        return { success: false, error: t('notifications.session.sessionNotFound') }
       }
       return { success: true, data }
     } catch (error) {

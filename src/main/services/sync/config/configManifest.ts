@@ -4,6 +4,8 @@
  * 本设备的 manifest 只描述 config 一个文件（files 恒为 1 项），
  * 为未来 papers/knowledge 预留 files 数组扩展位。
  */
+import { t } from '@main/services/i18n'
+
 const CONFIG_PATH = 'config.json'
 
 export interface ConfigManifestEntry {
@@ -63,25 +65,29 @@ export function parseManifest(bytes: Uint8Array): ConfigManifest {
   try {
     parsed = JSON.parse(text)
   } catch {
-    throw new Error('manifest JSON 解析失败')
+    throw new Error(t('notifications.sync.manifestJsonParseFailed'))
   }
-  if (!isRecord(parsed)) throw new Error('manifest 结构非法：非对象')
+  if (!isRecord(parsed)) throw new Error(t('notifications.sync.manifestNotObject'))
   if (parsed.schemaVersion !== 1) {
-    throw new Error(`manifest schemaVersion 非法：${String(parsed.schemaVersion)}`)
+    throw new Error(
+      t('notifications.sync.manifestSchemaVersionInvalid', { detail: String(parsed.schemaVersion) })
+    )
   }
   if (!isSafeInteger(parsed.version)) {
-    throw new Error('manifest version 非整数')
+    throw new Error(t('notifications.sync.manifestVersionNotInteger'))
   }
   if (!Array.isArray(parsed.files) || parsed.files.length === 0) {
-    throw new Error('manifest files 为空或非数组')
+    throw new Error(t('notifications.sync.manifestFilesEmpty'))
   }
   // 本迭代约束：files 恒为 1 项
   if (parsed.files.length !== 1) {
-    throw new Error(`manifest files 超过 1 项：${parsed.files.length}`)
+    throw new Error(
+      t('notifications.sync.manifestFilesTooMany', { detail: String(parsed.files.length) })
+    )
   }
   const entry = parsed.files[0]
   if (!isConfigManifestEntry(entry)) {
-    throw new Error('manifest entry 结构非法')
+    throw new Error(t('notifications.sync.manifestEntryInvalid'))
   }
   return { schemaVersion: 1, version: parsed.version, files: [entry] }
 }

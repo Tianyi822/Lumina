@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { EditorContent, useEditor } from '@tiptap/react'
 import type { Editor } from '@tiptap/core'
 import type { WriterDocument, WriterJsonDocument } from '@shared/types/writer'
 import { useNotification } from '@renderer/composables/useNotification'
+import { i18n } from '@renderer/i18n'
 import {
   useWriterLibraryStore,
   useWriterSessionStore,
@@ -54,11 +56,12 @@ const AUTOSAVE_DELAY_MS = 600
 function getSaveStatusLabel(
   status: ReturnType<typeof useWriterSessionStore.getState>['saveStatus']
 ) {
-  if (status === 'dirty') return '等待保存'
-  if (status === 'saving') return '正在保存'
-  if (status === 'saved') return '已保存'
-  if (status === 'error') return '保存失败'
-  if (status === 'conflict') return '保存冲突'
+  // 模块级函数无法消费 hook：用实例直取；组件已 useTranslation 订阅，语言切换会重渲染重取
+  if (status === 'dirty') return i18n.t('writer.editor.statusDirty')
+  if (status === 'saving') return i18n.t('writer.editor.statusSaving')
+  if (status === 'saved') return i18n.t('writer.editor.statusSaved')
+  if (status === 'error') return i18n.t('writer.editor.statusError')
+  if (status === 'conflict') return i18n.t('writer.editor.statusConflict')
   return ''
 }
 
@@ -69,6 +72,7 @@ export default function WriterEditor({
   isAiSending,
   onAiAction
 }: WriterEditorProps) {
+  const { t } = useTranslation()
   const notify = useNotification()
   const saveStatus = useWriterSessionStore((state) => state.saveStatus)
   const suggestionStatus = useWriterSuggestionStore((state) => state.status)
@@ -145,29 +149,30 @@ export default function WriterEditor({
                 )
               }
               notify.warning(
-                '文档保存冲突',
-                '当前正文已保留在编辑器中，请重新加载文档后再继续编辑。'
+                t('notifications.writer.conflictTitle'),
+                t('notifications.writer.conflictBody')
               )
               return { success: false, code: result.code }
             }
 
-            const error = result.error || '保存失败'
+            const error = result.error || t('notifications.writer.saveFailed')
             if (useWriterSessionStore.getState().currentDocumentId === document.id) {
               useWriterSessionStore.getState().handleSaveFailure(error)
             }
-            notify.error('文档保存失败', error)
+            notify.error(t('notifications.writer.saveFailedTitle'), error)
             return { success: false, code: result.code }
           } catch (error) {
-            const message = error instanceof Error ? error.message : '保存失败'
+            const message =
+              error instanceof Error ? error.message : t('notifications.writer.saveFailed')
             if (useWriterSessionStore.getState().currentDocumentId === document.id) {
               useWriterSessionStore.getState().handleSaveFailure(message)
             }
-            notify.error('文档保存失败', message)
+            notify.error(t('notifications.writer.saveFailedTitle'), message)
             return { success: false }
           }
         }
       }),
-    [document.id, notify, revisionCoordinator]
+    [document.id, notify, revisionCoordinator, t]
   )
 
   const importImageFile = useCallback(
@@ -178,10 +183,10 @@ export default function WriterEditor({
         editor: currentEditor,
         documentId: document.id,
         file,
-        onError: (message) => notify.error('图片导入失败', message)
+        onError: (message) => notify.error(t('notifications.writer.imageImportFailed'), message)
       })
     },
-    [document.id, notify]
+    [document.id, notify, t]
   )
 
   const editor = useEditor(
@@ -193,7 +198,7 @@ export default function WriterEditor({
       editorProps: {
         attributes: {
           class: styles.prose,
-          'aria-label': '文档正文'
+          'aria-label': t('writer.editor.bodyAriaLabel')
         },
         handlePaste: (_view, event) => {
           const file = Array.from(event.clipboardData?.files ?? []).find(isWriterImageFile)
@@ -279,9 +284,11 @@ export default function WriterEditor({
     if (lastInvalidToastKeyRef.current === key) return
     lastInvalidToastKeyRef.current = key
     const message =
-      invalidReason === 'target_changed' ? '目标内容已变化，建议已失效' : '建议无效，请重新生成'
-    notify.warning('建议已失效', message)
-  }, [invalidReason, notify, suggestionStatus])
+      invalidReason === 'target_changed'
+        ? t('writer.suggestions.invalidTargetChanged')
+        : t('writer.suggestions.invalidRegenerate')
+    notify.warning(t('notifications.writer.suggestionExpiredTitle'), message)
+  }, [invalidReason, notify, suggestionStatus, t])
 
   const pendingScrollNodeId = useWriterSessionStore((state) => state.pendingScrollNodeId)
 
@@ -380,9 +387,9 @@ export default function WriterEditor({
         <div className={styles.titleRow}>
           <input
             className={styles.titleInput}
-            aria-label="文档标题"
+            aria-label={t('writer.editor.titleAriaLabel')}
             maxLength={200}
-            placeholder="无标题文档"
+            placeholder={t('writer.editor.untitled')}
             value={title}
             onChange={(event) => handleTitleChange(event.target.value)}
           />
@@ -398,7 +405,7 @@ export default function WriterEditor({
           ref={imageInputRef}
           type="file"
           accept="image/png,image/jpeg,image/webp,image/gif"
-          aria-label="选择写作图片"
+          aria-label={t('writer.editor.imagePickerAriaLabel')}
           hidden
           onChange={(event) => {
             const file = event.target.files?.[0]

@@ -9,6 +9,7 @@
  */
 import { readFile, stat } from 'node:fs/promises'
 import { logger } from '@main/services/logger'
+import { t } from '@main/services/i18n'
 import type { AppConfig } from '@shared/types/config'
 import type { ConfigSyncResult, ConfigSyncState, SyncResult } from '@shared/types/sync'
 import type { SyncService } from '../SyncService'
@@ -127,10 +128,14 @@ export class ConfigSyncService {
   /** 手动触发并等待完成；限流期内直接返回 rate_limited（不拿上轮结果冒充成功） */
   async syncNow(): Promise<SyncResult<ConfigSyncResult>> {
     if (!this.isConnected()) {
-      return { success: false, code: 'not_connected', error: '尚未连接同步服务' }
+      return { success: false, code: 'not_connected', error: t('notifications.sync.notConnected') }
     }
     if (Date.now() < this.rateLimitedUntil) {
-      return { success: false, code: 'rate_limited', error: '同步限流中，请稍后重试' }
+      return {
+        success: false,
+        code: 'rate_limited',
+        error: t('notifications.sync.configRateLimited')
+      }
     }
     this.kickoff()
     if (this.chain) await this.chain
@@ -139,7 +144,7 @@ export class ConfigSyncService {
       return {
         success: false,
         code: 'unknown_error',
-        error: this.state.lastError ?? '配置同步失败',
+        error: this.state.lastError ?? t('notifications.sync.configSyncFallback'),
         data: last ?? undefined
       }
     }
@@ -179,7 +184,9 @@ export class ConfigSyncService {
         phase: failed ? 'error' : 'idle',
         lastSyncAt: new Date().toISOString(),
         lastResult: result,
-        lastError: failed ? `${result.errors.length} 项配置同步失败` : null
+        lastError: failed
+          ? t('notifications.sync.lastErrorConfig', { count: result.errors.length })
+          : null
       })
       logger.info('配置同步完成', 'main', {
         uploaded: result.uploaded,
@@ -216,7 +223,9 @@ export class ConfigSyncService {
       localMtime = st.mtime.toISOString()
     } catch (error) {
       throw new Error(
-        `读取本地 config 失败：${error instanceof Error ? error.message : String(error)}`
+        t('notifications.sync.readLocalConfigFailed', {
+          detail: error instanceof Error ? error.message : String(error)
+        })
       )
     }
     const localConfig = JSON.parse(localBytes.toString('utf-8')) as AppConfig
@@ -238,7 +247,9 @@ export class ConfigSyncService {
         this.rateLimitedUntil = Date.now() + retryAfterMs
       }
       throw new Error(
-        `拉取 manifest 列表失败：${remoteList.error ?? remoteList.code ?? '未知错误'}`
+        t('notifications.sync.listManifestsFailed', {
+          detail: remoteList.error ?? remoteList.code ?? t('notifications.sync.unknownError')
+        })
       )
     }
     const heads = remoteList.data.heads
@@ -295,7 +306,9 @@ export class ConfigSyncService {
     if (!manifestResp.success || !manifestResp.data) {
       if (manifestResp.code !== 'manifest_not_found') {
         result.errors.push({
-          message: `下载 manifest 失败：${manifestResp.error ?? manifestResp.code}`
+          message: t('notifications.sync.manifestDownloadFailed', {
+            detail: manifestResp.error ?? manifestResp.code
+          })
         })
       }
       this.finish(result)
@@ -307,7 +320,9 @@ export class ConfigSyncService {
       manifest = parseManifest(manifestPlain)
     } catch (error) {
       result.errors.push({
-        message: `manifest 解密/解析失败：${error instanceof Error ? error.message : String(error)}`
+        message: t('notifications.sync.manifestDecryptParseFailed', {
+          detail: error instanceof Error ? error.message : String(error)
+        })
       })
       this.finish(result)
       return result
@@ -316,7 +331,11 @@ export class ConfigSyncService {
 
     const blockResp = await client.getBlock(entry.blockId)
     if (!blockResp.success || !blockResp.data) {
-      result.errors.push({ message: `下载 config 块失败：${blockResp.error ?? blockResp.code}` })
+      result.errors.push({
+        message: t('notifications.sync.configBlockDownloadFailed', {
+          detail: blockResp.error ?? blockResp.code
+        })
+      })
       this.finish(result)
       return result
     }
@@ -326,7 +345,9 @@ export class ConfigSyncService {
       remoteConfig = JSON.parse(new TextDecoder().decode(remoteBytes)) as AppConfig
     } catch (error) {
       result.errors.push({
-        message: `config 块解密失败：${error instanceof Error ? error.message : String(error)}`
+        message: t('notifications.sync.configBlockDecryptFailed', {
+          detail: error instanceof Error ? error.message : String(error)
+        })
       })
       this.finish(result)
       return result
@@ -345,7 +366,11 @@ export class ConfigSyncService {
       if (merge.changed) {
         const save = this.configManager.saveConfig(merge.merged)
         if (!save.success) {
-          result.errors.push({ message: `落盘失败：${save.error ?? '未知错误'}` })
+          result.errors.push({
+            message: t('notifications.sync.applyFailed', {
+              detail: save.error ?? t('notifications.sync.unknownError')
+            })
+          })
           this.finish(result)
           return result
         }
@@ -365,7 +390,11 @@ export class ConfigSyncService {
     if (merge.changed) {
       const save = this.configManager.saveConfig(merge.merged)
       if (!save.success) {
-        result.errors.push({ message: `落盘失败：${save.error ?? '未知错误'}` })
+        result.errors.push({
+          message: t('notifications.sync.applyFailed', {
+            detail: save.error ?? t('notifications.sync.unknownError')
+          })
+        })
         this.finish(result)
         return result
       }
@@ -410,7 +439,9 @@ export class ConfigSyncService {
         mtime = st.mtime.toISOString()
       } catch (error) {
         result.errors.push({
-          message: `读取本地 config 失败：${error instanceof Error ? error.message : String(error)}`
+          message: t('notifications.sync.readLocalConfigFailed', {
+            detail: error instanceof Error ? error.message : String(error)
+          })
         })
         return
       }
@@ -424,13 +455,21 @@ export class ConfigSyncService {
       // 块内容寻址、幂等：先查重，缺才传
       const missing = await client.blocksMissing([blockId])
       if (!missing.success || !missing.data) {
-        result.errors.push({ message: `块查重失败：${missing.error ?? missing.code}` })
+        result.errors.push({
+          message: t('notifications.sync.blockDedupFailed', {
+            detail: missing.error ?? missing.code
+          })
+        })
         return
       }
       if (missing.data.missing.includes(blockId)) {
         const putBlock = await client.putBlock(blockId, ct)
         if (!putBlock.success) {
-          result.errors.push({ message: `块上传失败：${putBlock.error ?? putBlock.code}` })
+          result.errors.push({
+            message: t('notifications.sync.blockUploadFailed', {
+              detail: putBlock.error ?? putBlock.code
+            })
+          })
           return
         }
       }
@@ -453,7 +492,9 @@ export class ConfigSyncService {
         return
       }
       if (put.code !== 'stale_manifest') {
-        result.errors.push({ message: `manifest 上传失败：${put.error ?? put.code}` })
+        result.errors.push({
+          message: t('notifications.sync.manifestUploadFailed', { detail: put.error ?? put.code })
+        })
         return
       }
       // stale_manifest：本设备 manifest 链的 base 过时。config 是「每设备一条 manifest 行」，
@@ -466,7 +507,7 @@ export class ConfigSyncService {
       }
       // 继续重试
     }
-    result.errors.push({ message: '版本冲突重试耗尽' })
+    result.errors.push({ message: t('notifications.sync.casRetryExhausted') })
   }
 
   private finish(_result: ConfigSyncResult): void {

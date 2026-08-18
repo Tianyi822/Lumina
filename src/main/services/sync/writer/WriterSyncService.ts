@@ -2,25 +2,51 @@
  * writing 同步编排引擎：定时/手动/事件触发，扫描本地 writing/ 目录，
  * 三向 diff（本地新改/远端新改/删除），下行按 key 类型分发，上行 CAS。
  *
+ * 通道划分：index/document（小 JSON）走 session-files CAS；文档资产走
+ * Manifest+blocks——manifest（writer-assets-{docId}，块清单）走 session-files，
+ * 资产内容切块（XChaCha20-Poly1305，AAD 域独立）走 /blocks，参照 paper/knowledge。
+ * 旧 writer-asset-{docId}-{hash-ext} 整文件 key 因含点号不合规从未上行成功，
+ * 服务端无存量，tracker 残留记录在 phase (a) 的 removeKey 路径清理。
+ *
  * 原则：引擎是旁观者——下行只走 WriterStorageService.applySynced* / WriterAssetService.importBytes，
  * 不直接写业务文件。DEK/RelayClient 经 SyncService 主进程内部接口获取。
  */
-import { readdir, readFile } from 'node:fs/promises'
+import { readdir, readFile, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 import { logger } from '@main/services/logger'
+import { t } from '@main/services/i18n'
 import type { WriterDocument, WriterIndex } from '@shared/types/writer'
-import type { WriterSyncResult, WriterSyncState, SyncResult } from '@shared/types/sync'
+import {
+  parseWriterAssetManifest,
+  type WriterAssetManifest,
+  type WriterAssetManifestFileEntry,
+  type WriterSyncResult,
+  type WriterSyncState,
+  type SyncResult
+} from '@shared/types/sync'
 import type { SyncService } from '../SyncService'
 import { casPutWithMerge } from '../casRetry'
 import { sha256Hex } from '../crypto/hash'
+import { chunkFile } from '../shared/chunkFile'
 import { resetTrackerIfAccountChanged } from '../shared/trackerAccountScope'
-import { sealWriterFile, openWriterFile } from './writerSnapshotCrypto'
-import { WriterSyncTracker } from './writerSyncTracker'
+import {
+  sealWriterFile,
+  openWriterFile,
+  sealWriterAssetBlock,
+  openWriterAssetBlock,
+  sealWriterAssetManifest,
+  openWriterAssetManifest
+} from './writerSnapshotCrypto'
+import {
+  WriterSyncTracker,
+  type TrackedWriterAssetFileBlocks,
+  type TrackedWriterKeyEntry
+} from './writerSyncTracker'
 import { mergeWriterIndex } from './writerMerge'
 import {
   makeIndexKey,
   makeDocKey,
-  makeAssetKey,
+  makeAssetsManifestKey,
   isWriterKey,
   parseWriterKey,
   type ParsedWriterKey
@@ -31,6 +57,13 @@ import {
   getWriterAssetsDir,
   isValidWriterDocumentId
 } from '@main/services/writer/writerPaths'
+
+/** session-files 通道的密文上限（对齐 relay maxSessionFileBytes） */
+const MAX_SESSION_FILE_BYTES = 4 * 1024 * 1024
+/** session-files 密文开销（XChaCha20-Poly1305：nonce24 + tag16） */
+const CIPHER_OVERHEAD_BYTES = 40
+/** manifest CAS 重试上限（与 paper pack / knowledge file 一致） */
+const MANIFEST_CAS_RETRY_LIMIT = 2
 
 const DEFAULT_INTERVAL_MS = 60_000
 const DEFAULT_EVENT_DEBOUNCE_MS = 2_000
@@ -49,6 +82,10 @@ type WriterAssetLike = {
     input: { fileName: string; declaredMimeType: string; bytes: Uint8Array }
   ): Promise<{ success: boolean; error?: string }>
 }
+/** 单文档 GC：读文档引用并清理该文档未引用资产（装配层接 WriterService.collectDocumentGarbage） */
+type WriterDocumentGarbageCollector = (
+  documentId: string
+) => Promise<{ success: boolean; data?: number; error?: string }>
 
 export interface WriterSyncServiceDeps {
   syncService: SyncServiceLike
@@ -59,6 +96,7 @@ export interface WriterSyncServiceDeps {
   writingRootProvider?: () => string
   intervalMs?: number
   eventDebounceMs?: number
+  collectDocumentGarbage?: WriterDocumentGarbageCollector
 }
 
 interface LocalFile {
@@ -66,8 +104,52 @@ interface LocalFile {
   hash: string
 }
 
+/** 走 session-files JSON 通道的 key（index/document）；asset/assets-manifest 走块通道，不经此类型 */
+type JsonParsedWriterKey = Exclude<ParsedWriterKey, { kind: 'assets-manifest' | 'asset' }>
+
+/** 本地资产文件元数据（不整读内容，切块时流式读） */
+interface LocalAssetFile {
+  fileName: string
+  absPath: string
+  size: number
+  mtime: string
+}
+
+/** 单文档的本地资产集合（manifest key → 该条目） */
+interface LocalAssetsEntry {
+  documentId: string
+  files: LocalAssetFile[]
+}
+
+interface ScanResult {
+  localMap: Map<string, LocalFile>
+  localAssets: Map<string, LocalAssetsEntry>
+}
+
+/**
+ * 资产清单指纹（忽略 updatedAt）：按条目摘要排序拼接。
+ * 与 tracker.contentHash 比对做 dirty/skip 判定，块内容寻址保证同指纹即同内容。
+ */
+function assetsFingerprint(
+  files: ReadonlyArray<{ fileName: string; sha256: string; blockIds: string[] }>
+): string {
+  return files
+    .map((f) => `${f.fileName}:${f.sha256}:${f.blockIds.join(',')}`)
+    .sort()
+    .join(';')
+}
+
 function emptyResult(): WriterSyncResult {
-  return { uploaded: 0, downloaded: 0, deletedLocal: 0, deletedRemote: 0, skipped: 0, errors: [] }
+  return {
+    uploaded: 0,
+    downloaded: 0,
+    deletedLocal: 0,
+    deletedRemote: 0,
+    blocksUploaded: 0,
+    blocksDownloaded: 0,
+    skipped: 0,
+    errors: []
+  }
 }
 
 /** asset 文件名正则（sha256 + 扩展名） */
@@ -98,6 +180,7 @@ export class WriterSyncService {
   private readonly writingRoot: () => string
   private readonly intervalMs: number
   private readonly eventDebounceMs: number
+  private readonly collectDocumentGarbage: WriterDocumentGarbageCollector | undefined
 
   private state: WriterSyncState = {
     phase: 'idle',
@@ -120,6 +203,7 @@ export class WriterSyncService {
     this.writingRoot = deps.writingRootProvider ?? getWritingRootPath
     this.intervalMs = deps.intervalMs ?? DEFAULT_INTERVAL_MS
     this.eventDebounceMs = deps.eventDebounceMs ?? DEFAULT_EVENT_DEBOUNCE_MS
+    this.collectDocumentGarbage = deps.collectDocumentGarbage
   }
 
   getState(): WriterSyncState {
@@ -163,10 +247,14 @@ export class WriterSyncService {
 
   async syncNow(): Promise<SyncResult<WriterSyncResult>> {
     if (!this.isConnected()) {
-      return { success: false, code: 'not_connected', error: '尚未连接同步服务' }
+      return { success: false, code: 'not_connected', error: t('notifications.sync.notConnected') }
     }
     if (Date.now() < this.rateLimitedUntil) {
-      return { success: false, code: 'rate_limited', error: '同步请求被限流，请稍后重试' }
+      return {
+        success: false,
+        code: 'rate_limited',
+        error: t('notifications.sync.rateLimitedRetryLater')
+      }
     }
     this.kickoff()
     if (this.chain) await this.chain
@@ -175,7 +263,7 @@ export class WriterSyncService {
       return {
         success: false,
         code: Date.now() < this.rateLimitedUntil ? 'rate_limited' : 'unknown_error',
-        error: this.state.lastError ?? '写作同步失败',
+        error: this.state.lastError ?? t('notifications.sync.writerSyncFallback'),
         data: last ?? undefined
       }
     }
@@ -211,13 +299,17 @@ export class WriterSyncService {
         phase: failed ? 'error' : 'idle',
         lastSyncAt: new Date().toISOString(),
         lastResult: result,
-        lastError: failed ? `${result.errors.length} 项写作同步失败` : null
+        lastError: failed
+          ? t('notifications.sync.lastErrorWriter', { count: result.errors.length })
+          : null
       })
       logger.info('写作同步完成', 'main', {
         uploaded: result.uploaded,
         downloaded: result.downloaded,
         deletedLocal: result.deletedLocal,
         deletedRemote: result.deletedRemote,
+        blocksUploaded: result.blocksUploaded,
+        blocksDownloaded: result.blocksDownloaded,
         skipped: result.skipped,
         errors: result.errors.length
       })
@@ -228,9 +320,10 @@ export class WriterSyncService {
     }
   }
 
-  /** 扫描本地 writing/ 目录，返回 key → LocalFile 映射 */
-  private async scanLocal(): Promise<Map<string, LocalFile>> {
+  /** 扫描本地 writing/ 目录：index/document 入 localMap（整读），资产入 localAssets（仅元数据） */
+  private async scanLocal(): Promise<ScanResult> {
     const files = new Map<string, LocalFile>()
+    const localAssets = new Map<string, LocalAssetsEntry>()
     const root = this.writingRoot()
 
     // index.json
@@ -248,20 +341,41 @@ export class WriterSyncService {
       if (!isValidWriterDocumentId(docId)) continue
       // document.json
       await this.addFile(files, getWriterDocumentPath(docId, root), makeDocKey(docId))
-      // assets
-      const assetsDir = getWriterAssetsDir(docId, root)
-      let assetFiles: string[] = []
+      // assets：走 Manifest+blocks 通道，只记元数据不整读（大图不进内存）
+      const entry = await this.scanAssetsDir(docId)
+      // 有资产文件才登记 manifest key；资产清空/目录消失 → key 缺位，
+      // phase (a) 删远端 manifest，资产删除得以传播
+      if (entry.files.length > 0) localAssets.set(makeAssetsManifestKey(docId), entry)
+    }
+    return { localMap: files, localAssets }
+  }
+
+  /** 扫描单文档 assets 目录的文件元数据（readdir + stat，不读内容） */
+  private async scanAssetsDir(documentId: string): Promise<LocalAssetsEntry> {
+    const entry: LocalAssetsEntry = { documentId, files: [] }
+    const assetsDir = getWriterAssetsDir(documentId, this.writingRoot())
+    let assetFiles: string[] = []
+    try {
+      assetFiles = await readdir(assetsDir)
+    } catch {
+      return entry // 目录不存在视为空清单
+    }
+    for (const assetFile of assetFiles) {
+      if (!ASSET_FILE_PATTERN.test(assetFile)) continue
+      const absPath = join(assetsDir, assetFile)
       try {
-        assetFiles = await readdir(assetsDir)
+        const st = await stat(absPath)
+        entry.files.push({
+          fileName: assetFile,
+          absPath,
+          size: st.size,
+          mtime: st.mtime.toISOString()
+        })
       } catch {
-        continue
-      }
-      for (const assetFile of assetFiles) {
-        if (!ASSET_FILE_PATTERN.test(assetFile)) continue
-        await this.addFile(files, join(assetsDir, assetFile), makeAssetKey(docId, assetFile))
+        // 文件在 readdir 与 stat 之间消失，跳过
       }
     }
-    return files
+    return entry
   }
 
   private async addFile(
@@ -290,7 +404,7 @@ export class WriterSyncService {
     const trackedKeys = tracker.getData().keys
 
     // 阶段 0：扫描本地
-    const localMap = await this.scanLocal()
+    const { localMap, localAssets } = await this.scanLocal()
 
     // 阶段 1：拉远端列表
     const remoteList = await client.listSessionFiles()
@@ -303,7 +417,9 @@ export class WriterSyncService {
         this.rateLimitedUntil = Date.now() + retryAfterMs
       }
       throw new Error(
-        `拉取 session-files 列表失败：${remoteList.error ?? remoteList.code ?? '未知错误'}`
+        t('notifications.sync.listSessionFilesFailed', {
+          detail: remoteList.error ?? remoteList.code ?? t('notifications.sync.unknownError')
+        })
       )
     }
     const remoteMap = new Map(
@@ -312,9 +428,14 @@ export class WriterSyncService {
         .map((s) => [s.sessionId, s.version])
     )
 
-    // (a) 本地上行删除：tracker 有记录 + 本地文件消失
+    // (a) 本地上行删除：tracker 有记录 + 本地内容消失
+    //     assets-manifest 用 localAssets 判存在；tracked 旧 writer-asset-* 已不再
+    //     扫描进 localMap，远端无存量时走 remoteVersion===undefined → removeKey 清理
     for (const key of Object.keys(trackedKeys)) {
-      if (localMap.has(key)) continue
+      const parsedKey = parseWriterKey(key)
+      const exists =
+        parsedKey?.kind === 'assets-manifest' ? localAssets.has(key) : localMap.has(key)
+      if (exists) continue
       const remoteVersion = remoteMap.get(key)
       if (remoteVersion === undefined) {
         tracker.removeKey(key)
@@ -326,21 +447,53 @@ export class WriterSyncService {
         tracker.setTombstone(key, new Date().toISOString())
         if (del.success && del.data?.deleted) result.deletedRemote++
       } else {
-        result.errors.push({ key, message: `删除远端失败：${del.error ?? del.code}` })
+        result.errors.push({
+          key,
+          message: t('notifications.sync.remoteDeleteFailed', { detail: del.error ?? del.code })
+        })
       }
     }
 
     // (b) 下行：远端有新版本
+    const assetKeysFailedDownload = new Set<string>()
     for (const [key, remoteVersion] of remoteMap) {
       if (tracker.getTombstone(key)) continue // 本端已删，跳过复活
       const tracked = trackedKeys[key]
       const remoteAhead = !tracked || remoteVersion > tracked.version
       if (!remoteAhead) continue
 
+      const parsed = parseWriterKey(key)
+      if (!parsed) {
+        result.errors.push({ key, message: t('notifications.sync.keyParseFailed') })
+        continue
+      }
+
+      // assets-manifest：拉 manifest → 逐文件拉块重组落盘（manifest 用独立 AAD 密封，
+      // 不经 openWriterFile 解密，须在此分流）
+      if (parsed.kind === 'assets-manifest') {
+        const ok = await this.downloadAssetBlocks(
+          client,
+          dek,
+          parsed,
+          key,
+          remoteVersion,
+          localAssets,
+          result
+        )
+        if (!ok) assetKeysFailedDownload.add(key)
+        continue
+      }
+
+      // 旧 writer-asset-* 整文件 key：服务端无存量（key 含点号从未上行成功），防御性跳过
+      if (parsed.kind === 'asset') continue
+
       const dl = await client.getSessionFile(key)
       if (!dl.success || !dl.data) {
         if (dl.code !== 'session_file_not_found') {
-          result.errors.push({ key, message: `下载失败：${dl.error ?? dl.code}` })
+          result.errors.push({
+            key,
+            message: t('notifications.sync.itemDownloadFailed', { detail: dl.error ?? dl.code })
+          })
         }
         continue
       }
@@ -349,13 +502,7 @@ export class WriterSyncService {
       try {
         plainBytes = openWriterFile(dek, dl.data.bytes)
       } catch {
-        result.errors.push({ key, message: '解密失败' })
-        continue
-      }
-
-      const parsed = parseWriterKey(key)
-      if (!parsed) {
-        result.errors.push({ key, message: 'key 解析失败' })
+        result.errors.push({ key, message: t('notifications.sync.decryptFailed') })
         continue
       }
 
@@ -366,7 +513,7 @@ export class WriterSyncService {
         downloadResult = await this.applyRemoteFile(parsed, plainBytes)
       } catch (error) {
         if (error instanceof SyntaxError) {
-          result.errors.push({ key, message: 'JSON 解析失败' })
+          result.errors.push({ key, message: t('notifications.sync.jsonParseFailed') })
           continue
         }
         throw error
@@ -379,6 +526,10 @@ export class WriterSyncService {
           contentHash: reread ?? sha256Hex(plainBytes)
         })
         result.downloaded++
+        // 远端文档应用后立即收敛：清理该文档未引用资产，防止对端删除经本地磁盘残留回推复活
+        if (parsed.kind === 'document') {
+          await this.collectGarbageAfterRemoteDocument(parsed.documentId, key, localAssets, result)
+        }
       } else if (downloadResult === 'ignored') {
         // 本地更新，不更新 tracker.version（保留旧值），让上行阶段处理
       } else if ('failed' in downloadResult) {
@@ -401,7 +552,12 @@ export class WriterSyncService {
 
       const del = await this.storage.applySyncedDeletedDocument(parsed.documentId)
       if (!del.success) {
-        result.errors.push({ key, message: `本地删除失败：${del.error ?? '未知'}` })
+        result.errors.push({
+          key,
+          message: t('notifications.sync.localDeleteFailed', {
+            detail: del.error ?? t('notifications.sync.unknown')
+          })
+        })
         continue
       }
       tracker.removeKey(key)
@@ -409,7 +565,7 @@ export class WriterSyncService {
       result.deletedLocal++
     }
 
-    // (d) 上行：dirty 文件
+    // (d) 上行：dirty 文件（index/document 走 session-files CAS）
     for (const [key, local] of localMap) {
       const tracked = trackedKeys[key]
       const dirty = !tracked || local.hash !== tracked.contentHash
@@ -424,8 +580,15 @@ export class WriterSyncService {
         local.bytes,
         tracked?.version ?? 0,
         result,
-        local.hash
+        local.hash,
+        localAssets
       )
+    }
+
+    // (d) 上行：dirty 资产（Manifest+blocks；本轮下载失败的 key 跳过，避免窄化远端清单）
+    for (const [key, local] of localAssets) {
+      if (assetKeysFailedDownload.has(key)) continue
+      await this.uploadAssetBlocks(client, dek, key, local, result)
     }
 
     tracker.setLastSyncAt(new Date().toISOString())
@@ -434,12 +597,13 @@ export class WriterSyncService {
   }
 
   /**
-   * 按 key 类型分发下行落盘。
+   * 按 key 类型分发下行落盘（仅 index/document；asset/assets-manifest 在
+   * runSync 阶段 (b) 已分流到块通道）。
    * 返回 'downloaded'（已落盘）、'ignored'（本地更新或相同，无需改动）、
    * 或 { failed }（落盘失败，调用方记 error 但不更新 tracker，下轮仍会重试）。
    */
   private async applyRemoteFile(
-    parsed: ParsedWriterKey,
+    parsed: JsonParsedWriterKey,
     bytes: Uint8Array
   ): Promise<'downloaded' | 'ignored' | { failed: string }> {
     switch (parsed.kind) {
@@ -448,13 +612,21 @@ export class WriterSyncService {
         const localResult = await this.storage.listDocuments()
         if (!localResult.success || !localResult.data) {
           // 本地索引不可读时无法安全合并，直接失败（不做空索引兜底，避免抹掉本地摘要）
-          throw new Error(`读取本地写作索引失败：${localResult.error ?? '未知错误'}`)
+          throw new Error(
+            t('notifications.sync.readLocalWriterIndexFailed', {
+              detail: localResult.error ?? t('notifications.sync.unknownError')
+            })
+          )
         }
         const merge = mergeWriterIndex({ local: localResult.data, remote: remoteIndex })
         if (merge.changed) {
           const applyResult = await this.storage.applySyncedIndex(merge.merged)
           if (!applyResult.success) {
-            return { failed: `index 落盘失败：${applyResult.error ?? '未知'}` }
+            return {
+              failed: t('notifications.sync.writerIndexApplyFailed', {
+                detail: applyResult.error ?? t('notifications.sync.unknown')
+              })
+            }
           }
         }
         return 'downloaded'
@@ -468,28 +640,19 @@ export class WriterSyncService {
         }
         const applyResult = await this.storage.applySyncedDocument(remoteDoc)
         if (!applyResult.success) {
-          return { failed: `document 落盘失败：${applyResult.error ?? '未知'}` }
-        }
-        return 'downloaded'
-      }
-      case 'asset': {
-        const ext = parsed.fileName.split('.').pop() ?? ''
-        const mimeType = extToMime(ext)
-        const importResult = await this.assetService.importBytes(parsed.documentId, {
-          fileName: parsed.fileName,
-          declaredMimeType: mimeType,
-          bytes
-        })
-        if (!importResult.success) {
-          return { failed: `asset 落盘失败：${importResult.error ?? '未知'}` }
+          return {
+            failed: t('notifications.sync.writerDocumentApplyFailed', {
+              detail: applyResult.error ?? t('notifications.sync.unknown')
+            })
+          }
         }
         return 'downloaded'
       }
     }
   }
 
-  /** 读回本地文件算 hash（落盘后调用） */
-  private async rereadLocalFile(parsed: ParsedWriterKey): Promise<string | null> {
+  /** 读回本地文件算 hash（落盘后调用；仅 index/document，资产走块通道不经此路径） */
+  private async rereadLocalFile(parsed: JsonParsedWriterKey): Promise<string | null> {
     const root = this.writingRoot()
     let path: string | null = null
     switch (parsed.kind) {
@@ -498,9 +661,6 @@ export class WriterSyncService {
         break
       case 'document':
         path = getWriterDocumentPath(parsed.documentId, root)
-        break
-      case 'asset':
-        path = join(getWriterAssetsDir(parsed.documentId, root), parsed.fileName)
         break
     }
     if (!path) return null
@@ -512,6 +672,37 @@ export class WriterSyncService {
     }
   }
 
+  /**
+   * 远端文档应用成功后的收敛 GC：清理该文档不再引用的本地资产。
+   * 否则对端删除的资产仅从 manifest 收窄，本地磁盘残留会让下一轮
+   * uploadAssetBlocks 以磁盘扫描为源把条目加回 manifest，删除被跨端复活。
+   * GC 改写磁盘后须刷新 localAssets 快照（无论成败都按磁盘现状），
+   * 让本轮 phase (d) 的指纹 diff 基于清理后的真实状态，不再回推加宽清单。
+   */
+  private async collectGarbageAfterRemoteDocument(
+    documentId: string,
+    key: string,
+    localAssets: Map<string, LocalAssetsEntry>,
+    result: WriterSyncResult
+  ): Promise<void> {
+    if (!this.collectDocumentGarbage) return
+    const gc = await this.collectDocumentGarbage(documentId)
+    if (!gc.success) {
+      result.errors.push({
+        key,
+        message: t('notifications.sync.writerAssetCleanupFailed', {
+          detail: gc.error ?? t('notifications.sync.unknown')
+        })
+      })
+    } else if (gc.data && gc.data > 0) {
+      logger.info('远端文档应用后清理未引用写作资产', 'main', { documentId, removed: gc.data })
+    }
+    const refreshed = await this.scanAssetsDir(documentId)
+    const manifestKey = makeAssetsManifestKey(documentId)
+    if (refreshed.files.length > 0) localAssets.set(manifestKey, refreshed)
+    else localAssets.delete(manifestKey)
+  }
+
   /** 上行单文件（含 409 重试） */
   private async uploadWriterFile(
     client: NonNullable<ReturnType<SyncServiceLike['getClient']>>,
@@ -520,7 +711,8 @@ export class WriterSyncService {
     bytes: Uint8Array,
     baseVersion: number,
     result: WriterSyncResult,
-    contentHash: string
+    contentHash: string,
+    localAssets: Map<string, LocalAssetsEntry>
   ): Promise<void> {
     let currentBytes = bytes
 
@@ -532,17 +724,17 @@ export class WriterSyncService {
         // 409：拉最新 → 按 key 类型合并 → 重试
         const latest = await client.getSessionFile(key)
         if (!latest.success || !latest.data) {
-          return { resolved: 'failed', error: '冲突后拉取最新版本失败' }
+          return { resolved: 'failed', error: t('notifications.sync.conflictFetchLatestFailed') }
         }
         let remoteBytes: Uint8Array
         try {
           remoteBytes = openWriterFile(dek, latest.data.bytes)
         } catch {
-          return { resolved: 'failed', error: '冲突合并解密失败' }
+          return { resolved: 'failed', error: t('notifications.sync.conflictMergeDecryptFailed') }
         }
         const parsed = parseWriterKey(key)
         if (!parsed) {
-          return { resolved: 'failed', error: '冲突合并 key 解析失败' }
+          return { resolved: 'failed', error: t('notifications.sync.conflictMergeKeyParseFailed') }
         }
         // 合并
         if (parsed.kind === 'document') {
@@ -552,7 +744,10 @@ export class WriterSyncService {
             remoteDoc = JSON.parse(new TextDecoder().decode(remoteBytes)) as WriterDocument
             localDoc = JSON.parse(new TextDecoder().decode(currentBytes)) as WriterDocument
           } catch {
-            return { resolved: 'failed', error: '冲突合并 JSON 解析失败' }
+            return {
+              resolved: 'failed',
+              error: t('notifications.sync.conflictMergeJsonParseFailed')
+            }
           }
           if (localDoc.revision >= remoteDoc.revision) {
             // 本地胜出：用本地内容重试
@@ -568,9 +763,13 @@ export class WriterSyncService {
           if (!applyResult.success) {
             return {
               resolved: 'failed',
-              error: `冲突后落盘远端版本失败：${applyResult.error ?? '未知'}`
+              error: t('notifications.sync.conflictApplyRemoteFailed', {
+                detail: applyResult.error ?? t('notifications.sync.unknown')
+              })
             }
           }
+          // 与下行路径同样在远端文档应用后收敛 GC（冲突胜出的远端文档同样可能收窄了引用）
+          await this.collectGarbageAfterRemoteDocument(parsed.documentId, key, localAssets, result)
           const reread = await this.rereadLocalFile(parsed)
           this.tracker.setKey(key, {
             version: latest.data.version ?? 0,
@@ -579,7 +778,7 @@ export class WriterSyncService {
           result.downloaded++
           return { resolved: 'resolved', resolvedVersion: latest.data.version ?? 0 }
         }
-        // index/asset：内容寻址或本地优先，保留 currentBytes
+        // index：本地优先（整 JSON 无字段级合并意义），保留 currentBytes 重试
         return { resolved: 'rebased', bytes: currentBytes, nextBase: latest.data.version ?? 0 }
       }
     })
@@ -593,6 +792,338 @@ export class WriterSyncService {
       }
     } else {
       result.errors.push({ key, message: outcome.error })
+    }
+  }
+
+  /**
+   * 下行资产块：拉 manifest → 逐文件处理（本地已有且读回 sha256 匹配 → 跳过下载；
+   * 缺失/不一致 → 逐块 getBlock（重试 2 次）→ openWriterAssetBlock → 重组 →
+   * sha256 校验 → assetService.importBytes 落盘）→ 全部成功后对齐 tracker 并刷新
+   * 本地扫描快照（让 phase (d) 用最新状态做指纹 diff，避免回推窄化清单）。
+   *
+   * manifest 拉取/解密/解析失败按 key 记 error 不中断其他 key。
+   * 返回 false 表示本轮失败（调用方跳过该 key 的上行，下轮仍 remoteAhead 会重试）。
+   */
+  private async downloadAssetBlocks(
+    client: NonNullable<ReturnType<SyncServiceLike['getClient']>>,
+    dek: Uint8Array,
+    parsed: Extract<ParsedWriterKey, { kind: 'assets-manifest' }>,
+    key: string,
+    remoteVersion: number,
+    localAssets: Map<string, LocalAssetsEntry>,
+    result: WriterSyncResult
+  ): Promise<boolean> {
+    const dl = await client.getSessionFile(key)
+    if (!dl.success || !dl.data) {
+      if (dl.code !== 'session_file_not_found') {
+        result.errors.push({
+          key,
+          message: t('notifications.sync.writerAssetDownloadFailed', {
+            detail: dl.error ?? dl.code
+          })
+        })
+      }
+      return false
+    }
+    let manifestBytes: Uint8Array
+    try {
+      manifestBytes = openWriterAssetManifest(dek, dl.data.bytes)
+    } catch {
+      result.errors.push({ key, message: t('notifications.sync.decryptFailed') })
+      return false
+    }
+    const manifest = parseWriterAssetManifest(new TextDecoder().decode(manifestBytes))
+    if (!manifest) {
+      result.errors.push({ key, message: t('notifications.sync.writerAssetManifestParseFailed') })
+      return false
+    }
+
+    const localEntry = localAssets.get(key)
+    const fileBlocks: Record<string, TrackedWriterAssetFileBlocks> = {}
+    let downloadedAny = false
+    for (const file of manifest.files) {
+      // 本地已有且内容一致：跳过下载；基线记远端 blockIds（与远端指纹对齐，避免上行回摆）
+      const localFile = localEntry?.files.find((f) => f.fileName === file.fileName)
+      if (localFile) {
+        try {
+          const bytes = new Uint8Array(await readFile(localFile.absPath))
+          if (sha256Hex(bytes) === file.sha256) {
+            fileBlocks[file.fileName] = {
+              size: file.size,
+              mtime: localFile.mtime,
+              sha256: file.sha256,
+              blockIds: file.blockIds
+            }
+            continue
+          }
+        } catch {
+          // 读失败走下载覆盖
+        }
+      }
+
+      // 缺失/不一致：逐块拉取解密（getBlock 重试 2 次）
+      const blockBuffers: Buffer[] = []
+      let blockFailed = false
+      for (const blockId of file.blockIds) {
+        let blockBytes: Uint8Array | null = null
+        for (let retry = 0; retry < 2; retry++) {
+          const blockDl = await client.getBlock(blockId)
+          if (blockDl.success && blockDl.data) {
+            try {
+              blockBytes = openWriterAssetBlock(dek, blockId, blockDl.data.bytes)
+              break
+            } catch {
+              // 解密/blockId 校验失败重试
+            }
+          }
+        }
+        if (!blockBytes) {
+          result.errors.push({
+            key,
+            message: t('notifications.sync.blockDownloadFailed', { blockId })
+          })
+          blockFailed = true
+          break
+        }
+        result.blocksDownloaded++
+        blockBuffers.push(Buffer.from(blockBytes))
+      }
+      if (blockFailed) return false
+
+      // 重组 + sha256 校验
+      const reassembled = new Uint8Array(Buffer.concat(blockBuffers))
+      if (sha256Hex(reassembled) !== file.sha256) {
+        result.errors.push({ key, message: t('notifications.sync.fileDownloadSha256Invalid') })
+        return false
+      }
+
+      // 落盘（文件名内容寻址，同 fileName 即同内容，覆盖幂等）
+      const ext = file.fileName.split('.').pop() ?? ''
+      const importResult = await this.assetService.importBytes(parsed.documentId, {
+        fileName: file.fileName,
+        declaredMimeType: extToMime(ext),
+        bytes: reassembled
+      })
+      if (!importResult.success) {
+        result.errors.push({
+          key,
+          message: t('notifications.sync.writerAssetApplyFailed', {
+            detail: importResult.error ?? t('notifications.sync.unknown')
+          })
+        })
+        return false
+      }
+      downloadedAny = true
+      fileBlocks[file.fileName] = {
+        size: file.size,
+        mtime: await this.assetMtime(parsed.documentId, file.fileName),
+        sha256: file.sha256,
+        blockIds: file.blockIds
+      }
+    }
+
+    // 全部文件处理成功：对齐 tracker（version + 指纹 + fileBlocks 基线）
+    this.tracker.setKey(key, {
+      version: dl.data.version ?? remoteVersion,
+      contentHash: assetsFingerprint(manifest.files),
+      fileBlocks
+    })
+    if (downloadedAny) result.downloaded++
+    else result.skipped++
+    // 落盘改写了本地资产，刷新扫描快照供 phase (d) 指纹 diff
+    const refreshed = await this.scanAssetsDir(parsed.documentId)
+    if (refreshed.files.length > 0) localAssets.set(key, refreshed)
+    else localAssets.delete(key)
+    return true
+  }
+
+  /**
+   * 上行资产块：逐文件 diff（size+mtime 未变且已有基线 → 复用 blockIds 不重切块）
+   * → 变更文件 chunkFile → sealWriterAssetBlock → blocksMissing → missing 才 putBlock
+   * → 构建 manifest → session-files CAS 上行。
+   * 任一块失败抛错中止该文档 manifest 上行（manifest 不得引用 relay 上不存在的块；
+   * 已上传块内容寻址可复用，下轮重试），tracker 基线不更新。
+   */
+  private async uploadAssetBlocks(
+    client: NonNullable<ReturnType<SyncServiceLike['getClient']>>,
+    dek: Uint8Array,
+    key: string,
+    local: LocalAssetsEntry,
+    result: WriterSyncResult
+  ): Promise<void> {
+    const tracked = this.tracker.getData().keys[key]
+    const baseline = tracked?.fileBlocks ?? {}
+
+    const manifestFiles: WriterAssetManifestFileEntry[] = []
+    const nextBlocks: Record<string, TrackedWriterAssetFileBlocks> = {}
+    try {
+      for (const file of local.files) {
+        const base = baseline[file.fileName]
+        if (
+          base &&
+          base.size === file.size &&
+          base.mtime === file.mtime &&
+          base.blockIds.length > 0
+        ) {
+          manifestFiles.push({
+            fileName: file.fileName,
+            size: file.size,
+            sha256: base.sha256,
+            blockIds: base.blockIds
+          })
+          nextBlocks[file.fileName] = base
+          continue
+        }
+        // 变更/新增：切块加密上传
+        const blockIds: string[] = []
+        const chunkResult = await chunkFile(file.absPath, async (chunk) => {
+          const { blockId, ciphertext } = sealWriterAssetBlock(dek, chunk)
+          const missing = await client.blocksMissing([blockId])
+          if (!missing.success || !missing.data) {
+            throw new Error(
+              t('notifications.sync.blocksMissingQueryFailed', {
+                detail: missing.error ?? missing.code ?? t('notifications.sync.unknownError')
+              })
+            )
+          }
+          if (missing.data.missing.includes(blockId)) {
+            const putBlock = await client.putBlock(blockId, ciphertext)
+            if (!putBlock.success) {
+              throw new Error(
+                t('notifications.sync.blockUploadFailed', {
+                  detail: putBlock.error ?? putBlock.code ?? t('notifications.sync.unknownError')
+                })
+              )
+            }
+            if (putBlock.data?.created) result.blocksUploaded++
+          }
+          blockIds.push(blockId)
+        })
+        manifestFiles.push({
+          fileName: file.fileName,
+          size: chunkResult.size,
+          sha256: chunkResult.sha256,
+          blockIds
+        })
+        nextBlocks[file.fileName] = {
+          size: chunkResult.size,
+          mtime: file.mtime,
+          sha256: chunkResult.sha256,
+          blockIds
+        }
+      }
+    } catch (error) {
+      result.errors.push({
+        key,
+        message: t('notifications.sync.writerAssetChunkFailed', {
+          detail: error instanceof Error ? error.message : String(error)
+        })
+      })
+      return
+    }
+
+    // 指纹相等（size+mtime 均未变且清单内容一致）→ skip，不重推 manifest
+    const fingerprint = assetsFingerprint(manifestFiles)
+    if (tracked && tracked.contentHash === fingerprint) {
+      result.skipped++
+      return
+    }
+    await this.putAssetManifest(
+      client,
+      dek,
+      key,
+      local.documentId,
+      manifestFiles,
+      nextBlocks,
+      fingerprint,
+      tracked,
+      result
+    )
+  }
+
+  /**
+   * 构建 manifest → session-files CAS 上行（≤2 stale rebase）→ 成功后更新 tracker。
+   * stale 合并策略：内容寻址本地优先 re-base——拉最新仅取新 base 后整体重推本地清单，
+   * 不做字段级合并。块通道内容寻址幂等（同 blockId 不重复存储），重推不丢块数据；
+   * 若对端清单含本地没有的资产条目，对端本地文件仍在，会在其下一轮指纹 diff 中
+   * 重新上行，最终收敛（代价是可能出现一轮清单回摆，不丢数据）。
+   */
+  private async putAssetManifest(
+    client: NonNullable<ReturnType<SyncServiceLike['getClient']>>,
+    dek: Uint8Array,
+    key: string,
+    documentId: string,
+    files: WriterAssetManifestFileEntry[],
+    fileBlocks: Record<string, TrackedWriterAssetFileBlocks>,
+    fingerprint: string,
+    tracked: TrackedWriterKeyEntry | undefined,
+    result: WriterSyncResult
+  ): Promise<void> {
+    const manifest: WriterAssetManifest = {
+      schemaVersion: 1,
+      documentId,
+      updatedAt: new Date().toISOString(),
+      files
+    }
+    const manifestBytes = new TextEncoder().encode(JSON.stringify(manifest))
+    if (manifestBytes.length + CIPHER_OVERHEAD_BYTES > MAX_SESSION_FILE_BYTES) {
+      result.errors.push({ key, message: t('notifications.sync.writerAssetManifestOverLimit') })
+      return
+    }
+
+    let base = tracked?.version ?? 0
+    let putOk = false
+    let putVersion = 0
+    for (let attempt = 0; attempt <= MANIFEST_CAS_RETRY_LIMIT; attempt++) {
+      const ct = sealWriterAssetManifest(dek, manifestBytes)
+      const put = await client.putSessionFile(key, base, ct)
+      if (put.success && put.data) {
+        putOk = true
+        putVersion = put.data.version
+        break
+      }
+      if (put.code !== 'stale_session_file') {
+        result.errors.push({
+          key,
+          message: t('notifications.sync.writerAssetManifestUploadFailed', {
+            detail: put.error ?? put.code ?? t('notifications.sync.unknownError')
+          })
+        })
+        return
+      }
+      // stale：拉最新取新 base 重推（合并策略见方法头注释）；
+      // 拉取失败即记错返回，不得以 base=0 盲试到"重试耗尽"误导排查
+      const latest = await client.getSessionFile(key)
+      if (!latest.success || !latest.data) {
+        result.errors.push({
+          key,
+          message: t('notifications.sync.writerAssetManifestFetchLatestFailed', {
+            detail: latest.error ?? latest.code ?? t('notifications.sync.unknownError')
+          })
+        })
+        return
+      }
+      base = latest.data.version ?? 0
+    }
+    if (!putOk) {
+      result.errors.push({
+        key,
+        message: t('notifications.sync.writerAssetManifestCasRetryExhausted')
+      })
+      return
+    }
+
+    this.tracker.setKey(key, { version: putVersion, contentHash: fingerprint, fileBlocks })
+    result.uploaded++
+  }
+
+  /** 读资产文件当前 mtime（下载落盘后记基线用；读不到退化为当前时间） */
+  private async assetMtime(documentId: string, fileName: string): Promise<string> {
+    try {
+      const st = await stat(join(getWriterAssetsDir(documentId, this.writingRoot()), fileName))
+      return st.mtime.toISOString()
+    } catch {
+      return new Date().toISOString()
     }
   }
 }

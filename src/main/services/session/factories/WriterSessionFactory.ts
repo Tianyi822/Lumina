@@ -1,21 +1,21 @@
 import type { SessionFactory } from './SessionFactory'
 import type { SessionData, SessionResourceRef, SessionType } from '@main/types/session'
+import { t } from '@main/services/i18n'
 
 /**
  * 写作对话会话工厂
  * 创建绑定写作文档资源引用的独立会话
  */
 export class WriterSessionFactory implements SessionFactory {
-  private readonly defaultTitle = '写作对话'
-
   create(title?: string, resourceRef?: SessionResourceRef): SessionData {
     if (!resourceRef || resourceRef.kind !== 'writer') {
-      throw new Error('写作会话必须提供 kind 为 writer 的 resourceRef')
+      throw new Error(t('notifications.session.writerResourceRefRequired'))
     }
 
     const sessionId = this.generateSessionId()
     const now = new Date().toISOString()
-    const sessionTitle = title || this.defaultTitle
+    // 默认标题为创建期定型文案：创建会话时按当前语言求值，随会话落盘后不随语言切换追溯
+    const sessionTitle = title || t('notifications.writer.chatTitle')
 
     return {
       sessionId,

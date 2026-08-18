@@ -2,6 +2,7 @@ import { rename, writeFile } from 'fs/promises'
 import { getVectorDBService } from '@main/services/vector'
 import { getFileService } from '@main/services/file/FileService'
 import { logger } from '@main/services/logger'
+import { t } from '@main/services/i18n'
 import type { KnowledgeBase, KnowledgeIndexInvalidatedFile } from '@shared/types/knowledge'
 import type { FileProcessingProgress } from './KnowledgeService'
 import { KnowledgeService } from './KnowledgeService'
@@ -312,7 +313,7 @@ export class KnowledgeServiceManager {
     const knowledgeBases = await readKnowledgeBases()
     const index = knowledgeBases.findIndex((kb) => kb.id === id)
     if (index === -1) {
-      return { success: false, error: '知识库不存在' }
+      return { success: false, error: t('notifications.knowledge.kbNotFound') }
     }
 
     const kb = knowledgeBases[index]

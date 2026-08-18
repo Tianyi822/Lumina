@@ -1,6 +1,7 @@
 import MarkdownIt from 'markdown-it'
 import texmath from 'markdown-it-texmath'
 import katex from 'katex'
+import { useTranslation } from 'react-i18next'
 import SvgIcon from '@renderer/components/icons/SvgIcon'
 import type { PaperFigureItem } from '@shared/types/paper'
 import { normalizePaperInlineMathForRender } from '@shared/utils/paperMarkdown'
@@ -36,6 +37,7 @@ export default function FigurePanel({
   containerRef,
   figurePanelRef
 }: FigurePanelProps) {
+  const { t } = useTranslation()
   return (
     <div ref={containerRef} className={styles['sm-workspace-toolbar__figures']}>
       <div className={styles['sm-workspace-toolbar__item-wrap']}>
@@ -47,7 +49,7 @@ export default function FigurePanel({
           ]
             .filter(Boolean)
             .join(' ')}
-          aria-label="打开论文图片列表"
+          aria-label={t('chrome.toolbar.openFigures')}
           aria-haspopup="dialog"
           aria-expanded={showFigurePanel}
           disabled={!canOpenFigurePanel}
@@ -56,7 +58,7 @@ export default function FigurePanel({
           <SvgIcon name="image" size={18} />
         </button>
         <span className={styles['sm-workspace-toolbar__tooltip']} role="tooltip">
-          论文图片
+          {t('chrome.toolbar.figures')}
         </span>
       </div>
 
@@ -65,14 +67,20 @@ export default function FigurePanel({
           ref={figurePanelRef}
           className={styles['sm-workspace-toolbar__figure-panel']}
           role="dialog"
-          aria-label="论文图片列表"
+          aria-label={t('chrome.toolbar.figuresAria')}
         >
-          <div className={styles['sm-workspace-toolbar__toc-header']}>论文图片</div>
+          <div className={styles['sm-workspace-toolbar__toc-header']}>
+            {t('chrome.toolbar.figures')}
+          </div>
 
           {currentFigureLoading ? (
-            <div className={styles['sm-workspace-toolbar__toc-state']}>图片加载中</div>
+            <div className={styles['sm-workspace-toolbar__toc-state']}>
+              {t('chrome.toolbar.figuresLoading')}
+            </div>
           ) : currentPaperFigures.length === 0 ? (
-            <div className={styles['sm-workspace-toolbar__toc-state']}>未识别到可用图片</div>
+            <div className={styles['sm-workspace-toolbar__toc-state']}>
+              {t('chrome.toolbar.figuresEmpty')}
+            </div>
           ) : (
             <div className={styles['sm-workspace-toolbar__figure-scroll']}>
               {currentPaperFigures.map((figure) => (
@@ -100,7 +108,7 @@ export default function FigurePanel({
                     type="button"
                     onClick={() => onPreviewFigure(figure)}
                   >
-                    预览
+                    {t('chrome.toolbar.preview')}
                   </button>
                 </div>
               ))}

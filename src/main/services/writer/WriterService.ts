@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs'
 import { basename, dirname, join } from 'node:path'
 import { logger } from '@main/services/logger'
+import { t } from '@main/services/i18n'
 import type {
   SaveWriterDocumentRequest,
   WriterAsset,
@@ -14,6 +15,7 @@ import type {
   WriterJsonNode,
   WriterResult
 } from '@shared/types/writer'
+import type { WriterOperationKey } from './writerOperationKeys'
 import type { WriterAssetService } from './WriterAssetService'
 import { WriterDocumentMapper } from './WriterDocumentMapper'
 import { WriterDocxExporter } from './WriterDocxExporter'
@@ -99,8 +101,9 @@ export class WriterService {
   }
 
   async initialize(): Promise<WriterResult<WriterIndex>> {
-    const result = await this.runOperation('初始化写作服务失败', () =>
-      this.storageService.initialize()
+    const result = await this.runOperation(
+      'notifications.writer.operations.initializeService',
+      () => this.storageService.initialize()
     )
     if (result.success && result.data) {
       await this.collectDocumentsGarbage(result.data.documents.map((document) => document.id))
@@ -109,29 +112,37 @@ export class WriterService {
   }
 
   listDocuments(): Promise<WriterResult<WriterIndex>> {
-    return this.runOperation('读取写作文档列表失败', () => this.storageService.listDocuments())
+    return this.runOperation('notifications.writer.operations.listDocuments', () =>
+      this.storageService.listDocuments()
+    )
   }
 
   createDocument(title?: string): Promise<WriterResult<WriterDocument>> {
-    return this.runOperation('创建写作文档失败', () => this.storageService.createDocument(title))
+    return this.runOperation('notifications.writer.operations.createDocument', () =>
+      this.storageService.createDocument(title)
+    )
   }
 
   getDocument(documentId: string): Promise<WriterResult<WriterDocument>> {
-    return this.runOperation('读取写作文档失败', () => this.storageService.getDocument(documentId))
+    return this.runOperation('notifications.writer.operations.readDocument', () =>
+      this.storageService.getDocument(documentId)
+    )
   }
 
   saveDocument(request: SaveWriterDocumentRequest): Promise<WriterResult<WriterDocument>> {
-    return this.enqueueMutation('保存写作文档失败', () => this.storageService.saveDocument(request))
+    return this.enqueueMutation('notifications.writer.operations.saveDocument', () =>
+      this.storageService.saveDocument(request)
+    )
   }
 
   deleteDocument(documentId: string): Promise<WriterResult<void>> {
-    return this.enqueueMutation('永久删除写作文档失败', () =>
+    return this.enqueueMutation('notifications.writer.operations.deleteDocument', () =>
       this.storageService.deleteDocument(documentId)
     )
   }
 
   renameDocument(documentId: string, title: string): Promise<WriterResult<WriterDocument>> {
-    return this.enqueueMutation('重命名写作文档失败', async () => {
+    return this.enqueueMutation('notifications.writer.operations.renameDocument', async () => {
       const current = await this.storageService.getDocument(documentId)
       if (!current.success || !current.data) {
         return current
@@ -146,42 +157,46 @@ export class WriterService {
   }
 
   moveDocument(documentId: string, folderId?: string): Promise<WriterResult<WriterDocument>> {
-    return this.runOperation('移动写作文档失败', () =>
+    return this.runOperation('notifications.writer.operations.moveDocument', () =>
       this.storageService.moveDocument(documentId, folderId)
     )
   }
 
   setFavorite(documentId: string, favorite: boolean): Promise<WriterResult<WriterDocument>> {
-    return this.runOperation('更新写作文档收藏状态失败', () =>
+    return this.runOperation('notifications.writer.operations.updateFavorite', () =>
       this.storageService.setFavorite(documentId, favorite)
     )
   }
 
   createFolder(name: string): Promise<WriterResult<WriterFolder>> {
-    return this.runOperation('创建写作文件夹失败', () => this.storageService.createFolder(name))
+    return this.runOperation('notifications.writer.operations.createFolder', () =>
+      this.storageService.createFolder(name)
+    )
   }
 
   renameFolder(folderId: string, name: string): Promise<WriterResult<WriterFolder>> {
-    return this.runOperation('重命名写作文件夹失败', () =>
+    return this.runOperation('notifications.writer.operations.renameFolder', () =>
       this.storageService.renameFolder(folderId, name)
     )
   }
 
   deleteFolder(folderId: string): Promise<WriterResult<void>> {
-    return this.runOperation('删除写作文件夹失败', () => this.storageService.deleteFolder(folderId))
+    return this.runOperation('notifications.writer.operations.deleteFolder', () =>
+      this.storageService.deleteFolder(folderId)
+    )
   }
 
   importAsset(
     documentId: string,
     input: WriterAssetImportInput
   ): Promise<WriterResult<WriterAsset>> {
-    return this.enqueueMutation('导入写作图片失败', async () => {
+    return this.enqueueMutation('notifications.writer.operations.importAsset', async () => {
       const documentResult = await this.storageService.getDocument(documentId)
       if (!documentResult.success || !documentResult.data) {
         return {
           success: false,
           code: documentResult.code ?? 'not_found',
-          error: documentResult.error ?? '写作文档不存在'
+          error: documentResult.error ?? t('notifications.writer.writerDocumentNotFound')
         }
       }
       return this.assetService.importBytes(documentId, input)
@@ -197,13 +212,13 @@ export class WriterService {
     format: WriterExportFormat
   ): Promise<WriterResult<WriterExportOutcome>> {
     return this.runOperation(
-      '导出写作文档失败',
+      'notifications.writer.operations.exportDocument',
       async (): Promise<WriterResult<WriterExportOutcome>> => {
         if (format !== 'markdown' && format !== 'docx' && format !== 'pdf') {
           return {
             success: false,
             code: 'invalid_input',
-            error: `暂不支持导出格式：${format}`
+            error: t('notifications.writer.exportFormatUnsupported', { format })
           }
         }
 
@@ -212,7 +227,7 @@ export class WriterService {
           return {
             success: false,
             code: documentResult.code ?? 'not_found',
-            error: documentResult.error ?? '写作文档不存在'
+            error: documentResult.error ?? t('notifications.writer.writerDocumentNotFound')
           }
         }
 
@@ -221,7 +236,11 @@ export class WriterService {
           return {
             success: false,
             code: mapped.code ?? 'invalid_input',
-            error: mapped.error ?? '映射写作文档失败'
+            error:
+              mapped.error ??
+              t('notifications.writer.operationFailed', {
+                operation: t('notifications.writer.operations.mapDocument')
+              })
           }
         }
 
@@ -243,7 +262,7 @@ export class WriterService {
   ): Promise<WriterResult<WriterExportOutcome>> {
     const defaultName = `${sanitizeExportBaseName(title)}.md`
     const saveResult = await this.exportDialog.showSaveDialog({
-      title: '导出 Markdown',
+      title: t('notifications.writer.exportDialog.title', { format: 'Markdown' }),
       defaultPath: defaultName,
       filters: [{ name: 'Markdown', extensions: ['md'] }]
     })
@@ -257,11 +276,11 @@ export class WriterService {
     if (existsSync(assetsDir)) {
       const confirm = await this.exportDialog.showMessageBox({
         type: 'warning',
-        buttons: ['取消', '覆盖'],
+        buttons: [t('common.cancel'), t('notifications.writer.exportDialog.overwrite')],
         cancelId: 0,
         defaultId: 0,
-        title: '覆盖导出资源',
-        message: `目标目录已存在同名资源文件夹：\n${assetsDir}\n\n是否覆盖？`
+        title: t('notifications.writer.exportDialog.overwriteAssetsTitle'),
+        message: t('notifications.writer.exportDialog.overwriteAssetsMessage', { assetsDir })
       })
       if (confirm.response !== 1) {
         return { success: true, data: { canceled: true } }
@@ -274,7 +293,7 @@ export class WriterService {
       return {
         success: false,
         code: exportResult.code ?? 'io_error',
-        error: exportResult.error ?? 'Markdown 导出失败'
+        error: exportResult.error ?? t('notifications.writer.markdownExportFailed')
       }
     }
 
@@ -295,7 +314,7 @@ export class WriterService {
   ): Promise<WriterResult<WriterExportOutcome>> {
     const defaultName = `${sanitizeExportBaseName(title)}.docx`
     const saveResult = await this.exportDialog.showSaveDialog({
-      title: '导出 DOCX',
+      title: t('notifications.writer.exportDialog.title', { format: 'DOCX' }),
       defaultPath: defaultName,
       filters: [{ name: 'Word Document', extensions: ['docx'] }]
     })
@@ -309,7 +328,7 @@ export class WriterService {
       return {
         success: false,
         code: exportResult.code ?? 'io_error',
-        error: exportResult.error ?? 'DOCX 导出失败'
+        error: exportResult.error ?? t('notifications.writer.docxExportFailed')
       }
     }
 
@@ -330,7 +349,7 @@ export class WriterService {
   ): Promise<WriterResult<WriterExportOutcome>> {
     const defaultName = `${sanitizeExportBaseName(title)}.pdf`
     const saveResult = await this.exportDialog.showSaveDialog({
-      title: '导出 PDF',
+      title: t('notifications.writer.exportDialog.title', { format: 'PDF' }),
       defaultPath: defaultName,
       filters: [{ name: 'PDF', extensions: ['pdf'] }]
     })
@@ -344,7 +363,7 @@ export class WriterService {
       return {
         success: false,
         code: exportResult.code ?? 'io_error',
-        error: exportResult.error ?? 'PDF 导出失败'
+        error: exportResult.error ?? t('notifications.writer.pdfExportFailed')
       }
     }
 
@@ -374,8 +393,9 @@ export class WriterService {
 
   async flushPendingSaves(): Promise<void> {
     await this.mutationTail
-    const indexResult = await this.runOperation('读取待清理写作文档失败', () =>
-      this.storageService.listDocuments()
+    const indexResult = await this.runOperation(
+      'notifications.writer.operations.readCleanupDocument',
+      () => this.storageService.listDocuments()
     )
     if (indexResult.success && indexResult.data) {
       await this.collectDocumentsGarbage(indexResult.data.documents.map((document) => document.id))
@@ -386,8 +406,9 @@ export class WriterService {
     if (!this.assetService.collectGarbage) {
       return { success: true, data: 0 }
     }
-    const documentResult = await this.runOperation('读取待清理写作文档失败', () =>
-      this.storageService.getDocument(documentId)
+    const documentResult = await this.runOperation(
+      'notifications.writer.operations.readCleanupDocument',
+      () => this.storageService.getDocument(documentId)
     )
     if (!documentResult.success || !documentResult.data) {
       return {
@@ -397,16 +418,16 @@ export class WriterService {
       }
     }
     const referencedPaths = this.collectReferencedAssets(documentId, documentResult.data.content)
-    return this.runOperation('清理写作图片资源失败', () =>
+    return this.runOperation('notifications.writer.operations.cleanupAssets', () =>
       this.assetService.collectGarbage!(documentId, referencedPaths)
     )
   }
 
   private enqueueMutation<T>(
-    errorMessage: string,
+    operationKey: WriterOperationKey,
     operation: () => Promise<WriterResult<T>>
   ): Promise<WriterResult<T>> {
-    const next = this.mutationTail.then(() => this.runOperation(errorMessage, operation))
+    const next = this.mutationTail.then(() => this.runOperation(operationKey, operation))
     this.mutationTail = next.then(
       () => undefined,
       () => undefined
@@ -415,16 +436,17 @@ export class WriterService {
   }
 
   private async runOperation<T>(
-    errorMessage: string,
+    operationKey: WriterOperationKey,
     operation: () => Promise<WriterResult<T>>
   ): Promise<WriterResult<T>> {
     try {
       return await operation()
     } catch (error) {
-      logger.error(errorMessage, 'main', {
+      const message = t('notifications.writer.operationFailed', { operation: t(operationKey) })
+      logger.error(message, 'main', {
         error: error instanceof Error ? error.message : String(error)
       })
-      return { success: false, code: 'io_error', error: errorMessage }
+      return { success: false, code: 'io_error', error: message }
     }
   }
 

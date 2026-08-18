@@ -1,6 +1,7 @@
 import { ipcMain } from 'electron'
 import { getEmbeddingService, EmbeddingService, isEmbeddingFailure } from '@main/services/embedding'
 import { logger } from '@main/services/logger'
+import { t } from '@main/services/i18n'
 import type { EmbeddingConfig } from '@main/types/config'
 
 // 嵌入服务初始化，服务会在需要时按需加载配置
@@ -19,7 +20,9 @@ export function registerEmbeddingHandlers(): void {
         data: presets
       }
     } catch (error) {
-      const errorMessage = `获取预设模型失败: ${error instanceof Error ? error.message : String(error)}`
+      const errorMessage = t('notifications.embedding.getPresetsFailed', {
+        reason: error instanceof Error ? error.message : String(error)
+      })
       logger.error(errorMessage)
       return {
         success: false,
@@ -39,7 +42,9 @@ export function registerEmbeddingHandlers(): void {
           data: config
         }
       } catch (error) {
-        const errorMessage = `创建嵌入配置失败: ${error instanceof Error ? error.message : String(error)}`
+        const errorMessage = t('notifications.embedding.createFromPresetFailed', {
+          reason: error instanceof Error ? error.message : String(error)
+        })
         logger.error(errorMessage)
         return {
           success: false,
@@ -58,7 +63,9 @@ export function registerEmbeddingHandlers(): void {
         data: config
       }
     } catch (error) {
-      const errorMessage = `获取嵌入配置失败: ${error instanceof Error ? error.message : String(error)}`
+      const errorMessage = t('notifications.embedding.getConfigFailed', {
+        reason: error instanceof Error ? error.message : String(error)
+      })
       logger.error(errorMessage)
       return {
         success: false,
@@ -84,7 +91,9 @@ export function registerEmbeddingHandlers(): void {
         success: true
       }
     } catch (error) {
-      const errorMessage = `设置嵌入配置失败: ${error instanceof Error ? error.message : String(error)}`
+      const errorMessage = t('notifications.embedding.setConfigFailed', {
+        reason: error instanceof Error ? error.message : String(error)
+      })
       logger.error(errorMessage)
       return {
         success: false,
@@ -113,7 +122,9 @@ export function registerEmbeddingHandlers(): void {
 
       return result
     } catch (error) {
-      const errorMessage = `测试嵌入连接失败: ${error instanceof Error ? error.message : String(error)}`
+      const errorMessage = t('notifications.embedding.testConnectionFailed', {
+        reason: error instanceof Error ? error.message : String(error)
+      })
       logger.error(errorMessage)
       return {
         success: false,
@@ -126,7 +137,9 @@ export function registerEmbeddingHandlers(): void {
   ipcMain.handle('embedding:embed', async (_event, text: string) => {
     const result = await getEmbeddingService().embed(text)
     if (isEmbeddingFailure(result)) {
-      const errorMessage = `生成嵌入向量失败: ${result.error}`
+      const errorMessage = t('notifications.embedding.embedHandlerFailed', {
+        reason: result.error
+      })
       logger.error(errorMessage)
       return { success: false, error: errorMessage }
     }
@@ -137,7 +150,9 @@ export function registerEmbeddingHandlers(): void {
   ipcMain.handle('embedding:embedBatch', async (_event, texts: string[]) => {
     const result = await getEmbeddingService().embedBatch(texts)
     if (isEmbeddingFailure(result)) {
-      const errorMessage = `批量生成嵌入向量失败: ${result.error}`
+      const errorMessage = t('notifications.embedding.embedBatchHandlerFailed', {
+        reason: result.error
+      })
       logger.error(errorMessage)
       return { success: false, error: errorMessage }
     }

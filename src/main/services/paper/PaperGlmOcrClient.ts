@@ -1,5 +1,6 @@
 import { net } from 'electron'
 import { logger } from '@main/services/logger'
+import { t } from '@main/services/i18n'
 import type { OcrProviderId } from '@shared/types/config'
 import { getOcrProviderPreset } from '@shared/types/config'
 
@@ -59,11 +60,11 @@ export class PaperGlmOcrClient {
   async recognizePage(params: GlmOcrRequestParams): Promise<GlmOcrRawResponse> {
     const preset = getOcrProviderPreset(params.provider)
     if (!preset) {
-      return { success: false, error: '未知的 OCR 服务提供商' }
+      return { success: false, error: t('notifications.paper.ocrProviderUnknown') }
     }
 
     if (!params.apiKey?.trim()) {
-      return { success: false, error: '请先在设置中配置 GLM-OCR API Key' }
+      return { success: false, error: t('notifications.paper.ocrApiKeyMissing') }
     }
 
     try {
@@ -85,13 +86,17 @@ export class PaperGlmOcrClient {
       })
 
       if (response.status === 401 || response.status === 403) {
-        return { success: false, error: 'API Key 无效或已过期', statusCode: response.status }
+        return {
+          success: false,
+          error: t('notifications.paper.ocrApiKeyInvalid'),
+          statusCode: response.status
+        }
       }
 
       if (response.status === 429) {
         return {
           success: false,
-          error: 'API 调用额度已用尽，请稍后再试',
+          error: t('notifications.paper.ocrQuotaExhausted'),
           statusCode: response.status
         }
       }
@@ -99,7 +104,7 @@ export class PaperGlmOcrClient {
       if (response.status >= 500) {
         return {
           success: false,
-          error: `服务端错误（${response.status}），请稍后再试`,
+          error: t('notifications.paper.ocrServerError', { status: response.status }),
           statusCode: response.status
         }
       }
@@ -114,8 +119,11 @@ export class PaperGlmOcrClient {
         return {
           success: false,
           error: remoteErrorMessage
-            ? `请求失败（${response.status}）：${remoteErrorMessage}`
-            : `请求失败（${response.status}）`,
+            ? t('notifications.paper.ocrRequestFailedDetail', {
+                status: response.status,
+                message: remoteErrorMessage
+              })
+            : t('notifications.paper.ocrRequestFailedBare', { status: response.status }),
           statusCode: response.status
         }
       }
@@ -125,10 +133,10 @@ export class PaperGlmOcrClient {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
       if (errorMessage.includes('abort') || errorMessage.includes('timeout')) {
-        return { success: false, error: '请求超时，请检查网络后重试' }
+        return { success: false, error: t('notifications.paper.requestTimeout') }
       }
       logger.error('OCR 请求失败', 'main', { error: errorMessage })
-      return { success: false, error: '网络连接失败，请检查网络后重试' }
+      return { success: false, error: t('notifications.paper.networkConnectionFailed') }
     }
   }
 }

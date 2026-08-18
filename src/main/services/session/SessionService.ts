@@ -8,6 +8,7 @@ import {
   SessionType
 } from '@main/types/session'
 import { logger } from '@main/services/logger'
+import { t } from '@main/services/i18n'
 import { isValidSessionId, sanitizeFileName } from './sessionPaths'
 import { SessionFactoryRegistry } from './factories'
 import { SessionStorageService } from './SessionStorageService'
@@ -40,9 +41,9 @@ export class SessionService {
       this.initialized = true
       logger.info('会话服务初始化成功')
     } catch (error) {
-      const errorMessage = `会话服务初始化失败: ${error instanceof Error ? error.message : String(error)}`
-      logger.error(errorMessage)
-      throw new Error(errorMessage)
+      const detail = error instanceof Error ? error.message : String(error)
+      logger.error(`会话服务初始化失败: ${detail}`)
+      throw new Error(t('notifications.session.initFailed', { detail }))
     }
   }
 
@@ -67,48 +68,52 @@ export class SessionService {
   async saveSession(data: SessionData): Promise<SessionResult> {
     if (!isValidSessionId(data.sessionId)) {
       logger.warn('无效的会话 ID', 'main', { sessionId: data.sessionId })
-      return { success: false, error: '无效的会话 ID' }
+      return { success: false, error: t('notifications.session.invalidSessionId') }
     }
     try {
       const normalized: SessionData = { ...data, updatedAt: new Date().toISOString() }
       await this.storage.rewriteSession(normalized)
       return { success: true }
     } catch (error) {
-      const errorMessage = `会话保存失败: ${error instanceof Error ? error.message : String(error)}`
-      logger.error(errorMessage)
-      return { success: false, error: errorMessage }
+      const detail = error instanceof Error ? error.message : String(error)
+      logger.error(`会话保存失败: ${detail}`)
+      return { success: false, error: t('notifications.session.saveFailed', { detail }) }
     }
   }
 
   /** 追加一批新消息（增量高频路径） */
   async appendMessages(sessionId: string, messages: SessionMessage[]): Promise<SessionResult> {
     if (!isValidSessionId(sessionId)) {
-      return { success: false, error: '无效的会话 ID' }
+      return { success: false, error: t('notifications.session.invalidSessionId') }
     }
     try {
       const ok = await this.storage.appendMessages(sessionId, messages)
-      return ok ? { success: true } : { success: false, error: '会话不存在' }
+      return ok
+        ? { success: true }
+        : { success: false, error: t('notifications.session.sessionNotFound') }
     } catch (error) {
-      const errorMessage = `追加消息失败: ${error instanceof Error ? error.message : String(error)}`
-      logger.error(errorMessage)
-      return { success: false, error: errorMessage }
+      const detail = error instanceof Error ? error.message : String(error)
+      logger.error(`追加消息失败: ${detail}`)
+      return { success: false, error: t('notifications.session.appendMessagesFailed', { detail }) }
     }
   }
 
   /** 更新会话元数据（标题/选择状态/能力） */
   async updateMeta(sessionId: string, patch: SessionMetaPatch): Promise<SessionResult> {
     if (!isValidSessionId(sessionId)) {
-      return { success: false, error: '无效的会话 ID' }
+      return { success: false, error: t('notifications.session.invalidSessionId') }
     }
     try {
       const nextPatch: SessionMetaPatch =
         patch.title !== undefined ? { ...patch, title: sanitizeFileName(patch.title) } : patch
       const ok = await this.storage.appendMeta(sessionId, nextPatch)
-      return ok ? { success: true } : { success: false, error: '会话不存在' }
+      return ok
+        ? { success: true }
+        : { success: false, error: t('notifications.session.sessionNotFound') }
     } catch (error) {
-      const errorMessage = `更新会话元数据失败: ${error instanceof Error ? error.message : String(error)}`
-      logger.error(errorMessage)
-      return { success: false, error: errorMessage }
+      const detail = error instanceof Error ? error.message : String(error)
+      logger.error(`更新会话元数据失败: ${detail}`)
+      return { success: false, error: t('notifications.session.updateMetaFailed', { detail }) }
     }
   }
 
@@ -129,15 +134,17 @@ export class SessionService {
   /** 删除会话 */
   async deleteSession(sessionId: string): Promise<SessionResult> {
     if (!isValidSessionId(sessionId)) {
-      return { success: false, error: '无效的会话 ID' }
+      return { success: false, error: t('notifications.session.invalidSessionId') }
     }
     try {
       const ok = await this.storage.deleteSession(sessionId)
-      return ok ? { success: true } : { success: false, error: '会话不存在' }
+      return ok
+        ? { success: true }
+        : { success: false, error: t('notifications.session.sessionNotFound') }
     } catch (error) {
-      const errorMessage = `会话删除失败: ${error instanceof Error ? error.message : String(error)}`
-      logger.error(errorMessage)
-      return { success: false, error: errorMessage }
+      const detail = error instanceof Error ? error.message : String(error)
+      logger.error(`会话删除失败: ${detail}`)
+      return { success: false, error: t('notifications.session.deleteFailed', { detail }) }
     }
   }
 

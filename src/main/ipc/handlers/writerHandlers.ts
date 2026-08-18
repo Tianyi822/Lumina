@@ -1,7 +1,9 @@
 import { ipcMain } from 'electron'
 import { logger } from '@main/services/logger'
+import { t } from '@main/services/i18n'
 import { writerService } from '@main/services/writer'
 import { acknowledgeWriterFlushFromEvent } from '@main/services/writer/WriterFlushCoordinator'
+import type { WriterOperationKey } from '@main/services/writer/writerOperationKeys'
 import type {
   WriterAsset,
   WriterDocument,
@@ -50,15 +52,16 @@ function invalidInput<T>(error: string): WriterResult<T> {
 }
 
 async function invokeWriter<T>(
-  operationName: string,
+  operationKey: WriterOperationKey,
   operation: () => Promise<WriterResult<T>>
 ): Promise<WriterResult<T>> {
   try {
     return await operation()
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error)
-    logger.error(`${operationName}失败`, 'main', { error: detail })
-    return { success: false, code: 'io_error', error: `${operationName}失败` }
+    const message = t('notifications.writer.operationFailed', { operation: t(operationKey) })
+    logger.error(message, 'main', { error: detail })
+    return { success: false, code: 'io_error', error: message }
   }
 }
 
@@ -71,7 +74,9 @@ export function registerWriterHandlers(): void {
   writerHandlersRegistered = true
 
   ipcMain.handle('writer:list', (): Promise<WriterResult<WriterIndex>> => {
-    return invokeWriter('读取写作文档列表', () => writerService.listDocuments())
+    return invokeWriter('notifications.writer.operations.listDocuments', () =>
+      writerService.listDocuments()
+    )
   })
 
   ipcMain.handle(
@@ -81,7 +86,7 @@ export function registerWriterHandlers(): void {
       if (validationError) {
         return Promise.resolve(invalidInput(validationError))
       }
-      return invokeWriter('创建写作文档', () =>
+      return invokeWriter('notifications.writer.operations.createDocument', () =>
         writerService.createDocument(title as string | undefined)
       )
     }
@@ -94,7 +99,9 @@ export function registerWriterHandlers(): void {
       if (validationError) {
         return Promise.resolve(invalidInput(validationError))
       }
-      return invokeWriter('读取写作文档', () => writerService.getDocument(documentId as string))
+      return invokeWriter('notifications.writer.operations.readDocument', () =>
+        writerService.getDocument(documentId as string)
+      )
     }
   )
 
@@ -102,9 +109,11 @@ export function registerWriterHandlers(): void {
     'writer:save',
     (_event, request: unknown): Promise<WriterResult<WriterDocument>> => {
       if (!validateSaveWriterPayload(request)) {
-        return Promise.resolve(invalidInput('无效的保存请求'))
+        return Promise.resolve(invalidInput(t('notifications.writer.invalidSaveRequest')))
       }
-      return invokeWriter('保存写作文档', () => writerService.saveDocument(request))
+      return invokeWriter('notifications.writer.operations.saveDocument', () =>
+        writerService.saveDocument(request)
+      )
     }
   )
 
@@ -113,7 +122,7 @@ export function registerWriterHandlers(): void {
     if (validationError) {
       return Promise.resolve(invalidInput(validationError))
     }
-    return invokeWriter('永久删除写作文档', () =>
+    return invokeWriter('notifications.writer.operations.deleteDocument', () =>
       writerService.deleteDocument(documentId as string)
     )
   })
@@ -127,7 +136,7 @@ export function registerWriterHandlers(): void {
       if (validationError) {
         return Promise.resolve(invalidInput(validationError))
       }
-      return invokeWriter('重命名写作文档', () =>
+      return invokeWriter('notifications.writer.operations.renameDocument', () =>
         writerService.renameDocument(payload.documentId, payload.title)
       )
     }
@@ -142,7 +151,7 @@ export function registerWriterHandlers(): void {
       if (validationError) {
         return Promise.resolve(invalidInput(validationError))
       }
-      return invokeWriter('移动写作文档', () =>
+      return invokeWriter('notifications.writer.operations.moveDocument', () =>
         writerService.moveDocument(payload.documentId, payload.folderId)
       )
     }
@@ -157,7 +166,7 @@ export function registerWriterHandlers(): void {
       if (validationError) {
         return Promise.resolve(invalidInput(validationError))
       }
-      return invokeWriter('更新写作文档收藏状态', () =>
+      return invokeWriter('notifications.writer.operations.updateFavorite', () =>
         writerService.setFavorite(payload.documentId, payload.favorite)
       )
     }
@@ -170,7 +179,9 @@ export function registerWriterHandlers(): void {
       if (validationError) {
         return Promise.resolve(invalidInput(validationError))
       }
-      return invokeWriter('创建写作文件夹', () => writerService.createFolder(name as string))
+      return invokeWriter('notifications.writer.operations.createFolder', () =>
+        writerService.createFolder(name as string)
+      )
     }
   )
 
@@ -182,7 +193,7 @@ export function registerWriterHandlers(): void {
       if (validationError) {
         return Promise.resolve(invalidInput(validationError))
       }
-      return invokeWriter('重命名写作文件夹', () =>
+      return invokeWriter('notifications.writer.operations.renameFolder', () =>
         writerService.renameFolder(payload.folderId, payload.name)
       )
     }
@@ -195,7 +206,9 @@ export function registerWriterHandlers(): void {
       if (validationError) {
         return Promise.resolve(invalidInput(validationError))
       }
-      return invokeWriter('删除写作文件夹', () => writerService.deleteFolder(folderId as string))
+      return invokeWriter('notifications.writer.operations.deleteFolder', () =>
+        writerService.deleteFolder(folderId as string)
+      )
     }
   )
 
@@ -207,7 +220,7 @@ export function registerWriterHandlers(): void {
         return Promise.resolve(invalidInput(validationError))
       }
       const validPayload = payload as ImportWriterAssetPayload
-      return invokeWriter('导入写作图片', () =>
+      return invokeWriter('notifications.writer.operations.importAsset', () =>
         writerService.importAsset(validPayload.documentId, {
           fileName: validPayload.fileName,
           declaredMimeType: validPayload.declaredMimeType,
@@ -230,7 +243,7 @@ export function registerWriterHandlers(): void {
       if (validationError) {
         return Promise.resolve(invalidInput(validationError))
       }
-      return invokeWriter('清理写作图片资源', () =>
+      return invokeWriter('notifications.writer.operations.cleanupAssets', () =>
         writerService.collectDocumentGarbage(documentId as string)
       )
     }
@@ -247,7 +260,7 @@ export function registerWriterHandlers(): void {
       if (formatError) {
         return Promise.resolve(invalidInput(formatError))
       }
-      return invokeWriter('导出写作文档', () =>
+      return invokeWriter('notifications.writer.operations.exportDocument', () =>
         writerService.exportDocument(documentId as string, format as WriterExportFormat)
       )
     }

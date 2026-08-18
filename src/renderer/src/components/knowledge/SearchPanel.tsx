@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { useKnowledgeSearch } from './hooks/useKnowledgeSearch'
 import type { KnowledgeBase } from '@renderer/types'
 import styles from './SearchPanel.module.css'
@@ -29,6 +30,7 @@ function highlightText(text: string, query: string): string {
 }
 
 export default function SearchPanel({ currentKB }: SearchPanelProps) {
+  const { t } = useTranslation()
   const kbId = currentKB?.id
 
   const {
@@ -45,9 +47,9 @@ export default function SearchPanel({ currentKB }: SearchPanelProps) {
     <section className={styles['search-section']}>
       <div className={styles['search-header']}>
         <div>
-          <h3>搜索测试</h3>
+          <h3>{t('knowledge.search.title')}</h3>
         </div>
-        <span className={styles['search-hint']}>验证当前知识库的召回质量与片段命中情况。</span>
+        <span className={styles['search-hint']}>{t('knowledge.search.hint')}</span>
       </div>
 
       <div className={styles['search-input-row']}>
@@ -55,7 +57,7 @@ export default function SearchPanel({ currentKB }: SearchPanelProps) {
           value={searchQuery}
           type="text"
           className={`sm-input ${styles['search-input']}`}
-          placeholder="输入测试查询..."
+          placeholder={t('knowledge.search.placeholder')}
           onChange={(e) => setSearchQuery(e.target.value)}
           onKeyUp={(e) => {
             if (e.key === 'Enter') handleSearch()
@@ -67,19 +69,29 @@ export default function SearchPanel({ currentKB }: SearchPanelProps) {
           disabled={searching || !searchQuery.trim()}
           onClick={handleSearch}
         >
-          {searching ? <span className="sm-spinner"></span> : <span>搜索</span>}
+          {searching ? (
+            <span className="sm-spinner"></span>
+          ) : (
+            <span>{t('knowledge.search.submit')}</span>
+          )}
         </button>
       </div>
 
       {searchPerformed && (
         <div className={styles['search-results']}>
           <div className={styles['search-results__header']}>
-            <span className={styles['search-results__title']}>结果</span>
-            <span className={styles['search-results__count']}>{searchResults.length} 条</span>
+            <span className={styles['search-results__title']}>
+              {t('knowledge.search.resultsTitle')}
+            </span>
+            <span className={styles['search-results__count']}>
+              {t('knowledge.search.resultsCount', { count: searchResults.length })}
+            </span>
           </div>
 
           {searchResults.length === 0 ? (
-            <div className={`sm-empty ${styles['search-empty']}`}>未找到相关结果</div>
+            <div className={`sm-empty ${styles['search-empty']}`}>
+              {t('knowledge.search.empty')}
+            </div>
           ) : (
             <div className={styles['search-results-list']}>
               {searchResults.map((result) => (
@@ -97,7 +109,10 @@ export default function SearchPanel({ currentKB }: SearchPanelProps) {
                     }}
                   ></div>
                   <div className={styles['result-meta']}>
-                    块 {result.chunkIndex} / {result.totalChunks}
+                    {t('knowledge.search.chunkPosition', {
+                      index: result.chunkIndex,
+                      total: result.totalChunks
+                    })}
                   </div>
                 </div>
               ))}

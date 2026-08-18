@@ -6,6 +6,7 @@ import type {
   PaperTranslationEntry
 } from '@shared/types/paper'
 import type { MCPToolCallResult } from '@shared/types/mcp'
+import { t } from '@main/services/i18n'
 import { getPaperService, paperStorageService } from './index'
 
 export type PaperContextSearchSource = 'original' | 'translation' | 'both'
@@ -329,14 +330,14 @@ export class PaperContextSearchToolService {
     )
 
     if (!paperId.trim()) {
-      return { success: false, error: '缺少论文 ID，无法检索论文上下文' }
+      return { success: false, error: t('notifications.paper.contextSearchPaperIdMissing') }
     }
 
     const readerResult = await this.dependencies.getReaderDocument(paperId)
     if (!readerResult.success || !readerResult.data) {
       return {
         success: false,
-        error: readerResult.error || '读取论文原文内容失败'
+        error: readerResult.error || t('notifications.paper.contextSearchReaderFailed')
       }
     }
 
@@ -345,7 +346,7 @@ export class PaperContextSearchToolService {
     if (corpus.length === 0) {
       return {
         success: false,
-        error: '论文 OCR/译文文本为空，无法检索上下文'
+        error: t('notifications.paper.contextSearchCorpusEmpty')
       }
     }
 
@@ -394,7 +395,7 @@ export class PaperContextSearchToolService {
             score: 0,
             matchedKeywords: []
           })),
-          warnings: [...warnings, '未提取到明确关键词，已返回候选阅读上下文']
+          warnings: [...warnings, t('notifications.paper.contextSearchNoKeywords')]
         }
       }
     }
@@ -451,7 +452,7 @@ export class PaperContextSearchToolService {
     if (source === 'translation' || source === 'both') {
       const translationResult = await this.dependencies.readTranslationCache(paperId)
       if (!translationResult.success || !translationResult.data) {
-        warnings.push(translationResult.error || '译文缓存不存在，已跳过译文检索')
+        warnings.push(translationResult.error || t('notifications.paper.translationCacheSkipped'))
       } else {
         const segmentLookup = createSegmentLookup(readerDocument)
         let translatedCount = 0
@@ -476,7 +477,7 @@ export class PaperContextSearchToolService {
         }
 
         if (translatedCount === 0) {
-          warnings.push('译文缓存中没有可用译文段落')
+          warnings.push(t('notifications.paper.contextSearchNoTranslatedSegments'))
         }
       }
     }
@@ -498,13 +499,13 @@ export class PaperContextSearchToolService {
     const metaResult = await this.dependencies.readMeta(paperId)
     const progress = metaResult.success ? metaResult.data?.readingProgress : undefined
     if (!progress) {
-      warnings.push('未找到阅读进度，已使用论文开头候选上下文')
+      warnings.push(t('notifications.paper.contextSearchProgressMissing'))
       return this.filterCorpusBySegmentRange(corpus, 0, READING_PROGRESS_WINDOW_AFTER, source)
     }
 
     const totalSegments = readerDocument.segments.length
     if (totalSegments === 0) {
-      warnings.push('阅读进度对应段落为空，已使用论文开头候选上下文')
+      warnings.push(t('notifications.paper.contextSearchProgressSegmentEmpty'))
       return this.filterCorpusBySegmentRange(corpus, 0, READING_PROGRESS_WINDOW_AFTER, source)
     }
 

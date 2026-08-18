@@ -1,6 +1,8 @@
 import { useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { Message } from '@renderer/types'
 import type { PaperQuote } from '@shared/types/chat'
+import { getDateLocale } from '@renderer/i18n'
 import { estimateTokenCount, formatTokenCount } from '@renderer/utils/tokenEstimate'
 import { usePaperChatStreamingReveal } from '../hooks/usePaperChatStreamingReveal'
 import PaperChatMessageAttachments from './PaperChatMessageAttachments'
@@ -55,6 +57,7 @@ export default function PaperChatMessage({
   onToggleReasoning,
   onQuoteClick
 }: PaperChatMessageProps) {
+  const { t } = useTranslation()
   const { displayedContent, isRevealing } = usePaperChatStreamingReveal(
     message.content,
     message.isStreaming
@@ -62,7 +65,7 @@ export default function PaperChatMessage({
   const isVisuallyStreaming = Boolean(message.isStreaming || isRevealing)
   const formattedTime = useMemo(() => {
     if (!message.timestamp) return ''
-    return new Date(message.timestamp).toLocaleTimeString('zh-CN', {
+    return new Date(message.timestamp).toLocaleTimeString(getDateLocale(), {
       hour: '2-digit',
       minute: '2-digit'
     })
@@ -113,7 +116,9 @@ export default function PaperChatMessage({
 
   const userTokenUsageLabel =
     message.role === 'user' && !isVisuallyStreaming
-      ? `输入: 约 ${formatTokenCount(estimateTokenCount(message.content))}`
+      ? t('paper.chat.message.inputTokens', {
+          formatted: formatTokenCount(estimateTokenCount(message.content))
+        })
       : ''
 
   if (!shouldRender) {

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import SvgIcon from '@renderer/components/icons/SvgIcon'
 import styles from '../WorkspaceToolbar.module.css'
 
@@ -9,6 +10,7 @@ interface WriterChatButtonProps {
 
 /** 写作对话按钮，点击切换写作 AI 面板 */
 export default function WriterChatButton({ isActive, disabled, onClick }: WriterChatButtonProps) {
+  const { t } = useTranslation()
   return (
     <div className={styles['sm-workspace-toolbar__item-wrap']}>
       <button
@@ -19,7 +21,7 @@ export default function WriterChatButton({ isActive, disabled, onClick }: Writer
         ]
           .filter(Boolean)
           .join(' ')}
-        aria-label="写作对话"
+        aria-label={t('chrome.toolbar.writerChat')}
         type="button"
         disabled={disabled}
         onClick={onClick}
@@ -27,7 +29,7 @@ export default function WriterChatButton({ isActive, disabled, onClick }: Writer
         <SvgIcon name="chat" size={18} />
       </button>
       <span className={styles['sm-workspace-toolbar__tooltip']} role="tooltip">
-        写作对话
+        {t('chrome.toolbar.writerChat')}
       </span>
     </div>
   )

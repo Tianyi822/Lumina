@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import SvgIcon from '@renderer/components/icons/SvgIcon'
 import styles from '../WorkspaceToolbar.module.css'
 
@@ -8,6 +9,7 @@ interface OriginalPdfButtonProps {
 }
 
 export default function OriginalPdfButton({ isActive, onClick }: OriginalPdfButtonProps) {
+  const { t } = useTranslation()
   return (
     <div className={styles['sm-workspace-toolbar__item-wrap']}>
       <button
@@ -18,14 +20,14 @@ export default function OriginalPdfButton({ isActive, onClick }: OriginalPdfButt
         ]
           .filter(Boolean)
           .join(' ')}
-        aria-label="PDF 原件"
+        aria-label={t('chrome.toolbar.originalPdf')}
         type="button"
         onClick={onClick}
       >
         <SvgIcon name="file-pdf" size={18} />
       </button>
       <span className={styles['sm-workspace-toolbar__tooltip']} role="tooltip">
-        PDF 原件
+        {t('chrome.toolbar.originalPdf')}
       </span>
     </div>
   )

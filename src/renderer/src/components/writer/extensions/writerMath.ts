@@ -1,4 +1,5 @@
 import katex from 'katex'
+import { i18n } from '@renderer/i18n'
 
 export interface WriterMathRenderSuccess {
   success: true
@@ -152,7 +153,7 @@ export function renderWriterMath(latex: string, displayMode: boolean): WriterMat
       success: false,
       latex,
       html: '',
-      error: error instanceof Error ? error.message : '公式渲染失败'
+      error: error instanceof Error ? error.message : i18n.t('writer.nodes.mathRenderFailed')
     }
   }
 }

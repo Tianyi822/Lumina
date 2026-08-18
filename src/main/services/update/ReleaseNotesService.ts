@@ -2,6 +2,7 @@ import { net } from 'electron'
 import type { ReleaseInfo } from '@shared/types/update'
 
 import { logger } from '../logger'
+import { t } from '@main/services/i18n'
 
 interface GitHubRelease {
   tag_name: string
@@ -53,7 +54,10 @@ export class ReleaseNotesService {
 
     return {
       success: false,
-      error: apiResult.error || atomResult.error || '无法获取版本历史，请检查网络连接'
+      error:
+        apiResult.error ||
+        atomResult.error ||
+        t('notifications.settings.update.releasesNetworkUnavailable')
     }
   }
 
@@ -75,7 +79,9 @@ export class ReleaseNotesService {
       if (!response.ok) {
         const body = await response.text()
         const rateLimited = this.isRateLimitedResponse(response, body)
-        const error = rateLimited ? '请求过于频繁，请稍后再试' : 'GitHub Releases API 暂时不可用'
+        const error = rateLimited
+          ? t('notifications.settings.update.rateLimited')
+          : t('notifications.settings.update.apiUnavailable')
         logger.warn('GitHub Releases API 请求失败，尝试 Atom feed 回退', 'main', {
           status: response.status,
           rateLimited
@@ -88,7 +94,10 @@ export class ReleaseNotesService {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       logger.error('获取版本历史失败', 'main', { error: message })
-      return { success: false, error: '无法获取版本历史，请检查网络连接' }
+      return {
+        success: false,
+        error: t('notifications.settings.update.releasesNetworkUnavailable')
+      }
     }
   }
 
@@ -109,7 +118,7 @@ export class ReleaseNotesService {
 
       if (!response.ok) {
         logger.warn('GitHub Releases Atom feed 请求失败', 'main', { status: response.status })
-        return { success: false, error: 'GitHub 版本历史暂时不可用' }
+        return { success: false, error: t('notifications.settings.update.releasesUnavailable') }
       }
 
       const feed = await response.text()
@@ -117,7 +126,10 @@ export class ReleaseNotesService {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       logger.error('获取版本历史 Atom feed 失败', 'main', { error: message })
-      return { success: false, error: '无法获取版本历史，请检查网络连接' }
+      return {
+        success: false,
+        error: t('notifications.settings.update.releasesNetworkUnavailable')
+      }
     }
   }
 

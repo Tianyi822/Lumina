@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { i18n } from '@renderer/i18n'
 import type { WriterDocument, WriterDocumentSummary, WriterFolder } from '@shared/types/writer'
 
 export type WriterSidebarMode = 'documents' | 'outline'
@@ -201,7 +202,10 @@ export const useWriterLibraryStore = create<WriterLibraryStore>((set, get) => {
       try {
         const result = await window.api.writer.list()
         if (!result.success || !result.data) {
-          set({ isLoading: false, error: resultError(result.error, '加载文档失败') })
+          set({
+            isLoading: false,
+            error: resultError(result.error, i18n.t('notifications.writer.loadDocumentsFailed'))
+          })
           return
         }
         const index = result.data
@@ -218,7 +222,10 @@ export const useWriterLibraryStore = create<WriterLibraryStore>((set, get) => {
       } catch (error) {
         set({
           isLoading: false,
-          error: error instanceof Error ? error.message : '加载文档失败'
+          error:
+            error instanceof Error
+              ? error.message
+              : i18n.t('notifications.writer.loadDocumentsFailed')
         })
       }
     },
@@ -228,13 +235,20 @@ export const useWriterLibraryStore = create<WriterLibraryStore>((set, get) => {
       try {
         const result = await window.api.writer.create()
         if (!result.success || !result.data) {
-          set({ error: resultError(result.error, '创建文档失败') })
+          set({
+            error: resultError(result.error, i18n.t('notifications.writer.createDocumentFailed'))
+          })
           return
         }
         updateDocument(result.data)
         set({ currentDocumentId: result.data.id, error: null })
       } catch (error) {
-        set({ error: error instanceof Error ? error.message : '创建文档失败' })
+        set({
+          error:
+            error instanceof Error
+              ? error.message
+              : i18n.t('notifications.writer.createDocumentFailed')
+        })
       }
     },
 
@@ -243,7 +257,9 @@ export const useWriterLibraryStore = create<WriterLibraryStore>((set, get) => {
       try {
         const result = await window.api.writer.delete(documentId)
         if (!result.success) {
-          set({ error: resultError(result.error, '删除文档失败') })
+          set({
+            error: resultError(result.error, i18n.t('notifications.writer.deleteDocumentFailed'))
+          })
           return false
         }
         set((state) => ({
@@ -255,7 +271,12 @@ export const useWriterLibraryStore = create<WriterLibraryStore>((set, get) => {
         }))
         return true
       } catch (error) {
-        set({ error: error instanceof Error ? error.message : '删除文档失败' })
+        set({
+          error:
+            error instanceof Error
+              ? error.message
+              : i18n.t('notifications.writer.deleteDocumentFailed')
+        })
         return false
       }
     },
@@ -265,7 +286,9 @@ export const useWriterLibraryStore = create<WriterLibraryStore>((set, get) => {
       try {
         const result = await window.api.writer.deleteFolder(folderId)
         if (!result.success) {
-          set({ error: resultError(result.error, '删除文件夹失败') })
+          set({
+            error: resultError(result.error, i18n.t('notifications.writer.deleteFolderFailed'))
+          })
           return false
         }
         set((state) => ({
@@ -278,7 +301,12 @@ export const useWriterLibraryStore = create<WriterLibraryStore>((set, get) => {
         }))
         return true
       } catch (error) {
-        set({ error: error instanceof Error ? error.message : '删除文件夹失败' })
+        set({
+          error:
+            error instanceof Error
+              ? error.message
+              : i18n.t('notifications.writer.deleteFolderFailed')
+        })
         return false
       }
     },
@@ -288,13 +316,16 @@ export const useWriterLibraryStore = create<WriterLibraryStore>((set, get) => {
       try {
         const result = await window.api.writer.rename(documentId, title)
         if (!result.success || !result.data) {
-          set({ error: resultError(result.error, '重命名文档失败') })
+          set({ error: resultError(result.error, i18n.t('notifications.writer.renameFailed')) })
           return false
         }
         updateDocument(result.data)
         return true
       } catch (error) {
-        set({ error: error instanceof Error ? error.message : '重命名文档失败' })
+        set({
+          error:
+            error instanceof Error ? error.message : i18n.t('notifications.writer.renameFailed')
+        })
         return false
       }
     },
@@ -304,13 +335,15 @@ export const useWriterLibraryStore = create<WriterLibraryStore>((set, get) => {
       try {
         const result = await window.api.writer.move(documentId, folderId)
         if (!result.success || !result.data) {
-          set({ error: resultError(result.error, '移动文档失败') })
+          set({ error: resultError(result.error, i18n.t('notifications.writer.moveFailed')) })
           return false
         }
         updateDocument(result.data)
         return true
       } catch (error) {
-        set({ error: error instanceof Error ? error.message : '移动文档失败' })
+        set({
+          error: error instanceof Error ? error.message : i18n.t('notifications.writer.moveFailed')
+        })
         return false
       }
     },
@@ -318,20 +351,23 @@ export const useWriterLibraryStore = create<WriterLibraryStore>((set, get) => {
     toggleFavorite: async (documentId) => {
       const document = get().documents.find((item) => item.id === documentId)
       if (!document) {
-        set({ error: '文档不存在' })
+        set({ error: i18n.t('notifications.writer.documentNotFound') })
         return false
       }
       set({ error: null })
       try {
         const result = await window.api.writer.setFavorite(documentId, !document.favorite)
         if (!result.success || !result.data) {
-          set({ error: resultError(result.error, '更新收藏失败') })
+          set({ error: resultError(result.error, i18n.t('notifications.writer.favoriteFailed')) })
           return false
         }
         updateDocument(result.data)
         return true
       } catch (error) {
-        set({ error: error instanceof Error ? error.message : '更新收藏失败' })
+        set({
+          error:
+            error instanceof Error ? error.message : i18n.t('notifications.writer.favoriteFailed')
+        })
         return false
       }
     },

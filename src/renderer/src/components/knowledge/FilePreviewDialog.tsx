@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { FileItem, FilePreviewData } from '@renderer/types'
 import { useFileStore } from '@renderer/stores'
 import FileIcon from './shared/components/FileIcon'
@@ -18,6 +19,7 @@ interface FilePreviewDialogProps {
 }
 
 export default function FilePreviewDialog({ visible, file, onClose }: FilePreviewDialogProps) {
+  const { t } = useTranslation()
   const fileStore = useFileStore()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -33,10 +35,10 @@ export default function FilePreviewDialog({ visible, file, onClose }: FilePrevie
     if (result.success && result.data) {
       setPreviewData(result.data)
     } else {
-      setError(result.error || '未知错误')
+      setError(result.error || t('common.unknownError'))
     }
     setLoading(false)
-  }, [file])
+  }, [file, t])
 
   useEffect(() => {
     if (visible && file) {
@@ -58,9 +60,9 @@ export default function FilePreviewDialog({ visible, file, onClose }: FilePrevie
     if (!file) return
     const result = await window.api.file.openExternal(file.id)
     if (!result.success) {
-      setError(result.error || '打开文件失败')
+      setError(result.error || t('knowledge.preview.openFailed'))
     }
-  }, [file])
+  }, [file, t])
 
   if (!visible || !file) return null
 
@@ -97,11 +99,11 @@ export default function FilePreviewDialog({ visible, file, onClose }: FilePrevie
                 className={styles['preview-action-btn']}
                 onClick={handleOpenExternal}
               >
-                外部打开
+                {t('knowledge.preview.openExternal')}
               </button>
             )}
             <button type="button" className={styles['preview-action-btn']} onClick={onClose}>
-              关闭
+              {t('common.close')}
             </button>
           </div>
         </div>
@@ -110,18 +112,18 @@ export default function FilePreviewDialog({ visible, file, onClose }: FilePrevie
           {loading ? (
             <div className={styles['file-preview-loading']}>
               <span className="sm-spinner sm-spinner--large"></span>
-              <span>正在加载文件内容...</span>
+              <span>{t('knowledge.preview.loading')}</span>
             </div>
           ) : error ? (
             <div className={styles['file-preview-error']}>
-              <div className={styles['error-title']}>文件预览失败</div>
+              <div className={styles['error-title']}>{t('knowledge.preview.errorTitle')}</div>
               <div className={styles['error-text']}>{error}</div>
             </div>
           ) : previewData ? (
             <div className={styles['file-preview-content-wrapper']}>
               {previewData.isTruncated && (
                 <div className={styles['file-preview-notice']}>
-                  文件内容较长，已截断显示。如需查看完整内容，请点击&quot;外部打开&quot;使用系统程序查看。
+                  {t('knowledge.preview.truncated')}
                 </div>
               )}
               <pre className={styles['file-preview-content']}>{previewData.content}</pre>

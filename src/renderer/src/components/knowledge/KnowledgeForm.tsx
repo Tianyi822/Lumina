@@ -1,14 +1,8 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { EmbeddingConfig } from '@shared/types/config'
 import ModalPortal from '@renderer/components/ui/ModalPortal'
 import styles from './KnowledgeForm.module.css'
-
-/** 预置文本分块策略：精细检索/平衡模式/长上下文 */
-const chunkStrategies = [
-  { name: '精细检索', size: 500, overlap: 100, desc: '适合代码、法律条文，精确匹配' },
-  { name: '平衡模式', size: 1000, overlap: 200, desc: '通用场景，推荐' },
-  { name: '长上下文', size: 2000, overlap: 400, desc: '适合论文、小说，保持段落完整' }
-]
 
 /** 知识库创建表单提交数据 */
 interface KnowledgeFormSubmitData {
@@ -33,6 +27,33 @@ interface KnowledgeFormProps {
 
 /** 知识库创建模态框，包含名称、嵌入模型选择和分块策略配置 */
 export default function KnowledgeForm({ onSubmit, onCancel }: KnowledgeFormProps) {
+  const { t } = useTranslation()
+
+  /** 预置文本分块策略：随界面语言重取，故建于组件内 */
+  const chunkStrategies = useMemo(
+    () => [
+      {
+        name: t('knowledge.form.presetFineName'),
+        size: 500,
+        overlap: 100,
+        desc: t('knowledge.form.presetFineDesc')
+      },
+      {
+        name: t('knowledge.form.presetBalancedName'),
+        size: 1000,
+        overlap: 200,
+        desc: t('knowledge.form.presetBalancedDesc')
+      },
+      {
+        name: t('knowledge.form.presetLongName'),
+        size: 2000,
+        overlap: 400,
+        desc: t('knowledge.form.presetLongDesc')
+      }
+    ],
+    [t]
+  )
+
   const [embeddingModels, setEmbeddingModels] = useState<Record<string, EmbeddingConfig>>({})
   const [loadingModels, setLoadingModels] = useState(true)
 
@@ -139,6 +160,7 @@ export default function KnowledgeForm({ onSubmit, onCancel }: KnowledgeFormProps
       useCustomChunk,
       customChunkSize,
       customChunkOverlap,
+      chunkStrategies,
       chunkStrategy,
       name,
       description,
@@ -160,7 +182,7 @@ export default function KnowledgeForm({ onSubmit, onCancel }: KnowledgeFormProps
         onClick={(e) => e.stopPropagation()}
       >
         <div className={`sm-pane-header ${styles['form-header']}`}>
-          <h2>创建知识库</h2>
+          <h2>{t('knowledge.form.title')}</h2>
           <button className="sm-icon-button close-btn" onClick={handleCancel}>
             ✕
           </button>
@@ -168,32 +190,32 @@ export default function KnowledgeForm({ onSubmit, onCancel }: KnowledgeFormProps
 
         <form className={styles['form-body']} onSubmit={handleSubmit}>
           <div className="form-group">
-            <label htmlFor="kb-name">知识库名称 *</label>
+            <label htmlFor="kb-name">{t('knowledge.form.nameLabel')}</label>
             <input
               id="kb-name"
               value={name}
               type="text"
               className="sm-input"
-              placeholder="例如：产品文档、技术规范..."
+              placeholder={t('knowledge.form.namePlaceholder')}
               required
               onChange={(e) => setName(e.target.value)}
             />
           </div>
 
           <div className="form-group">
-            <label htmlFor="kb-description">描述（可选）</label>
+            <label htmlFor="kb-description">{t('knowledge.form.descriptionLabel')}</label>
             <textarea
               id="kb-description"
               value={description}
               className="sm-textarea"
               rows={3}
-              placeholder="简要描述这个知识库的用途..."
+              placeholder={t('knowledge.form.descriptionPlaceholder')}
               onChange={(e) => setDescription(e.target.value)}
             />
           </div>
 
           <div className="form-group">
-            <label htmlFor="kb-model">嵌入模型 *</label>
+            <label htmlFor="kb-model">{t('knowledge.form.modelLabel')}</label>
             <select
               id="kb-model"
               value={embeddingModel}
@@ -203,26 +225,27 @@ export default function KnowledgeForm({ onSubmit, onCancel }: KnowledgeFormProps
             >
               {loadingModels ? (
                 <option value="" disabled>
-                  加载中...
+                  {t('common.loading')}
                 </option>
               ) : Object.keys(embeddingModels).length === 0 ? (
                 <option value="" disabled>
-                  暂无可用模型，请先在设置中配置嵌入模型
+                  {t('knowledge.form.modelEmpty')}
                 </option>
               ) : null}
               {Object.entries(embeddingModels).map(([id, model]) => (
                 <option key={id} value={id}>
-                  {model.displayName || model.model} ({model.dimensions} 维)
+                  {model.displayName || model.model} (
+                  {t('knowledge.form.modelDimensions', { dimensions: model.dimensions })})
                 </option>
               ))}
             </select>
             <div className={`form-hint ${styles['form-hint']}`}>
-              嵌入模型用于将文本转换为向量，支持语义搜索。创建后不可更改。
+              {t('knowledge.form.modelHint')}
             </div>
           </div>
 
           <div className="form-group">
-            <label>分块策略</label>
+            <label>{t('knowledge.form.chunkLabel')}</label>
             <div className={styles['strategy-options']}>
               {chunkStrategies.map((strategy, index) => (
                 <label
@@ -257,13 +280,13 @@ export default function KnowledgeForm({ onSubmit, onCancel }: KnowledgeFormProps
                   onChange={() => setUseCustomChunk(true)}
                 />
                 <div className={styles['strategy-info']}>
-                  <div className={styles['strategy-name']}>自定义</div>
+                  <div className={styles['strategy-name']}>{t('knowledge.form.customName')}</div>
                   {!useCustomChunk ? (
-                    <div className={styles['strategy-desc']}>手动设置分块参数</div>
+                    <div className={styles['strategy-desc']}>{t('knowledge.form.customDesc')}</div>
                   ) : (
                     <div className={styles['custom-inputs']}>
                       <div className={styles['custom-input']}>
-                        <label>块大小</label>
+                        <label>{t('knowledge.form.chunkSize')}</label>
                         <input
                           value={customChunkSize}
                           type="number"
@@ -276,7 +299,7 @@ export default function KnowledgeForm({ onSubmit, onCancel }: KnowledgeFormProps
                         <span className={styles.unit}>tokens</span>
                       </div>
                       <div className={styles['custom-input']}>
-                        <label>重叠大小</label>
+                        <label>{t('knowledge.form.overlapSize')}</label>
                         <input
                           value={customChunkOverlap}
                           type="number"
@@ -294,20 +317,20 @@ export default function KnowledgeForm({ onSubmit, onCancel }: KnowledgeFormProps
               </label>
             </div>
             <div className={`form-hint ${styles['form-hint']}`}>
-              文本分块策略影响检索精度，创建后不可更改。
+              {t('knowledge.form.chunkHint')}
             </div>
           </div>
 
           <div className="form-actions">
             <button type="button" className="sm-button sm-button--secondary" onClick={handleCancel}>
-              取消
+              {t('common.cancel')}
             </button>
             <button
               type="submit"
               className="sm-button sm-button--primary"
               disabled={!isValid || loadingModels}
             >
-              创建
+              {t('knowledge.form.submit')}
             </button>
           </div>
         </form>

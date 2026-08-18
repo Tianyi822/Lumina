@@ -284,10 +284,11 @@ export interface PaperApi {
     error?: string
   }>
 
-  /** 启动或继续翻译 */
-  startTranslation: (paperId: string) => Promise<{
+  /** 启动或继续翻译（targetLanguage 缺省 'zh'；与原文语言一致时返回 skippedReason: 'sameLanguage'） */
+  startTranslation: (paperId: string, targetLanguage?: 'zh' | 'en') => Promise<{
     success: boolean
     alreadyRunning?: boolean
+    skippedReason?: 'sameLanguage'
     error?: string
   }>
 

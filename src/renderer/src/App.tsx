@@ -4,6 +4,7 @@ import { useConfigStore } from '@renderer/stores/configStore'
 import { usePaperViewStore } from '@renderer/stores/paper'
 import { useSyncStore } from '@renderer/stores/syncStore'
 import { getRuntimePlatform } from '@renderer/composables/runtimePlatformCore'
+import { reconcileLanguageFromConfig } from '@renderer/i18n'
 
 import { useForegroundUpdateCheck } from '@renderer/composables/useForegroundUpdateCheck'
 import NotificationCenter from '@renderer/components/NotificationCenter'
@@ -55,6 +56,7 @@ export default function App() {
     void uiState.initTheme()
     void loadConfigStatus()
     void configStore.loadConfig()
+    void reconcileLanguageFromConfig()
     usePaperViewStore.getState().loadPaperReaderPreferences()
   }, [loadConfigStatus])
 

@@ -1,4 +1,5 @@
 import { type ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useFileStore } from '@renderer/stores'
 import { useFilteredFiles } from '../../hooks/useFilteredFiles'
 import styles from './FileListState.module.css'
@@ -9,6 +10,7 @@ interface FileListStateProps {
 }
 
 export default function FileListState({ children }: FileListStateProps) {
+  const { t } = useTranslation()
   const loading = useFileStore((s) => s.loading)
   const searchQuery = useFileStore((s) => s.searchQuery)
   const filteredFiles = useFilteredFiles()
@@ -18,11 +20,15 @@ export default function FileListState({ children }: FileListStateProps) {
       {loading ? (
         <div className={styles['loading-state']}>
           <span className="sm-spinner sm-spinner--large"></span>
-          <p>加载中...</p>
+          <p>{t('common.loading')}</p>
         </div>
       ) : filteredFiles.length === 0 ? (
         <div className={`sm-empty ${styles['empty-state']}`}>
-          {searchQuery ? <p>未找到匹配的文件</p> : <p>暂无文件，请上传文件</p>}
+          {searchQuery ? (
+            <p>{t('knowledge.common.noMatchingFiles')}</p>
+          ) : (
+            <p>{t('knowledge.fileManager.emptyPool')}</p>
+          )}
         </div>
       ) : (
         <div className={styles['file-list']}>{children}</div>

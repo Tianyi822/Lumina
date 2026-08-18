@@ -1,4 +1,5 @@
 import { useRef, useCallback, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { NoteEditorState } from '../composables/paperAnnotationComposerTypes'
 import styles from './PaperAnnotationNoteEditor.module.css'
 
@@ -37,6 +38,7 @@ export default function PaperAnnotationNoteEditor({
   onClose,
   onMove
 }: PaperAnnotationNoteEditorProps) {
+  const { t } = useTranslation()
   const dragStateRef = useRef<PointerState | null>(null)
 
   const stopDrag = useCallback(() => {
@@ -114,7 +116,9 @@ export default function PaperAnnotationNoteEditor({
             'paper-annotation-note-editor__title'
           ].join(' ')}
         >
-          {isExistingNote ? '编辑笔记' : '记录笔记'}
+          {isExistingNote
+            ? t('paper.annotation.noteEditor.titleEdit')
+            : t('paper.annotation.noteEditor.titleCreate')}
         </div>
         <button
           className={[
@@ -122,7 +126,7 @@ export default function PaperAnnotationNoteEditor({
             'paper-annotation-note-editor__close'
           ].join(' ')}
           type="button"
-          aria-label="关闭笔记编辑器"
+          aria-label={t('paper.annotation.noteEditor.closeAria')}
           onMouseDown={(e) => e.stopPropagation()}
           onClick={onClose}
         >
@@ -144,7 +148,7 @@ export default function PaperAnnotationNoteEditor({
           'paper-annotation-note-editor__input'
         ].join(' ')}
         rows={7}
-        placeholder="写下这段内容的笔记..."
+        placeholder={t('paper.annotation.noteEditor.placeholder')}
         onChange={(e) => onCommentChange(e.target.value)}
       />
       <div
@@ -167,7 +171,7 @@ export default function PaperAnnotationNoteEditor({
               disabled={saving}
               onClick={onDeleteNote}
             >
-              删除笔记
+              {t('paper.annotation.noteEditor.delete')}
             </button>
             <button
               className="sm-button sm-button--primary"
@@ -175,7 +179,9 @@ export default function PaperAnnotationNoteEditor({
               disabled={saving || !canUpdate}
               onClick={onUpdateNote}
             >
-              {saving ? '更新中...' : '更新笔记'}
+              {saving
+                ? t('paper.annotation.noteEditor.updateSaving')
+                : t('paper.annotation.noteEditor.update')}
             </button>
           </>
         ) : (
@@ -185,7 +191,9 @@ export default function PaperAnnotationNoteEditor({
             disabled={saving}
             onClick={onSave}
           >
-            {saving ? '保存中...' : '保存笔记'}
+            {saving
+              ? t('paper.annotation.noteEditor.createSaving')
+              : t('paper.annotation.noteEditor.create')}
           </button>
         )}
       </div>
@@ -206,7 +214,7 @@ export default function PaperAnnotationNoteEditor({
             'paper-annotation-note-editor__hint'
           ].join(' ')}
         >
-          该笔记只显示在当前译文中；如果之后删除译文，对应标注也会一起删除。
+          {t('paper.annotation.noteEditor.syncNotice')}
         </p>
       )}
     </div>

@@ -14,6 +14,7 @@ import { readFile, stat } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
 import { join, resolve, sep } from 'node:path'
 import { logger } from '@main/services/logger'
+import { t } from '@main/services/i18n'
 import {
   KNOWLEDGE_BASES_FILE_NAME,
   FILES_METADATA_FILE_NAME,
@@ -194,10 +195,15 @@ export class KnowledgeSyncService {
   }
 
   async syncNow(): Promise<SyncResult<KnowledgeSyncResult>> {
-    if (!this.isConnected())
-      return { success: false, code: 'not_connected', error: '尚未连接同步服务' }
+    if (!this.isConnected()) {
+      return { success: false, code: 'not_connected', error: t('notifications.sync.notConnected') }
+    }
     if (Date.now() < this.rateLimitedUntil) {
-      return { success: false, code: 'rate_limited', error: '同步请求被限流，请稍后重试' }
+      return {
+        success: false,
+        code: 'rate_limited',
+        error: t('notifications.sync.rateLimitedRetryLater')
+      }
     }
     this.kickoff()
     if (this.chain) await this.chain
@@ -206,7 +212,7 @@ export class KnowledgeSyncService {
       return {
         success: false,
         code: Date.now() < this.rateLimitedUntil ? 'rate_limited' : 'unknown_error',
-        error: this.state.lastError ?? '知识库同步失败',
+        error: this.state.lastError ?? t('notifications.sync.knowledgeSyncFallback'),
         data: last ?? undefined
       }
     }
@@ -242,7 +248,9 @@ export class KnowledgeSyncService {
         phase: failed ? 'error' : 'idle',
         lastSyncAt: new Date().toISOString(),
         lastResult: result,
-        lastError: failed ? `${result.errors.length} 项知识库同步失败` : null
+        lastError: failed
+          ? t('notifications.sync.lastErrorKnowledge', { count: result.errors.length })
+          : null
       })
       logger.info('知识库同步完成', 'main', {
         uploaded: result.uploaded,
@@ -312,10 +320,10 @@ export class KnowledgeSyncService {
     try {
       fileItems = JSON.parse(fmBytes.toString('utf-8'))
     } catch {
-      throw new Error('files-metadata.json 解析失败，中止本轮同步（避免误判文件缺失而删除远端）')
+      throw new Error(t('notifications.sync.filesMetadataParseAborted'))
     }
     if (!Array.isArray(fileItems)) {
-      throw new Error('files-metadata.json 内容非法（非数组），中止本轮同步')
+      throw new Error(t('notifications.sync.filesMetadataInvalidAborted'))
     }
     this.scannedFileItems = fileItems as FileItem[]
     for (const file of this.scannedFileItems) {
@@ -384,7 +392,9 @@ export class KnowledgeSyncService {
         this.rateLimitedUntil = Date.now() + retryAfterMs
       }
       throw new Error(
-        `拉取 session-files 列表失败：${remoteList.error ?? remoteList.code ?? '未知错误'}`
+        t('notifications.sync.listSessionFilesFailed', {
+          detail: remoteList.error ?? remoteList.code ?? t('notifications.sync.unknownError')
+        })
       )
     }
     const remoteMap = new Map(
@@ -411,7 +421,10 @@ export class KnowledgeSyncService {
         tracker.setTombstone(key, new Date().toISOString())
         if (del.success && del.data?.deleted) result.deletedRemote++
       } else {
-        result.errors.push({ key, message: `删除远端失败：${del.error ?? del.code}` })
+        result.errors.push({
+          key,
+          message: t('notifications.sync.remoteDeleteFailed', { detail: del.error ?? del.code })
+        })
       }
     }
 
@@ -424,7 +437,7 @@ export class KnowledgeSyncService {
 
       const parsed = parseKnowledgeKey(key)
       if (!parsed) {
-        result.errors.push({ key, message: 'key 解析失败' })
+        result.errors.push({ key, message: t('notifications.sync.keyParseFailed') })
         continue
       }
 
@@ -435,7 +448,12 @@ export class KnowledgeSyncService {
           tracker.setTombstone(key, new Date().toISOString())
           if (del.success && del.data?.deleted) result.deletedRemote++
         } else {
-          result.errors.push({ key, message: `迁移删除旧 file key 失败：${del.error ?? del.code}` })
+          result.errors.push({
+            key,
+            message: t('notifications.sync.legacyFileKeyMigrationDeleteFailed', {
+              detail: del.error ?? del.code
+            })
+          })
         }
         continue
       }
@@ -450,7 +468,10 @@ export class KnowledgeSyncService {
       const dl = await client.getSessionFile(key)
       if (!dl.success || !dl.data) {
         if (dl.code !== 'session_file_not_found')
-          result.errors.push({ key, message: `下载失败：${dl.error ?? dl.code}` })
+          result.errors.push({
+            key,
+            message: t('notifications.sync.itemDownloadFailed', { detail: dl.error ?? dl.code })
+          })
         continue
       }
 
@@ -458,7 +479,7 @@ export class KnowledgeSyncService {
       try {
         plainBytes = openKnowledgeFile(dek, dl.data.bytes)
       } catch {
-        result.errors.push({ key, message: '解密失败' })
+        result.errors.push({ key, message: t('notifications.sync.decryptFailed') })
         continue
       }
 
@@ -469,7 +490,9 @@ export class KnowledgeSyncService {
       } catch (error) {
         result.errors.push({
           key,
-          message: `内容应用失败：${error instanceof Error ? error.message : String(error)}`
+          message: t('notifications.sync.contentApplyFailed', {
+            detail: error instanceof Error ? error.message : String(error)
+          })
         })
         continue
       }
@@ -506,7 +529,12 @@ export class KnowledgeSyncService {
         if (baseline.size !== local.size || baseline.mtime !== local.mtime) continue
         const del = await this._deps.fileStorage.applySyncedFileDeletion(parsed.fileId)
         if (!del.success) {
-          result.errors.push({ key, message: `本地删除失败：${del.error ?? '未知'}` })
+          result.errors.push({
+            key,
+            message: t('notifications.sync.localDeleteFailed', {
+              detail: del.error ?? t('notifications.sync.unknown')
+            })
+          })
           continue
         }
         tracker.removeKey(key)
@@ -646,7 +674,7 @@ export class KnowledgeSyncService {
         // 409：拉最新 → 按 key 类型 merge → 落盘 → 重读
         const latest = await client.getSessionFile(key)
         if (!latest.success || !latest.data) {
-          return { resolved: 'failed', error: '冲突后拉取失败' }
+          return { resolved: 'failed', error: t('notifications.sync.conflictFetchFailed') }
         }
         const nextBase = latest.data.version ?? 0
 
@@ -660,7 +688,7 @@ export class KnowledgeSyncService {
         try {
           remoteBytes = openKnowledgeFile(dek, latest.data.bytes)
         } catch {
-          return { resolved: 'failed', error: '冲突合并解密失败' }
+          return { resolved: 'failed', error: t('notifications.sync.conflictMergeDecryptFailed') }
         }
         try {
           if (parsed.kind === 'bases') {
@@ -672,7 +700,10 @@ export class KnowledgeSyncService {
                 merge.merged
               )
               if (!applyResult.success) {
-                return { resolved: 'failed', error: '冲突合并落盘失败' }
+                return {
+                  resolved: 'failed',
+                  error: t('notifications.sync.conflictMergeApplyFailed')
+                }
               }
               for (const kb of merge.merged) {
                 if (
@@ -693,18 +724,24 @@ export class KnowledgeSyncService {
                 merge.merged
               )
               if (!applyResult.success) {
-                return { resolved: 'failed', error: '冲突合并落盘失败' }
+                return {
+                  resolved: 'failed',
+                  error: t('notifications.sync.conflictMergeApplyFailed')
+                }
               }
             }
           }
         } catch {
-          return { resolved: 'failed', error: '冲突合并 JSON 解析失败' }
+          return {
+            resolved: 'failed',
+            error: t('notifications.sync.conflictMergeJsonParseFailed')
+          }
         }
 
         // 重读本地合并后产物
         const reread = await this.readLocalEntry(parsed)
         if (!reread) {
-          return { resolved: 'failed', error: '冲突合并后重读本地失败' }
+          return { resolved: 'failed', error: t('notifications.sync.conflictMergeRereadFailed') }
         }
         currentBytes = reread.bytes
         return { resolved: 'rebased', bytes: reread.bytes, nextBase }
@@ -776,13 +813,21 @@ export class KnowledgeSyncService {
         const { blockId, ciphertext } = sealKnowledgeBlock(dek, chunk)
         const missing = await client.blocksMissing([blockId])
         if (!missing.success || !missing.data) {
-          throw new Error(`查询块缺失失败：${missing.error ?? missing.code ?? '未知错误'}`)
+          throw new Error(
+            t('notifications.sync.blocksMissingQueryFailed', {
+              detail: missing.error ?? missing.code ?? t('notifications.sync.unknownError')
+            })
+          )
         }
         if (missing.data.missing.includes(blockId)) {
           const putBlock = await client.putBlock(blockId, ciphertext)
           // 失败必须抛错中止：否则 manifest 会引用 relay 上不存在的块
           if (!putBlock.success) {
-            throw new Error(`块上传失败：${putBlock.error ?? putBlock.code ?? '未知错误'}`)
+            throw new Error(
+              t('notifications.sync.blockUploadFailed', {
+                detail: putBlock.error ?? putBlock.code ?? t('notifications.sync.unknownError')
+              })
+            )
           }
           if (putBlock.data?.created) result.blocksUploaded++
         }
@@ -804,7 +849,9 @@ export class KnowledgeSyncService {
     } catch (error) {
       result.errors.push({
         key,
-        message: `文件切块/上传失败：${error instanceof Error ? error.message : String(error)}`
+        message: t('notifications.sync.fileChunkUploadFailed', {
+          detail: error instanceof Error ? error.message : String(error)
+        })
       })
     }
   }
@@ -833,7 +880,7 @@ export class KnowledgeSyncService {
     }
     const manifestBytes = new TextEncoder().encode(JSON.stringify(manifest))
     if (manifestBytes.length + CIPHER_OVERHEAD_BYTES > MAX_SESSION_FILE_BYTES) {
-      result.errors.push({ key, message: '文件块清单超过 4MiB 上限' })
+      result.errors.push({ key, message: t('notifications.sync.fileBlockManifestOverLimit') })
       return
     }
     // manifest 内容指纹（忽略 updatedAt）
@@ -854,7 +901,9 @@ export class KnowledgeSyncService {
       if (put.code !== 'stale_session_file') {
         result.errors.push({
           key,
-          message: `文件块清单上行失败：${put.error ?? put.code ?? '未知错误'}`
+          message: t('notifications.sync.fileBlockManifestUploadFailed', {
+            detail: put.error ?? put.code ?? t('notifications.sync.unknownError')
+          })
         })
         return
       }
@@ -863,7 +912,10 @@ export class KnowledgeSyncService {
       base = latest.data?.version ?? 0
     }
     if (!putOk) {
-      result.errors.push({ key, message: '文件块清单版本冲突重试耗尽' })
+      result.errors.push({
+        key,
+        message: t('notifications.sync.fileBlockManifestCasRetryExhausted')
+      })
       return
     }
 
@@ -907,19 +959,24 @@ export class KnowledgeSyncService {
     const dl = await client.getSessionFile(key)
     if (!dl.success || !dl.data) {
       if (dl.code !== 'session_file_not_found')
-        result.errors.push({ key, message: `下载文件块清单失败：${dl.error ?? dl.code}` })
+        result.errors.push({
+          key,
+          message: t('notifications.sync.fileBlockManifestDownloadFailed', {
+            detail: dl.error ?? dl.code
+          })
+        })
       return
     }
     let manifestBytes: Uint8Array
     try {
       manifestBytes = openKnowledgeManifest(dek, dl.data.bytes)
     } catch {
-      result.errors.push({ key, message: '文件块清单解密失败' })
+      result.errors.push({ key, message: t('notifications.sync.fileBlockManifestDecryptFailed') })
       return
     }
     const manifest = this.parseKnowledgeFileManifest(manifestBytes)
     if (!manifest) {
-      result.errors.push({ key, message: '文件块清单解析失败' })
+      result.errors.push({ key, message: t('notifications.sync.fileBlockManifestParseFailed') })
       return
     }
 
@@ -939,7 +996,10 @@ export class KnowledgeSyncService {
         }
       }
       if (!blockBytes) {
-        result.errors.push({ key, message: `块下载失败：${blockId}` })
+        result.errors.push({
+          key,
+          message: t('notifications.sync.blockDownloadFailed', { blockId })
+        })
         return
       }
       result.blocksDownloaded++
@@ -950,14 +1010,19 @@ export class KnowledgeSyncService {
     const reassembled = Buffer.concat(blockBuffers)
     const hash = createHash('sha256').update(reassembled).digest('hex')
     if (hash !== manifest.sha256) {
-      result.errors.push({ key, message: '文件下载 sha256 校验失败' })
+      result.errors.push({ key, message: t('notifications.sync.fileDownloadSha256Invalid') })
       return
     }
 
     // 落盘
     const applyResult = await this._deps.fileStorage.applySyncedFileContent(fileId, reassembled)
     if (!applyResult.success) {
-      result.errors.push({ key, message: `文件落盘失败：${applyResult.error ?? '未知'}` })
+      result.errors.push({
+        key,
+        message: t('notifications.sync.fileApplyFailed', {
+          detail: applyResult.error ?? t('notifications.sync.unknown')
+        })
+      })
       return
     }
 

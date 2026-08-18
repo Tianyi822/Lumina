@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import type {
   AttachedDocument,
   AttachedImage,
@@ -8,6 +9,7 @@ import type {
 } from '@renderer/types'
 import type { PaperQuote } from '@shared/types/chat'
 import type { CapabilitySuggestionData } from '@renderer/stores/paperChatStreamStore'
+import { i18n } from '@renderer/i18n'
 import SvgIcon from '@renderer/components/icons/SvgIcon'
 import {
   usePaperChatDocumentUploadStore,
@@ -125,6 +127,7 @@ export default function PaperChatInput({
   onSend,
   onStop
 }: PaperChatInputProps) {
+  const { t } = useTranslation()
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const isComposingRef = useRef(false)
@@ -187,7 +190,7 @@ export default function PaperChatInput({
           .getState()
           .addImages(sessionId, imageFiles)
         if (result.errors.length > 0) {
-          setAttachmentError(result.errors.join('\uff1b'))
+          setAttachmentError(result.errors.join(i18n.t('common.listSeparator')))
         }
       }
       if (documentFiles.length > 0) {
@@ -245,14 +248,14 @@ export default function PaperChatInput({
             <section className={inputStyles['paper-chat-input__interaction-card']}>
               <div className={inputStyles['paper-chat-input__interaction-header']}>
                 <span className={inputStyles['paper-chat-input__interaction-title']}>
-                  {quickReply.question || '\u9009\u62e9\u4e00\u4e2a\u56de\u590d'}
+                  {quickReply.question || t('paper.chat.input.replyPlaceholder')}
                 </span>
                 <button
                   className={inputStyles['paper-chat-input__interaction-button']}
                   type="button"
                   onClick={() => onDismissQuickReply?.(quickReply.messageId)}
                 >
-                  \u81ea\u5b9a\u4e49
+                  {t('paper.chat.input.custom')}
                 </button>
               </div>
               <div className={toolbarStyles['paper-chat-input-toolbar']}>
@@ -274,7 +277,7 @@ export default function PaperChatInput({
             <section className={inputStyles['paper-chat-input__interaction-card']}>
               <div className={inputStyles['paper-chat-input__interaction-header']}>
                 <span className={inputStyles['paper-chat-input__interaction-title']}>
-                  建议开启能力
+                  {t('paper.chat.input.suggestCapabilities')}
                 </span>
                 <button
                   className={inputStyles['paper-chat-input__interaction-button']}
@@ -286,7 +289,7 @@ export default function PaperChatInput({
                     onHideCapabilitySuggestion?.()
                   }}
                 >
-                  忽略
+                  {t('paper.chat.input.ignore')}
                 </button>
               </div>
               <div className={toolbarStyles['paper-chat-input-toolbar']}>
@@ -301,7 +304,7 @@ export default function PaperChatInput({
                       onHideCapabilitySuggestion?.()
                     }}
                   >
-                    开启 {cap.displayName}
+                    {t('paper.chat.input.enableCapability', { name: cap.displayName })}
                   </button>
                 ))}
               </div>
@@ -318,7 +321,9 @@ export default function PaperChatInput({
           {showUserInteractionDock && userInteraction && (
             <UserInteractionList
               interaction={userInteraction}
-              onSelect={(option) => handleSend(`我选择：${option.value}`)}
+              onSelect={(option) =>
+                handleSend(t('paper.chat.input.selectOption', { value: option.value }))
+              }
               onLater={onHideUserInteraction}
             />
           )}
@@ -327,7 +332,9 @@ export default function PaperChatInput({
 
       {attachmentError && (
         <div className={inputStyles['paper-chat-input__warning']}>
-          <span className={inputStyles['paper-chat-input__warning-label']}>\u9644\u4ef6</span>
+          <span className={inputStyles['paper-chat-input__warning-label']}>
+            {t('paper.chat.input.attachment')}
+          </span>
           <span>{attachmentError}</span>
         </div>
       )}
@@ -408,15 +415,15 @@ export default function PaperChatInput({
               />
               <span className={quoteStyles['paper-chat-input__pending-quote-label']}>
                 {quote.viewKind === 'original'
-                  ? '\u539f\u6587\u5f15\u7528'
-                  : '\u8bd1\u6587\u5f15\u7528'}
+                  ? t('paper.chat.quoteOriginal')
+                  : t('paper.chat.quoteTranslation')}
               </span>
               <span className={quoteStyles['paper-chat-input__pending-quote-preview']}>
                 {quotePreview(quote)}
               </span>
               {quote.surroundingContext?.contextualText.trim() && (
                 <span className={quoteStyles['paper-chat-input__pending-quote-context']}>
-                  \u4e0a\u4e0b\u6587
+                  {t('paper.chat.context')}
                 </span>
               )}
               <button
@@ -454,8 +461,8 @@ export default function PaperChatInput({
           disabled={disabled || isSending}
           placeholder={
             quickReply
-              ? '\u8f93\u5165\u81ea\u5b9a\u4e49\u56de\u7b54\uff0c\u6216\u70b9\u51fb\u4e0a\u65b9\u5feb\u6377\u9009\u9879 ...'
-              : '\u5c3d\u7ba1\u95ee'
+              ? t('paper.chat.input.customPlaceholder')
+              : t('paper.chat.input.askPlaceholder')
           }
           onChange={(event) => onUpdateInput(event.target.value)}
           // 从粘贴板中提取文件（如截图），自动触发附件上传
@@ -492,7 +499,7 @@ export default function PaperChatInput({
           <div className={textareaStyles['paper-chat-input__drag-overlay']}>
             <div className={textareaStyles['paper-chat-input__drag-hint']}>
               <SvgIcon name="attachment" size={24} />
-              <p>\u91ca\u653e\u4ee5\u6dfb\u52a0\u9644\u4ef6</p>
+              <p>{t('paper.chat.input.dropToAttach')}</p>
             </div>
           </div>
         )}

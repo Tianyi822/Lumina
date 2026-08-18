@@ -1,10 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 /* eslint-disable @typescript-eslint/explicit-function-return-type */
-import {
-  PAPER_ANNOTATION_NOTE_CONFLICT_MESSAGE,
-  findPaperAnnotationNoteConflict
-} from './paperAnnotationConflicts.ts'
+import { findPaperAnnotationNoteConflict } from './paperAnnotationConflicts.ts'
 
 function createAnchor(startOffset, endOffset, selectedText = 'selected') {
   return {
@@ -167,8 +164,4 @@ test('findPaperAnnotationNoteConflict 支持忽略当前笔记且不再按异常
 
   assert.equal(conflict?.annotation.id, 'annotation-invalid')
   assert.equal(conflict?.reason, 'range_overlap')
-  assert.equal(
-    PAPER_ANNOTATION_NOTE_CONFLICT_MESSAGE,
-    '该段已有笔记覆盖了选中范围，请调整选区或编辑已有笔记'
-  )
 })

@@ -1,3 +1,4 @@
+import { t } from '@main/services/i18n'
 import { logger } from '@main/services/logger'
 import type { MCPTool, MCPToolCallResult } from '@shared/types/mcp'
 import { knowledgeCoreService } from './KnowledgeCoreService'
@@ -112,7 +113,7 @@ class KnowledgeToolService {
         default:
           return {
             success: false,
-            error: `未知工具: ${name}`
+            error: t('notifications.knowledge.unknownTool', { name })
           }
       }
     } catch (error) {
@@ -141,7 +142,7 @@ class KnowledgeToolService {
     if (!query) {
       return {
         success: false,
-        error: '缺少必需参数: query'
+        error: t('notifications.knowledge.missingParamQuery')
       }
     }
 
@@ -246,7 +247,7 @@ class KnowledgeToolService {
     if (!knowledgeBaseId) {
       return {
         success: false,
-        error: '缺少必需参数: knowledgeBaseId'
+        error: t('notifications.knowledge.missingParamKnowledgeBaseId')
       }
     }
 
@@ -260,8 +261,8 @@ class KnowledgeToolService {
       return {
         success: false,
         error: selectedKnowledgeBaseIds?.length
-          ? `知识库 ${knowledgeBaseId} 不在当前可用的知识库范围内`
-          : `知识库不存在: ${knowledgeBaseId}`
+          ? t('notifications.knowledge.kbNotInRange', { kbId: knowledgeBaseId })
+          : t('notifications.knowledge.kbNotFoundWithId', { kbId: knowledgeBaseId })
       }
     }
 

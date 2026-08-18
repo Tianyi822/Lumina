@@ -1,5 +1,6 @@
 import { SessionFactory } from './SessionFactory'
 import { SessionType } from '@main/types/session'
+import { t } from '@main/services/i18n'
 import { DefaultSessionFactory } from './DefaultSessionFactory'
 import { ToolSessionFactory } from './ToolSessionFactory'
 import { KnowledgeSessionFactory } from './KnowledgeSessionFactory'
@@ -58,7 +59,7 @@ export class SessionFactoryRegistry {
   getFactory(type: SessionType): SessionFactory {
     const factory = this.factories.get(type)
     if (!factory) {
-      throw new Error(`未找到类型为 ${type} 的会话工厂`)
+      throw new Error(t('notifications.session.factoryNotFound', { type }))
     }
     return factory
   }

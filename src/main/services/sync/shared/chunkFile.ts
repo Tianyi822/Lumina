@@ -7,6 +7,7 @@
 import { createReadStream } from 'node:fs'
 import { stat } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
+import { t } from '@main/services/i18n'
 
 /** 明文块上限：1MiB - 64B（预留 AEAD nonce24+tag16 开销，保证密文 ≤ relay maxBlockBytes=1MiB） */
 export const CHUNK_BYTES = 1024 * 1024 - 64
@@ -24,7 +25,9 @@ export async function chunkFile(
 ): Promise<{ chunks: number; sha256: string; size: number }> {
   const st = await stat(filePath)
   if (st.size > MAX_FILE_BYTES) {
-    throw new Error(`文件超过 ${MAX_FILE_BYTES} 字节上限：${filePath}`)
+    throw new Error(
+      t('notifications.sync.fileOverSizeLimit', { limit: MAX_FILE_BYTES, path: filePath })
+    )
   }
   const hash = createHash('sha256')
   let chunks = 0

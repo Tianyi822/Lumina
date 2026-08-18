@@ -13,6 +13,8 @@ import {
   type PDFDocumentProxy,
   type RenderTask
 } from 'pdfjs-dist'
+import { useTranslation } from 'react-i18next'
+import { i18n } from '@renderer/i18n'
 import { usePaperViewStore } from '@renderer/stores/paper'
 import { useZoomAnchor } from './composables/useZoomAnchor'
 import styles from './PaperOriginalPdfView.module.css'
@@ -65,6 +67,7 @@ function getRenderScale(zoomLevel: number): number {
 
 /** PDF 原件查看器组件，使用 pdfjs-dist 渲染 PDF 页面，支持缩放、滚动持久化和 IntersectionObserver 懒渲染 */
 export default function PaperOriginalPdfView({ paperId }: PaperOriginalPdfViewProps) {
+  const { t } = useTranslation()
   const zoomLevel = usePaperViewStore((state) => state.zoomLevel)
   const handleWheelZoom = usePaperViewStore((state) => state.handleWheelZoom)
   const setOriginalPdfScrollPosition = usePaperViewStore(
@@ -171,7 +174,7 @@ export default function PaperOriginalPdfView({ paperId }: PaperOriginalPdfViewPr
           willReadFrequently: false
         })
         if (!canvasContext) {
-          throw new Error('创建 Canvas 2D 上下文失败')
+          throw new Error(i18n.t('notifications.paper.canvas2dContextFailed'))
         }
 
         // 仅在尺寸变化时更新 Canvas 大小，避免不必要的重设
@@ -381,7 +384,7 @@ export default function PaperOriginalPdfView({ paperId }: PaperOriginalPdfViewPr
         // 通过 fetch 获取 PDF 二进制数据（走 lumina:// 协议自定义拦截）
         const response = await fetch(sourcePdfUrl)
         if (!response.ok) {
-          throw new Error(`PDF 请求失败: ${response.status}`)
+          throw new Error(i18n.t('notifications.paper.pdfFetchFailed', { status: response.status }))
         }
 
         const source = await response.arrayBuffer()
@@ -615,7 +618,11 @@ export default function PaperOriginalPdfView({ paperId }: PaperOriginalPdfViewPr
     return (
       <div className={styles['paper-original-pdf-view']}>
         <div className={styles['paper-original-pdf-view__empty']}>
-          <p>{sourcePdfUrl ? documentState.error || '加载 PDF 原件失败' : '未选择论文'}</p>
+          <p>
+            {sourcePdfUrl
+              ? documentState.error || t('paper.pdf.loadFailed')
+              : t('paper.pdf.noPaperSelected')}
+          </p>
         </div>
       </div>
     )
@@ -647,12 +654,12 @@ export default function PaperOriginalPdfView({ paperId }: PaperOriginalPdfViewPr
                     ref={(element) => setCanvasElement(page.pageIndex, element)}
                     className={styles['paper-original-pdf-view__canvas']}
                     role="img"
-                    aria-label={`第 ${page.pageIndex + 1} 页 PDF 原件`}
+                    aria-label={t('paper.pdf.pageAria', { index: page.pageIndex + 1 })}
                   />
                   {/* 页面级渲染失败时显示错误提示 */}
                   {pageState.status === 'error' && (
                     <div className={styles['paper-original-pdf-view__page-state']}>
-                      {pageState.error || '页面渲染失败'}
+                      {pageState.error || t('paper.pdf.renderFailed')}
                     </div>
                   )}
                 </section>
@@ -665,7 +672,7 @@ export default function PaperOriginalPdfView({ paperId }: PaperOriginalPdfViewPr
       {/* 文档整体加载中显示 loading 状态 */}
       {documentState.status === 'loading' && (
         <div className={styles['paper-original-pdf-view__loading']}>
-          <p>正在加载 PDF 原件...</p>
+          <p>{t('paper.pdf.loading')}</p>
         </div>
       )}
     </div>

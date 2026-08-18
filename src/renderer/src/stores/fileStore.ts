@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { i18n } from '@renderer/i18n'
 import type { FileItem } from '@renderer/types'
 import { filterFilesByQuery } from '@renderer/utils/filterFilesByQuery'
 import { formatFileSize } from '@shared/utils'
@@ -89,7 +90,10 @@ export const useFileStore = create<FileState>()((set, get) => ({
         return { success: true, file: result.file, isDuplicate: result.isDuplicate }
       }
 
-      return { success: false, error: result.error || '上传失败' }
+      return {
+        success: false,
+        error: result.error || i18n.t('notifications.knowledge.uploadFailed')
+      }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
       logError('上传文件失败', error, { fileName: file.name })
@@ -112,7 +116,9 @@ export const useFileStore = create<FileState>()((set, get) => ({
           uploaded.push(result.file)
         }
       } else {
-        errors.push(`${file.name}: ${result.error || '上传失败'}`)
+        errors.push(
+          `${file.name}: ${result.error || i18n.t('notifications.knowledge.uploadFailed')}`
+        )
       }
     }
 

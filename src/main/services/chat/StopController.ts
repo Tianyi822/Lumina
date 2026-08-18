@@ -1,5 +1,6 @@
 import { logger } from '../logger'
 import { DEFAULT_GENERATION_TIMEOUT } from '@main/constants/timeouts'
+import { t } from '@main/services/i18n'
 
 /**
  * 停止控制器
@@ -111,7 +112,7 @@ export class StopController {
   ): Promise<T> {
     return new Promise((resolve, reject) => {
       const timeoutId = setTimeout(() => {
-        reject(new Error(`${operationName} 超时`))
+        reject(new Error(t('notifications.chat.operationTimeout', { operation: operationName })))
       }, timeoutMs)
 
       const stopCheckInterval = setInterval(() => {

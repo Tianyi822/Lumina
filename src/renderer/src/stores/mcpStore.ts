@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { i18n } from '@renderer/i18n'
 import type { MCPServerConfig, MCPConnectionStatus, MCPTool } from '@renderer/types'
 import { deepClone } from '@shared/utils'
 
@@ -140,12 +141,14 @@ export const useMCPStore = create<MCPState>()(
         try {
           const configsResult = await window.api.mcp.listConfigs()
           if (!configsResult.success) {
-            set({ error: configsResult.error || '获取配置列表失败' })
+            set({ error: configsResult.error || i18n.t('notifications.settings.mcp.loadFailed') })
             return
           }
           const statusesResult = await window.api.mcp.getStatus()
           if (!statusesResult.success) {
-            set({ error: statusesResult.error || '获取状态失败' })
+            set({
+              error: statusesResult.error || i18n.t('notifications.settings.mcp.loadStatusFailed')
+            })
             return
           }
           set({ configs: configsResult.data, statuses: statusesResult.data })
@@ -165,7 +168,7 @@ export const useMCPStore = create<MCPState>()(
             await get().loadConfigs()
             return true
           }
-          set({ error: result.error || '保存失败' })
+          set({ error: result.error || i18n.t('notifications.settings.mcp.saveFailed') })
           return false
         } catch (e) {
           set({ error: e instanceof Error ? e.message : String(e) })
@@ -184,7 +187,7 @@ export const useMCPStore = create<MCPState>()(
             await get().loadConfigs()
             return true
           }
-          set({ error: result.error || '删除失败' })
+          set({ error: result.error || i18n.t('notifications.settings.mcp.deleteFailed') })
           return false
         } catch (e) {
           set({ error: e instanceof Error ? e.message : String(e) })
@@ -208,10 +211,10 @@ export const useMCPStore = create<MCPState>()(
           const result = await window.api.mcp.connect(name)
           if (result.success) {
             await get().loadConfigs()
-            onSuccess?.(`已连接到 ${name}`)
+            onSuccess?.(i18n.t('notifications.settings.mcp.connectedTo', { name }))
             return true
           }
-          onError?.(result.error || '连接失败')
+          onError?.(result.error || i18n.t('notifications.settings.mcp.connectFailed'))
           return false
         } catch (e) {
           onError?.(e instanceof Error ? e.message : String(e))
@@ -229,10 +232,10 @@ export const useMCPStore = create<MCPState>()(
             await get().loadConfigs()
             return true
           }
-          onError?.(result.error || '断开连接失败')
+          onError?.(result.error || i18n.t('notifications.settings.mcp.disconnectFailed'))
           return false
         } catch {
-          onError?.('断开连接失败')
+          onError?.(i18n.t('notifications.settings.mcp.disconnectFailed'))
           return false
         }
       },
@@ -243,13 +246,17 @@ export const useMCPStore = create<MCPState>()(
         try {
           const result = await window.api.mcp.testConnection(deepClone(config))
           if (result.success) {
-            onSuccess?.(`连接测试成功，找到 ${result.tools?.length || 0} 个工具`)
+            onSuccess?.(
+              i18n.t('notifications.settings.mcp.testFoundTools', {
+                count: result.tools?.length || 0
+              })
+            )
             return true
           }
-          onError?.(result.error || '连接测试失败')
+          onError?.(result.error || i18n.t('notifications.settings.mcp.testFailed'))
           return false
         } catch {
-          onError?.('连接测试失败')
+          onError?.(i18n.t('notifications.settings.mcp.testFailed'))
           return false
         } finally {
           set({ testing: null })
@@ -348,19 +355,21 @@ export const useMCPStore = create<MCPState>()(
 
       /** 验证 MCP 配置是否合法（名称唯一性、必填字段） */
       validateConfig: (config, existingNames) => {
-        if (!config.name.trim()) return '请输入服务器名称'
+        if (!config.name.trim()) return i18n.t('notifications.settings.mcp.validateNameRequired')
 
         const state = get()
         const namesToCheck = state.editingConfig
           ? existingNames.filter((n) => n !== state.editingConfig?.name)
           : existingNames
 
-        if (namesToCheck.some((c) => c === config.name)) return '该名称已存在'
+        if (namesToCheck.some((c) => c === config.name))
+          return i18n.t('notifications.settings.mcp.formNameExists')
 
         if (config.transport === 'stdio') {
-          if (!config.command?.trim()) return '请输入执行命令'
+          if (!config.command?.trim())
+            return i18n.t('notifications.settings.mcp.formCommandRequired')
         } else {
-          if (!config.url?.trim()) return '请输入服务地址'
+          if (!config.url?.trim()) return i18n.t('notifications.settings.mcp.formUrlRequired')
         }
 
         return null

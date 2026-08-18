@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { KnowledgeBase, MCPTool } from '@renderer/types'
 import SvgIcon from '@renderer/components/icons/SvgIcon'
 import PaperChatMcpToolsPanel from './PaperChatMcpToolsPanel'
@@ -44,6 +45,7 @@ export default function PaperChatToolSelectionBar({
   onStop,
   children
 }: PaperChatToolSelectionBarProps) {
+  const { t } = useTranslation()
   // 发送中或 disabled 时禁用所有工具栏操作
   const controlsDisabled = Boolean(disabled || isSending)
   const [showMenu, setShowMenu] = useState(false)
@@ -125,7 +127,7 @@ export default function PaperChatToolSelectionBar({
               .join(' ')}
             type="button"
             disabled={controlsDisabled}
-            title="添加附件或配置工具"
+            title={t('paper.chat.input.addAttachmentOrTool')}
             onClick={toggleMenu}
           >
             <SvgIcon name="add" size={20} />
@@ -146,7 +148,9 @@ export default function PaperChatToolSelectionBar({
                 onClick={handleUploadClick}
               >
                 <SvgIcon name="attachment" size={16} />
-                <span className={styles['plus-menu__row-label']}>添加附件</span>
+                <span className={styles['plus-menu__row-label']}>
+                  {t('paper.chat.input.addAttachment')}
+                </span>
               </button>
 
               {/* 搜索开关（论文对话专用） */}
@@ -158,7 +162,9 @@ export default function PaperChatToolSelectionBar({
                   onClick={onTogglePaperWebSearch}
                 >
                   <SvgIcon name="search" size={16} />
-                  <span className={styles['plus-menu__row-label']}>搜索</span>
+                  <span className={styles['plus-menu__row-label']}>
+                    {t('paper.chat.input.search')}
+                  </span>
                   <span className={styles['plus-menu__row-right']}>
                     <span
                       className={[
@@ -181,7 +187,9 @@ export default function PaperChatToolSelectionBar({
                 onClick={() => toggleAccordion('kb')}
               >
                 <SvgIcon name="knowledge" size={16} />
-                <span className={styles['plus-menu__row-label']}>知识库</span>
+                <span className={styles['plus-menu__row-label']}>
+                  {t('paper.chat.input.knowledgeBases')}
+                </span>
                 <span className={styles['plus-menu__row-right']}>
                   {kbCount > 0 && (
                     <span className={styles['plus-menu__count-badge']}>{kbCount}</span>
@@ -281,8 +289,8 @@ export default function PaperChatToolSelectionBar({
             className={styles['paper-chat-input-toolbar__execute-button']}
             type="button"
             disabled={!canSend}
-            title="发送"
-            aria-label="发送"
+            title={t('paper.chat.input.send')}
+            aria-label={t('paper.chat.input.send')}
             onClick={onSend}
           >
             <SvgIcon name="send" size={16} />
@@ -291,8 +299,8 @@ export default function PaperChatToolSelectionBar({
           <button
             className={styles['paper-chat-input-toolbar__stop-button']}
             type="button"
-            title="停止"
-            aria-label="停止"
+            title={t('paper.chat.input.stop')}
+            aria-label={t('paper.chat.input.stop')}
             onClick={onStop}
           >
             <SvgIcon name="stop" size={16} />

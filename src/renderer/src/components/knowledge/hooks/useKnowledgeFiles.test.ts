@@ -6,6 +6,7 @@ import assert from 'node:assert/strict'
 import React, { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { parseHTML } from 'linkedom'
+import { initI18n } from '@renderer/i18n'
 import { useFileStore } from '@renderer/stores/fileStore'
 import { useNotificationCenterStore } from '@renderer/stores/notificationCenterStore'
 import type { FileItem } from '@shared/types/knowledge'
@@ -13,6 +14,9 @@ import type { FileItem } from '@shared/types/knowledge'
 // useKnowledgeFiles 间接依赖的 knowledgeIndexStore 在模块加载时即调用
 // window.api.onFileProgress，须在动态导入前准备好 globalThis.window。
 // 故 useKnowledgeFiles 采用动态导入，避免静态导入触发顶层副作用。
+
+// hooks 内 useTranslation 依赖全局实例：先初始化（测试环境无 localStorage，默认语言恒为 zh，既有中文断言不受影响）
+await initI18n()
 type UseKnowledgeFilesApi = {
   handleUnlinkFile: (fileId: string, onReindex?: () => Promise<void>) => Promise<void>
 }

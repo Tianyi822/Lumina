@@ -1,4 +1,5 @@
 import { logger } from '@main/services/logger'
+import { t } from '@main/services/i18n'
 import {
   SUPPORTED_DOCUMENT_EXTENSIONS,
   isSupportedDocumentExtension
@@ -45,7 +46,9 @@ export class DocumentManagerService {
       if (fileData.length > this.MAX_FILE_SIZE) {
         return {
           success: false,
-          error: `文件过大（${this.formatFileSize(fileData.length)}），最大支持 10MB。建议使用知识库功能处理大文件。`
+          error: t('notifications.document.fileTooLarge', {
+            size: this.formatFileSize(fileData.length)
+          })
         }
       }
 
@@ -53,7 +56,10 @@ export class DocumentManagerService {
       if (!isSupportedDocumentExtension(ext)) {
         return {
           success: false,
-          error: `不支持的文件类型: ${ext}，仅支持 ${SUPPORTED_DOCUMENT_EXTENSIONS.join(', ')}`
+          error: t('notifications.file.unsupportedFileType', {
+            ext,
+            supported: SUPPORTED_DOCUMENT_EXTENSIONS.join(', ')
+          })
         }
       }
 
@@ -97,12 +103,13 @@ export class DocumentManagerService {
       })
 
       // 根据错误信息生成用户友好的提示文案
-      let userMessage = `文档处理失败: ${errorMessage}`
+      // 注：分支关键词匹配中文错误特征与英文 memory 特征；未命中时走动态 processFailed（含原始 reason），en 下信息不丢失
+      let userMessage = t('notifications.document.processFailed', { reason: errorMessage })
 
       if (errorMessage.includes('内存不足') || errorMessage.includes('memory')) {
-        userMessage = '文件过大导致内存不足，请使用知识库功能处理大文件'
+        userMessage = t('notifications.document.outOfMemoryLargeFile')
       } else if (errorMessage.includes('格式无效') || errorMessage.includes('已损坏')) {
-        userMessage = '文件格式无效或已损坏，请检查文件是否正常'
+        userMessage = t('notifications.document.fileInvalidOrCorrupted')
       }
 
       return {

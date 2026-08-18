@@ -26,6 +26,7 @@ import {
   WidthType,
   convertInchesToTwip
 } from 'docx'
+import { t } from '@main/services/i18n'
 import type {
   WriterExportDocument,
   WriterExportListItem,
@@ -176,7 +177,7 @@ export class WriterDocxExporter {
       return {
         success: false,
         code: 'io_error',
-        error: error instanceof Error ? error.message : 'DOCX 导出失败'
+        error: error instanceof Error ? error.message : t('notifications.writer.docxExportFailed')
       }
     }
   }
@@ -333,7 +334,7 @@ async function mapRuns(runs: WriterExportRun[], ctx: BuildContext): Promise<Docx
 async function createMathInline(latex: string, ctx: BuildContext): Promise<DocxInline> {
   const rasterized = await ctx.rasterizer.rasterize(latex, false)
   if (!rasterized.success || !rasterized.data) {
-    ctx.warnings.push(`公式栅格化失败，已降级为 LaTeX 文本：${latex}`)
+    ctx.warnings.push(t('notifications.writer.formulaRasterizeDowngraded', { latex }))
     return new TextRun({ text: latex, font: CODE_FONT })
   }
   return createFormulaImageRun(latex, false, rasterized.data, ctx)
@@ -346,7 +347,7 @@ async function createMathParagraph(
 ): Promise<Paragraph> {
   const rasterized = await ctx.rasterizer.rasterize(latex, displayMode)
   if (!rasterized.success || !rasterized.data) {
-    ctx.warnings.push(`公式栅格化失败，已降级为 LaTeX 文本：${latex}`)
+    ctx.warnings.push(t('notifications.writer.formulaRasterizeDowngraded', { latex }))
     ctx.plainChunks.push(latex)
     return new Paragraph({
       alignment: displayMode ? AlignmentType.CENTER : AlignmentType.LEFT,
@@ -396,7 +397,7 @@ function createImageParagraph(
 ): Paragraph {
   const bytes = ctx.assetBytes.get(node.assetPath)
   if (!bytes) {
-    ctx.warnings.push(`图片资源缺失：${node.assetPath}`)
+    ctx.warnings.push(t('notifications.writer.imageAssetMissing', { assetPath: node.assetPath }))
     ctx.plainChunks.push(node.alt || node.assetPath)
     return new Paragraph({
       children: [new TextRun({ text: node.alt || node.assetPath, font: FONT_STACK })]
