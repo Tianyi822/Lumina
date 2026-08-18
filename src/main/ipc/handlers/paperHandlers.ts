@@ -12,6 +12,7 @@ import { t } from '@main/services/i18n'
 import {
   getOcrProviderPreset,
   DEFAULT_OCR_PROVIDER,
+  type AppLanguage,
   type OcrProviderId
 } from '@shared/types/config'
 import { fileUrlToPath, isFileUrl } from '@shared/utils'
@@ -607,33 +608,37 @@ export function registerPaperHandlers(): void {
     return getPaperService().deleteTranslation(paperId)
   })
 
-  ipcMain.handle('paper:startTranslation', async (_event, params: { paperId: string }) => {
-    const { paperId } = params
-    const payloadResult = await getPaperService().getReaderPayload(paperId)
-    if (!payloadResult.success || !payloadResult.data) {
-      return {
-        success: false,
-        error: payloadResult.error || t('notifications.paper.loadBodyFailed')
+  ipcMain.handle(
+    'paper:startTranslation',
+    async (_event, params: { paperId: string; targetLanguage?: AppLanguage }) => {
+      const { paperId, targetLanguage } = params
+      const payloadResult = await getPaperService().getReaderPayload(paperId)
+      if (!payloadResult.success || !payloadResult.data) {
+        return {
+          success: false,
+          error: payloadResult.error || t('notifications.paper.loadBodyFailed')
+        }
+      }
+
+      if (hasLegacyTranslationSubscriber(_event.sender)) {
+        registerTranslationSubscriber(paperId, _event.sender)
+      }
+      registerTranslationBatchSubscriber(paperId, _event.sender)
+
+      try {
+        return await paperTranslationService.startTranslation(
+          paperId,
+          payloadResult.data.readerDocument.markdown,
+          payloadResult.data.figures,
+          targetLanguage ?? 'zh'
+        )
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        logger.error('IPC: 启动论文翻译失败', 'main', { paperId, error: errorMessage })
+        return { success: false, error: errorMessage }
       }
     }
-
-    if (hasLegacyTranslationSubscriber(_event.sender)) {
-      registerTranslationSubscriber(paperId, _event.sender)
-    }
-    registerTranslationBatchSubscriber(paperId, _event.sender)
-
-    try {
-      return await paperTranslationService.startTranslation(
-        paperId,
-        payloadResult.data.readerDocument.markdown,
-        payloadResult.data.figures
-      )
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error)
-      logger.error('IPC: 启动论文翻译失败', 'main', { paperId, error: errorMessage })
-      return { success: false, error: errorMessage }
-    }
-  })
+  )
 
   ipcMain.handle(
     'paper:retranslateSegment',

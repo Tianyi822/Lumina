@@ -13,7 +13,7 @@ import type {
   PaperTranslationSummary,
   PaperTranslationState
 } from '@shared/types/paper'
-import type { OcrProviderId } from '@shared/types/config'
+import type { AppLanguage, OcrProviderId } from '@shared/types/config'
 
 export interface OcrProgressInfo {
   paperId: string
@@ -380,9 +380,15 @@ export const paperApi = {
   },
 
   startTranslation: (
-    paperId: string
-  ): Promise<{ success: boolean; alreadyRunning?: boolean; error?: string }> => {
-    return ipcRenderer.invoke('paper:startTranslation', { paperId })
+    paperId: string,
+    targetLanguage?: AppLanguage
+  ): Promise<{
+    success: boolean
+    alreadyRunning?: boolean
+    skippedReason?: 'sameLanguage'
+    error?: string
+  }> => {
+    return ipcRenderer.invoke('paper:startTranslation', { paperId, targetLanguage })
   },
 
   retranslateSegment: (params: {
