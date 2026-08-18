@@ -1,23 +1,23 @@
 import type { Resources } from '../../zh'
 
 const file: Resources['notifications']['file'] = {
-  notInitialized: 'File service is not initialized. Call initialize() first',
+  notInitialized: 'File service is not initialized. Call initialize() first.',
   unsupportedFileType: 'Unsupported file type: {{ext}}, only {{supported}} are supported',
   fileTooLarge: 'File is too large: {{size}}, the limit is 50MB',
   uploadFailed: 'File upload failed: {{error}}',
   saveMetadataFailed: 'Failed to save file metadata: {{error}}',
   fileNotFound: 'File not found',
-  fileNotFoundDeleted: 'File not found. It may have been deleted',
+  fileNotFoundDeleted: 'File not found. It may have been deleted.',
   paperNotesEmpty: 'Paper notes are empty',
   paperManagedResource:
-    'Paper-origin resources are managed by the paper system. Delete them from the paper page',
+    'Paper-origin resources are managed by the paper system. Delete them from the paper page.',
   syncPaperFileFailed: 'Failed to sync the paper file: {{error}}',
   syncPaperNotesFailed: 'Failed to sync the paper notes: {{error}}',
   removePaperNotesFailed: 'Failed to remove the paper notes: {{error}}',
   inUseByKnowledgeBases_one:
-    'The file is used by {{count}} knowledge base. Unlink it before deleting',
+    'The file is used by {{count}} knowledge base. Unlink it before deleting.',
   inUseByKnowledgeBases_other:
-    'The file is used by {{count}} knowledge bases. Unlink it before deleting',
+    'The file is used by {{count}} knowledge bases. Unlink it before deleting.',
   deleteIndexFailed: 'Failed to delete the file index',
   deleteIndexInKbFailed: 'Failed to delete the file index in knowledge base {{kbId}}: {{error}}',
   deleteFailed: 'File deletion failed: {{error}}',

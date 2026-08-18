@@ -13,7 +13,7 @@ const chat: Resources['notifications']['chat'] = {
   planStepExecutionFailed: 'Step execution failed',
   planUserCancelled: 'Cancelled by user',
   unknownError: 'Unknown error',
-  unknownWriterTool: 'Unknown writer tool: {{toolName}}, only propose_edits is supported',
+  unknownWriterTool: 'Unknown writer tool: {{toolName}}, only propose_edits is supported.',
   titleModifyForbidden:
     'Modifying the document title is forbidden: the title is read-only metadata',
   invalidProposalArgs: 'Invalid edit proposal arguments: {{issues}}',
@@ -36,7 +36,7 @@ const chat: Resources['notifications']['chat'] = {
   toolCallFailed: 'Tool call failed',
   parseToolArgsFailed: 'Failed to parse tool arguments: {{error}}',
   mcpServerNotFound: 'MCP server not found: {{serverName}}',
-  unknownPaperTool: 'Unknown paper tool: {{toolName}}, only search_context is supported',
+  unknownPaperTool: 'Unknown paper tool: {{toolName}}, only search_context is supported.',
   paperIdNotSet: 'Paper ID is not set, cannot retrieve paper context',
   operationTimeout: '{{operation}} timed out'
 }

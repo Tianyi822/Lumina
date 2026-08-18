@@ -6,7 +6,7 @@ const settings: Resources['notifications']['settings'] = {
     validateFieldEmpty: 'Field {{field}} is required for model "{{name}}"',
     fieldModelName: 'Model name',
     testSuccessTitle: 'Model connection test succeeded',
-    testSuccessMessage: 'Model "{{name}}" is available',
+    testSuccessMessage: 'Model "{{name}}" is available.',
     testFailedTitle: 'Model connection test failed',
     testFailedFallback: 'Connection test failed'
   },
@@ -14,7 +14,7 @@ const settings: Resources['notifications']['settings'] = {
     title: 'Embedding model',
     deleted: 'Embedding model deleted',
     deleteFailed: 'Failed to delete embedding model',
-    testSuccess: 'Connection test succeeded',
+    testSuccess: 'Connection test succeeded.',
     testFailedFallback: 'Connection test failed',
     updated: 'Embedding model updated',
     added: 'Embedding model added',
@@ -45,8 +45,8 @@ const settings: Resources['notifications']['settings'] = {
     connectedTo: 'Connected to {{name}}',
     connectFailed: 'Connection failed',
     disconnectFailed: 'Failed to disconnect',
-    testFoundTools_one: 'Test succeeded; found {{count}} tool',
-    testFoundTools_other: 'Test succeeded; found {{count}} tools',
+    testFoundTools_one: 'Test succeeded; found {{count}} tool.',
+    testFoundTools_other: 'Test succeeded; found {{count}} tools.',
     testFailed: 'Connection test failed',
     stdioCommandRequired: 'stdio transport requires a command',
     sseUrlRequired: 'SSE transport requires a URL',
@@ -90,15 +90,15 @@ const settings: Resources['notifications']['settings'] = {
     translationSaved: 'Translation model configuration saved'
   },
   update: {
-    checkFailed: 'Update check failed. Try again later',
+    checkFailed: 'Update check failed. Try again later.',
     downloadFailed: 'Failed to download the update',
     releasesFailed: 'Failed to load release history',
     devModeUnavailable: 'Unavailable in development mode',
     manualDownloadOnly: 'This platform updates with a manually downloaded installer',
     latestInfoUnavailable: 'Failed to get the latest version information',
     releasesUnavailable: 'GitHub release history is temporarily unavailable',
-    releasesNetworkUnavailable: 'Failed to get release history. Check your network connection',
-    rateLimited: 'Too many requests. Try again later',
+    releasesNetworkUnavailable: 'Failed to get release history. Check your network connection.',
+    rateLimited: 'Too many requests. Try again later.',
     apiUnavailable: 'GitHub Releases API is temporarily unavailable'
   }
 }

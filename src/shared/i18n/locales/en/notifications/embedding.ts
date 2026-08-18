@@ -4,15 +4,15 @@ const embedding: Resources['notifications']['embedding'] = {
   notConfigured: 'Embedding model not configured',
   modelNotFound: 'Embedding model not found',
   emptyApiResponse:
-    'The embedding API returned empty data. Check that the baseUrl, model name, and endpoint are compatible with the OpenAI /v1/embeddings format',
+    'The embedding API returned empty data. Check that the baseUrl, model name, and endpoint are compatible with the OpenAI /v1/embeddings format.',
   baseUrlExcludesEmbeddings:
-    '{{message}}. The API base URL should end at /v1 (for example http://127.0.0.1:1234/v1) and must not include /embeddings',
+    '{{message}}. The API base URL should end at /v1 (for example http://127.0.0.1:1234/v1) and must not include /embeddings.',
   baseUrlRequiresV1:
-    '{{message}}. The API base URL must include /v1 (for example http://127.0.0.1:1234/v1)',
+    '{{message}}. The API base URL must include /v1 (for example http://127.0.0.1:1234/v1).',
   batchInputEmpty: 'Batch embedding input cannot be empty',
   inputListEmpty: 'The input text list cannot be empty',
   tokenLimitExceeded:
-    'Estimated tokens for a single text ({{tokens}}) exceed the per-minute limit ({{limit}}). Reduce the knowledge base chunk size and retry',
+    'Estimated tokens for a single text ({{tokens}}) exceed the per-minute limit ({{limit}}). Reduce the knowledge base chunk size and retry.',
   embedFailed: 'Embedding generation failed: {{reason}}',
   batchEmbedFailed: 'Batch embedding generation failed: {{reason}}',
   indexingCancelled: 'Indexing was cancelled by the user',

@@ -11,10 +11,10 @@ const document: Resources['notifications']['document'] = {
   processFailed: 'Document processing failed: {{reason}}',
   batchProcessFailed: 'Batch document processing failed: {{reason}}',
   fileTooLarge:
-    'File is too large ({{size}}). The limit is 10MB. Use the knowledge base feature for large files',
+    'File is too large ({{size}}). The limit is 10MB. Use the knowledge base feature for large files.',
   outOfMemoryLargeFile:
-    'The file is too large to fit in memory. Use the knowledge base feature for large files',
-  fileInvalidOrCorrupted: 'The file format is invalid or corrupted. Check that the file is intact'
+    'The file is too large to fit in memory. Use the knowledge base feature for large files.',
+  fileInvalidOrCorrupted: 'The file format is invalid or corrupted. Check that the file is intact.'
 }
 
 export default document
