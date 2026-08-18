@@ -14,6 +14,7 @@ import type {
   WriterJsonDocument,
   WriterResult
 } from '@shared/types/writer'
+import type { WriterOperationKey } from '@main/ipc/handlers/writerHandlers'
 import {
   getWriterAssetsDir,
   getWriterDocumentDir,
@@ -717,7 +718,7 @@ export class WriterStorageService {
     return { success: false, code: 'invalid_input', error }
   }
 
-  private toIoError<T>(operationKey: string, error: unknown): WriterResult<T> {
+  private toIoError<T>(operationKey: WriterOperationKey, error: unknown): WriterResult<T> {
     const detail = error instanceof Error ? error.message : String(error)
     const message = t('notifications.writer.operationFailed', { operation: t(operationKey) })
     logger.error(message, 'main', { error: detail, rootPath: this.rootPath })

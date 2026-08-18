@@ -15,6 +15,7 @@ import type {
   WriterJsonNode,
   WriterResult
 } from '@shared/types/writer'
+import type { WriterOperationKey } from '@main/ipc/handlers/writerHandlers'
 import type { WriterAssetService } from './WriterAssetService'
 import { WriterDocumentMapper } from './WriterDocumentMapper'
 import { WriterDocxExporter } from './WriterDocxExporter'
@@ -423,7 +424,7 @@ export class WriterService {
   }
 
   private enqueueMutation<T>(
-    operationKey: string,
+    operationKey: WriterOperationKey,
     operation: () => Promise<WriterResult<T>>
   ): Promise<WriterResult<T>> {
     const next = this.mutationTail.then(() => this.runOperation(operationKey, operation))
@@ -435,7 +436,7 @@ export class WriterService {
   }
 
   private async runOperation<T>(
-    operationKey: string,
+    operationKey: WriterOperationKey,
     operation: () => Promise<WriterResult<T>>
   ): Promise<WriterResult<T>> {
     try {

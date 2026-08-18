@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import type { ParseKeys } from 'i18next'
 import styles from './PaperChatToolCallPanel.module.css'
 
 export interface PaperChatToolCallPanelItem {
@@ -31,7 +32,7 @@ function stringifyValue(value: unknown): string {
 }
 
 /** 工具调用状态文案 key（paper.chat.toolCall.status*） */
-const STATUS_KEYS: Record<PaperChatToolCallPanelItem['status'], string> = {
+const STATUS_KEYS: Record<PaperChatToolCallPanelItem['status'], ParseKeys> = {
   pending: 'paper.chat.toolCall.statusWaiting',
   running: 'paper.chat.toolCall.statusRunning',
   success: 'paper.chat.toolCall.statusSuccess',

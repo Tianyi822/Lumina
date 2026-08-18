@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
+import type { ParseKeys } from 'i18next'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { getDateLocale } from '@renderer/i18n'
 import SvgIcon from '@renderer/components/icons/SvgIcon'
@@ -201,7 +202,7 @@ const WriterSidebarSection = memo(function WriterSidebarSection() {
     [currentDocumentId, handleDeleteDocument, setCurrentDocumentId, t, toggleFavorite]
   )
 
-  const collectionItems: Array<{ id: WriterCollection; labelKey: string }> = [
+  const collectionItems: Array<{ id: WriterCollection; labelKey: ParseKeys }> = [
     { id: 'favorites', labelKey: 'chrome.sidebar.favorite' },
     { id: 'recent', labelKey: 'chrome.sidebar.recent' },
     { id: 'all', labelKey: 'chrome.sidebar.all' }

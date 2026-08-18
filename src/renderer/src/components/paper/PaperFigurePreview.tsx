@@ -4,6 +4,7 @@ import MarkdownIt from 'markdown-it'
 import texmath from 'markdown-it-texmath'
 import katex from 'katex'
 import { useTranslation } from 'react-i18next'
+import type { ParseKeys } from 'i18next'
 import { buildFigureCaptionTranslationMap } from '@shared/utils/paperTranslation'
 import { normalizePaperInlineMathForRender } from '@shared/utils/paperMarkdown'
 import { usePaperListStore } from '@renderer/stores/paper'
@@ -46,7 +47,7 @@ interface ResizeState extends PointerState {
 interface ResizeHandle {
   edge: ResizeEdge
   /** aria-label 文案 key（paper.figures.*），渲染处经 t() 取当前语言文案 */
-  labelKey: string
+  labelKey: ParseKeys
 }
 
 const resizeHandles: ResizeHandle[] = [

@@ -10,6 +10,7 @@
  */
 import { xchacha20poly1305 } from '@noble/ciphers/chacha.js'
 import { randomBytes } from 'node:crypto'
+import type { ParseKeys } from 'i18next'
 import { t } from '@main/services/i18n'
 import { utf8ToBytes } from '../crypto/base64url'
 import { sha256Hex } from '../crypto/hash'
@@ -43,7 +44,7 @@ function openWithAad(
   dek: Uint8Array,
   aad: Uint8Array,
   ciphertext: Uint8Array,
-  lengthErrorKey: string
+  lengthErrorKey: Extract<ParseKeys, `notifications.sync.${string}`>
 ): Uint8Array {
   assertDek(dek)
   if (ciphertext.length < NONCE_BYTES + TAG_BYTES + 1) {

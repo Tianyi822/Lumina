@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import type { ParseKeys } from 'i18next'
 import type { PaperChatPlanState } from '@renderer/stores/paperChatStreamStore'
 import PlanningStatusIndicator from './PlanningStatusIndicator'
 import styles from './PaperChatPlanDock.module.css'
@@ -9,7 +10,7 @@ interface PaperChatPlanDockProps {
 }
 
 /** 计划状态文案 key（paper.chat.plan.status*） */
-const PLAN_STATUS_KEYS: Record<string, string> = {
+const PLAN_STATUS_KEYS: Record<string, ParseKeys> = {
   planning: 'paper.chat.plan.statusPlanning',
   planned: 'paper.chat.plan.statusPlanned',
   running: 'paper.chat.plan.statusRunning',
@@ -17,25 +18,25 @@ const PLAN_STATUS_KEYS: Record<string, string> = {
   failed: 'paper.chat.plan.statusFailed',
   cancelled: 'paper.chat.plan.statusCancelled'
 }
-const PLAN_STATUS_DEFAULT_KEY = 'paper.chat.plan.statusIdle'
+const PLAN_STATUS_DEFAULT_KEY: ParseKeys = 'paper.chat.plan.statusIdle'
 
 /** 步骤状态文案 key（paper.chat.plan.step*） */
-const STEP_STATUS_KEYS: Record<string, string> = {
+const STEP_STATUS_KEYS: Record<string, ParseKeys> = {
   running: 'paper.chat.plan.stepRunning',
   success: 'paper.chat.plan.stepSuccess',
   failed: 'paper.chat.plan.stepFailed',
   cancelled: 'paper.chat.plan.stepCancelled',
   skipped: 'paper.chat.plan.stepSkipped'
 }
-const STEP_STATUS_DEFAULT_KEY = 'paper.chat.plan.stepWaiting'
+const STEP_STATUS_DEFAULT_KEY: ParseKeys = 'paper.chat.plan.stepWaiting'
 
 /** 迭代（子阶段）状态文案 key（paper.chat.plan.iteration*） */
-const ITERATION_STATUS_KEYS: Record<string, string> = {
+const ITERATION_STATUS_KEYS: Record<string, ParseKeys> = {
   calling_tools: 'paper.chat.plan.iterationCallingTools',
   processing: 'paper.chat.plan.iterationProcessing',
   complete: 'paper.chat.plan.iterationComplete'
 }
-const ITERATION_STATUS_DEFAULT_KEY = 'paper.chat.plan.iterationThinking'
+const ITERATION_STATUS_DEFAULT_KEY: ParseKeys = 'paper.chat.plan.iterationThinking'
 
 /** 论文对话 Plan-Execute 执行计划的停靠面板，展示多步骤任务的进度和各阶段状态 */
 export default function PaperChatPlanDock({ planState }: PaperChatPlanDockProps) {

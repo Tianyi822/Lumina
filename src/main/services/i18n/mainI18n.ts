@@ -1,4 +1,4 @@
-import { createInstance, type i18n as I18nInstance } from 'i18next'
+import { createInstance, type i18n as I18nInstance, type ParseKeys } from 'i18next'
 import zh from '@shared/i18n/locales/zh'
 import en from '@shared/i18n/locales/en'
 
@@ -28,6 +28,7 @@ function getInstance(): I18nInstance {
 }
 
 /** 主进程翻译入口：每次调用即时读取当前语言，新错误即时跟随语言切换、旧错误不追溯 */
-export function t(key: string, options?: Record<string, unknown>): string {
-  return getInstance().t(key, { ...options, lng: languageProvider() })
+export function t(key: ParseKeys, options?: Record<string, unknown>): string {
+  const translate = getInstance().t as (key: string, options?: Record<string, unknown>) => string
+  return translate(key, { ...options, lng: languageProvider() })
 }

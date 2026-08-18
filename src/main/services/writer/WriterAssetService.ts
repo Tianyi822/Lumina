@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from 'crypto'
 import { link, lstat, mkdir, open, readdir, readFile, rm, unlink } from 'fs/promises'
 import { basename, dirname, extname, join, relative, resolve, sep } from 'path'
+import type { ParseKeys } from 'i18next'
 import { logger } from '@main/services/logger'
 import { t } from '@main/services/i18n'
 import type { WriterAsset, WriterAssetImportInput, WriterResult } from '@shared/types/writer'
@@ -131,7 +132,7 @@ export class WriterAssetService {
         }
       }
     } catch (error) {
-      return this.toIoError<WriterAsset>(t('notifications.writer.importAssetFailed'), error)
+      return this.toIoError<WriterAsset>('notifications.writer.importAssetFailed', error)
     }
   }
 
@@ -169,7 +170,7 @@ export class WriterAssetService {
       if (this.isNotFoundError(error)) {
         return { success: true, data: 0 }
       }
-      return this.toIoError<number>(t('notifications.writer.cleanupAssetsFailed'), error)
+      return this.toIoError<number>('notifications.writer.cleanupAssetsFailed', error)
     }
   }
 
@@ -293,8 +294,12 @@ export class WriterAssetService {
     return { success: false, code: 'invalid_input', error }
   }
 
-  private toIoError<T>(message: string, error: unknown): WriterResult<T> {
+  private toIoError<T>(
+    key: Extract<ParseKeys, `notifications.writer.${string}`>,
+    error: unknown
+  ): WriterResult<T> {
     const detail = error instanceof Error ? error.message : String(error)
+    const message = t(key)
     logger.error(message, 'main', { error: detail, rootPath: this.rootPath })
     return { success: false, code: 'io_error', error: message }
   }

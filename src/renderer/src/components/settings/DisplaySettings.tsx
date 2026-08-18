@@ -1,12 +1,13 @@
 import { useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
+import type { ParseKeys } from 'i18next'
 import { useUIStateStore, AVAILABLE_THEMES } from '@renderer/stores/uiStateStore'
 import type { ThemeConfig, ThemeMode } from '@shared/types/config'
 import LanguageSettings from './LanguageSettings'
 import styles from './DisplaySettings.module.css'
 
 /** 主题卡片描述文案的翻译 key（按主题 id 映射；未知主题不显示描述） */
-const THEME_DESC_KEYS: Record<string, string> = {
+const THEME_DESC_KEYS: Record<string, ParseKeys> = {
   'lumina-dark': 'settings.display.theme.descDark',
   'lumina-light': 'settings.display.theme.descLight'
 }

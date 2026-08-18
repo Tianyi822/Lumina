@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, memo } from 'react'
 import { useTranslation } from 'react-i18next'
+import type { ParseKeys } from 'i18next'
 import { useConfigStore } from '@renderer/stores'
 import DisplaySettings from './settings/DisplaySettings'
 import ModelSettings from './settings/ModelSettings'
@@ -33,7 +34,7 @@ interface SettingsModalProps {
 interface SettingsCategory {
   id: SettingsCategoryId
   /** 分类名的翻译 key（settings.nav.*） */
-  labelKey: string
+  labelKey: ParseKeys
   items: SettingsTabKey[]
 }
 

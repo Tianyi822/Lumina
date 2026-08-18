@@ -5,7 +5,7 @@ import texmath from 'markdown-it-texmath'
 import katex from 'katex'
 import 'katex/dist/katex.min.css'
 import { useTranslation } from 'react-i18next'
-import type { TFunction } from 'i18next'
+import type { ParseKeys, TFunction } from 'i18next'
 import SvgIcon from '@renderer/components/icons/SvgIcon'
 import { CssTransitionGroup } from '@renderer/components/motion/CssTransition'
 import { formatFileSize } from '@shared/utils'
@@ -28,7 +28,7 @@ const EMPTY_RENDER_PROGRESS_MAP = {} as Record<string, RenderingProgress>
 const EMPTY_OCR_PROGRESS_MAP = {} as Record<string, OcrProgressInfo>
 
 /** OCR 进度文案 key（paper.sidebar.*），渲染处经 t() 取当前语言文案 */
-const OCR_PROGRESS_LABEL_KEYS: Record<string, string> = {
+const OCR_PROGRESS_LABEL_KEYS: Record<string, ParseKeys> = {
   idle: 'paper.sidebar.statusIdle',
   queued: 'paper.sidebar.statusQueued',
   processing: 'paper.sidebar.statusProcessing',
@@ -39,7 +39,7 @@ const OCR_PROGRESS_LABEL_KEYS: Record<string, string> = {
 }
 
 /** 论文状态降级文案 key（draft/rendering 同显“待开始”） */
-const PAPER_STATUS_LABEL_KEYS: Record<string, string> = {
+const PAPER_STATUS_LABEL_KEYS: Record<string, ParseKeys> = {
   draft: 'paper.sidebar.statusIdle',
   rendering: 'paper.sidebar.statusIdle',
   ocr_processing: 'paper.sidebar.statusProcessing',
@@ -144,7 +144,7 @@ function getOcrProgress(
 ): {
   completedPages: number
   totalPages: number
-  hintKey: string
+  hintKey: ParseKeys
 } {
   const progress = ocrProgressByPaperId[paper.id]
   if (progress) {

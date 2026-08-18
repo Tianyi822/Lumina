@@ -1,4 +1,5 @@
 import { ipcMain } from 'electron'
+import type { ParseKeys } from 'i18next'
 import { logger } from '@main/services/logger'
 import { t } from '@main/services/i18n'
 import { writerService } from '@main/services/writer'
@@ -46,12 +47,15 @@ interface RenameWriterFolderPayload {
 
 let writerHandlersRegistered = false
 
+/** 写作域操作名翻译 key（notifications.writer.operations.*），WriterService/WriterStorageService 复用 */
+export type WriterOperationKey = Extract<ParseKeys, `notifications.writer.operations.${string}`>
+
 function invalidInput<T>(error: string): WriterResult<T> {
   return { success: false, code: 'invalid_input', error }
 }
 
 async function invokeWriter<T>(
-  operationKey: string,
+  operationKey: WriterOperationKey,
   operation: () => Promise<WriterResult<T>>
 ): Promise<WriterResult<T>> {
   try {
