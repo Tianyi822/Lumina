@@ -1,5 +1,5 @@
 import type { PaperDocument } from '@shared/types/paper'
-import { notifyInfo, notifyWarning } from '@renderer/composables/notificationCore'
+import { notifyInfo, notifySuccess, notifyWarning } from '@renderer/composables/notificationCore'
 import { usePdfPageRasterizer } from '@renderer/composables/usePdfPageRasterizer'
 import { i18n } from '@renderer/i18n'
 import { useUIStateStore } from '@renderer/stores/uiStateStore'
@@ -309,6 +309,24 @@ export async function uploadAndRenderPdf(): Promise<{
 /** 加载论文列表 — 原 loadPapers（需要同时加载翻译状态和进度） */
 export async function loadPapersWithState(): Promise<void> {
   const papers = await usePaperListStore.getState().loadPapersList()
+
+  // 启动存量页图清理摘要：有清理结果时通知用户释放的空间（一次性，无则不打扰）
+  const purgeSummaryResult = await window.api.paper.consumePagesPurgeSummary()
+  if (
+    purgeSummaryResult.success &&
+    purgeSummaryResult.data &&
+    purgeSummaryResult.data.purgedCount > 0
+  ) {
+    const freedMb = (purgeSummaryResult.data.freedBytes / 1024 / 1024).toFixed(1)
+    notifySuccess(
+      i18n.t('notifications.paper.pagesPurgedTitle'),
+      i18n.t('notifications.paper.pagesPurgedMessage', {
+        count: purgeSummaryResult.data.purgedCount,
+        size: `${freedMb} MB`
+      }),
+      { source: 'paper' }
+    )
+  }
 
   // 加载翻译状态
   await usePaperTranslationStore.getState().loadTranslationStatus(papers.map((p) => p.id))

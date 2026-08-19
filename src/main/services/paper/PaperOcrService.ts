@@ -13,6 +13,7 @@ import type { PaperLayoutBlock, PaperPageOcrResult, BlockLabel } from '@shared/t
 import { PaperGlmOcrClient } from './PaperGlmOcrClient'
 import { paperStorageService } from './index'
 import { buildMergedMarkdown, runPaperOcrPipeline } from './paperOcrPipeline'
+import { purgeIfOcrComplete } from './pageImagePurge'
 import {
   getPaperOcrRawDirPath,
   getPaperOcrRawPath,
@@ -370,18 +371,27 @@ export class PaperOcrService {
    * 3. 根据结果更新论文状态
    * 4. 生成合并 Markdown
    */
-  async startOcr(paperId: string): Promise<{ success: boolean; error?: string }> {
-    const { apiKey, provider, concurrency } = this.getOcrConfig()
-    if (!apiKey) {
-      return { success: false, error: t('notifications.paper.ocrApiKeyMissing') }
-    }
-
+  async startOcr(paperId: string): Promise<{ success: boolean; code?: string; error?: string }> {
     const metaResult = await paperStorageService.readMeta(paperId)
     if (!metaResult.success || !metaResult.data) {
       return { success: false, error: metaResult.error || t('notifications.paper.metaMissing') }
     }
 
     const meta = metaResult.data
+    // 页图已清理：需渲染端先从 source.pdf 重渲染页图，pages_missing 由渲染端识别并触发回源
+    if (meta.pageImagesPurgedAt) {
+      return {
+        success: false,
+        code: 'pages_missing',
+        error: t('notifications.paper.pageImagesPurgedNeedRender')
+      }
+    }
+
+    const { apiKey, provider, concurrency } = this.getOcrConfig()
+    if (!apiKey) {
+      return { success: false, error: t('notifications.paper.ocrApiKeyMissing') }
+    }
+
     if (!meta.pageAssets || meta.pageAssets.length === 0) {
       return { success: false, error: t('notifications.paper.ocrPagesNotReady') }
     }
@@ -456,6 +466,8 @@ export class PaperOcrService {
       if (progress.failedPages.length === 0) {
         progress.status = 'completed'
         await paperStorageService.updateMeta(paperId, { status: 'completed' })
+        // 全部页 OCR 成功：清理页图缓存（失败仅记日志，不影响 OCR 结果）
+        await purgeIfOcrComplete(paperStorageService, paperId)
       } else if (progress.completedPages > 0) {
         progress.status = 'partial_failed'
         await paperStorageService.updateMeta(paperId, { status: 'partial_failed' })
@@ -495,7 +507,16 @@ export class PaperOcrService {
   async retryPage(
     paperId: string,
     pageIndex: number
-  ): Promise<{ success: boolean; error?: string }> {
+  ): Promise<{ success: boolean; code?: string; error?: string }> {
+    const metaResult = await paperStorageService.readMeta(paperId)
+    if (metaResult.success && metaResult.data?.pageImagesPurgedAt) {
+      return {
+        success: false,
+        code: 'pages_missing',
+        error: t('notifications.paper.pageImagesPurgedNeedRender')
+      }
+    }
+
     const { apiKey, provider } = this.getOcrConfig()
     if (!apiKey) {
       return { success: false, error: t('notifications.paper.ocrApiKeyMissing') }
@@ -504,6 +525,8 @@ export class PaperOcrService {
     const result = await this.processPage(paperId, pageIndex, apiKey, provider)
     if (result.status === 'completed') {
       await this.rebuildMergedMd(paperId)
+      // 单页重试成功可能补齐了最后的失败页：满足条件时清理页图
+      await purgeIfOcrComplete(paperStorageService, paperId)
     }
     return { success: result.status === 'completed', error: result.errorMessage }
   }

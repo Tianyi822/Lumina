@@ -7,6 +7,7 @@ import assert from 'node:assert/strict'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
+  filterPaperPackManifest,
   isValidPackRelPath,
   parsePaperPackManifest,
   resolveContainedPath,
@@ -68,4 +69,14 @@ test('resolveContainedPath：目录内解析/逃逸拒绝/等于 base 拒绝', (
   assert.equal(resolveContainedPath(base, '../escape'), null)
   assert.equal(resolveContainedPath(base, '/etc/passwd'), null)
   assert.equal(resolveContainedPath(base, '.'), null)
+})
+
+test('filterPaperPackManifest：过滤 pages/ 页图条目且不修改原对象', () => {
+  const manifest = makeManifest() // 含 source.pdf 与 pages/page-0001.jpg 两个条目
+  const filtered = filterPaperPackManifest(manifest)
+  assert.deepEqual(
+    filtered.files.map((file) => file.path),
+    ['source.pdf']
+  )
+  assert.equal(manifest.files.length, 2)
 })

@@ -88,3 +88,8 @@ export function parsePaperPackManifest(json: string): PaperPackManifest | null {
     return null
   }
 }
+
+/** 过滤远端 manifest 中已停止同步的文件（页图自 2026-08 起不再上传/下载） */
+export function filterPaperPackManifest(manifest: PaperPackManifest): PaperPackManifest {
+  return { ...manifest, files: manifest.files.filter((file) => !file.path.startsWith('pages/')) }
+}

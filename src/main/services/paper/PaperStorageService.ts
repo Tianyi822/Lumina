@@ -1,4 +1,4 @@
-import path, { dirname } from 'path'
+import path, { dirname, join } from 'path'
 import { existsSync } from 'fs'
 import { readFile, writeFile, rm, mkdir, copyFile, stat, readdir, rename } from 'fs/promises'
 import { createHash } from 'crypto'
@@ -432,7 +432,9 @@ export class PaperStorageService {
       }
 
       const updateResult = await this.updateMeta(paperId, {
-        pageAssets: this.upsertPageAsset(metaResult.data, pageAsset)
+        pageAssets: this.upsertPageAsset(metaResult.data, pageAsset),
+        // 重新保存页图说明正在重渲染回源，清除清理标记（否则 startOcr 会再次返回 pages_missing）
+        pageImagesPurgedAt: null
       })
 
       if (!updateResult.success) {
@@ -474,6 +476,52 @@ export class PaperStorageService {
       logger.error('读取页图失败', 'main', { paperId, pageIndex, error: errorMessage })
       return { success: false, error: errorMessage }
     }
+  }
+
+  /**
+   * 删除指定论文的 pages/ 页图目录（OCR 全部成功后调用），并在 meta 记录清理时间。
+   * 目录不存在时幂等成功；pageAssets 元数据保留（仍是进度 UI 与重渲染的依据）。
+   */
+  async purgePageImages(
+    paperId: string
+  ): Promise<{ success: boolean; freedBytes?: number; error?: string }> {
+    try {
+      const pagesDir = getPaperPagesDirPath(paperId)
+      let freedBytes = 0
+      if (existsSync(pagesDir)) {
+        freedBytes = await this.dirSizeBytes(pagesDir)
+        await rm(pagesDir, { recursive: true, force: true })
+      }
+
+      const updateResult = await this.updateMeta(paperId, {
+        pageImagesPurgedAt: new Date().toISOString()
+      })
+      if (!updateResult.success) {
+        return { success: false, error: updateResult.error }
+      }
+
+      return { success: true, freedBytes }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      logger.error('清理页图目录失败', 'main', { paperId, error: errorMessage })
+      return { success: false, error: errorMessage }
+    }
+  }
+
+  /** 递归计算目录大小（字节） */
+  private async dirSizeBytes(dir: string): Promise<number> {
+    let total = 0
+    const entries = await readdir(dir, { withFileTypes: true })
+    for (const entry of entries) {
+      const fullPath = join(dir, entry.name)
+      if (entry.isDirectory()) {
+        total += await this.dirSizeBytes(fullPath)
+      } else if (entry.isFile()) {
+        const fileStats = await stat(fullPath)
+        total += fileStats.size
+      }
+    }
+    return total
   }
 
   /**

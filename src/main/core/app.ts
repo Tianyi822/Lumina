@@ -23,7 +23,7 @@ import { logger } from '@main/services/logger'
 import { updateService } from '@main/services/update'
 import { setLanguageProvider } from '@main/services/i18n'
 import { configManager } from '@main/services/config'
-import { paperTranslationService } from '@main/services/paper'
+import { paperTranslationService, getPaperService } from '@main/services/paper'
 import { startEventLoopMonitoring } from '@main/services/monitoring/eventLoopMonitor'
 import { writerService } from '@main/services/writer'
 import { handleWriterWindowClose } from '@main/services/writer/WriterFlushCoordinator'
@@ -238,11 +238,23 @@ export function initializeApp(): void {
         })
       })
       .finally(() => {
-        initializeSessionSyncService()
-        initializeConfigSyncService()
-        initializeWriterSyncService()
-        initializeKnowledgeSyncService()
-        initializePaperSyncService()
+        // 先执行存量页图清理（OCR 已完成论文的 pages/ 目录），完成后再启动各领域同步，
+        // 避免同步把待删除的页图上传到服务器
+        void (async () => {
+          try {
+            await getPaperService().purgeRenderedPageImages()
+          } catch (error) {
+            logger.warn('存量页图清理失败', 'main', {
+              error: error instanceof Error ? error.message : String(error)
+            })
+          } finally {
+            initializeSessionSyncService()
+            initializeConfigSyncService()
+            initializeWriterSyncService()
+            initializeKnowledgeSyncService()
+            initializePaperSyncService()
+          }
+        })()
       })
 
     // 创建主窗口
