@@ -46,12 +46,6 @@ Ask questions while you read — the AI retrieves from the paper's original text
 
 ![AI-powered reading: structured answers grounded in the paper](screenshots/ai-chat.png)
 
-### Smart Agent
-
-For complex questions in paper conversations, the AI automatically enters plan-execute mode: it plans its own steps, calls tools as needed, and keeps reasoning from intermediate results — with plan steps and progress visible in real time and automatic retries on failure. Under the hood is a ReAct loop capped at 30 iterations with a 60,000-token budget; every tool call's parameters, results, and latency can be expanded and inspected, so results stay traceable.
-
-*📷 Reserved for smart agent screenshot*
-
 ### Knowledge Base
 
 Import PDFs, Word, Excel, PowerPoint, Markdown, TXT, CSV, and more — Lumina extracts, chunks, and vectorizes the content for you. Each knowledge base gets its own embedding model (presets for OpenAI, local Ollama, and Alibaba Cloud Bailian, plus any OpenAI-compatible service) and chunking strategy, with chunk counts, indexing progress, and storage usage visible at a glance — and a built-in search test panel to verify recall quality. Once you select target bases in a conversation, the AI decides on its own whether — and what — to search, instead of blindly scanning everything. Notes taken while reading papers are collected here too. Your knowledge base can also be exposed as an MCP server for external apps like Claude Desktop with one click.
