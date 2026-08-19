@@ -1,7 +1,7 @@
 {
   "name": "lumina",
   "productName": "Lumina",
-  "version": "1.9.13",
+  "version": "1.10.0",
   "author": "Tianyi",
   "description": "A research-oriented paper reading tool with AI-powered interaction and knowledge base management",
   "license": "GPL-3.0-only",
