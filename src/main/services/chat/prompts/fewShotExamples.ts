@@ -6,19 +6,13 @@ const PAPER_EXAMPLES: FewShotExample[] = [
     userQuery: '帮我解释论文中第 3.2 节的注意力机制',
     reasoning:
       '问题针对当前论文内部内容，应先检索论文原文获取准确的句子，而不是凭记忆解释或联网搜索。',
-    toolCalls: [
-      { name: 'paper__search_context', args: { query: '注意力机制', source: 'both' } }
-    ],
-    answer:
-      '根据论文 3.2 节，该注意力机制通过……（基于检索到的原文句子给出准确解释，不编造细节）。'
+    toolCalls: [{ name: 'paper__search_context', args: { query: '注意力机制', source: 'both' } }],
+    answer: '根据论文 3.2 节，该注意力机制通过……（基于检索到的原文句子给出准确解释，不编造细节）。'
   },
   {
     userQuery: '这篇论文用到的 BERT 模型，现在还有更好的替代方案吗？',
-    reasoning:
-      '问题涉及外部最新进展，论文内部上下文不足以回答，需要联网搜索补充最新信息。',
-    toolCalls: [
-      { name: 'paper_web__search', args: { query: 'BERT 替代方案 最新模型 对比' } }
-    ],
+    reasoning: '问题涉及外部最新进展，论文内部上下文不足以回答，需要联网搜索补充最新信息。',
+    toolCalls: [{ name: 'paper_web__search', args: { query: 'BERT 替代方案 最新模型 对比' } }],
     answer:
       '根据论文，作者使用 BERT 作为基础编码器（「根据论文」）；根据联网搜索，目前主流替代方案包括……（「根据联网搜索」）。'
   },

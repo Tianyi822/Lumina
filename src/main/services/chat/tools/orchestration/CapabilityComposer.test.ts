@@ -39,10 +39,10 @@ describe('CapabilityComposer', () => {
     description: 'search paper',
     inputSchema: { type: 'object' }
   }
-  const labTool: MCPToolReference = {
-    serverName: 'lab',
-    toolName: 'exec_command',
-    description: 'execute command',
+  const knowledgeTool: MCPToolReference = {
+    serverName: 'knowledge',
+    toolName: 'search',
+    description: 'search knowledge base',
     inputSchema: { type: 'object' }
   }
 
@@ -56,11 +56,7 @@ describe('CapabilityComposer', () => {
       )
     )
     capRegistry.register(
-      makeCapability(
-        'lab',
-        () => makeFakeAdapter([labTool]),
-        [labTool]
-      )
+      makeCapability('knowledge', () => makeFakeAdapter([knowledgeTool]), [knowledgeTool])
     )
   })
 
@@ -83,10 +79,10 @@ describe('CapabilityComposer', () => {
     const composition: CapabilityComposition = {
       stages: [
         { capabilityId: 'paper', mode: 'required' },
-        { capabilityId: 'lab', mode: 'on_demand' }
+        { capabilityId: 'knowledge', mode: 'on_demand' }
       ]
     }
-    const result = await composer.compose(['paper', 'lab'], composition, { paperId: 'p1' })
+    const result = await composer.compose(['paper', 'knowledge'], composition, { paperId: 'p1' })
 
     assert.ok(result)
     assert.equal(result.toolRegistry.size, 2)
@@ -107,7 +103,7 @@ describe('CapabilityComposer', () => {
     const suggestable = composer.getSuggestableCapabilities(['paper'], { paperId: 'p1' })
 
     assert.equal(suggestable.length, 1)
-    assert.equal(suggestable[0].id, 'lab')
+    assert.equal(suggestable[0].id, 'knowledge')
   })
 
   it('getSuggestableCapabilities 排除不可用的能力', () => {
@@ -115,7 +111,7 @@ describe('CapabilityComposer', () => {
     const suggestable = composer.getSuggestableCapabilities([], {})
 
     assert.equal(suggestable.length, 1)
-    assert.equal(suggestable[0].id, 'lab')
+    assert.equal(suggestable[0].id, 'knowledge')
   })
 
   it('compose 空活跃能力列表返回 null', async () => {

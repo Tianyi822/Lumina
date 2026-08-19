@@ -33,7 +33,7 @@ import {
   type UpdatePaperAnnotationPayload
 } from '../../../shared/types/paper.ts'
 import { buildPaperTextAnchor } from '../../../shared/utils/paperAnnotationAnchors.ts'
-import { PAPER_ANNOTATION_NOTE_CONFLICT_MESSAGE } from '../../../shared/utils/paperAnnotationConflicts.ts'
+import { t } from '../i18n/index.ts'
 
 type MutablePaperService = {
   getReaderDocument: (paperId: string) =>
@@ -319,7 +319,7 @@ test('getReaderDocument 会生成并命中 reader-document 缓存', async () => 
       builderVersion?: number
       readerDocument?: PaperReaderDocument
     }
-    assert.equal(cache.builderVersion, 1)
+    assert.equal(cache.builderVersion, 2)
     assert.match(cache.readerDocument?.markdown ?? '', /First cached paragraph/)
 
     paperStorageService.listNormalizedResults = () => {
@@ -467,7 +467,7 @@ test('createAnnotation 会拒绝与已有笔记范围重叠的新笔记', async 
     })
 
     assert.equal(result.success, false)
-    assert.equal(result.error, PAPER_ANNOTATION_NOTE_CONFLICT_MESSAGE)
+    assert.equal(result.error, t('notifications.paper.noteConflict'))
     assert.equal(saveCalled, false)
   } finally {
     paperStorageService.saveAnnotationStore = originalSaveAnnotationStore

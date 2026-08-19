@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import SvgIcon from '@renderer/components/icons/SvgIcon'
 import type { Notification, NotificationAction } from '@renderer/types/notification'
 import styles from './NotificationItem.module.css'
@@ -10,6 +11,8 @@ interface NotificationItemProps {
 }
 
 export default function NotificationItem({ notification, onDismiss }: NotificationItemProps) {
+  const { t } = useTranslation()
+
   const icon = useMemo(() => {
     switch (notification.type) {
       case 'error':
@@ -75,7 +78,7 @@ export default function NotificationItem({ notification, onDismiss }: Notificati
         <button
           type="button"
           className={[styles['message-close'], 'message-close'].join(' ')}
-          aria-label="关闭通知"
+          aria-label={t('notifications.dismiss')}
           onClick={() => onDismiss(notification.id)}
         >
           <SvgIcon name="close" size={14} />

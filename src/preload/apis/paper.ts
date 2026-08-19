@@ -11,9 +11,10 @@ import type {
   PaperTranslationProgress,
   PaperTranslationProgressBatch,
   PaperTranslationSummary,
-  PaperTranslationState
+  PaperTranslationState,
+  PagesPurgeSummary
 } from '@shared/types/paper'
-import type { OcrProviderId } from '@shared/types/config'
+import type { AppLanguage, OcrProviderId } from '@shared/types/config'
 
 export interface OcrProgressInfo {
   paperId: string
@@ -300,6 +301,16 @@ export const paperApi = {
   },
 
   /**
+   * 取走最近一次启动存量页图清理摘要（一次性；无则 null）
+   */
+  consumePagesPurgeSummary: (): Promise<{
+    success: boolean
+    data?: PagesPurgeSummary | null
+  }> => {
+    return ipcRenderer.invoke('paper:consumePagesPurgeSummary')
+  },
+
+  /**
    * 更新论文状态
    */
   updateStatus: (params: {
@@ -317,7 +328,7 @@ export const paperApi = {
     return ipcRenderer.invoke('paper:testOcrConnection', params)
   },
 
-  startOcr: (paperId: string): Promise<{ success: boolean; error?: string }> => {
+  startOcr: (paperId: string): Promise<{ success: boolean; code?: string; error?: string }> => {
     return ipcRenderer.invoke('paper:startOcr', paperId)
   },
 
@@ -338,6 +349,7 @@ export const paperApi = {
     pageIndex: number
   }): Promise<{
     success: boolean
+    code?: string
     error?: string
   }> => {
     return ipcRenderer.invoke('paper:retryPage', params)
@@ -380,9 +392,15 @@ export const paperApi = {
   },
 
   startTranslation: (
-    paperId: string
-  ): Promise<{ success: boolean; alreadyRunning?: boolean; error?: string }> => {
-    return ipcRenderer.invoke('paper:startTranslation', { paperId })
+    paperId: string,
+    targetLanguage?: AppLanguage
+  ): Promise<{
+    success: boolean
+    alreadyRunning?: boolean
+    skippedReason?: 'sameLanguage'
+    error?: string
+  }> => {
+    return ipcRenderer.invoke('paper:startTranslation', { paperId, targetLanguage })
   },
 
   retranslateSegment: (params: {

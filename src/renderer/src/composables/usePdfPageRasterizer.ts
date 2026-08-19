@@ -10,6 +10,7 @@ import {
   type RenderTask,
   GlobalWorkerOptions
 } from 'pdfjs-dist'
+import { i18n } from '@renderer/i18n'
 
 // Worker 初始化（模块顶层执行一次，使用本地路径）
 GlobalWorkerOptions.workerSrc = new URL(
@@ -45,7 +46,7 @@ function createValueRef<T>(value: T): ValueRef<T> {
 /**
  * PDF 加载错误
  */
-export class PdfLoadError extends Error {
+class PdfLoadError extends Error {
   constructor(
     message: string,
     public readonly cause?: unknown
@@ -58,7 +59,7 @@ export class PdfLoadError extends Error {
 /**
  * PDF 渲染错误
  */
-export class PdfRenderError extends Error {
+class PdfRenderError extends Error {
   constructor(
     message: string,
     public readonly cause?: unknown
@@ -120,7 +121,7 @@ export function usePdfPageRasterizer(): {
       return pageInfos
     } catch (error) {
       dispose()
-      throw new PdfLoadError('加载 PDF 失败', error)
+      throw new PdfLoadError(i18n.t('notifications.paper.pdfLoadFailed'), error)
     }
   }
 
@@ -132,11 +133,16 @@ export function usePdfPageRasterizer(): {
    */
   async function renderPage(pageIndex: number, scale: number = 2.0): Promise<RenderResult> {
     if (!pdfDoc || !isLoaded.value) {
-      throw new PdfRenderError('PDF 未加载，请先调用 loadPdf')
+      throw new PdfRenderError(i18n.t('notifications.paper.pdfNotLoaded'))
     }
 
     if (pageIndex < 0 || pageIndex >= pageCount.value) {
-      throw new PdfRenderError(`页面索引无效: ${pageIndex}，有效范围: 0-${pageCount.value - 1}`)
+      throw new PdfRenderError(
+        i18n.t('notifications.paper.pageIndexInvalid', {
+          index: pageIndex,
+          max: pageCount.value - 1
+        })
+      )
     }
 
     let renderTask: RenderTask | null = null
@@ -154,7 +160,7 @@ export function usePdfPageRasterizer(): {
       })
 
       if (!canvasContext) {
-        throw new PdfRenderError('创建 Canvas 2D 上下文失败')
+        throw new PdfRenderError(i18n.t('notifications.paper.canvas2dContextFailed'))
       }
 
       canvas.width = viewport.width
@@ -190,7 +196,10 @@ export function usePdfPageRasterizer(): {
       if (renderTask) {
         renderTask.cancel()
       }
-      throw new PdfRenderError(`渲染页面 ${pageIndex} 失败`, error)
+      throw new PdfRenderError(
+        i18n.t('notifications.paper.pageRenderFailed', { index: pageIndex }),
+        error
+      )
     }
   }
 

@@ -1,9 +1,10 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { i18n } from '@renderer/i18n'
 import type { KnowledgeBase, KnowledgeBaseEmbeddingConfig } from '@renderer/types'
 import type { EmbeddingConfig } from '@shared/types/config'
 
-export interface CreateKnowledgeBaseInput {
+interface CreateKnowledgeBaseInput {
   name: string
   description: string
   embeddingConfig: KnowledgeBaseEmbeddingConfig
@@ -136,7 +137,7 @@ export const useKnowledgeStore = create<KnowledgeState>()(
         try {
           const createResult = await window.api.knowledge.create(data)
           if (!createResult.success || !createResult.data) {
-            set({ error: createResult.error || '创建失败' })
+            set({ error: createResult.error || i18n.t('notifications.knowledge.createFailed') })
             return null
           }
 
@@ -169,7 +170,7 @@ export const useKnowledgeStore = create<KnowledgeState>()(
             })
             return true
           } else {
-            set({ error: result.error || '更新失败' })
+            set({ error: result.error || i18n.t('notifications.knowledge.updateFailed') })
             return false
           }
         } catch (e) {
@@ -193,7 +194,7 @@ export const useKnowledgeStore = create<KnowledgeState>()(
             }))
             return true
           } else {
-            set({ error: result.error || '删除失败' })
+            set({ error: result.error || i18n.t('notifications.knowledge.deleteFailed') })
             return false
           }
         } catch (e) {

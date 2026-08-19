@@ -6,12 +6,11 @@ import {
   type ThemeConfig,
   type ThemeMode,
   type LLMConfig,
-  type PaperReaderConfig,
-  type LabFeaturesConfig
+  type PaperReaderConfig
 } from '@shared/types/config'
+import { i18n } from '@renderer/i18n'
 import { useNotificationCenterStore } from '@renderer/stores/notificationCenterStore'
-import { createDefaultLabFeatures, deepClone, normalizeLabFeatures } from '@shared/utils'
-import type { LabDisciplineId } from '@shared/types/config'
+import { deepClone } from '@shared/utils'
 
 interface SaveConfigOptions {
   silent?: boolean
@@ -24,7 +23,6 @@ interface ConfigState {
   llmConfigs: LLMConfig[]
   defaultModel: string
   paperReaderConfig: PaperReaderConfig
-  labFeatures: LabFeaturesConfig
 
   hasModels: () => boolean
   defaultModelConfig: () => LLMConfig | undefined
@@ -38,8 +36,6 @@ interface ConfigState {
   deleteModelConfig: (modelName: string) => void
   updateModelConfigField: (modelName: string, field: keyof LLMConfig, value: string) => void
   updatePaperReaderConfig: (config: Partial<PaperReaderConfig>) => void
-  updateLabFeatures: (updates: Partial<LabFeaturesConfig>) => void
-  toggleLabDiscipline: (disciplineId: LabDisciplineId) => void
 }
 
 function notifyError(title: string, message: string): void {
@@ -52,7 +48,7 @@ function notifySuccess(title: string, message: string): void {
 
 /**
  * 配置管理 Store
- * 管理应用全局配置的加载、保存和修改，包括主题、LLM 模型、论文阅读器、实验室功能等
+ * 管理应用全局配置的加载、保存和修改，包括主题、LLM 模型、论文阅读器等
  */
 export const useConfigStore = create<ConfigState>()(
   persist(
@@ -67,7 +63,6 @@ export const useConfigStore = create<ConfigState>()(
         zoomLevel: 1,
         originalPdfZoomLevel: 1
       },
-      labFeatures: createDefaultLabFeatures(),
 
       hasModels: () => get().llmConfigs.length > 0,
       defaultModelConfig: () => get().llmConfigs.find((m) => m.model_name === get().defaultModel),
@@ -92,17 +87,13 @@ export const useConfigStore = create<ConfigState>()(
             if (config.paperReader) {
               patch.paperReaderConfig = { ...get().paperReaderConfig, ...config.paperReader }
             }
-            if (config.labFeatures) {
-              patch.labFeatures = normalizeLabFeatures({
-                ...get().labFeatures,
-                ...config.labFeatures
-              })
-            }
             set(patch)
           }
         } catch (error) {
-          const msg = `加载配置失败: ${error instanceof Error ? error.message : String(error)}`
-          notifyError('配置加载失败', msg)
+          const msg = `${i18n.t('notifications.config.loadFailedPrefix')}${
+            error instanceof Error ? error.message : String(error)
+          }`
+          notifyError(i18n.t('notifications.config.loadFailedTitle'), msg)
         } finally {
           set({ loading: false })
         }
@@ -145,17 +136,19 @@ export const useConfigStore = create<ConfigState>()(
           const result = await window.api.config.saveConfig(nextConfig)
           if (result.success) {
             if (!options?.silent) {
-              notifySuccess('配置保存成功', '')
+              notifySuccess(i18n.t('notifications.config.saveSuccess'), '')
             }
             return true
           } else {
-            const msg = result.error || '保存失败'
-            notifyError('配置保存失败', msg)
+            const msg = result.error || i18n.t('notifications.config.saveFailedFallback')
+            notifyError(i18n.t('notifications.config.saveFailedTitle'), msg)
             return false
           }
         } catch (error) {
-          const msg = `保存配置失败: ${error instanceof Error ? error.message : String(error)}`
-          notifyError('配置保存失败', msg)
+          const msg = `${i18n.t('notifications.config.saveFailedPrefix')}${
+            error instanceof Error ? error.message : String(error)
+          }`
+          notifyError(i18n.t('notifications.config.saveFailedTitle'), msg)
           return false
         } finally {
           set({ saving: false })
@@ -198,59 +191,15 @@ export const useConfigStore = create<ConfigState>()(
         })),
 
       updatePaperReaderConfig: (config) =>
-        set((state) => ({ paperReaderConfig: { ...state.paperReaderConfig, ...config } })),
-
-      updateLabFeatures: async (updates) => {
-        // 更新实验室功能配置并立即同步到主进程
-        const current = normalizeLabFeatures(get().labFeatures)
-        const next = normalizeLabFeatures({
-          ...current,
-          ...updates,
-          disciplines: {
-            ...current.disciplines,
-            ...updates.disciplines
-          }
-        })
-        set({ labFeatures: next })
-        try {
-          const result = await window.api.config.updateConfig({ labFeatures: next })
-          if (!result.success) {
-            notifyError('实验室配置保存失败', result.error || '')
-          }
-        } catch (error) {
-          const msg = `实验室配置保存失败: ${error instanceof Error ? error.message : String(error)}`
-          notifyError('实验室配置保存失败', msg)
-        }
-      },
-
-      toggleLabDiscipline: (disciplineId) => {
-        // 切换某学科实验室的启用/禁用状态
-        const current = normalizeLabFeatures(get().labFeatures)
-        void get().updateLabFeatures({
-          disciplines: {
-            ...current.disciplines,
-            [disciplineId]: !current.disciplines[disciplineId]
-          }
-        })
-      }
+        set((state) => ({ paperReaderConfig: { ...state.paperReaderConfig, ...config } }))
     }),
     {
       name: 'lumina-config',
       partialize: (state) => ({
         themeConfig: state.themeConfig,
         defaultModel: state.defaultModel,
-        paperReaderConfig: state.paperReaderConfig,
-        labFeatures: state.labFeatures
-      }),
-      // 持久化合并时确保 labFeatures 经过规范化处理
-      merge: (persisted, current) => {
-        const saved = persisted as Partial<ConfigState> | undefined
-        return {
-          ...current,
-          ...saved,
-          labFeatures: normalizeLabFeatures(saved?.labFeatures ?? current.labFeatures)
-        }
-      }
+        paperReaderConfig: state.paperReaderConfig
+      })
     }
   )
 )

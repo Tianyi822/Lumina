@@ -1,4 +1,5 @@
 import { useMemo, useState, type FC } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { UserInteractionOption, UserInteractionRequest } from '@shared/types/chat'
 import { renderInline, renderBlock } from './markdownRender'
 import styles from './UserInteractionList.module.css'
@@ -29,6 +30,7 @@ export const UserInteractionList: FC<UserInteractionListProps> = ({
   onLater,
   initialVisibleCount = 4
 }) => {
+  const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
 
   // 预渲染 question（块级，含 $$...$$ 与 \begin{equation}）
@@ -49,7 +51,7 @@ export const UserInteractionList: FC<UserInteractionListProps> = ({
         <div className={styles.question} dangerouslySetInnerHTML={{ __html: questionHtml }} />
         {onLater && (
           <button type="button" className={styles.laterButton} onClick={onLater}>
-            稍后
+            {t('paper.chat.interaction.later')}
           </button>
         )}
       </div>
@@ -78,7 +80,7 @@ export const UserInteractionList: FC<UserInteractionListProps> = ({
 
       {hasMore && (
         <button type="button" className={styles.expandMore} onClick={() => setExpanded(true)}>
-          展开更多（共 {interaction.options.length} 个）
+          {t('paper.chat.interaction.expandMore', { count: interaction.options.length })}
         </button>
       )}
     </div>

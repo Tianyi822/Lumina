@@ -5,6 +5,7 @@ import { existsSync, mkdirSync } from 'fs'
 
 /**
  * 配置目录名称
+ * @public 配置系统对外公共 API（经 services/config barrel re-export 作为稳定导出表面）
  */
 export const CONFIG_DIR_NAME = '.lumina'
 
@@ -15,6 +16,7 @@ export const KNOWLEDGE_DIR_NAME = 'knowledge'
 
 /**
  * 配置文件名称
+ * @public 配置系统对外公共 API（经 services/config barrel re-export 作为稳定导出表面）
  */
 export const CONFIG_FILE_NAME = 'config.json'
 
@@ -64,6 +66,7 @@ function readDataPathFromRegistry(): string | null {
  * 获取配置目录路径
  * Windows 下优先从注册表读取 DataPath，读取失败回退到 ~/.lumina
  * macOS/Linux 返回 ~/.lumina
+ * @public 配置系统对外公共 API（经 services/config barrel re-export 作为稳定导出表面）
  */
 export function getConfigDirPath(): string {
   if (process.platform === 'win32') {
@@ -91,6 +94,7 @@ export function getConfigDirPath(): string {
 /**
  * 获取配置文件路径
  * 返回配置目录下的 config.json 文件路径
+ * @public 配置系统对外公共 API（经 services/config barrel re-export 作为稳定导出表面）
  */
 export function getConfigFilePath(): string {
   return join(getConfigDirPath(), CONFIG_FILE_NAME)

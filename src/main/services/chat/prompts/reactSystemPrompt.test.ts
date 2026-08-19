@@ -21,17 +21,6 @@ test('内置 ReAct 提示词不注入当前时间且连续构建保持稳定', (
   assert.doesNotMatch(firstPrompt, /当前时间/)
 })
 
-test('内置 ReAct 提示词保留实验室创建业务规则', () => {
-  const prompt = buildReactSystemPrompt()
-
-  assert.match(prompt, /实验室管理指南/)
-  assert.match(prompt, /实验室工具是可选能力/)
-  assert.match(prompt, /不要为了所有实验室会话都强行输出计划/)
-  assert.match(prompt, /lab__create_lab/)
-  assert.match(prompt, /dockerfile_content/)
-  assert.match(prompt, /compose_content/)
-})
-
 // ===== buildToolCoordinationGuide =====
 
 test('buildToolCoordinationGuide 空 stages 返回空字符串', () => {

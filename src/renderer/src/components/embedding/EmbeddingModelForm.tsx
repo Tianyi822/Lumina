@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { EmbeddingConfig } from '@shared/types/config'
 import { normalizeEmbeddingBaseUrl } from '@shared/utils/embeddingBaseUrl'
 import styles from './EmbeddingModelForm.module.css'
@@ -12,16 +13,6 @@ interface EmbeddingModelFormProps {
   onTest: (config: EmbeddingConfig) => void
 }
 
-/** 验证向量维度，返回是否有效 */
-function validateDimension(value: string): string {
-  const num = Number(value)
-  if (!value.trim()) return '请输入向量维度'
-  if (isNaN(num)) return '请输入有效的数字'
-  if (!Number.isInteger(num)) return '向量维度必须是整数'
-  if (num <= 0) return '向量维度必须大于0'
-  return ''
-}
-
 /** 嵌入模型新增/编辑表单，包含显示名称、API URL/Key、模型名和向量维度 */
 export default function EmbeddingModelForm({
   existingNames,
@@ -31,6 +22,8 @@ export default function EmbeddingModelForm({
   onCancel,
   onTest
 }: EmbeddingModelFormProps) {
+  const { t } = useTranslation()
+
   // 表单数据
   const [displayName, setDisplayName] = useState('')
   const [provider, setProvider] = useState<EmbeddingConfig['provider']>('custom')
@@ -70,11 +63,11 @@ export default function EmbeddingModelForm({
       return
     }
     if (existingNames && existingNames.includes(displayName)) {
-      setNameConflictError('该名称已被使用，请更换')
+      setNameConflictError(t('settings.embedding.nameConflict'))
     } else {
       setNameConflictError('')
     }
-  }, [displayName, editingName, existingNames])
+  }, [displayName, editingName, existingNames, t])
 
   // 构建配置对象
   function buildConfig(): EmbeddingConfig {
@@ -90,13 +83,23 @@ export default function EmbeddingModelForm({
     }
   }
 
+  /** 验证向量维度，返回是否有效 */
+  function validateDimension(value: string): string {
+    const num = Number(value)
+    if (!value.trim()) return t('settings.embedding.validation.dimensionRequired')
+    if (isNaN(num)) return t('settings.embedding.validation.dimensionInvalid')
+    if (!Number.isInteger(num)) return t('settings.embedding.validation.dimensionInteger')
+    if (num <= 0) return t('settings.embedding.validation.dimensionPositive')
+    return ''
+  }
+
   // 验证表单
   function validateForm(): string | null {
-    if (!displayName.trim()) return '请输入显示名称'
+    if (!displayName.trim()) return t('settings.embedding.validation.nameRequired')
     if (nameConflictError) return nameConflictError
-    if (!baseUrl.trim()) return '请输入API基础URL'
-    if (!apiKey.trim()) return '请输入API密钥'
-    if (!modelName.trim()) return '请输入模型名称'
+    if (!baseUrl.trim()) return t('settings.embedding.validation.baseUrlRequired')
+    if (!apiKey.trim()) return t('settings.embedding.validation.apiKeyRequired')
+    if (!modelName.trim()) return t('settings.embedding.validation.modelRequired')
     const dimErr = validateDimension(dimensions)
     if (dimErr) return dimErr
     return null
@@ -128,20 +131,22 @@ export default function EmbeddingModelForm({
 
   return (
     <div className={styles['new-model-form']}>
-      <h3 className={styles['form-section-title']}>{editingName ? '编辑' : '添加'}嵌入模型</h3>
+      <h3 className={styles['form-section-title']}>
+        {editingName ? t('settings.embedding.formTitleEdit') : t('settings.embedding.formTitleAdd')}
+      </h3>
 
       <form onSubmit={handleSubmit}>
         {/* 显示名称 */}
         <div className={styles['form-group']}>
           <label>
-            显示名称 <span className={styles.required}>*</span>
+            {t('settings.embedding.displayName')} <span className={styles.required}>*</span>
           </label>
           <input
             type="text"
             className={['sm-input', nameConflictError && styles['input-error']]
               .filter(Boolean)
               .join(' ')}
-            placeholder="例如: OpenAI Embedding Small"
+            placeholder={t('settings.embedding.displayNamePlaceholder')}
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
           />
@@ -153,12 +158,12 @@ export default function EmbeddingModelForm({
         {/* API 基础URL */}
         <div className={styles['form-group']}>
           <label>
-            API 基础URL <span className={styles.required}>*</span>
+            {t('settings.embedding.baseUrlLabel')} <span className={styles.required}>*</span>
           </label>
           <input
             type="url"
             className="sm-input"
-            placeholder="http://127.0.0.1:1234/v1（填到 /v1，不要含 /embeddings）"
+            placeholder={t('settings.embedding.baseUrlPlaceholder')}
             value={baseUrl}
             onChange={(e) => setBaseUrl(e.target.value)}
           />
@@ -167,7 +172,7 @@ export default function EmbeddingModelForm({
         {/* API 密钥 */}
         <div className={styles['form-group']}>
           <label>
-            API 密钥 <span className={styles.required}>*</span>
+            {t('settings.embedding.apiKeyLabel')} <span className={styles.required}>*</span>
           </label>
           <input
             type="password"
@@ -181,7 +186,7 @@ export default function EmbeddingModelForm({
         {/* 模型名称 */}
         <div className={styles['form-group']}>
           <label>
-            模型名称 <span className={styles.required}>*</span>
+            {t('settings.embedding.modelNameLabel')} <span className={styles.required}>*</span>
           </label>
           <input
             type="text"
@@ -195,7 +200,7 @@ export default function EmbeddingModelForm({
         {/* 向量维度 */}
         <div className={styles['form-group']}>
           <label>
-            向量维度 <span className={styles.required}>*</span>
+            {t('settings.embedding.dimensionsLabel')} <span className={styles.required}>*</span>
           </label>
           <input
             type="text"
@@ -217,17 +222,17 @@ export default function EmbeddingModelForm({
         {/* 按钮组 */}
         <div className={styles['form-actions']}>
           <button type="button" className="sm-button" onClick={onCancel}>
-            取消
+            {t('common.cancel')}
           </button>
           <button
             type="button"
             className="sm-button sm-button--secondary"
             onClick={handleTestConnection}
           >
-            测试连接
+            {t('common.testConnection')}
           </button>
           <button type="submit" className="sm-button sm-button--primary">
-            保存
+            {t('common.save')}
           </button>
         </div>
       </form>

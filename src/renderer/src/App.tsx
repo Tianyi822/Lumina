@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react'
 import { useUIStateStore } from '@renderer/stores/uiStateStore'
 import { useConfigStore } from '@renderer/stores/configStore'
-import { isAnyLabDisciplineEnabled } from '@shared/utils/labFeatures'
 import { usePaperViewStore } from '@renderer/stores/paper'
+import { useSyncStore } from '@renderer/stores/syncStore'
 import { getRuntimePlatform } from '@renderer/composables/runtimePlatformCore'
+import { reconcileLanguageFromConfig } from '@renderer/i18n'
 
 import { useForegroundUpdateCheck } from '@renderer/composables/useForegroundUpdateCheck'
 import NotificationCenter from '@renderer/components/NotificationCenter'
@@ -11,25 +12,22 @@ import SettingsModal from '@renderer/components/SettingsModal'
 import WindowControls from '@renderer/components/chrome/WindowControls'
 import WorkspaceSidebarHost from '@renderer/components/chrome/WorkspaceSidebarHost'
 import { CssSwitchTransition } from '@renderer/components/motion/CssTransition'
-import LabTerminalSessionHost from '@renderer/components/lab/LabTerminalSessionHost'
 
 const PaperReaderPage = lazy(() => import('@renderer/pages/PaperReaderPage'))
 const KnowledgePage = lazy(() => import('@renderer/pages/KnowledgePage'))
-const LabPage = lazy(() => import('@renderer/pages/LabPage'))
+const WritingPage = lazy(() => import('@renderer/pages/WritingPage'))
 
 import styles from './App.module.css'
 
 /**
  * 应用根组件
- * 管理视图路由（论文/知识库/实验室）、主题初始化、全局链接拦截、设置弹窗
+ * 管理视图路由（论文/知识库）、主题初始化、全局链接拦截、设置弹窗
  */
 export default function App() {
   const currentView = useUIStateStore((s) => s.currentView)
   const isCurrentSidebarCollapsed = useUIStateStore((s) => s.isCurrentSidebarCollapsed())
   const paperChatPanelOpen = useUIStateStore((s) => s.paperChatPanelOpen)
   const loadConfigStatus = useUIStateStore((s) => s.loadConfigStatus)
-
-  const labFeaturesLabEnabled = useConfigStore((s) => isAnyLabDisciplineEnabled(s.labFeatures))
 
   const { isMac, isWindows, usesCustomWindowControls } = useMemo(() => getRuntimePlatform(), [])
 
@@ -58,8 +56,19 @@ export default function App() {
     void uiState.initTheme()
     void loadConfigStatus()
     void configStore.loadConfig()
+    void reconcileLanguageFromConfig()
     usePaperViewStore.getState().loadPaperReaderPreferences()
   }, [loadConfigStatus])
+
+  // 同步事件流在应用生命周期内保持连接，设置页只负责展示与操作
+  useEffect(() => {
+    const syncStore = useSyncStore.getState()
+    void syncStore.refreshStatus()
+
+    return () => {
+      syncStore.cleanupEventStream()
+    }
+  }, [])
 
   // 全局链接拦截：防止默认导航，通过主进程打开外部链接
   useEffect(() => {
@@ -85,16 +94,6 @@ export default function App() {
     }
   }, [])
 
-  // lab 禁用时如果当前视图是 lab，回退到 paper 视图
-  useEffect(() => {
-    if (!labFeaturesLabEnabled) {
-      const currentViewState = useUIStateStore.getState().currentView
-      if (currentViewState === 'lab') {
-        useUIStateStore.getState().setCurrentView('paper')
-      }
-    }
-  }, [labFeaturesLabEnabled])
-
   const openSettings = useCallback(() => setShowSettings(true), [])
   const closeSettings = useCallback(() => setShowSettings(false), [])
 
@@ -117,25 +116,17 @@ export default function App() {
           <KnowledgePage key="knowledge" />
         </Suspense>
       )
-    // lab 禁用时 fallback 渲染 PaperReaderPage
-    const labEnabled = isAnyLabDisciplineEnabled(useConfigStore.getState().labFeatures)
-    if (!labEnabled) {
+    if (view === 'writer')
       return (
         <Suspense fallback={fallback}>
-          <PaperReaderPage key="paper" />
+          <WritingPage key="writer" />
         </Suspense>
       )
-    }
-    return (
-      <Suspense fallback={fallback}>
-        <LabPage key="lab" />
-      </Suspense>
-    )
+    return null
   }, [])
 
   return (
     <div className="sm-app">
-      <LabTerminalSessionHost />
       <NotificationCenter />
 
       <div className={`sm-shell sm-workspace-page ${workspacePageClasses}`}>

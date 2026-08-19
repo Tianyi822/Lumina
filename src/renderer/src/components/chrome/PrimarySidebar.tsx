@@ -1,42 +1,25 @@
-import { useCallback, useMemo } from 'react'
+import { useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import SvgIcon from '@renderer/components/icons/SvgIcon'
 import { uploadAndRenderPdf } from '@renderer/stores/paper'
-import { useConfigStore, useKnowledgeStore } from '@renderer/stores'
-import {
-  isAnyLabDisciplineEnabled,
-  isLabDisciplineEnabled,
-  LAB_DISCIPLINE_PRESETS
-} from '@shared/utils/labFeatures'
+import { useKnowledgeStore } from '@renderer/stores'
+import { useWriterLibraryStore } from '@renderer/stores/writer'
 import { hasPendingUpdateBadge, useUpdateStore } from '@renderer/stores/updateStore'
 import { useUIStateStore } from '@renderer/stores/uiStateStore'
-import type { UIStateStore, ViewMode } from '@renderer/stores/uiStateStore'
+import type { UIStateStore } from '@renderer/stores/uiStateStore'
 import WorkspaceToolbar from '@renderer/components/chrome/WorkspaceToolbar'
+import {
+  WORKSPACE_NAV_ITEMS,
+  WORKSPACE_ADD_LABEL_KEYS,
+  WORKSPACE_NAV_LABEL_KEYS,
+  type WorkspaceNavItem
+} from './workspaceNavigation'
 import styles from './PrimarySidebar.module.css'
 
 const ICON_SIZE = 18
 const EXPAND_ICON_SIZE = 11
 
-interface NavItem {
-  id: string
-  icon: string
-  label: string
-  view: ViewMode
-  showTooltip: boolean
-}
-
-const ADD_LABEL_BY_VIEW: Record<ViewMode, string> = {
-  paper: '添加论文',
-  knowledge: '新增知识库',
-  lab: '新增实验室'
-}
-
-/** 一级侧边栏导航项（论文阅读 + 知识库） */
-const TOP_NAV_ITEMS: NavItem[] = [
-  { id: 'read', icon: 'read', label: '阅读', view: 'paper', showTooltip: true },
-  { id: 'knowledge', icon: 'knowledge', label: '知识库', view: 'knowledge', showTooltip: true }
-]
-
-const BOTTOM_NAV_ITEM = { id: 'settings', icon: 'settings', label: '设置' } as const
+const BOTTOM_NAV_ITEM = { id: 'settings', icon: 'settings' } as const
 
 interface PrimarySidebarProps {
   onOpenSettings?: () => void
@@ -44,8 +27,8 @@ interface PrimarySidebarProps {
 
 function selectIsSecondarySidebarCollapsed(state: UIStateStore): boolean {
   if (state.currentView === 'paper') return state.paperSidebarCollapsed
-  if (state.currentView === 'knowledge') return state.knowledgeSidebarCollapsed
-  return state.labSidebarCollapsed
+  if (state.currentView === 'writer') return state.writerSidebarCollapsed
+  return state.knowledgeSidebarCollapsed
 }
 
 /**
@@ -53,48 +36,24 @@ function selectIsSecondarySidebarCollapsed(state: UIStateStore): boolean {
  * 提供视图导航、主题切换、添加按钮、设置入口等功能
  */
 export default function PrimarySidebar({ onOpenSettings }: PrimarySidebarProps) {
+  const { t } = useTranslation()
   const currentView = useUIStateStore((s) => s.currentView)
   const setCurrentView = useUIStateStore((s) => s.setCurrentView)
   const toggleCurrentSidebar = useUIStateStore((s) => s.toggleCurrentSidebar)
-  const paperSidebarCollapsed = useUIStateStore((s) => s.paperSidebarCollapsed)
-  const rawSidebarCollapsed = useUIStateStore(selectIsSecondarySidebarCollapsed)
+  const isSecondarySidebarCollapsed = useUIStateStore(selectIsSecondarySidebarCollapsed)
   const currentTheme = useUIStateStore((s) => s.currentTheme)
   const themeMode = useUIStateStore((s) => s.themeMode)
   const setTheme = useUIStateStore((s) => s.setTheme)
   const setThemeMode = useUIStateStore((s) => s.setThemeMode)
   const openCreateForm = useKnowledgeStore((s) => s.openCreateForm)
-  const openLabCreator = useUIStateStore((s) => s.openLabCreator)
   const updateStatus = useUpdateStore((s) => s.status)
   const showUpdateBadge = hasPendingUpdateBadge(updateStatus)
-  const labFeatures = useConfigStore((s) => s.labFeatures)
-  const labEnabled = isAnyLabDisciplineEnabled(labFeatures)
-
-  // lab 禁用时使用 paper 侧边栏折叠状态（防御性处理）
-  const isSecondarySidebarCollapsed = labEnabled ? rawSidebarCollapsed : paperSidebarCollapsed
 
   const isDarkTheme = currentTheme === 'lumina-dark'
 
-  const addTooltip = ADD_LABEL_BY_VIEW[currentView]
+  const addTooltip = t(WORKSPACE_ADD_LABEL_KEYS[currentView])
 
-  // 根据启用的实验室学科动态生成导航项
-  const navItems = useMemo(() => {
-    const labNavItems = LAB_DISCIPLINE_PRESETS.filter((preset) =>
-      isLabDisciplineEnabled(labFeatures, preset.id)
-    ).map((preset) => ({
-      id: `lab-${preset.id}`,
-      icon: preset.icon,
-      label: `${preset.label}实验室`,
-      view: 'lab' as ViewMode,
-      showTooltip: true
-    }))
-
-    return [...TOP_NAV_ITEMS, ...labNavItems].map((item) => ({
-      ...item,
-      tooltip: item.showTooltip ? item.label : undefined
-    }))
-  }, [labFeatures])
-
-  // 根据当前视图执行不同的添加操作（上传论文/创建知识库/创建实验室）
+  // 根据当前视图执行不同的添加操作（上传论文/创建知识库）
   const handleAddClick = useCallback((): void => {
     if (currentView === 'paper') {
       void uploadAndRenderPdf()
@@ -104,8 +63,8 @@ export default function PrimarySidebar({ onOpenSettings }: PrimarySidebarProps) 
       openCreateForm()
       return
     }
-    openLabCreator()
-  }, [currentView, openCreateForm, openLabCreator])
+    void useWriterLibraryStore.getState().createAndOpen()
+  }, [currentView, openCreateForm])
 
   const handleExpandToggle = useCallback(
     (event: React.MouseEvent<HTMLButtonElement>): void => {
@@ -115,7 +74,7 @@ export default function PrimarySidebar({ onOpenSettings }: PrimarySidebarProps) 
     [toggleCurrentSidebar]
   )
 
-  const handleNavClick = (item: NavItem): void => {
+  const handleNavClick = (item: WorkspaceNavItem): void => {
     void setCurrentView(item.view)
   }
 
@@ -133,7 +92,7 @@ export default function PrimarySidebar({ onOpenSettings }: PrimarySidebarProps) 
   )
 
   return (
-    <nav className={styles['sm-primary-sidebar']} aria-label="一级导航">
+    <nav className={styles['sm-primary-sidebar']} aria-label={t('chrome.nav.ariaPrimary')}>
       <div className={styles['sm-primary-sidebar__main']}>
         <div className={styles['sm-primary-sidebar__add-slot']}>
           <div className={styles['sm-primary-sidebar__item-wrap']}>
@@ -157,7 +116,11 @@ export default function PrimarySidebar({ onOpenSettings }: PrimarySidebarProps) 
             ]
               .filter(Boolean)
               .join(' ')}
-            aria-label={isSecondarySidebarCollapsed ? '展开二级侧边栏' : '收起二级侧边栏'}
+            aria-label={
+              isSecondarySidebarCollapsed
+                ? t('chrome.nav.expandSidebar')
+                : t('chrome.nav.collapseSidebar')
+            }
             aria-expanded={!isSecondarySidebarCollapsed}
             onClick={handleExpandToggle}
           >
@@ -165,9 +128,9 @@ export default function PrimarySidebar({ onOpenSettings }: PrimarySidebarProps) 
           </button>
         </div>
 
-        {navItems.map((item) => {
+        {WORKSPACE_NAV_ITEMS.map((item) => {
           const isActive = item.view === currentView
-          const tooltip = item.tooltip
+          const tooltip = t(WORKSPACE_NAV_LABEL_KEYS[item.view])
 
           return (
             <div key={item.id} className={styles['sm-primary-sidebar__item-wrap']}>
@@ -179,16 +142,14 @@ export default function PrimarySidebar({ onOpenSettings }: PrimarySidebarProps) 
                 ]
                   .filter(Boolean)
                   .join(' ')}
-                aria-label={tooltip ?? item.label}
+                aria-label={tooltip}
                 onClick={() => handleNavClick(item)}
               >
                 <SvgIcon name={item.icon} size={ICON_SIZE} />
               </button>
-              {tooltip ? (
-                <span className={styles['sm-primary-sidebar__tooltip']} role="tooltip">
-                  {tooltip}
-                </span>
-              ) : null}
+              <span className={styles['sm-primary-sidebar__tooltip']} role="tooltip">
+                {tooltip}
+              </span>
             </div>
           )
         })}
@@ -218,13 +179,13 @@ export default function PrimarySidebar({ onOpenSettings }: PrimarySidebarProps) 
               .filter(Boolean)
               .join(' ')}
             role="group"
-            aria-label="主题切换"
+            aria-label={t('chrome.nav.themeSwitch')}
           >
             <span className={styles['sm-primary-sidebar__theme-switch-thumb']} aria-hidden="true" />
             <button
               type="button"
               className={styles['sm-primary-sidebar__theme-switch-option']}
-              aria-label="浅色主题"
+              aria-label={t('chrome.nav.themeLight')}
               aria-pressed={!isDarkTheme}
               onClick={() => applyTheme('lumina-light')}
             >
@@ -233,7 +194,7 @@ export default function PrimarySidebar({ onOpenSettings }: PrimarySidebarProps) 
             <button
               type="button"
               className={styles['sm-primary-sidebar__theme-switch-option']}
-              aria-label="深色主题"
+              aria-label={t('chrome.nav.themeDark')}
               aria-pressed={isDarkTheme}
               onClick={() => applyTheme('lumina-dark')}
             >
@@ -241,7 +202,7 @@ export default function PrimarySidebar({ onOpenSettings }: PrimarySidebarProps) 
             </button>
           </div>
           <span className={styles['sm-primary-sidebar__tooltip']} role="tooltip">
-            {isDarkTheme ? '深色主题' : '浅色主题'}
+            {isDarkTheme ? t('chrome.nav.themeDark') : t('chrome.nav.themeLight')}
           </span>
         </div>
 
@@ -251,17 +212,14 @@ export default function PrimarySidebar({ onOpenSettings }: PrimarySidebarProps) 
               type="button"
               className={styles['sm-primary-sidebar__item']}
               aria-label={
-                showUpdateBadge ? `${BOTTOM_NAV_ITEM.label}，有新版本可用` : BOTTOM_NAV_ITEM.label
+                showUpdateBadge ? t('chrome.nav.settingsWithUpdate') : t('chrome.nav.settings')
               }
               onClick={onOpenSettings}
             >
               <span className={styles['sm-primary-sidebar__icon-anchor']}>
                 <SvgIcon name={BOTTOM_NAV_ITEM.icon} size={ICON_SIZE} />
                 {showUpdateBadge ? (
-                  <span
-                    className={styles['sm-primary-sidebar__update-badge']}
-                    aria-hidden="true"
-                  />
+                  <span className={styles['sm-primary-sidebar__update-badge']} aria-hidden="true" />
                 ) : null}
               </span>
             </button>

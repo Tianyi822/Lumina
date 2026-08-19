@@ -6,7 +6,11 @@ import type {
   PaperTranslationCache,
   PaperTranslationSegment
 } from '../../../shared/types/paper.ts'
-import { PaperTranslationCore, computePaperTranslationSourceHash } from './PaperTranslationCore.ts'
+import {
+  PaperTranslationCore,
+  computePaperTranslationSourceHash,
+  detectPaperLanguage
+} from './PaperTranslationCore.ts'
 import { parsePaperTranslationSegments } from '../../../shared/utils/paperTranslation/segments.ts'
 
 const TEST_LLM_CONFIG: LLMConfig = {
@@ -1297,6 +1301,412 @@ test('标题前的作者段会跳过，但机构与摘要会参与翻译', async
   assert.equal(cache.entries[3].status, 'completed')
   assert.equal(cache.entries[4].status, 'completed')
   assert.equal(translateCallCount, 4)
+})
+
+test('检测语言与目标语言一致时短路返回且不产生任务副作用', async () => {
+  const markdown = [
+    '# 引言',
+    '',
+    '目标检测是计算机视觉领域的基础任务，本文提出一种新的特征增强方法。',
+    '',
+    '实验表明该方法在低照度数据集上取得了显著的性能提升。'
+  ].join('\n')
+  const cacheStore = new Map<string, PaperTranslationCache>()
+  let translateCallCount = 0
+  let progressCount = 0
+  let progressBatchCount = 0
+
+  const core = new PaperTranslationCore({
+    logger: createLogger(),
+    getDefaultLlmConfig: () => TEST_LLM_CONFIG,
+    readCache: (paperId) => ({ success: true, data: cacheStore.get(paperId) }),
+    saveCache: (paperId, cache) => {
+      cacheStore.set(paperId, structuredClone(cache))
+      return { success: true }
+    },
+    clearCache: (paperId) => {
+      cacheStore.delete(paperId)
+      return { success: true }
+    },
+    translateSegment: async () => {
+      translateCallCount += 1
+      return '译文'
+    }
+  })
+
+  core.onProgress('paper-skip-zh', () => {
+    progressCount += 1
+  })
+  core.onProgressBatch('paper-skip-zh', () => {
+    progressBatchCount += 1
+  })
+
+  const result = await core.startTranslation('paper-skip-zh', markdown, undefined, 'zh')
+  assert.equal(result.success, true)
+  assert.equal(result.skippedReason, 'sameLanguage')
+  assert.equal(result.error, undefined)
+  assert.equal(core.isRunning('paper-skip-zh'), false)
+  assert.equal(cacheStore.has('paper-skip-zh'), false)
+  assert.equal(translateCallCount, 0)
+  assert.equal(progressCount, 0)
+  assert.equal(progressBatchCount, 0)
+
+  // 不传第 4 参（缺省 zh）时中文论文同样短路
+  const defaultResult = await core.startTranslation('paper-skip-zh', markdown)
+  assert.equal(defaultResult.success, true)
+  assert.equal(defaultResult.skippedReason, 'sameLanguage')
+  assert.equal(translateCallCount, 0)
+})
+
+test('英文论文以 en 为目标语言时同样短路且无副作用', async () => {
+  const markdown = [
+    '# Introduction',
+    '',
+    'Object detection is a fundamental task in computer vision.',
+    '',
+    'We propose a novel feature enhancement network for low-light scenes.'
+  ].join('\n')
+  const cacheStore = new Map<string, PaperTranslationCache>()
+  let translateCallCount = 0
+
+  const core = new PaperTranslationCore({
+    logger: createLogger(),
+    getDefaultLlmConfig: () => TEST_LLM_CONFIG,
+    readCache: (paperId) => ({ success: true, data: cacheStore.get(paperId) }),
+    saveCache: (paperId, cache) => {
+      cacheStore.set(paperId, structuredClone(cache))
+      return { success: true }
+    },
+    clearCache: (paperId) => {
+      cacheStore.delete(paperId)
+      return { success: true }
+    },
+    translateSegment: async () => {
+      translateCallCount += 1
+      return 'Translation'
+    }
+  })
+
+  const result = await core.startTranslation('paper-skip-en', markdown, undefined, 'en')
+  assert.equal(result.success, true)
+  assert.equal(result.skippedReason, 'sameLanguage')
+  assert.equal(core.isRunning('paper-skip-en'), false)
+  assert.equal(cacheStore.has('paper-skip-en'), false)
+  assert.equal(translateCallCount, 0)
+})
+
+test('缓存 targetLanguage 与新目标不一致时会整体失效并按新语言重译', async () => {
+  const markdown = [
+    '# 引言',
+    '',
+    '目标检测是计算机视觉领域的基础任务。',
+    '',
+    '本文提出一种新的特征增强方法。',
+    '',
+    '实验表明该方法显著提升了检测精度。'
+  ].join('\n')
+  const segments = parsePaperTranslationSegments(markdown)
+  const sourceHash = computePaperTranslationSourceHash(markdown)
+  const cacheStore = new Map<string, PaperTranslationCache>()
+  let clearCount = 0
+  let translateCallCount = 0
+  const prompts: string[] = []
+
+  cacheStore.set('paper-lang-switch', {
+    paperId: 'paper-lang-switch',
+    sourceHash,
+    sourceHashVersion: 2,
+    targetLanguage: 'zh',
+    totalSegments: segments.length,
+    completedSegments: segments.length,
+    updatedAt: new Date().toISOString(),
+    entries: segments.map((segment) => ({
+      ...segment,
+      status: 'completed' as const,
+      translatedMarkdown: `译文：${segment.originalMarkdown}`,
+      translatedText: `译文：${segment.originalText}`
+    }))
+  })
+
+  const core = new PaperTranslationCore({
+    logger: createLogger(),
+    getDefaultLlmConfig: () => TEST_LLM_CONFIG,
+    readCache: (paperId) => ({ success: true, data: cacheStore.get(paperId) }),
+    saveCache: (paperId, cache) => {
+      cacheStore.set(paperId, structuredClone(cache))
+      return { success: true }
+    },
+    clearCache: (paperId) => {
+      clearCount += 1
+      cacheStore.delete(paperId)
+      return { success: true }
+    },
+    translateSegment: async (_config, prompt, segment) => {
+      translateCallCount += 1
+      prompts.push(prompt)
+      return `EN: ${segment.originalText}`
+    }
+  })
+
+  const result = await core.startTranslation('paper-lang-switch', markdown, undefined, 'en')
+  assert.equal(result.success, true)
+  assert.equal(result.skippedReason, undefined)
+  await waitFor(() => !core.isRunning('paper-lang-switch'))
+
+  assert.equal(clearCount, 1)
+  assert.equal(translateCallCount, segments.length)
+  const cache = cacheStore.get('paper-lang-switch')
+  assert.ok(cache)
+  assert.equal(cache.targetLanguage, 'en')
+  assert.equal(cache.entries[0].status, 'completed')
+  assert.match(prompts[0], /翻译成英文/)
+})
+
+test('无 targetLanguage 的存量缓存按 zh 校验并可复用', async () => {
+  const markdown = ['Paragraph A.', '', 'Paragraph B.'].join('\n')
+  const segments = parsePaperTranslationSegments(markdown)
+  const sourceHash = computePaperTranslationSourceHash(markdown)
+  const cacheStore = new Map<string, PaperTranslationCache>()
+  let translateCallCount = 0
+
+  cacheStore.set('paper-legacy-lang', {
+    paperId: 'paper-legacy-lang',
+    sourceHash,
+    totalSegments: segments.length,
+    completedSegments: segments.length,
+    updatedAt: new Date().toISOString(),
+    entries: segments.map((segment) => ({
+      ...segment,
+      status: 'completed' as const,
+      translatedMarkdown: `译文：${segment.originalMarkdown}`,
+      translatedText: `译文：${segment.originalText}`
+    }))
+  })
+
+  const core = new PaperTranslationCore({
+    logger: createLogger(),
+    getDefaultLlmConfig: () => TEST_LLM_CONFIG,
+    readCache: (paperId) => ({ success: true, data: cacheStore.get(paperId) }),
+    saveCache: (paperId, cache) => {
+      cacheStore.set(paperId, structuredClone(cache))
+      return { success: true }
+    },
+    clearCache: (paperId) => {
+      cacheStore.delete(paperId)
+      return { success: true }
+    },
+    translateSegment: async () => {
+      translateCallCount += 1
+      return '译文'
+    }
+  })
+
+  const result = await core.startTranslation('paper-legacy-lang', markdown)
+  assert.equal(result.success, true)
+  assert.equal(result.skippedReason, undefined)
+  await waitFor(() => !core.isRunning('paper-legacy-lang'))
+  assert.equal(translateCallCount, 0)
+
+  const cache = cacheStore.get('paper-legacy-lang')
+  assert.ok(cache)
+  assert.equal(cache.targetLanguage, 'zh')
+  assert.equal(cache.entries[0].translatedMarkdown, '译文：Paragraph A.')
+})
+
+test('buildPrompt 目标词随 targetLanguage=en 切换且指令骨架保持中文', async () => {
+  const markdown = [
+    '# 引言',
+    '',
+    '目标检测是计算机视觉领域的基础任务，本文提出一种新的方法。'
+  ].join('\n')
+  const cacheStore = new Map<string, PaperTranslationCache>()
+  const prompts: string[] = []
+
+  const core = new PaperTranslationCore({
+    logger: createLogger(),
+    getDefaultLlmConfig: () => TEST_LLM_CONFIG,
+    readCache: (paperId) => ({ success: true, data: cacheStore.get(paperId) }),
+    saveCache: (paperId, cache) => {
+      cacheStore.set(paperId, structuredClone(cache))
+      return { success: true }
+    },
+    clearCache: (paperId) => {
+      cacheStore.delete(paperId)
+      return { success: true }
+    },
+    translateSegment: async (_config, prompt, segment) => {
+      prompts.push(prompt)
+      return `EN: ${segment.originalText}`
+    }
+  })
+
+  const result = await core.startTranslation('paper-prompt-en', markdown, undefined, 'en')
+  assert.equal(result.success, true)
+  await waitFor(() => !core.isRunning('paper-prompt-en'))
+
+  assert.equal(prompts.length, 2)
+  for (const prompt of prompts) {
+    assert.match(prompt, /翻译成英文。/)
+    assert.doesNotMatch(prompt, /翻译成中文/)
+    assert.match(prompt, /如原文已经是英文，仅做必要的学术化润色并保持原意。/)
+    assert.doesNotMatch(prompt, /如原文已经是中文/)
+    // 规则 2 的机构/地名目标词随目标语言切换：en 保留英文原文/常用英文写法
+    assert.match(prompt, /机构、院系、实验室、学校和地名请保留英文原文或采用常用英文写法/)
+    assert.doesNotMatch(prompt, /常用中文译法/)
+    // 指令骨架保持中文不动
+    assert.match(prompt, /你是一个专业的学术论文翻译助手/)
+    assert.match(prompt, /只翻译 <current_segment> 标签内的内容。/)
+    assert.match(prompt, /专有名词（如技术术语、模型名称、数据集名称、协议名称等）保持英文原文/)
+  }
+  assert.equal(cacheStore.get('paper-prompt-en')?.targetLanguage, 'en')
+})
+
+test('默认目标 zh 时 buildPrompt 保持既有中文文案逐字不变', async () => {
+  const markdown = [
+    '# Introduction',
+    '',
+    'Object detection is a fundamental task in computer vision.'
+  ].join('\n')
+  const cacheStore = new Map<string, PaperTranslationCache>()
+  const prompts: string[] = []
+
+  const core = new PaperTranslationCore({
+    logger: createLogger(),
+    getDefaultLlmConfig: () => TEST_LLM_CONFIG,
+    readCache: (paperId) => ({ success: true, data: cacheStore.get(paperId) }),
+    saveCache: (paperId, cache) => {
+      cacheStore.set(paperId, structuredClone(cache))
+      return { success: true }
+    },
+    clearCache: (paperId) => {
+      cacheStore.delete(paperId)
+      return { success: true }
+    },
+    translateSegment: async (_config, prompt, segment) => {
+      prompts.push(prompt)
+      return `译文：${segment.originalText}`
+    }
+  })
+
+  const result = await core.startTranslation('paper-prompt-zh', markdown)
+  assert.equal(result.success, true)
+  await waitFor(() => !core.isRunning('paper-prompt-zh'))
+
+  assert.equal(prompts.length, 2)
+  for (const prompt of prompts) {
+    assert.ok(prompt.includes('你是一个专业的学术论文翻译助手，请将当前 Markdown 段落翻译成中文。'))
+    assert.ok(prompt.includes('4. 如原文已经是中文，仅做必要的学术化润色并保持原意。'))
+    // 规则 2 逐字锁定：机构/地名译为常用中文译法（en 分支文案不得混入）
+    assert.ok(
+      prompt.includes(
+        '2. 作者姓名、人名、邮箱、ORCID 保持原样不要翻译；机构、院系、实验室、学校和地名请翻译为常用中文译法，必要时保留英文缩写。'
+      )
+    )
+    assert.ok(!prompt.includes('常用英文写法'))
+    assert.ok(!prompt.includes('翻译成英文'))
+    assert.ok(!prompt.includes('如原文已经是英文'))
+  }
+  assert.equal(cacheStore.get('paper-prompt-zh')?.targetLanguage, 'zh')
+})
+
+test('retranslateSegment 沿用缓存记录的目标语言构建 prompt', async () => {
+  const markdown = ['Object detection is a fundamental task in computer vision.'].join('\n')
+  const segments = parsePaperTranslationSegments(markdown)
+  const sourceHash = computePaperTranslationSourceHash(markdown)
+  const cacheStore = new Map<string, PaperTranslationCache>()
+  const prompts: string[] = []
+
+  cacheStore.set('paper-retranslate-en', {
+    paperId: 'paper-retranslate-en',
+    sourceHash,
+    sourceHashVersion: 2,
+    targetLanguage: 'en',
+    totalSegments: segments.length,
+    completedSegments: segments.length,
+    updatedAt: new Date().toISOString(),
+    entries: segments.map((segment) => ({
+      ...segment,
+      status: 'completed' as const,
+      translatedMarkdown: 'Existing translation.',
+      translatedText: 'Existing translation.'
+    }))
+  })
+
+  const core = new PaperTranslationCore({
+    logger: createLogger(),
+    getDefaultLlmConfig: () => TEST_LLM_CONFIG,
+    readCache: (paperId) => ({ success: true, data: cacheStore.get(paperId) }),
+    saveCache: (paperId, cache) => {
+      cacheStore.set(paperId, structuredClone(cache))
+      return { success: true }
+    },
+    clearCache: (paperId) => {
+      cacheStore.delete(paperId)
+      return { success: true }
+    },
+    translateSegment: async (_config, prompt) => {
+      prompts.push(prompt)
+      return 'Refreshed translation.'
+    }
+  })
+
+  const result = await core.retranslateSegment('paper-retranslate-en', markdown, undefined, 'seg-0')
+  assert.equal(result.success, true)
+  assert.equal(result.entry?.status, 'completed')
+  assert.equal(prompts.length, 1)
+  assert.match(prompts[0], /翻译成英文/)
+  assert.doesNotMatch(prompts[0], /翻译成中文/)
+})
+
+test('detectPaperLanguage 识别中文论文为 zh', () => {
+  const markdown = [
+    '# 基于深度学习的低照度目标检测方法研究',
+    '',
+    '摘要：目标检测是计算机视觉领域的基础任务之一。在低照度环境下，由于可见度下降与噪声干扰，现有检测器的性能会显著退化。本文提出一种新颖的特征增强网络，通过自适应光照补偿与去噪分支联合优化特征表达。',
+    '',
+    '## 引言',
+    '',
+    '近年来，随着深度学习技术的快速发展，目标检测取得了长足进步。然而在夜间场景下，图像质量恶化导致检测精度大幅下降，如何增强低照度条件下的特征表达仍是研究热点。'
+  ].join('\n')
+  assert.equal(detectPaperLanguage(markdown), 'zh')
+})
+
+test('detectPaperLanguage 识别英文论文为 en', () => {
+  const markdown = [
+    '# DEYOLO: Dual-Enhancement for Low-Light Object Detection',
+    '',
+    'Abstract. Object detection in poor-illumination environments is a challenging task in computer vision. Existing detectors suffer from degraded features caused by noise and low visibility. We propose a dual-enhancement framework to restore discriminative representations.',
+    '',
+    '## Introduction',
+    '',
+    'In recent years, deep learning based detectors have achieved remarkable progress. However, their performance drops significantly at night due to image quality degradation and sensor noise.'
+  ].join('\n')
+  assert.equal(detectPaperLanguage(markdown), 'en')
+})
+
+test('detectPaperLanguage 对空 markdown 返回 en', () => {
+  assert.equal(detectPaperLanguage(''), 'en')
+  assert.equal(detectPaperLanguage('   \n\n  '), 'en')
+})
+
+test('detectPaperLanguage 对夹少量中文注释的英文论文返回 en', () => {
+  const markdown = [
+    '# DEYOLO: Dual-Enhancement for Low-Light Object Detection',
+    '',
+    'Abstract. Object detection in poor-illumination environments is a challenging task. Note that the baseline 方法 (method) is described later.',
+    '',
+    'We compare our method with YOLOv5 and Faster R-CNN on the ExDark dataset, reporting AP and AR metrics under the standard protocol.'
+  ].join('\n')
+  assert.equal(detectPaperLanguage(markdown), 'en')
+})
+
+test('detectPaperLanguage 对含英文术语的中文论文返回 zh', () => {
+  const markdown = [
+    '# 基于 YOLO 与 Transformer 的低照度目标检测',
+    '',
+    '本文提出一种结合 CNN 与 Transformer 的目标检测方法，在 ExDark 与 DARK FACE 数据集上进行实验，使用 mAP 指标评估性能，并在 NVIDIA RTX 3090 GPU 上完成训练与推理。'
+  ].join('\n')
+  assert.equal(detectPaperLanguage(markdown), 'zh')
 })
 
 test('各种格式的表格段会被跳过且不会触发翻译调用', async () => {

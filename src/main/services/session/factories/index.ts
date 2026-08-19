@@ -1,5 +1,2 @@
-export type { SessionFactory } from './SessionFactory'
-export { DefaultSessionFactory } from './DefaultSessionFactory'
-export { ToolSessionFactory } from './ToolSessionFactory'
-export { KnowledgeSessionFactory } from './KnowledgeSessionFactory'
 export { SessionFactoryRegistry } from './SessionFactoryRegistry'
+export { WriterSessionFactory } from './WriterSessionFactory'

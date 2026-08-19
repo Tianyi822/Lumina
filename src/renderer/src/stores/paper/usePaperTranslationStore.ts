@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import type { AppLanguage } from '@shared/types/config'
 import type {
   PaperTranslationCache,
   PaperTranslationProgressBatch,
@@ -6,6 +7,7 @@ import type {
 } from '@shared/types/paper'
 import { hasPaperTranslationResult } from '@shared/utils/paperTranslation'
 import { buildFigureCaptionTranslationMap } from '@shared/utils/paperTranslation'
+import { i18n } from '@renderer/i18n'
 import { upsertTranslationEntry, mergeTranslationEntries } from './composables/paperTranslationCore'
 import { createIdleTranslationTaskState, type PaperTranslationTaskState } from './shared'
 import { usePaperListStore } from './usePaperListStore'
@@ -29,7 +31,10 @@ interface PaperTranslationState {
 
   // Actions
   loadTranslationState: (paperId: string) => Promise<void>
-  ensureTranslation: (paperId: string) => Promise<{ success: boolean; error?: string }>
+  ensureTranslation: (
+    paperId: string,
+    targetLanguage?: AppLanguage
+  ) => Promise<{ success: boolean; skippedReason?: 'sameLanguage'; error?: string }>
   loadTranslationStatus: (paperIds: string[]) => Promise<void>
   deleteTranslation: (paperId: string) => Promise<{ success: boolean; error?: string }>
   retranslateSegment: (
@@ -202,16 +207,25 @@ export const usePaperTranslationStore = create<PaperTranslationState>()((set, ge
       })
 
       if (result.data.isRunning) {
-        await window.api.paper.startTranslation(paperId)
+        // 恢复路径同样携带当前界面语言，避免 handler 端缺省 zh 与运行中任务的目标语言不符
+        await window.api.paper.startTranslation(paperId, i18n.language === 'en' ? 'en' : 'zh')
       }
     },
 
-    ensureTranslation: async (paperId: string): Promise<{ success: boolean; error?: string }> => {
+    ensureTranslation: async (
+      paperId: string,
+      targetLanguage?: AppLanguage
+    ): Promise<{ success: boolean; skippedReason?: 'sameLanguage'; error?: string }> => {
       get().ensureTranslationProgressListener()
 
       const taskState = get().translationTaskByPaperId[paperId] || createIdleTranslationTaskState()
 
-      const result = await window.api.paper.startTranslation(paperId)
+      const result = await window.api.paper.startTranslation(paperId, targetLanguage)
+      // 原文语言与目标语言一致时短路：无进度事件，由调用方按返回值提示并保持译文隐藏
+      if (result.skippedReason === 'sameLanguage') {
+        return { success: true, skippedReason: 'sameLanguage' }
+      }
+
       if (!result.success) {
         get().setTranslationTaskState(paperId, {
           ...taskState,

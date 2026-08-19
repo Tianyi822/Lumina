@@ -1,8 +1,9 @@
-import path from 'path'
+import path, { dirname, join } from 'path'
 import { existsSync } from 'fs'
-import { readFile, writeFile, rm, mkdir, copyFile, stat, readdir } from 'fs/promises'
+import { readFile, writeFile, rm, mkdir, copyFile, stat, readdir, rename } from 'fs/promises'
 import { createHash } from 'crypto'
 import { logger } from '@main/services/logger'
+import { t } from '@main/services/i18n'
 import { WriteQueue } from './WriteQueue'
 import type {
   LegacyPaperAnnotation,
@@ -35,9 +36,10 @@ import {
   createLocalAssetReplacementMapFromDisk,
   localizePaperTranslationCacheAssets
 } from './paperAssetLocalizer'
+import { resolveContainedPath } from '@main/services/sync/paper/paperPack'
 
-export const MAX_PAPER_PAGES = 200
-export const MAX_PAPER_FILE_SIZE = 200 * 1024 * 1024
+const MAX_PAPER_PAGES = 200
+const MAX_PAPER_FILE_SIZE = 200 * 1024 * 1024
 
 function createEmptyAnnotationStore(paperId: string): PaperAnnotationStore {
   return createEmptyPaperAnnotationStore(paperId)
@@ -164,25 +166,33 @@ export class PaperStorageService {
   ): Promise<{ success: boolean; data?: PaperDocument; error?: string }> {
     try {
       if (!existsSync(sourcePdfPath)) {
-        return { success: false, error: '源 PDF 文件不存在' }
+        return { success: false, error: t('notifications.paper.sourcePdfMissing') }
       }
 
       const fileStats = await stat(sourcePdfPath)
       const actualFileSize = fileStats.size
 
       if (actualFileSize > MAX_PAPER_FILE_SIZE) {
-        return { success: false, error: '文件超过大小限制（最大 200MB）' }
+        return {
+          success: false,
+          error: t('notifications.paper.fileTooLarge', {
+            max: Math.round(MAX_PAPER_FILE_SIZE / (1024 * 1024))
+          })
+        }
       }
 
       if (pageCount > MAX_PAPER_PAGES) {
-        return { success: false, error: '文件超过页数限制（最大 200 页）' }
+        return {
+          success: false,
+          error: t('notifications.paper.filePagesExceeded', { max: MAX_PAPER_PAGES })
+        }
       }
 
       const paperId = crypto.randomUUID()
       const paperDir = getPaperDirPath(paperId)
 
       if (existsSync(paperDir)) {
-        return { success: false, error: '论文目录已存在' }
+        return { success: false, error: t('notifications.paper.paperDirectoryExists') }
       }
 
       ensurePaperDirs(paperId)
@@ -232,7 +242,7 @@ export class PaperStorageService {
     try {
       const metaPath = getPaperMetaPath(paperId)
       if (!existsSync(metaPath)) {
-        return { success: false, error: '论文元信息文件不存在' }
+        return { success: false, error: t('notifications.paper.metaFileMissing') }
       }
 
       const content = await readFile(metaPath, 'utf-8')
@@ -354,7 +364,7 @@ export class PaperStorageService {
     try {
       const paperDir = getPaperDirPath(paperId)
       if (!existsSync(paperDir)) {
-        return { success: false, error: '论文目录不存在' }
+        return { success: false, error: t('notifications.paper.paperDirectoryMissing') }
       }
 
       await rm(paperDir, { recursive: true, force: true })
@@ -402,7 +412,10 @@ export class PaperStorageService {
 
       const metaResult = await this.readMeta(paperId)
       if (!metaResult.success || !metaResult.data) {
-        return { success: false, error: metaResult.error || '读取论文元信息失败' }
+        return {
+          success: false,
+          error: metaResult.error || t('notifications.paper.readMetaFailed')
+        }
       }
 
       const pageAsset: PaperPageAsset = {
@@ -419,11 +432,16 @@ export class PaperStorageService {
       }
 
       const updateResult = await this.updateMeta(paperId, {
-        pageAssets: this.upsertPageAsset(metaResult.data, pageAsset)
+        pageAssets: this.upsertPageAsset(metaResult.data, pageAsset),
+        // 重新保存页图说明正在重渲染回源，清除清理标记（否则 startOcr 会再次返回 pages_missing）
+        pageImagesPurgedAt: null
       })
 
       if (!updateResult.success) {
-        return { success: false, error: updateResult.error || '更新论文元信息失败' }
+        return {
+          success: false,
+          error: updateResult.error || t('notifications.paper.updateMetaFailed')
+        }
       }
 
       return { success: true }
@@ -447,7 +465,7 @@ export class PaperStorageService {
     try {
       const imagePath = getPaperPageImagePath(paperId, pageIndex)
       if (!existsSync(imagePath)) {
-        return { success: false, error: '页图文件不存在' }
+        return { success: false, error: t('notifications.paper.pageImageMissing') }
       }
 
       const buffer = await readFile(imagePath)
@@ -461,6 +479,52 @@ export class PaperStorageService {
   }
 
   /**
+   * 删除指定论文的 pages/ 页图目录（OCR 全部成功后调用），并在 meta 记录清理时间。
+   * 目录不存在时幂等成功；pageAssets 元数据保留（仍是进度 UI 与重渲染的依据）。
+   */
+  async purgePageImages(
+    paperId: string
+  ): Promise<{ success: boolean; freedBytes?: number; error?: string }> {
+    try {
+      const pagesDir = getPaperPagesDirPath(paperId)
+      let freedBytes = 0
+      if (existsSync(pagesDir)) {
+        freedBytes = await this.dirSizeBytes(pagesDir)
+        await rm(pagesDir, { recursive: true, force: true })
+      }
+
+      const updateResult = await this.updateMeta(paperId, {
+        pageImagesPurgedAt: new Date().toISOString()
+      })
+      if (!updateResult.success) {
+        return { success: false, error: updateResult.error }
+      }
+
+      return { success: true, freedBytes }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      logger.error('清理页图目录失败', 'main', { paperId, error: errorMessage })
+      return { success: false, error: errorMessage }
+    }
+  }
+
+  /** 递归计算目录大小（字节） */
+  private async dirSizeBytes(dir: string): Promise<number> {
+    let total = 0
+    const entries = await readdir(dir, { withFileTypes: true })
+    for (const entry of entries) {
+      const fullPath = join(dir, entry.name)
+      if (entry.isDirectory()) {
+        total += await this.dirSizeBytes(fullPath)
+      } else if (entry.isFile()) {
+        const fileStats = await stat(fullPath)
+        total += fileStats.size
+      }
+    }
+    return total
+  }
+
+  /**
    * 读取合并后的 Markdown 文件
    */
   async readMergedMd(
@@ -469,7 +533,7 @@ export class PaperStorageService {
     try {
       const mdPath = getPaperMergedMdPath(paperId)
       if (!existsSync(mdPath)) {
-        return { success: false, error: 'Markdown 文件不存在' }
+        return { success: false, error: t('notifications.paper.markdownFileMissing') }
       }
 
       const content = await readFile(mdPath, 'utf-8')
@@ -507,7 +571,7 @@ export class PaperStorageService {
     try {
       const translationPath = getPaperTranslationPath(paperId)
       if (!existsSync(translationPath)) {
-        return { success: false, error: '翻译缓存不存在' }
+        return { success: false, error: t('notifications.paper.translationCacheMissing') }
       }
 
       const content = await readFile(translationPath, 'utf-8')
@@ -691,7 +755,7 @@ export class PaperStorageService {
     try {
       const normalizedPath = getPaperOcrNormalizedPath(paperId, pageIndex)
       if (!existsSync(normalizedPath)) {
-        return { success: false, error: '归一化 OCR 结果不存在' }
+        return { success: false, error: t('notifications.paper.normalizedOcrMissing') }
       }
 
       const content = await readFile(normalizedPath, 'utf-8')
@@ -737,7 +801,7 @@ export class PaperStorageService {
   }> {
     const metaResult = await this.readMeta(paperId)
     if (!metaResult.success || !metaResult.data) {
-      return { success: false, error: metaResult.error || '论文元信息不存在' }
+      return { success: false, error: metaResult.error || t('notifications.paper.metaMissing') }
     }
 
     try {
@@ -765,6 +829,73 @@ export class PaperStorageService {
       const errorMessage = error instanceof Error ? error.message : String(error)
       logger.error('获取归一化 OCR 结果列表失败', 'main', { paperId, error: errorMessage })
       return { success: false, error: errorMessage }
+    }
+  }
+
+  // ============ 同步引擎专用接口（走 writeQueue 串行化） ============
+
+  /** 同步下行 meta（复用 saveMeta 路径语义，走 writeQueue）；data 为实际落盘字节 */
+  async applySyncedMeta(
+    paperId: string,
+    meta: PaperDocument
+  ): Promise<{ success: boolean; error?: string; data?: Uint8Array }> {
+    try {
+      // 确保论文目录存在（新设备首次下行时目录可能不存在，saveMetaCore 的 writeFile
+      // 不会自动建目录，否则会 ENOENT）
+      const paperDir = getPaperDirPath(paperId)
+      await mkdir(paperDir, { recursive: true })
+      // 归一化机器相关路径（filePath / pageAssets[].imagePath）——远端 meta 携带的
+      // 是远端机器路径，原样落盘会导致本地 re-scan 计算出的字节 hash 与 tracker
+      // 的 contentHash 不一致，触发虚假重传。复用 normalizeMetaPaths 使落盘字节与
+      // readMeta 归一化结果保持一致。
+      const normalized = this.normalizeMetaPaths(paperId, meta)
+      const result = await this.saveMeta(paperId, normalized.document)
+      if (!result.success) return result
+      // 返回实际落盘字节（序列化格式与 saveMetaCore 保持一致），同步引擎以其 hash
+      // 作为 tracker 基线——否则跨机路径差异会导致两台设备每轮互相重传 meta
+      return {
+        success: true,
+        data: new TextEncoder().encode(JSON.stringify(normalized.document, null, 2))
+      }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
+    }
+  }
+
+  /** 同步下行批注（复用 saveAnnotationStore 路径语义） */
+  async applySyncedAnnotations(
+    paperId: string,
+    store: PaperAnnotationStore
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const result = await this.saveAnnotationStore(paperId, store)
+      return result
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
+    }
+  }
+
+  /** 同步下行 pack 文件（containment 校验 → mkdir → rename） */
+  async applySyncedPackFile(
+    paperId: string,
+    relPath: string,
+    stagingFilePath: string
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const paperDir = getPaperDirPath(paperId)
+      const targetPath = resolveContainedPath(paperDir, relPath)
+      if (!targetPath) {
+        return {
+          success: false,
+          error: t('notifications.paper.pathOutOfScope', { path: relPath })
+        }
+      }
+      const targetDir = dirname(targetPath)
+      await mkdir(targetDir, { recursive: true })
+      await rename(stagingFilePath, targetPath)
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
     }
   }
 }

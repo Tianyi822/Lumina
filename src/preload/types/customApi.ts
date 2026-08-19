@@ -11,15 +11,15 @@ import type {
   KnowledgeReindexProgressEvent
 } from './knowledge'
 import type { FileApi } from './file'
-import type { LabApi } from './lab'
 import type { DocumentApi } from './document'
 import type { KnowledgeMCPApi } from './knowledgeMCP'
 import type { PaperApi } from './paper'
 import type { ToolStatsApi } from './toolStats'
 import type { PaperWebSearchApi } from './paperWebSearch'
-import type { SshApi } from './ssh'
 import type { UpdateApi } from './update'
 import type { CapabilityApi } from './capability'
+import type { WriterApi } from './writer'
+import type { SyncApi } from './sync'
 
 /**
  * 自定义的完整 API 集合
@@ -46,8 +46,6 @@ export interface CustomApi {
   knowledge: KnowledgeApi
   /** 文件管理 */
   file: FileApi
-  /** 实验室管理 */
-  lab: LabApi
   /** 文档上传与解析 */
   document: DocumentApi
   /** 监听文件索引进度 */
@@ -62,10 +60,12 @@ export interface CustomApi {
   toolStats: ToolStatsApi
   /** 论文网页搜索 */
   paperWebSearch: PaperWebSearchApi
-  /** SSH 远程服务器 */
-  ssh: SshApi
   /** 自动更新 */
   update: UpdateApi
   /** 能力系统 */
   capability: CapabilityApi
+  /** 写作工作区 */
+  writer: WriterApi
+  /** 数据同步 */
+  sync: SyncApi
 }

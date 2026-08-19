@@ -1,7 +1,9 @@
 import type { OcrProgressInfo } from '@shared/types/paper'
+import { i18n } from '@renderer/i18n'
 
-export interface OcrStartResult {
+interface OcrStartResult {
   success: boolean
+  code?: string
   error?: string
 }
 
@@ -11,6 +13,8 @@ export interface PaperOcrAdmissionQueueDeps {
   onQueued?: (paperId: string) => void
   onOcrStarted?: (paperId: string) => void
   onOcrStartFailed?: (paperId: string, error: string) => void
+  /** startOcr 返回 pages_missing（页图已清理）时触发：调用方负责重渲染页图后重新排队 OCR */
+  onPagesMissing?: (paperId: string) => void
 }
 
 const OCR_TERMINAL_STATUSES = new Set<OcrProgressInfo['status']>([
@@ -22,21 +26,6 @@ const OCR_TERMINAL_STATUSES = new Set<OcrProgressInfo['status']>([
 
 export function isOcrTerminalStatus(status: OcrProgressInfo['status']): boolean {
   return OCR_TERMINAL_STATUSES.has(status)
-}
-
-export function createOcrTerminalWaiter(
-  subscribe: (callback: (progress: OcrProgressInfo) => void) => () => void
-): (paperId: string) => Promise<OcrProgressInfo> {
-  return (paperId) =>
-    new Promise((resolve) => {
-      const unsubscribe = subscribe((progress) => {
-        if (progress.paperId !== paperId) return
-        if (isOcrTerminalStatus(progress.status)) {
-          unsubscribe()
-          resolve(progress)
-        }
-      })
-    })
 }
 
 /**
@@ -131,7 +120,16 @@ export function createPaperOcrAdmissionQueue(deps: PaperOcrAdmissionQueueDeps) {
         deps.onOcrStarted?.(paperId)
         const startResult = await deps.startOcr(paperId)
         if (!startResult.success) {
-          deps.onOcrStartFailed?.(paperId, startResult.error || 'OCR 启动失败')
+          if (startResult.code === 'pages_missing' && deps.onPagesMissing) {
+            // 页图已被清理：交由调用方从 source.pdf 重渲染，渲染完成后会重新排队 OCR
+            deps.onPagesMissing(paperId)
+            currentOcrPaperId = null
+            continue
+          }
+          deps.onOcrStartFailed?.(
+            paperId,
+            startResult.error || i18n.t('notifications.paper.ocrStartFailed')
+          )
           currentOcrPaperId = null
           continue
         }

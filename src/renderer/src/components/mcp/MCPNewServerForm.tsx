@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { MCPServerConfig, MCPTransportType } from '@shared/types/mcp'
 import { notifyWarning } from '@renderer/composables/notificationCore'
 import KeyValueEditor from './KeyValueEditor'
@@ -18,6 +19,7 @@ export default function MCPNewServerForm({
   onCancel,
   onTest
 }: MCPNewServerFormProps) {
+  const { t } = useTranslation()
   const [name, setName] = useState('')
   const [transport, setTransport] = useState<MCPTransportType>('stdio')
   const [command, setCommand] = useState('')
@@ -61,60 +63,65 @@ export default function MCPNewServerForm({
 
   // 校验配置
   const validateConfig = useCallback((): string | null => {
-    if (!name.trim()) return '请输入服务器名称'
-    if (existingNames.some((n) => n === name.trim())) return '该名称已存在'
+    if (!name.trim()) return t('notifications.settings.mcp.validateNameRequired')
+    if (existingNames.some((n) => n === name.trim()))
+      return t('notifications.settings.mcp.formNameExists')
     if (transport === 'stdio') {
-      if (!command.trim()) return '请输入执行命令'
+      if (!command.trim()) return t('notifications.settings.mcp.formCommandRequired')
     } else {
-      if (!url.trim()) return '请输入服务地址'
+      if (!url.trim()) return t('notifications.settings.mcp.formUrlRequired')
     }
     return null
-  }, [name, transport, command, url, existingNames])
+  }, [name, transport, command, url, existingNames, t])
 
   // 提交表单
   const handleSubmit = useCallback(() => {
     const error = validateConfig()
     if (error) {
-      notifyWarning('配置校验失败', error, { source: 'settings' })
+      notifyWarning(t('notifications.settings.mcp.validateFailedTitle'), error, {
+        source: 'settings'
+      })
       return
     }
     onSubmit(buildConfig())
-  }, [validateConfig, buildConfig, onSubmit])
+  }, [validateConfig, buildConfig, onSubmit, t])
 
   // 测试连接
   const handleTest = useCallback(() => {
     const error = validateConfig()
     if (error) {
-      notifyWarning('配置校验失败', error, { source: 'settings' })
+      notifyWarning(t('notifications.settings.mcp.validateFailedTitle'), error, {
+        source: 'settings'
+      })
       return
     }
     setTesting(true)
     onTest(buildConfig())
-  }, [validateConfig, buildConfig, onTest])
+  }, [validateConfig, buildConfig, onTest, t])
 
   return (
     <div className={styles['new-model-form']}>
-      <h3 className={styles['form-section-title']}>添加 MCP 服务器</h3>
+      <h3 className={styles['form-section-title']}>{t('settings.mcp.addServer')}</h3>
       <div className={styles['form-group']}>
         <label>
-          服务器名称 <span className={styles.required}>*</span>
+          {t('settings.mcp.serverName')} <span className={styles.required}>*</span>
         </label>
         <input
           type="text"
           className="sm-input"
-          placeholder="例如: filesystem, github"
+          placeholder={t('settings.mcp.serverNamePlaceholder')}
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
       </div>
       <div className={styles['form-group']}>
-        <label>传输类型</label>
+        <label>{t('settings.mcp.transport')}</label>
         <select
           className="sm-select"
           value={transport}
           onChange={(e) => handleTransportChange(e.target.value as MCPTransportType)}
         >
-          <option value="stdio">stdio (本地进程)</option>
+          <option value="stdio">{t('settings.mcp.transportStdio')}</option>
           <option value="sse">SSE (Server-Sent Events)</option>
           <option value="streamableHttp">Streamable HTTP</option>
         </select>
@@ -125,18 +132,18 @@ export default function MCPNewServerForm({
         <>
           <div className={styles['form-group']}>
             <label>
-              执行命令 <span className={styles.required}>*</span>
+              {t('settings.mcp.command')} <span className={styles.required}>*</span>
             </label>
             <input
               type="text"
               className="sm-input"
-              placeholder="例如: npx, node, python"
+              placeholder={t('settings.mcp.commandPlaceholder')}
               value={command}
               onChange={(e) => setCommand(e.target.value)}
             />
           </div>
           <div className={styles['form-group']}>
-            <label>命令参数 (每行一个)</label>
+            <label>{t('settings.mcp.commandArgs')}</label>
             <textarea
               className={['sm-textarea', styles['textarea-small']].join(' ')}
               placeholder={'-y\n@modelcontextprotocol/server-xxx'}
@@ -145,7 +152,7 @@ export default function MCPNewServerForm({
             />
           </div>
           <div className={styles['form-group']}>
-            <label>环境变量 (KEY=VALUE 格式，每行一个)</label>
+            <label>{t('settings.mcp.envVars')}</label>
             <KeyValueEditor
               value={env}
               placeholder="API_KEY=xxx"
@@ -160,7 +167,7 @@ export default function MCPNewServerForm({
         <>
           <div className={styles['form-group']}>
             <label>
-              服务地址 <span className={styles.required}>*</span>
+              {t('settings.mcp.serviceUrl')} <span className={styles.required}>*</span>
             </label>
             <input
               type="text"
@@ -171,7 +178,7 @@ export default function MCPNewServerForm({
             />
           </div>
           <div className={styles['form-group']}>
-            <label>认证头 (KEY=VALUE 格式，每行一个)</label>
+            <label>{t('settings.mcp.authHeaders')}</label>
             <KeyValueEditor
               value={headers}
               placeholder="Authorization=Bearer your-token"
@@ -183,13 +190,13 @@ export default function MCPNewServerForm({
 
       <div className={styles['form-actions']}>
         <button className="sm-button" onClick={onCancel}>
-          取消
+          {t('common.cancel')}
         </button>
         <button className="sm-button sm-button--secondary" disabled={testing} onClick={handleTest}>
-          {testing ? '测试中...' : '测试连接'}
+          {testing ? t('common.testing') : t('common.testConnection')}
         </button>
         <button className="sm-button sm-button--primary" onClick={handleSubmit}>
-          添加
+          {t('common.add')}
         </button>
       </div>
     </div>

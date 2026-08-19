@@ -59,13 +59,12 @@ describe('SESSION_TOOL_CONFIGS', () => {
       assert.equal(paper.pipeline.mergeStrategy, 'none')
     })
 
-    it('toolRules 应包含 paper、knowledge、paper_web、mcp、lab 规则', () => {
+    it('toolRules 应包含 paper、knowledge、paper_web、mcp 规则', () => {
       const categories = paper.toolRules.map((r) => r.category)
       assert.ok(categories.includes('paper'))
       assert.ok(categories.includes('knowledge'))
       assert.ok(categories.includes('paper_web'))
       assert.ok(categories.includes('mcp'))
-      assert.ok(categories.includes('lab'))
     })
 
     it('paper 规则优先级应最高（basePriority 最小）', () => {
@@ -109,11 +108,10 @@ describe('SESSION_TOOL_CONFIGS', () => {
       assert.equal(def.pipeline.stages.length, 0)
     })
 
-    it('toolRules 应包含 knowledge、mcp、lab 规则', () => {
+    it('toolRules 应包含 knowledge、mcp 规则', () => {
       const categories = def.toolRules.map((r) => r.category)
       assert.ok(categories.includes('knowledge'))
       assert.ok(categories.includes('mcp'))
-      assert.ok(categories.includes('lab'))
     })
 
     it('toolRules 不应包含 paper 和 paper_web', () => {

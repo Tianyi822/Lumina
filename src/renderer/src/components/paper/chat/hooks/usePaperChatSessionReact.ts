@@ -1,11 +1,16 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
 import type { MutableRefObject } from 'react'
+import { i18n } from '@renderer/i18n'
 import type { KnowledgeBase, MCPTool, Message, SessionData } from '@renderer/types'
 import type { PaperDocument } from '@shared/types/paper'
-import type { LabDisciplineId } from '@shared/types/config'
 import { ensurePaperChatSession } from '@renderer/stores/paper'
 import { usePaperChatMessageCacheStore } from '@renderer/stores'
 import { messageToSessionMessage, sessionMessageToMessage } from '@renderer/utils/messageHelpers'
+import {
+  persistSessionIncrementally,
+  serializeSessionMessages,
+  type SessionPersistenceCursor
+} from '@renderer/utils/sessionPersistence'
 import { deepClone } from '@shared/utils'
 
 interface UsePaperChatSessionReactReturn {
@@ -17,10 +22,7 @@ interface UsePaperChatSessionReactReturn {
   selectedModel: string
   selectedMCPTools: MCPTool[]
   selectedKnowledgeBases: KnowledgeBase[]
-  enableLabTools: boolean
   enablePaperWebSearch: boolean
-  activeLabDiscipline: LabDisciplineId | null
-  activeLabId: string | null
   loading: boolean
   error: string
   ensureSession: () => Promise<SessionData | null>
@@ -32,9 +34,7 @@ interface UsePaperChatSessionReactReturn {
   updateSelectedModel: (value: string) => void
   updateSelectedTools: (value: MCPTool[]) => void
   updateSelectedKnowledgeBases: (value: KnowledgeBase[]) => void
-  updateEnableLabTools: (value: boolean) => void
   updateEnablePaperWebSearch: (value: boolean) => void
-  updateLabSelection: (discipline: LabDisciplineId | null, labId: string | null) => void
   setError: (message: string) => void
 }
 
@@ -66,10 +66,7 @@ export function usePaperChatSessionReact(
   const [selectedModel, setSelectedModel] = useState('')
   const [selectedMCPTools, setSelectedMCPTools] = useState<MCPTool[]>([])
   const [selectedKnowledgeBases, setSelectedKnowledgeBases] = useState<KnowledgeBase[]>([])
-  const [enableLabTools, setEnableLabTools] = useState(false)
   const [enablePaperWebSearch, setEnablePaperWebSearch] = useState(false)
-  const [activeLabDiscipline, setActiveLabDiscipline] = useState<LabDisciplineId | null>(null)
-  const [activeLabId, setActiveLabId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setErrorState] = useState('')
 
@@ -77,14 +74,14 @@ export function usePaperChatSessionReact(
   const sessionRef = useRef<SessionData | null>(session)
   const messagesRef = useRef<Message[]>(messages)
   const saveQueueRef = useRef<Promise<void>>(Promise.resolve())
+  const cursorRef = useRef<SessionPersistenceCursor>({ serialized: [], count: 0 })
+  // 加载时若过滤了 legacy 全文消息，需在下次保存强制一次全量重写以清除磁盘残留
+  const forceRewriteRef = useRef(false)
   const selectionRef = useRef({
     selectedModel,
     selectedMCPTools,
     selectedKnowledgeBases,
-    enableLabTools,
-    enablePaperWebSearch,
-    activeLabDiscipline,
-    activeLabId
+    enablePaperWebSearch
   })
 
   paperRef.current = paper
@@ -93,10 +90,7 @@ export function usePaperChatSessionReact(
     selectedModel,
     selectedMCPTools,
     selectedKnowledgeBases,
-    enableLabTools,
-    enablePaperWebSearch,
-    activeLabDiscipline,
-    activeLabId
+    enablePaperWebSearch
   }
 
   const sessionId = useMemo(() => session?.sessionId || '', [session])
@@ -118,29 +112,37 @@ export function usePaperChatSessionReact(
       }
 
       const selection = selectionRef.current
-      const sessionToSave: SessionData = {
+      // 在队列内构造 plain 数据（deepClone 消除 Zustand Proxy），交由持久化协议做 diff 决策
+      const selectionState = deepClone({
+        selectedMCPTools: selection.selectedMCPTools,
+        selectedKnowledgeBases: selection.selectedKnowledgeBases,
+        selectedModel: selection.selectedModel,
+        enablePaperWebSearch: selection.enablePaperWebSearch
+      })
+      const plainSession = toPlainSessionData({
         ...currentSession,
-        messages: messagesRef.current.map(messageToSessionMessage),
-        selectionState: {
-          selectedMCPTools: selection.selectedMCPTools,
-          selectedKnowledgeBases: selection.selectedKnowledgeBases,
-          enableLabTools: selection.enableLabTools,
-          selectedModel: selection.selectedModel,
-          enablePaperWebSearch: selection.enablePaperWebSearch,
-          activeLabDiscipline: selection.activeLabDiscipline,
-          activeLabId: selection.activeLabId
-        }
-      }
+        messages: messagesRef.current.map(messageToSessionMessage)
+      })
 
-      const plainSessionToSave = toPlainSessionData(sessionToSave)
-      const result = await window.api.session.save(plainSessionToSave)
-      if (!result.success) {
-        setErrorState(result.error || '保存论文聊天会话失败')
+      const result = await persistSessionIncrementally({
+        session: plainSession,
+        nextMessages: plainSession.messages,
+        selectionState,
+        cursor: cursorRef.current,
+        // 加载时过滤过 legacy 全文消息时强制一次全量重写以清除磁盘残留
+        forceRewrite: forceRewriteRef.current,
+        errorLabel: i18n.t('notifications.paper.saveSessionFailed')
+      })
+      if (!result.ok) {
+        setErrorState(result.error || i18n.t('notifications.paper.saveSessionFailed'))
         return false
       }
-
-      sessionRef.current = plainSessionToSave
-      setSession(plainSessionToSave)
+      // 保存成功后才清零强制重写标志，失败时下次仍会重试
+      forceRewriteRef.current = false
+      if (result.nextSession) {
+        sessionRef.current = result.nextSession
+        setSession(result.nextSession)
+      }
       return true
     })
 
@@ -168,12 +170,15 @@ export function usePaperChatSessionReact(
         )
 
       setMessages(removeLegacyPaperFulltextMessages(nextMessages))
+      // 记录已落盘快照（磁盘态），并在检测到 legacy 过滤时标记强制重写
+      const persistedSnapshot = serializeSessionMessages(nextSession.messages)
+      const hadLegacy =
+        removeLegacyPaperFulltextMessages(nextMessages).length !== nextMessages.length
+      cursorRef.current = { serialized: persistedSnapshot, count: persistedSnapshot.length }
+      forceRewriteRef.current = hadLegacy
       setSelectedMCPTools(nextSession.selectionState?.selectedMCPTools || [])
       setSelectedKnowledgeBases(nextSession.selectionState?.selectedKnowledgeBases || [])
-      setEnableLabTools(nextSession.selectionState?.enableLabTools || false)
       setEnablePaperWebSearch(nextSession.selectionState?.enablePaperWebSearch || false)
-      setActiveLabDiscipline(nextSession.selectionState?.activeLabDiscipline ?? null)
-      setActiveLabId(nextSession.selectionState?.activeLabId ?? null)
       setSelectedModel(nextSession.selectionState?.selectedModel || '')
     },
     [setMessages]
@@ -192,13 +197,15 @@ export function usePaperChatSessionReact(
       const sessionResult = await ensurePaperChatSession(currentPaper.id)
       const ensuredSessionId = sessionResult.data
       if (!sessionResult.success || !ensuredSessionId) {
-        setErrorState(sessionResult.error || '创建论文聊天会话失败')
+        setErrorState(
+          sessionResult.error || i18n.t('notifications.paper.createPaperChatSessionFailed')
+        )
         return null
       }
 
       const ensuredSessionResult = await window.api.session.load(ensuredSessionId)
       if (!ensuredSessionResult.success || !ensuredSessionResult.data) {
-        setErrorState('加载论文聊天会话失败')
+        setErrorState(i18n.t('notifications.paper.loadSessionFailed'))
         return null
       }
 
@@ -261,37 +268,10 @@ export function usePaperChatSessionReact(
     [persistSelection]
   )
 
-  // 注意：updateEnableLabTools 可独立关闭 enableLabTools 而不清空 activeLabDiscipline，
-  // 即可能出现 discipline 有值但 enableLabTools=false 的状态。
-  // ChatRequest 组装时的优先级由 Task 14 的 usePaperChatStreamReact 决定。
-  const updateEnableLabTools = useCallback(
-    (value: boolean): void => {
-      setEnableLabTools(value)
-      selectionRef.current.enableLabTools = value
-      persistSelection()
-    },
-    [persistSelection]
-  )
-
   const updateEnablePaperWebSearch = useCallback(
     (value: boolean): void => {
       setEnablePaperWebSearch(value)
       selectionRef.current.enablePaperWebSearch = value
-      persistSelection()
-    },
-    [persistSelection]
-  )
-
-  const updateLabSelection = useCallback(
-    (discipline: LabDisciplineId | null, labId: string | null): void => {
-      setActiveLabDiscipline(discipline)
-      setActiveLabId(labId)
-      selectionRef.current.activeLabDiscipline = discipline
-      selectionRef.current.activeLabId = labId
-      // 选定学科 + 绑定实验室时自动启用实验室工具，否则关闭（spec §5.3）
-      const nextEnableLabTools = discipline !== null && labId !== null
-      setEnableLabTools(nextEnableLabTools)
-      selectionRef.current.enableLabTools = nextEnableLabTools
       persistSelection()
     },
     [persistSelection]
@@ -306,10 +286,7 @@ export function usePaperChatSessionReact(
     selectedModel,
     selectedMCPTools,
     selectedKnowledgeBases,
-    enableLabTools,
     enablePaperWebSearch,
-    activeLabDiscipline,
-    activeLabId,
     loading,
     error,
     ensureSession,
@@ -321,9 +298,7 @@ export function usePaperChatSessionReact(
     updateSelectedModel,
     updateSelectedTools,
     updateSelectedKnowledgeBases,
-    updateEnableLabTools,
     updateEnablePaperWebSearch,
-    updateLabSelection,
     setError
   }
 }

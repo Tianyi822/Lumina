@@ -8,9 +8,11 @@ import {
 } from '@main/services/paper'
 import { getFileService } from '@main/services/file'
 import { logger } from '@main/services/logger'
+import { t } from '@main/services/i18n'
 import {
   getOcrProviderPreset,
   DEFAULT_OCR_PROVIDER,
+  type AppLanguage,
   type OcrProviderId
 } from '@shared/types/config'
 import { fileUrlToPath, isFileUrl } from '@shared/utils'
@@ -225,7 +227,7 @@ export function registerPaperHandlers(): void {
     try {
       const result = await dialog.showOpenDialog({
         properties: ['openFile'],
-        filters: [{ name: 'PDF 文件', extensions: ['pdf'] }]
+        filters: [{ name: t('notifications.paper.pdfFileFilter'), extensions: ['pdf'] }]
       })
       if (result.canceled || result.filePaths.length === 0) {
         return null
@@ -252,7 +254,7 @@ export function registerPaperHandlers(): void {
     try {
       const result = await dialog.showOpenDialog({
         properties: ['openFile', 'multiSelections'],
-        filters: [{ name: 'PDF 文件', extensions: ['pdf'] }]
+        filters: [{ name: t('notifications.paper.pdfFileFilter'), extensions: ['pdf'] }]
       })
       if (result.canceled || result.filePaths.length === 0) {
         return { success: false }
@@ -261,7 +263,9 @@ export function registerPaperHandlers(): void {
       if (result.filePaths.length > PAPER_BATCH_UPLOAD_MAX_FILES) {
         return {
           success: false,
-          error: `一次最多选择 ${PAPER_BATCH_UPLOAD_MAX_FILES} 个 PDF 文件`
+          error: t('notifications.paper.maxPdfFilesExceeded', {
+            count: PAPER_BATCH_UPLOAD_MAX_FILES
+          })
         }
       }
 
@@ -368,6 +372,13 @@ export function registerPaperHandlers(): void {
   )
 
   /**
+   * 取走最近一次启动存量页图清理摘要（一次性）
+   */
+  ipcMain.handle('paper:consumePagesPurgeSummary', async () => {
+    return { success: true, data: getPaperService().consumePagesPurgeSummary() }
+  })
+
+  /**
    * 更新论文状态
    * 参数: { paperId: string, status: PaperStatus, errorMessage?: string }
    */
@@ -428,11 +439,11 @@ export function registerPaperHandlers(): void {
     async (_event, params: { provider: OcrProviderId; apiKey: string }) => {
       const preset = getOcrProviderPreset(params.provider)
       if (!preset) {
-        return { success: false, error: '未知的 OCR 服务提供商' }
+        return { success: false, error: t('notifications.paper.ocrProviderUnknown') }
       }
 
       if (!params.apiKey?.trim()) {
-        return { success: false, error: '请先填写 API Key' }
+        return { success: false, error: t('notifications.paper.ocrApiKeyRequired') }
       }
 
       try {
@@ -456,29 +467,35 @@ export function registerPaperHandlers(): void {
         })
 
         if (response.status === 401 || response.status === 403) {
-          return { success: false, error: 'API Key 无效或已过期' }
+          return { success: false, error: t('notifications.paper.ocrApiKeyInvalid') }
         }
 
         if (response.status === 429) {
-          return { success: false, error: 'API 调用额度已用尽，请稍后再试' }
+          return { success: false, error: t('notifications.paper.ocrQuotaExhausted') }
         }
 
         if (response.status >= 500) {
-          return { success: false, error: `服务端错误（${response.status}），请稍后再试` }
+          return {
+            success: false,
+            error: t('notifications.paper.ocrServerError', { status: response.status })
+          }
         }
 
         if (!response.ok) {
-          return { success: false, error: `请求失败（${response.status}），请检查配置后重试` }
+          return {
+            success: false,
+            error: t('notifications.paper.ocrVerifyRequestFailed', { status: response.status })
+          }
         }
 
         return { success: true }
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error)
         if (errorMessage.includes('abort') || errorMessage.includes('timeout')) {
-          return { success: false, error: '连接超时，请检查网络后重试' }
+          return { success: false, error: t('notifications.paper.connectionTimeout') }
         }
         logger.error('OCR 连接测试失败', 'main', { error: errorMessage })
-        return { success: false, error: `网络连接失败，请检查网络后重试` }
+        return { success: false, error: t('notifications.paper.networkConnectionFailed') }
       }
     }
   )
@@ -535,7 +552,10 @@ export function registerPaperHandlers(): void {
   ipcMain.handle('paper:getTranslationState', async (_event, paperId: string) => {
     const payloadResult = await getPaperService().getReaderPayload(paperId)
     if (!payloadResult.success || !payloadResult.data) {
-      return { success: false, error: payloadResult.error || '读取论文正文失败' }
+      return {
+        success: false,
+        error: payloadResult.error || t('notifications.paper.loadBodyFailed')
+      }
     }
 
     const stateResult = await paperTranslationService.getTranslationState(
@@ -595,30 +615,37 @@ export function registerPaperHandlers(): void {
     return getPaperService().deleteTranslation(paperId)
   })
 
-  ipcMain.handle('paper:startTranslation', async (_event, params: { paperId: string }) => {
-    const { paperId } = params
-    const payloadResult = await getPaperService().getReaderPayload(paperId)
-    if (!payloadResult.success || !payloadResult.data) {
-      return { success: false, error: payloadResult.error || '读取论文正文失败' }
-    }
+  ipcMain.handle(
+    'paper:startTranslation',
+    async (_event, params: { paperId: string; targetLanguage?: AppLanguage }) => {
+      const { paperId, targetLanguage } = params
+      const payloadResult = await getPaperService().getReaderPayload(paperId)
+      if (!payloadResult.success || !payloadResult.data) {
+        return {
+          success: false,
+          error: payloadResult.error || t('notifications.paper.loadBodyFailed')
+        }
+      }
 
-    if (hasLegacyTranslationSubscriber(_event.sender)) {
-      registerTranslationSubscriber(paperId, _event.sender)
-    }
-    registerTranslationBatchSubscriber(paperId, _event.sender)
+      if (hasLegacyTranslationSubscriber(_event.sender)) {
+        registerTranslationSubscriber(paperId, _event.sender)
+      }
+      registerTranslationBatchSubscriber(paperId, _event.sender)
 
-    try {
-      return await paperTranslationService.startTranslation(
-        paperId,
-        payloadResult.data.readerDocument.markdown,
-        payloadResult.data.figures
-      )
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error)
-      logger.error('IPC: 启动论文翻译失败', 'main', { paperId, error: errorMessage })
-      return { success: false, error: errorMessage }
+      try {
+        return await paperTranslationService.startTranslation(
+          paperId,
+          payloadResult.data.readerDocument.markdown,
+          payloadResult.data.figures,
+          targetLanguage ?? 'zh'
+        )
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        logger.error('IPC: 启动论文翻译失败', 'main', { paperId, error: errorMessage })
+        return { success: false, error: errorMessage }
+      }
     }
-  })
+  )
 
   ipcMain.handle(
     'paper:retranslateSegment',
@@ -626,7 +653,10 @@ export function registerPaperHandlers(): void {
       const { paperId, segmentId } = params
       const payloadResult = await getPaperService().getReaderPayload(paperId)
       if (!payloadResult.success || !payloadResult.data) {
-        return { success: false, error: payloadResult.error || '读取论文正文失败' }
+        return {
+          success: false,
+          error: payloadResult.error || t('notifications.paper.loadBodyFailed')
+        }
       }
 
       if (hasLegacyTranslationSubscriber(_event.sender)) {

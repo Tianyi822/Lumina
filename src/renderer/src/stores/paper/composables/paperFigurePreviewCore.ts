@@ -5,16 +5,6 @@ import {
 } from '../shared'
 import type { PaperFigureItem } from '@shared/types/paper'
 
-export interface FigurePreviewDimensions {
-  width: number
-  height: number
-}
-
-export interface FigurePreviewPosition extends FigurePreviewDimensions {
-  left: number
-  top: number
-}
-
 export function clampPreviewWidth(width: number, viewportWidth?: number): number {
   const w =
     typeof viewportWidth === 'number'

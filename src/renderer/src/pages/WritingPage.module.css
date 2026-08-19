@@ -1,0 +1,107 @@
+.page {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  overflow: hidden;
+  background: var(--sm-color-bg-canvas);
+}
+
+.editorPane {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  overflow: hidden;
+}
+
+.state {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sm-space-4);
+  padding: var(--sm-space-6);
+  background: var(--sm-color-bg-canvas);
+  color: var(--sm-color-text-secondary);
+}
+
+.error {
+  color: var(--sm-color-status-danger);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chatSlot,
+  .chatResize::after {
+    transition: none;
+  }
+}
+
+.chatSlot {
+  position: relative;
+  flex: 0 0 0;
+  width: 0;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: visible;
+  transition:
+    flex-basis 180ms cubic-bezier(0.2, 0, 0, 1),
+    width 180ms cubic-bezier(0.2, 0, 0, 1);
+  will-change: flex-basis, width;
+}
+
+.chatSlotOpen {
+  flex-basis: var(--writer-chat-panel-width);
+  width: var(--writer-chat-panel-width);
+}
+
+.chatSlotResizing {
+  transition: none;
+}
+
+.chat {
+  position: relative;
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  width: var(--writer-chat-panel-width);
+  min-width: 340px;
+  max-width: min(680px, 100vw);
+  height: calc(100% - var(--sm-paper-toolbar-height) - var(--sm-space-2));
+  min-height: 0;
+  margin-top: var(--sm-paper-toolbar-height);
+  margin-bottom: var(--sm-space-2);
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-lg);
+  background: var(--sm-color-bg-canvas);
+  overflow: hidden;
+}
+
+.chatResize {
+  position: absolute;
+  top: 0;
+  left: -4px;
+  z-index: 3;
+  width: 8px;
+  height: 100%;
+  cursor: col-resize;
+}
+
+.chatResize::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 3px;
+  width: 1px;
+  height: 100%;
+  background: transparent;
+  transition: background-color var(--sm-transition-fast);
+}
+
+.chatResize:hover::after {
+  background: var(--sm-color-border-selected);
+}

@@ -1,5 +1,6 @@
 import { memo, useState, useCallback, forwardRef, useImperativeHandle } from 'react'
 import { createPortal } from 'react-dom'
+import { useTranslation } from 'react-i18next'
 import type { RenderedSegment } from './hooks/usePaperMarkdownEngine'
 import { getTranslationBlockDisplay } from './composables/paperTranslationBlockDisplay'
 import styles from './PaperMarkdownSegmentList.module.css'
@@ -52,6 +53,7 @@ const PaperMarkdownSegmentItem = memo(
     segment,
     onRetranslateClick
   }: PaperMarkdownSegmentItemProps) {
+    const { t } = useTranslation()
     const htmlStatus = segment.htmlStatus ?? (segment.originalHtml ? 'ready' : 'pending')
     const showError = htmlStatus === 'error'
     // 原文区块：只要已有原文 HTML 即直接渲染（即使因译文重渲染被标记为 pending），
@@ -90,12 +92,11 @@ const PaperMarkdownSegmentItem = memo(
               dangerouslySetInnerHTML={{ __html: segment.originalHtml }}
             />
           ) : showError ? (
-            <p className={styles['paper-markdown-view__segment-fallback']}>{segment.originalText}</p>
+            <p className={styles['paper-markdown-view__segment-fallback']}>
+              {segment.originalText}
+            </p>
           ) : (
-            <div
-              className={styles['paper-markdown-view__segment-skeleton']}
-              aria-hidden="true"
-            />
+            <div className={styles['paper-markdown-view__segment-skeleton']} aria-hidden="true" />
           )}
         </div>
 
@@ -138,7 +139,7 @@ const PaperMarkdownSegmentItem = memo(
                   style={{
                     marginLeft: getButtonLeftIndent(segment.translationHtml)
                   }}
-                  title="重新翻译"
+                  title={t('paper.segmentList.retranslate')}
                   onClick={(event) => {
                     event.stopPropagation()
                     onRetranslateClick(segment)
@@ -157,13 +158,13 @@ const PaperMarkdownSegmentItem = memo(
                     <polyline points="1 4 1 10 7 10" />
                     <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
                   </svg>
-                  <span>重新翻译</span>
+                  <span>{t('paper.segmentList.retranslate')}</span>
                 </button>
               </>
             ) : translationDisplay === 'failed' ? (
               <>
                 <div className={styles['paper-markdown-view__translation-error']}>
-                  该段翻译暂时失败，再次点击翻译按钮时会继续补全剩余内容。
+                  {t('paper.segmentList.retranslateHint')}
                 </div>
                 <button
                   className={[
@@ -172,7 +173,7 @@ const PaperMarkdownSegmentItem = memo(
                     'paper-markdown-view__retranslate-btn'
                   ].join(' ')}
                   type="button"
-                  title="重新翻译"
+                  title={t('paper.segmentList.retranslate')}
                   onClick={(event) => {
                     event.stopPropagation()
                     onRetranslateClick(segment)
@@ -191,7 +192,7 @@ const PaperMarkdownSegmentItem = memo(
                     <polyline points="1 4 1 10 7 10" />
                     <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
                   </svg>
-                  <span>重新翻译</span>
+                  <span>{t('paper.segmentList.retranslate')}</span>
                 </button>
               </>
             ) : translationDisplay === 'translating' ? (
@@ -201,7 +202,7 @@ const PaperMarkdownSegmentItem = memo(
                   aria-hidden="true"
                 >
                   <span className={styles['paper-markdown-view__translation-placeholder-text']}>
-                    正在翻译...
+                    {t('paper.segmentList.translating')}
                   </span>
                   <span className={styles['paper-markdown-view__translation-placeholder-bar']} />
                   <span className={styles['paper-markdown-view__translation-placeholder-bar']} />
@@ -214,7 +215,7 @@ const PaperMarkdownSegmentItem = memo(
                   ].join(' ')}
                   type="button"
                   disabled
-                  title="重新翻译"
+                  title={t('paper.segmentList.retranslate')}
                   onClick={(event) => {
                     event.stopPropagation()
                     onRetranslateClick(segment)
@@ -233,14 +234,11 @@ const PaperMarkdownSegmentItem = memo(
                     <polyline points="1 4 1 10 7 10" />
                     <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
                   </svg>
-                  <span>重新翻译</span>
+                  <span>{t('paper.segmentList.retranslate')}</span>
                 </button>
               </>
             ) : (
-              <div
-                className={styles['paper-markdown-view__segment-skeleton']}
-                aria-hidden="true"
-              />
+              <div className={styles['paper-markdown-view__segment-skeleton']} aria-hidden="true" />
             )}
           </div>
         )}
@@ -281,6 +279,7 @@ const PaperMarkdownSegmentList = forwardRef<
   { segments, totalHeight, virtualItems, measureElement, zoomLevel = 1, onRetranslate },
   ref
 ) {
+  const { t } = useTranslation()
   // TanStack Virtual 的 totalHeight/start 基于视口坐标系，而在 CSS zoom 内部需除以缩放比保持视觉位置一致
   const zoomDivisor = zoomLevel || 1
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -375,9 +374,11 @@ const PaperMarkdownSegmentList = forwardRef<
             }}
           >
             <div className={styles['paper-retranslate-dialog']}>
-              <div className={styles['paper-retranslate-dialog__title']}>重新翻译</div>
+              <div className={styles['paper-retranslate-dialog__title']}>
+                {t('paper.segmentList.confirmTitle')}
+              </div>
               <div className={styles['paper-retranslate-dialog__body']}>
-                该段落存在批注或笔记。继续重新翻译后，这些标注会一起删除。
+                {t('paper.segmentList.confirmMessage')}
               </div>
               <div className={styles['paper-retranslate-dialog__actions']}>
                 <button
@@ -388,7 +389,7 @@ const PaperMarkdownSegmentList = forwardRef<
                   type="button"
                   onClick={handleCancelRetranslate}
                 >
-                  取消
+                  {t('common.cancel')}
                 </button>
                 <button
                   className={[
@@ -398,7 +399,7 @@ const PaperMarkdownSegmentList = forwardRef<
                   type="button"
                   onClick={handleConfirmRetranslate}
                 >
-                  继续翻译
+                  {t('paper.segmentList.continueButton')}
                 </button>
               </div>
             </div>

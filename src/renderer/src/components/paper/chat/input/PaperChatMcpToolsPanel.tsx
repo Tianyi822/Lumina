@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { MCPTool } from '@renderer/types'
 import { useMCPStore } from '@renderer/stores/mcpStore'
 import styles from './PaperChatMcpToolsPanel.module.css'
@@ -21,6 +22,7 @@ export default function PaperChatMcpToolsPanel({
   embedded = false,
   onToolsSelected
 }: PaperChatMcpToolsPanelProps) {
+  const { t } = useTranslation()
   const toolsByServer = useMCPStore((s) => s.toolsByServer)
   const statuses = useMCPStore((s) => s.statuses)
   const searchQuery = useMCPStore((s) => s.searchQuery)
@@ -264,10 +266,10 @@ export default function PaperChatMcpToolsPanel({
         >
           {localSelectedTools.length > 0 ? (
             <span className={styles['paper-chat-mcp-tools__selected-name']}>
-              已选 {localSelectedTools.length} 个工具
+              {t('paper.chat.mcp.selected', { count: localSelectedTools.length })}
             </span>
           ) : (
-            <span>{compact ? 'MCP' : 'MCP 工具'}</span>
+            <span>{compact ? t('paper.chat.mcp.compactLabel') : t('paper.chat.mcp.label')}</span>
           )}
           {totalToolsCount > 0 && (
             <span className={styles['paper-chat-mcp-tools__count']}>{totalToolsCount}</span>
@@ -297,9 +299,11 @@ export default function PaperChatMcpToolsPanel({
         >
           {!embedded && (
             <div className={styles['paper-chat-mcp-tools-panel__header']}>
-              <span className={styles['paper-chat-mcp-tools-panel__title']}>MCP 工具（多选）</span>
+              <span className={styles['paper-chat-mcp-tools-panel__title']}>
+                {t('paper.chat.mcp.panelTitle')}
+              </span>
               <span className={styles['paper-chat-mcp-tools-panel__connection-info']}>
-                {connectedServersCount} 个服务器已连接
+                {t('paper.chat.mcp.connectedServers', { count: connectedServersCount })}
               </span>
             </div>
           )}
@@ -309,8 +313,8 @@ export default function PaperChatMcpToolsPanel({
               className={`input ${styles['paper-chat-mcp-tools-panel__search-input']}`}
               type="text"
               value={searchQuery}
-              placeholder="搜索工具..."
-              aria-label="搜索 MCP 工具"
+              placeholder={t('paper.chat.mcp.searchPlaceholder')}
+              aria-label={t('paper.chat.mcp.searchAria')}
               onChange={(event) => setSearchQuery(event.target.value)}
             />
           </div>
@@ -318,9 +322,7 @@ export default function PaperChatMcpToolsPanel({
           <div className={styles['paper-chat-mcp-tools-panel__tools']}>
             {Object.keys(filteredToolsByServer).length === 0 ? (
               <div className={styles['paper-chat-mcp-tools-panel__empty']}>
-                <p>
-                  {searchQuery ? '未找到匹配的工具' : '暂无可用工具，请在设置中配置 MCP 服务器'}
-                </p>
+                <p>{searchQuery ? t('paper.chat.mcp.noMatch') : t('paper.chat.mcp.empty')}</p>
               </div>
             ) : (
               Object.entries(filteredToolsByServer).map(([serverName, tools]) => {
@@ -355,7 +357,9 @@ export default function PaperChatMcpToolsPanel({
                           toggleServerGroupTools(tools)
                         }}
                       >
-                        {isServerGroupFullySelected(tools) ? '取消全选' : '全选'}
+                        {isServerGroupFullySelected(tools)
+                          ? t('paper.chat.mcp.deselectAll')
+                          : t('paper.chat.mcp.selectAll')}
                       </button>
                       <span
                         className={[
@@ -442,7 +446,9 @@ export default function PaperChatMcpToolsPanel({
                                         toggleDescription(tool)
                                       }}
                                     >
-                                      {expanded ? '收起' : '展开'}
+                                      {expanded
+                                        ? t('paper.chat.mcp.collapse')
+                                        : t('paper.chat.mcp.expand')}
                                     </button>
                                   )}
                                 </div>

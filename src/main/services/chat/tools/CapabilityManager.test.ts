@@ -2,7 +2,11 @@ import { describe, it, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
 import { CapabilityManager } from './CapabilityManager'
 import { presetRegistry } from './presets/PresetRegistry'
-import { CHAT_PAPER_PRESET, CHAT_DEFAULT_PRESET } from './presets/builtinPresets'
+import {
+  CHAT_PAPER_PRESET,
+  CHAT_DEFAULT_PRESET,
+  CHAT_WRITER_PRESET
+} from './presets/builtinPresets'
 
 describe('CapabilityManager', () => {
   let manager: CapabilityManager
@@ -11,6 +15,7 @@ describe('CapabilityManager', () => {
     manager = new CapabilityManager()
     presetRegistry.register(CHAT_PAPER_PRESET)
     presetRegistry.register(CHAT_DEFAULT_PRESET)
+    presetRegistry.register(CHAT_WRITER_PRESET)
   })
 
   it('initCapabilities 创建默认能力状态', () => {
@@ -30,6 +35,12 @@ describe('CapabilityManager', () => {
     const state = manager.initCapabilitiesForSessionType('s1', 'paper')
     assert.equal(state.presetId, 'chat.paper')
     assert.deepEqual(state.activeCapabilities, ['paper'])
+  })
+
+  it('initCapabilitiesForSessionType writer 类型默认启用 writer', () => {
+    const state = manager.initCapabilitiesForSessionType('s1', 'writer')
+    assert.equal(state.presetId, 'chat.writer')
+    assert.deepEqual(state.activeCapabilities, ['writer'])
   })
 
   it('initCapabilitiesForSessionType 未知类型使用 default 预设', () => {

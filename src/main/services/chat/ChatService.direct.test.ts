@@ -457,10 +457,7 @@ test('Direct 路径:OpenAI 官方 API 上 Prompt Cache 参数不被支持时降�
   )
   // 重试入参已被 strip
   assert.ok(
-    !(
-      'prompt_cache_key' in harness.createParams[1] &&
-      harness.createParams[1].prompt_cache_key
-    ),
+    !('prompt_cache_key' in harness.createParams[1] && harness.createParams[1].prompt_cache_key),
     '重试请求应移除 prompt_cache_key'
   )
   // 最终结果成功

@@ -54,14 +54,6 @@ function unwrapHighlight(mark: HTMLElement): void {
   parent.normalize()
 }
 
-export interface TextSearchState {
-  isOpen: boolean
-  query: string
-  matchCount: number
-  currentIndex: number
-  hasMatches: boolean
-}
-
 /** 全文搜索与高亮 Hook，管理搜索状态、高亮匹配项和当前结果导航 */
 export function usePaperTextSearch() {
   const [isOpen, setIsOpen] = useState(false)

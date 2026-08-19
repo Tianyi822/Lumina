@@ -2,18 +2,19 @@ import { readFile, writeFile } from 'fs/promises'
 
 import { getVectorDBService, type DocumentChunk, type SearchResult } from '@main/services/vector'
 import { EmbeddingService, isEmbeddingFailure } from '@main/services/embedding'
+import { t } from '@main/services/i18n'
 import { logger } from '@main/services/logger'
 import { getFileService } from '@main/services/file'
 import type { KnowledgeBase, KnowledgeReindexOptions } from '@shared/types/knowledge'
 import { getKnowledgeBaseFilePath as getKnowledgeBaseStorageFilePath } from './knowledgePaths'
 
 // 获取知识库数据文件路径
-export function getKnowledgeBaseFilePath(): string {
+function getKnowledgeBaseFilePath(): string {
   return getKnowledgeBaseStorageFilePath()
 }
 
 // 创建空的知识库数据结构
-export function createEmptyKnowledgeBases(): KnowledgeBase[] {
+function createEmptyKnowledgeBases(): KnowledgeBase[] {
   return []
 }
 
@@ -162,16 +163,19 @@ export class KnowledgeService {
     onProgress?: (progress: FileProcessingProgress) => void
   ): Promise<{ success: boolean; error?: string }> {
     if (kbId !== this.kbData.id) {
-      return { success: false, error: '知识库ID不匹配' }
+      return { success: false, error: t('notifications.knowledge.kbIdMismatch') }
     }
 
     if (!(this.kbData.linkedFileIds || []).includes(fileId)) {
-      return { success: false, error: '文件未关联到此知识库' }
+      return { success: false, error: t('notifications.knowledge.fileNotLinked') }
     }
 
     const resourceResult = await getFileService().readFileResourceContent(fileId)
     if (!resourceResult.success || !resourceResult.data) {
-      return { success: false, error: resourceResult.error || '读取文件内容失败' }
+      return {
+        success: false,
+        error: resourceResult.error || t('notifications.knowledge.readFileFailed')
+      }
     }
     const { file, content } = resourceResult.data
     const fileName = file.name
@@ -179,7 +183,7 @@ export class KnowledgeService {
     // 使用 `${kbId}:${fileId}` 作为处理键，防止同一文件重复索引
     const processingKey = `${kbId}:${fileId}`
     if (this.processingFiles.has(processingKey)) {
-      return { success: false, error: '文件正在处理中' }
+      return { success: false, error: t('notifications.knowledge.fileProcessing') }
     }
 
     this.processingFiles.add(processingKey)
@@ -210,7 +214,7 @@ export class KnowledgeService {
 
       if (chunks.length === 0) {
         this.processingFiles.delete(processingKey)
-        return { success: false, error: '文件内容为空' }
+        return { success: false, error: t('notifications.knowledge.fileContentEmpty') }
       }
 
       wrappedOnProgress({
@@ -261,7 +265,7 @@ export class KnowledgeService {
 
       // 检查是否已请求停止
       if (this.stopRequested) {
-        throw new Error('索引操作已被用户取消')
+        throw new Error(t('notifications.knowledge.indexCancelled'))
       }
 
       // 构建文档块对象
@@ -278,7 +282,7 @@ export class KnowledgeService {
 
       // 检查是否已请求停止
       if (this.stopRequested) {
-        throw new Error('索引操作已被用户取消')
+        throw new Error(t('notifications.knowledge.indexCancelled'))
       }
 
       // 添加到向量数据库
@@ -312,14 +316,14 @@ export class KnowledgeService {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
 
-      // 检查是否是用户取消
-      if (errorMessage.includes('已被用户取消')) {
+      // 检查是否是用户取消（stopRequested 优先判定；字符串兜底兼容其他来源抛出的取消错误）
+      if (this.stopRequested || errorMessage.includes('已被用户取消')) {
         logger.info('文件索引被用户取消', 'main', { kbId, fileId })
         wrappedOnProgress({
           fileId,
           fileName,
           status: 'failed',
-          error: '索引已取消'
+          error: t('notifications.knowledge.indexCancelledShort')
         })
       } else {
         logger.error('文件索引失败', 'main', { kbId, fileId, error: errorMessage })
@@ -353,7 +357,7 @@ export class KnowledgeService {
   ): Promise<{ success: boolean; error?: string }> {
     try {
       if (kbId !== this.kbData.id) {
-        return { success: false, error: '知识库ID不匹配' }
+        return { success: false, error: t('notifications.knowledge.kbIdMismatch') }
       }
 
       await getVectorDBService().deleteFileChunks(kbId, fileId)
@@ -397,7 +401,7 @@ export class KnowledgeService {
         indexedCount: 0,
         indexedFileIds: [],
         failedFiles: [],
-        error: '知识库ID不匹配'
+        error: t('notifications.knowledge.kbIdMismatch')
       }
     }
 
@@ -455,7 +459,9 @@ export class KnowledgeService {
           indexedFileIds.push(file.id)
         } else {
           failedFiles.push(file.name)
-          failedErrors.push(`${file.name}: ${result.error || '未知错误'}`)
+          failedErrors.push(
+            `${file.name}: ${result.error || t('notifications.knowledge.unknownError')}`
+          )
           logger.error('文件索引失败详情', 'main', {
             fileName: file.name,
             error: result.error
@@ -530,12 +536,12 @@ export class KnowledgeService {
   ): Promise<{ success: boolean; data?: { results: SearchResult[] }; error?: string }> {
     try {
       if (kbId !== this.kbData.id) {
-        return { success: false, error: '知识库ID不匹配' }
+        return { success: false, error: t('notifications.knowledge.kbIdMismatch') }
       }
 
       // 检查向量数据库是否存在
       if (!getVectorDBService().exists(kbId)) {
-        return { success: false, error: '知识库尚未建立索引' }
+        return { success: false, error: t('notifications.knowledge.notIndexedYet') }
       }
 
       // 使用知识库绑定的嵌入配置生成查询向量
@@ -570,7 +576,7 @@ export class KnowledgeService {
   }> {
     try {
       if (kbId !== this.kbData.id) {
-        return { success: false, error: '知识库ID不匹配' }
+        return { success: false, error: t('notifications.knowledge.kbIdMismatch') }
       }
 
       if (!getVectorDBService().exists(kbId)) {

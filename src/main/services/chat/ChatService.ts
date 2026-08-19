@@ -1,6 +1,7 @@
 import OpenAI from 'openai'
 import type { WebContents } from 'electron'
 import { configManager } from '../config'
+import { t } from '@main/services/i18n'
 import { logger } from '../logger'
 import { mcpService } from '../mcp'
 import type { ChatRequest, ChatResult, KnowledgeSearchResult, TokenUsage } from '../../types/chat'
@@ -22,10 +23,18 @@ import {
   extractTokenUsage,
   recordPromptCacheDiagnostics
 } from './PromptCacheOptimizer'
+import { writerAiRequestContextSchema } from '@shared/schemas/writerSchema'
+
+/** 判断请求是否携带有效的写作 AI 上下文 */
+export function hasValidWriterContext(request: Pick<ChatRequest, 'writerContext'>): boolean {
+  if (!request.writerContext) return false
+  return writerAiRequestContextSchema.safeParse(request.writerContext).success
+}
 
 /**
  * 聊天服务
  * 处理与 OpenAI 兼容 API 的通信，支持流式响应和 ReAct 推理模式
+ * @public 聊天服务对外公共 API（经 services/chat barrel re-export）
  */
 export class ChatService {
   private stopController: StopController
@@ -78,11 +87,12 @@ export class ChatService {
 
     const hasKnowledgeBases = selectedKnowledgeBases && selectedKnowledgeBases.length > 0
     const hasPaperContextTool = request.sessionType === 'paper' && !!request.paperId
+    const hasWriterContext = hasValidWriterContext(request)
     const hasTools =
       (selectedTools && selectedTools.length > 0) ||
-      request.enableLabTools ||
       request.enablePaperWebSearch ||
-      hasPaperContextTool
+      hasPaperContextTool ||
+      hasWriterContext
 
     // 路由决策：Plan-Execute -> ReAct -> 直接调用（优先级依次降低）
     // 显式开启规划模式 → Plan-Execute;否则按最后一条用户消息复杂度自动路由(仅 paper 会话)
@@ -132,7 +142,7 @@ export class ChatService {
 
     const llmConfig = this.validateAndGetLLMConfig(modelKey, sessionId, webContents, turnId)
     if (!llmConfig) {
-      return { success: false, error: '配置验证失败' }
+      return { success: false, error: t('notifications.chat.configValidationFailed') }
     }
 
     if (this.stopController.isStopped(sessionId)) {
@@ -280,7 +290,7 @@ export class ChatService {
   ): LLMConfig | null {
     const config = configManager.getConfig()
     if (!config) {
-      const error = '配置未加载'
+      const error = t('notifications.chat.configNotLoaded')
       logger.error(error, 'main')
       this.streamHandler.sendError(webContents, sessionId, error, turnId, 'failed')
       return null
@@ -288,7 +298,7 @@ export class ChatService {
 
     const llmConfig = config.llm_config.models.find((m) => m.model_name === modelKey)
     if (!llmConfig) {
-      const error = `未找到模型配置: ${modelKey}`
+      const error = t('notifications.chat.modelConfigNotFound', { modelKey })
       logger.error(error, 'main')
       this.streamHandler.sendError(webContents, sessionId, error, turnId, 'failed')
       return null

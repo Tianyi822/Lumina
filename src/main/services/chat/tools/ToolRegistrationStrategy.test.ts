@@ -15,11 +15,7 @@ function createStrategy(stats: ToolStatsSummary[] = []): ToolRegistrationStrateg
   return new ToolRegistrationStrategy(collector as unknown as ToolStatsCollectorArg)
 }
 
-function makeStats(
-  serverName: string,
-  totalCalls: number,
-  successRate: number
-): ToolStatsSummary {
+function makeStats(serverName: string, totalCalls: number, successRate: number): ToolStatsSummary {
   return {
     toolName: `${serverName}__tool`,
     serverName,
@@ -63,25 +59,28 @@ describe('ToolRegistrationStrategy', () => {
 
     it('高频工具 → 优先级降低（惩罚机制）', () => {
       const strategy = createStrategy([makeStats('knowledge', 100, 0.95)])
-      const priority = strategy.buildEffectivePriority(
-        { basePriority: 20, category: 'knowledge' as ToolCategory } as ToolRegistrationRule
-      )
+      const priority = strategy.buildEffectivePriority({
+        basePriority: 20,
+        category: 'knowledge' as ToolCategory
+      } as ToolRegistrationRule)
       assert.ok(priority < 20, `高频工具优先级 ${priority} 应小于基础优先级 20`)
     })
 
     it('低频成功工具 → 优先级接近基础值', () => {
       const strategy = createStrategy([makeStats('knowledge', 1, 1.0)])
-      const priority = strategy.buildEffectivePriority(
-        { basePriority: 20, category: 'knowledge' as ToolCategory } as ToolRegistrationRule
-      )
+      const priority = strategy.buildEffectivePriority({
+        basePriority: 20,
+        category: 'knowledge' as ToolCategory
+      } as ToolRegistrationRule)
       assert.ok(priority >= 19, `低频工具优先级 ${priority} 应接近 20`)
     })
 
     it('零调用次数的统计不应影响优先级', () => {
       const strategy = createStrategy([makeStats('knowledge', 0, 1.0)])
-      const priority = strategy.buildEffectivePriority(
-        { basePriority: 20, category: 'knowledge' as ToolCategory } as ToolRegistrationRule
-      )
+      const priority = strategy.buildEffectivePriority({
+        basePriority: 20,
+        category: 'knowledge' as ToolCategory
+      } as ToolRegistrationRule)
       assert.equal(priority, 20)
     })
   })

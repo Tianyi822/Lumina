@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import SvgIcon from '@renderer/components/icons/SvgIcon'
 import styles from '../WorkspaceToolbar.module.css'
 
@@ -8,6 +9,7 @@ interface PaperChatButtonProps {
 }
 
 export default function PaperChatButton({ isActive, onClick }: PaperChatButtonProps) {
+  const { t } = useTranslation()
   return (
     <div className={styles['sm-workspace-toolbar__item-wrap']}>
       <button
@@ -18,14 +20,14 @@ export default function PaperChatButton({ isActive, onClick }: PaperChatButtonPr
         ]
           .filter(Boolean)
           .join(' ')}
-        aria-label="会话"
+        aria-label={t('chrome.toolbar.chat')}
         type="button"
         onClick={onClick}
       >
         <SvgIcon name="chat" size={18} />
       </button>
       <span className={styles['sm-workspace-toolbar__tooltip']} role="tooltip">
-        会话
+        {t('chrome.toolbar.chat')}
       </span>
     </div>
   )

@@ -1,6 +1,11 @@
 import { SESSION_TOOL_CONFIGS } from './SessionToolConfigs'
 import { UnifiedToolRegistry } from './UnifiedToolRegistry'
-import type { ToolRegistrationRule, RegistrationContext, SessionToolConfig, ToolPipeline } from './PipelineTypes'
+import type {
+  ToolRegistrationRule,
+  RegistrationContext,
+  SessionToolConfig,
+  ToolPipeline
+} from './PipelineTypes'
 import type { ToolStatsCollector } from './ToolStatsCollector'
 
 /**
@@ -30,10 +35,7 @@ export class ToolRegistrationStrategy {
 
     if (allStats.length === 0) return rule.basePriority
 
-    const totalSuccessfulCalls = allStats.reduce(
-      (sum, s) => sum + s.totalCalls * s.successRate,
-      0
-    )
+    const totalSuccessfulCalls = allStats.reduce((sum, s) => sum + s.totalCalls * s.successRate, 0)
 
     if (totalSuccessfulCalls === 0) return rule.basePriority
 

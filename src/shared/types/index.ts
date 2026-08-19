@@ -20,18 +20,6 @@ export * from './logger'
 // 知识库相关的类型
 export * from './knowledge'
 
-// 知识库 MCP 相关类型
-export {
-  DEFAULT_KNOWLEDGE_MCP_CONFIG,
-  type KnowledgeBaseListItem,
-  type KnowledgeDocumentListItem,
-  type KnowledgeMCPConfig,
-  type KnowledgeMCPServerStatus,
-  type KnowledgeSearchResult as KnowledgeMCPSearchResult,
-  type KnowledgeSearchToolArgs,
-  type MCPClientConfig
-} from './knowledgeMCP'
-
 // 工具统计相关的类型
 export * from './tool-stats'
 
@@ -41,12 +29,11 @@ export * from './paper'
 // 论文联网搜索相关的类型
 export * from './paper-web-search'
 
-// 实验室相关的类型
-export * from './lab/core'
-export * from './lab/container'
-export * from './lab/file'
-export * from './lab/permissions'
-export * from './lab/ssh'
-
 // 自动更新相关的类型
 export * from './update'
+
+// 写作相关的类型
+export * from './writer'
+
+// 数据同步相关的类型
+export * from './sync'

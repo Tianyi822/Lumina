@@ -25,8 +25,11 @@ import { capabilityRegistry } from './tools/capabilities/CapabilityRegistry'
 import { registerBuiltinCapabilities } from './tools/capabilities/registerBuiltinCapabilities'
 import { capabilityManager } from './tools/CapabilityManager'
 import { presetRegistry } from './tools/presets/PresetRegistry'
-import { CHAT_PAPER_PRESET, CHAT_DEFAULT_PRESET } from './tools/presets/builtinPresets'
-import { sshTerminalService } from '../lab/ssh/SshTerminalService'
+import {
+  CHAT_PAPER_PRESET,
+  CHAT_DEFAULT_PRESET,
+  CHAT_WRITER_PRESET
+} from './tools/presets/builtinPresets'
 import type { TokenUsage } from '../../types/chat'
 import {
   addTokenUsage,
@@ -34,6 +37,8 @@ import {
   createEmptyTokenUsage,
   recordPromptCacheDiagnostics
 } from './PromptCacheOptimizer'
+import { WriterContextFormatter } from '../writer/WriterContextFormatter'
+import { t } from '@main/services/i18n'
 
 /**
  * 从消息列表中提取最近一条用户的文本输入作为原始查询
@@ -53,30 +58,23 @@ export function extractOriginalQuery(
 
 /**
  * 构建 capability composer 上下文（纯函数，便于单测）
- * 从 ChatRequest 提取实验室学科/绑定等字段，缺失时默认 null
+ * 从 ChatRequest 提取工具能力相关字段
  */
-export function buildComposerContext(
+function buildComposerContext(
   request: Pick<
     ChatRequest,
-    | 'paperId'
-    | 'enableLabTools'
-    | 'enablePaperWebSearch'
-    | 'activeLabDiscipline'
-    | 'activeLabId'
-    | 'selectedTools'
+    'paperId' | 'enablePaperWebSearch' | 'selectedTools' | 'writerContext'
   >,
   selectedKnowledgeBases?: KnowledgeBaseReference[],
   mcpService?: unknown
 ): Record<string, unknown> {
   return {
     paperId: request.paperId,
-    enableLabTools: request.enableLabTools,
     enablePaperWebSearch: request.enablePaperWebSearch,
     selectedKnowledgeBases,
     selectedTools: request.selectedTools,
-    mcpService,
-    labDiscipline: request.activeLabDiscipline ?? null,
-    labId: request.activeLabId ?? null
+    writerContext: request.writerContext,
+    mcpService
   }
 }
 
@@ -152,6 +150,7 @@ export class ReactLoopService {
     registerBuiltinCapabilities()
     presetRegistry.register(CHAT_PAPER_PRESET)
     presetRegistry.register(CHAT_DEFAULT_PRESET)
+    presetRegistry.register(CHAT_WRITER_PRESET)
     // 初始化能力组合器，用于动态编排可用工具
     this.capabilityComposer = new CapabilityComposer(capabilityRegistry)
   }
@@ -177,14 +176,15 @@ export class ReactLoopService {
       modelKey,
       messageCount: messages.length,
       toolCount: request.selectedTools?.length,
-      selectedToolNames: request.selectedTools?.map((t) => `${t.serverName}/${t.toolName}`),
-      enableLabTools: request.enableLabTools,
+      selectedToolNames: request.selectedTools?.map(
+        (tool) => `${tool.serverName}/${tool.toolName}`
+      ),
       maxReactIterations
     })
 
     const llmConfig = this.validateAndGetLLMConfig(modelKey, sessionId, webContents, turnId)
     if (!llmConfig) {
-      return { success: false, error: '配置验证失败' }
+      return { success: false, error: t('notifications.chat.configValidationFailed') }
     }
 
     if (this.stopController.isStopped(sessionId)) {
@@ -226,11 +226,24 @@ export class ReactLoopService {
           fewShotExamples: getFewShotExamples(request.sessionType)
         }
       )
-      // 构建对话消息列表（系统提示 + 用户历史消息 + 知识库结果）
+      // 构建对话消息列表（系统提示 + 可选写作只读上下文 + 用户历史消息 + 知识库结果）
       const conversationMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
-        { role: 'system', content: systemPrompt },
-        ...formatMessagesWithKnowledge(messages, knowledgeResults)
+        { role: 'system', content: systemPrompt }
       ]
+      if (request.writerContext) {
+        const budgetError = WriterContextFormatter.checkTokenBudget(request.writerContext)
+        if (budgetError) {
+          if (!runtimeOptions.suppressFinalEvents) {
+            this.streamHandler.sendError(webContents, sessionId, budgetError, turnId, 'failed')
+          }
+          return { success: false, error: budgetError }
+        }
+        conversationMessages.push({
+          role: 'system',
+          content: WriterContextFormatter.format(request.writerContext)
+        })
+      }
+      conversationMessages.push(...formatMessagesWithKnowledge(messages, knowledgeResults))
       // 记录模型完整对话转录，用于返回给调用方
       const modelTranscript: ChatMessage[] = []
 
@@ -383,15 +396,6 @@ export class ReactLoopService {
         this.stopController.clearStoppedSession(sessionId)
       }
       this.stopController.deletePendingUserInteraction(sessionId)
-      // 清理本次请求绑定的模型 PTY 会话（spec §7.1，防止资源泄漏）
-      const boundLabId = request.activeLabId ?? null
-      if (boundLabId) {
-        try {
-          sshTerminalService.closeLabTerminals(boundLabId, 'ReAct 循环结束')
-        } catch {
-          // 清理失败不影响主流程
-        }
-      }
     }
   }
 
@@ -416,10 +420,7 @@ export class ReactLoopService {
       capState = capabilityManager.initCapabilitiesForSessionType(sid, sessionType)
     }
 
-    // 根据请求参数动态启用对应的能力（实验室、论文搜索、MCP、知识库）
-    if (request.enableLabTools && !capState.activeCapabilities.includes('lab')) {
-      capabilityManager.addCapability(sid, 'lab')
-    }
+    // 根据请求参数动态启用对应的能力（论文搜索、MCP、知识库）
     if (
       request.enablePaperWebSearch &&
       request.paperId &&
@@ -440,6 +441,14 @@ export class ReactLoopService {
       !capState.activeCapabilities.includes('knowledge')
     ) {
       capabilityManager.addCapability(sid, 'knowledge')
+    }
+    // 写作会话：仅在用户主动选择论文时启用论文检索
+    if (
+      sessionType === 'writer' &&
+      request.paperId &&
+      !capState.activeCapabilities.includes('paper')
+    ) {
+      capabilityManager.addCapability(sid, 'paper')
     }
 
     capState = capabilityManager.getCapabilities(sid)!

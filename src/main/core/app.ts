@@ -12,16 +12,32 @@ import {
   initializeKnowledge,
   initializeEmbeddingModels,
   initializeFileService,
-  initializeLab
+  initializeWriterService,
+  initializeSessionService,
+  initializeSyncService
 } from '@main/ipc'
-import { sshService } from '@main/services/lab/ssh'
 import { mcpService } from '@main/services/mcp'
 import { getKnowledgeMCPServerService } from '@main/services/knowledge/KnowledgeMCPServerService'
 import { toolStatsCollector } from '@main/services/chat/tools/ToolStatsCollector'
 import { logger } from '@main/services/logger'
 import { updateService } from '@main/services/update'
-import { paperTranslationService } from '@main/services/paper'
+import { setLanguageProvider } from '@main/services/i18n'
+import { configManager } from '@main/services/config'
+import { paperTranslationService, getPaperService } from '@main/services/paper'
 import { startEventLoopMonitoring } from '@main/services/monitoring/eventLoopMonitor'
+import { writerService } from '@main/services/writer'
+import { handleWriterWindowClose } from '@main/services/writer/WriterFlushCoordinator'
+import { initializeConfigSyncService } from '@main/services/sync/config'
+import { initializeKnowledgeSyncService } from '@main/services/sync/knowledge'
+import { initializePaperSyncService } from '@main/services/sync/paper'
+import { initializeSessionSyncService } from '@main/services/sync/session'
+import { initializeWriterSyncService } from '@main/services/sync/writer'
+import { getSyncService } from '@main/services/sync'
+import { getConfigSyncService } from '@main/services/sync/config'
+import { getKnowledgeSyncService } from '@main/services/sync/knowledge'
+import { getPaperSyncService } from '@main/services/sync/paper'
+import { getSessionSyncService } from '@main/services/sync/session'
+import { getWriterSyncService } from '@main/services/sync/writer'
 
 const appDisplayName = 'Lumina'
 const SHUTDOWN_TASK_TIMEOUT_MS = 5_000
@@ -102,11 +118,25 @@ function requestShutdown(exitCode: number, reason: string): void {
       runShutdownTask('tool-stats', () => toolStatsCollector.stopPersist()),
       runShutdownTask('paper-translation', () => paperTranslationService.flushPendingCaches()),
       runShutdownTask('mcp', () => mcpService.disconnectAll()),
-      runShutdownTask('ssh', () => sshService.shutdown()),
       runShutdownTask('knowledge-mcp', async () => {
         if (knowledgeMCPStatus.running) {
           await knowledgeMCPService.stop()
         }
+      }),
+      runShutdownTask('writer', async () => {
+        await writerService.requestRendererFlush()
+        await writerService.flushPendingSaves()
+      }),
+      runShutdownTask('sync', () => {
+        // 引擎定时器仅在已连接时才会启动（start 内部校验连接态）；
+        // 未连接直接返回，避免为退出触发懒加载单例的无谓构造
+        if (!getSyncService().getStatus().connected) return
+        getSyncService().stopAutoRenew()
+        getSessionSyncService().stop()
+        getConfigSyncService().stop()
+        getWriterSyncService().stop()
+        getKnowledgeSyncService().stop()
+        getPaperSyncService().stop()
       })
     ])
 
@@ -114,6 +144,19 @@ function requestShutdown(exitCode: number, reason: string): void {
   })().finally(() => {
     app.exit(exitCode)
   })
+}
+
+/** 创建受统一退出流程保护的应用窗口 */
+function createApplicationWindow(): BrowserWindow {
+  const window = createMainWindow()
+  window.on('close', (event) => {
+    handleWriterWindowClose(event, {
+      isShutdownRequested: () => shutdownPromise !== null,
+      isQuittingForUpdate: () => updateService.isQuittingForUpdate,
+      requestShutdown: () => requestShutdown(0, 'window-close')
+    })
+  })
+  return window
 }
 
 /**
@@ -148,11 +191,26 @@ export function initializeApp(): void {
     // 初始化配置，即使失败也不阻止应用启动
     initializeConfig()
 
+    // 装配主进程 i18n 语言读取器，供主进程 t() 即时读取当前语言；
+    // 未显式选择时跟随系统语言（与渲染进程 detectSystemLanguage 口径一致）
+    setLanguageProvider(
+      () => configManager.getConfig()?.language ?? (app.getLocale().startsWith('zh') ? 'zh' : 'en')
+    )
+
     // 注册 lumina:// 自定义协议（必须在 ready 后、窗口创建前）
     registerLuminaProtocol()
 
     // 注册所有 IPC 处理程序
     registerAllIpcHandlers()
+
+    // 初始化会话服务（迁移旧 JSON、恢复 tmp、就绪 index）；失败不阻止应用启动
+    try {
+      await initializeSessionService()
+    } catch (error) {
+      logger.error('会话服务初始化失败，会话功能不可用', 'main', {
+        error: error instanceof Error ? error.message : String(error)
+      })
+    }
 
     // 初始化 MCP 服务
     initializeMCP()
@@ -169,11 +227,38 @@ export function initializeApp(): void {
     // 初始化文件服务，并修复历史论文资源池数据
     await initializeFileService()
 
-    // 初始化实验室服务
-    await initializeLab()
+    // 初始化写作服务（依赖通用文件服务已完成启动）
+    await initializeWriterService()
+
+    // 初始化数据同步服务：恢复本地身份并后台续期，失败不阻止应用启动
+    initializeSyncService()
+      .catch((error) => {
+        logger.warn('同步服务初始化失败', 'main', {
+          error: error instanceof Error ? error.message : String(error)
+        })
+      })
+      .finally(() => {
+        // 先执行存量页图清理（OCR 已完成论文的 pages/ 目录），完成后再启动各领域同步，
+        // 避免同步把待删除的页图上传到服务器
+        void (async () => {
+          try {
+            await getPaperService().purgeRenderedPageImages()
+          } catch (error) {
+            logger.warn('存量页图清理失败', 'main', {
+              error: error instanceof Error ? error.message : String(error)
+            })
+          } finally {
+            initializeSessionSyncService()
+            initializeConfigSyncService()
+            initializeWriterSyncService()
+            initializeKnowledgeSyncService()
+            initializePaperSyncService()
+          }
+        })()
+      })
 
     // 创建主窗口
-    const mainWindow = createMainWindow()
+    const mainWindow = createApplicationWindow()
 
     // 初始化更新服务（需要主窗口引用来推送状态）
     updateService.setMainWindow(mainWindow)
@@ -181,7 +266,7 @@ export function initializeApp(): void {
     // 在 macOS 上，当点击 dock 图标且没有其他窗口打开时，通常会重新创建一个窗口
     app.on('activate', function () {
       if (!shutdownPromise && BrowserWindow.getAllWindows().length === 0) {
-        createMainWindow()
+        createApplicationWindow()
       }
     })
   })

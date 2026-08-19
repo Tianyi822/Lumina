@@ -1,0 +1,52 @@
+{
+  // knip 配置：https://knip.dev
+  // 声明可达性分析入口，识别 Electron 三进程 + 构建脚本
+  "$schema": "https://unpkg.com/knip@latest/schema.json",
+  "entry": [
+    "src/main/index.ts",
+    "src/preload/index.ts",
+    "src/renderer/src/main.tsx",
+    "electron.vite.config.ts",
+    "scripts/test/tsAliasLoader.mjs",
+    "scripts/build/**/*.{cjs,mjs}",
+    // 旁置测试作为独立入口，避免 knip 把测试专用导出/文件误报为未使用
+    "src/**/*.{test,spec}.{ts,tsx,mjs}"
+  ],
+  "project": ["src/**/*.{ts,tsx}", "scripts/**/*.{ts,mjs,cjs}"],
+  // Windows 特有调用，非死代码
+  "ignoreBinaries": ["chcp.com", "reg"],
+  // 动态引用、knip 静态分析看不到的依赖（清理过程中按需添加）
+  // builder-util 是 electron-builder 的传递依赖，scripts/build/prunePlatformArtifacts.cjs
+  // 直接 require 它的 Arch 常量。顶层 node_modules 可用，但不在 package.json 中显式声明，
+  // knip 视为 unlisted。作为构建脚本内部依赖接受现状，避免引入版本约束。
+  "ignoreDependencies": ["builder-util"],
+  // preload/types 是 contextBridge 的类型契约（含 declare global Window.api），
+  // 被 renderer 全代码库经 window.api.* 隐式消费，knip 不追踪 global augmentation 故误报。
+  // 经 Task 3 验证：删除会导致 renderer typecheck 崩塌，确认为假阳性，整目录忽略。
+  "ignore": ["src/preload/types/**", "src/preload/index.d.ts"],
+  // 子系统 barrel / 跨进程契约导出：生产入口经更深路径引用，但对外稳定 API 需保留
+  "ignoreIssues": {
+    "src/main/services/writer/index.ts": ["exports", "types"],
+    "src/main/services/session/factories/index.ts": ["exports"],
+    "src/renderer/src/stores/index.ts": ["exports"],
+    "src/renderer/src/stores/writer/index.ts": ["exports", "types"],
+    "src/shared/schemas/writerSchema.ts": ["exports"],
+    "src/main/services/writer/writerPaths.ts": ["exports"],
+    "src/main/services/writer/WriterAssetService.ts": ["exports"],
+    "src/main/services/writer/WriterContextFormatter.ts": ["exports"],
+    "src/main/services/writer/WriterFlushCoordinator.ts": ["exports"],
+    "src/main/services/writer/WriterDocxExporter.ts": ["types"],
+    "src/renderer/src/components/writer/extensions/writerMath.ts": ["exports", "types"],
+    "src/renderer/src/components/writer/suggestions/writerSuggestionCore.ts": ["types"],
+    "src/renderer/src/components/writer/toolbar/writerSlashMenuKeymap.ts": ["types"],
+    "src/renderer/src/stores/uiStateStore.ts": ["types"],
+    "src/renderer/src/stores/writer/writerChatStore.ts": ["types"],
+    "src/renderer/src/stores/writer/writerLibraryStore.ts": ["types"],
+    "src/renderer/src/stores/writer/writerSessionStore.ts": ["types"],
+    "src/renderer/src/stores/writer/writerSuggestionStore.ts": ["types"],
+    "src/shared/types/session.ts": ["types"],
+    // SessionSyncErrorItem 仅在文件内被 SessionSyncResult.errors 引用，外部消费方
+    // （引擎/preload/renderer）均经结构推断使用，无显式具名导入，knip 误报 unused
+    "src/shared/types/sync.ts": ["types"]
+  }
+}

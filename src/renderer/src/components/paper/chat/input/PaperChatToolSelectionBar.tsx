@@ -1,9 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import type { KnowledgeBase, LabListItem, MCPTool } from '@renderer/types'
-import type { LabDisciplineId } from '@shared/types/config'
+import { useTranslation } from 'react-i18next'
+import type { KnowledgeBase, MCPTool } from '@renderer/types'
 import SvgIcon from '@renderer/components/icons/SvgIcon'
-import { LabSessionPanel } from '@renderer/components/lab/LabSessionPanel'
-import { LAB_DISCIPLINE_PRESETS } from '@shared/utils/labFeatures'
 import PaperChatMcpToolsPanel from './PaperChatMcpToolsPanel'
 import PaperChatKnowledgeBasePanel from './PaperChatKnowledgeBasePanel'
 import styles from './PaperChatToolSelectionBar.module.css'
@@ -14,56 +12,40 @@ interface PaperChatToolSelectionBarProps {
   canSend?: boolean
   selectedTools: MCPTool[]
   selectedKnowledgeBases: KnowledgeBase[]
-  enableLabTools?: boolean
   enablePaperWebSearch?: boolean
+  /** 是否展示论文联网搜索开关；写作面板传 false */
+  allowPaperWebSearch?: boolean
   totalAttachmentCount?: number
-  activeLabDiscipline?: LabDisciplineId | null
-  activeLabId?: string | null
-  enabledDisciplines?: LabDisciplineId[]
-  connectedLabs?: LabListItem[]
   onUpdateSelectedTools: (value: MCPTool[]) => void
   onUpdateSelectedKnowledgeBases: (value: KnowledgeBase[]) => void
-  onUpdateEnableLabTools?: (value: boolean) => void
   onTogglePaperWebSearch: () => void
-  onLabSelectionChange?: (next: {
-    discipline: LabDisciplineId | null
-    labId: string | null
-  }) => void
-  onNavigateToLab?: () => void
-  onRefreshLabs?: () => void
   onUpload: () => void
   onSend: () => void
   onStop: () => void
   children?: ReactNode
 }
 
-type AccordionSection = 'kb' | 'mcp' | 'lab'
+type AccordionSection = 'kb' | 'mcp'
 
-/** 输入工具栏组件，包含附件上传、搜索开关、实验室开关、知识库/MCP 手风琴面板和发送按钮 */
+/** 输入工具栏组件，包含附件上传、搜索开关、知识库/MCP 手风琴面板和发送按钮 */
 export default function PaperChatToolSelectionBar({
   isSending,
   disabled,
   canSend = true,
   selectedTools,
   selectedKnowledgeBases,
-  enableLabTools,
   enablePaperWebSearch,
+  allowPaperWebSearch = true,
   totalAttachmentCount = 0,
-  activeLabDiscipline = null,
-  activeLabId = null,
-  enabledDisciplines = [],
-  connectedLabs = [],
   onUpdateSelectedTools,
   onUpdateSelectedKnowledgeBases,
   onTogglePaperWebSearch,
-  onLabSelectionChange,
-  onNavigateToLab,
-  onRefreshLabs,
   onUpload,
   onSend,
   onStop,
   children
 }: PaperChatToolSelectionBarProps) {
+  const { t } = useTranslation()
   // 发送中或 disabled 时禁用所有工具栏操作
   const controlsDisabled = Boolean(disabled || isSending)
   const [showMenu, setShowMenu] = useState(false)
@@ -74,8 +56,7 @@ export default function PaperChatToolSelectionBar({
   const activeCount =
     selectedTools.length +
     selectedKnowledgeBases.length +
-    (enablePaperWebSearch ? 1 : 0) +
-    (enableLabTools ? 1 : 0)
+    (allowPaperWebSearch && enablePaperWebSearch ? 1 : 0)
 
   // 点击菜单外部关闭菜单，按 Escape 键同样关闭
   useEffect(() => {
@@ -116,13 +97,7 @@ export default function PaperChatToolSelectionBar({
 
   // 手风琴切换：同一项再点收起，点不同项切换
   function toggleAccordion(section: AccordionSection): void {
-    setExpandedSection((prev) => {
-      // 展开实验室手风琴时刷新实验室列表（spec §5.5，保证数据新鲜）
-      if (prev !== section && section === 'lab') {
-        onRefreshLabs?.()
-      }
-      return prev === section ? null : section
-    })
+    setExpandedSection((prev) => (prev === section ? null : section))
   }
 
   // 点击上传附件后关闭菜单并触发文件选择
@@ -152,7 +127,7 @@ export default function PaperChatToolSelectionBar({
               .join(' ')}
             type="button"
             disabled={controlsDisabled}
-            title="添加附件或配置工具"
+            title={t('paper.chat.input.addAttachmentOrTool')}
             onClick={toggleMenu}
           >
             <SvgIcon name="add" size={20} />
@@ -173,86 +148,38 @@ export default function PaperChatToolSelectionBar({
                 onClick={handleUploadClick}
               >
                 <SvgIcon name="attachment" size={16} />
-                <span className={styles['plus-menu__row-label']}>添加附件</span>
-              </button>
-
-              {/* 搜索开关 */}
-              <button
-                type="button"
-                className={styles['plus-menu__row']}
-                disabled={controlsDisabled}
-                onClick={onTogglePaperWebSearch}
-              >
-                <SvgIcon name="search" size={16} />
-                <span className={styles['plus-menu__row-label']}>搜索</span>
-                <span className={styles['plus-menu__row-right']}>
-                  <span
-                    className={[
-                      styles['plus-menu__toggle-switch'],
-                      enablePaperWebSearch ? styles['plus-menu__toggle-switch--on'] || '' : ''
-                    ]
-                      .filter(Boolean)
-                      .join(' ')}
-                    aria-hidden="true"
-                  >
-                    <span className={styles['plus-menu__toggle-thumb']} />
-                  </span>
+                <span className={styles['plus-menu__row-label']}>
+                  {t('paper.chat.input.addAttachment')}
                 </span>
               </button>
 
-              {/* 实验室手风琴（学科 + 实验室绑定） */}
-              <div
-                className={`${styles['plus-menu__row']} ${styles['plus-menu__row--interactive']}`}
-                onClick={() => toggleAccordion('lab')}
-              >
-                <SvgIcon name="lab-computer" size={16} />
-                <span className={styles['plus-menu__row-label']}>实验室</span>
-                <span className={styles['plus-menu__row-right']}>
-                  {activeLabDiscipline && (
-                    <span className={styles['plus-menu__count-badge']}>
-                      {LAB_DISCIPLINE_PRESETS.find((d) => d.id === activeLabDiscipline)?.label ??
-                        '●'}
+              {/* 搜索开关（论文对话专用） */}
+              {allowPaperWebSearch ? (
+                <button
+                  type="button"
+                  className={styles['plus-menu__row']}
+                  disabled={controlsDisabled}
+                  onClick={onTogglePaperWebSearch}
+                >
+                  <SvgIcon name="search" size={16} />
+                  <span className={styles['plus-menu__row-label']}>
+                    {t('paper.chat.input.search')}
+                  </span>
+                  <span className={styles['plus-menu__row-right']}>
+                    <span
+                      className={[
+                        styles['plus-menu__toggle-switch'],
+                        enablePaperWebSearch ? styles['plus-menu__toggle-switch--on'] || '' : ''
+                      ]
+                        .filter(Boolean)
+                        .join(' ')}
+                      aria-hidden="true"
+                    >
+                      <span className={styles['plus-menu__toggle-thumb']} />
                     </span>
-                  )}
-                  <span
-                    className={[
-                      styles['plus-menu__accordion-arrow'],
-                      expandedSection === 'lab'
-                        ? styles['plus-menu__accordion-arrow--open'] || ''
-                        : ''
-                    ]
-                      .filter(Boolean)
-                      .join(' ')}
-                  >
-                    ▶
                   </span>
-                </span>
-              </div>
-
-              <div
-                className={[
-                  styles['plus-menu__accordion-body'],
-                  expandedSection !== 'lab'
-                    ? styles['plus-menu__accordion-body--collapsed'] || ''
-                    : ''
-                ]
-                  .filter(Boolean)
-                  .join(' ')}
-              >
-                <div className={styles['plus-menu__accordion-inner']}>
-                  <div className={styles['plus-menu__accordion-content']}>
-                    <LabSessionPanel
-                      discipline={activeLabDiscipline}
-                      labId={activeLabId}
-                      enabledDisciplines={enabledDisciplines}
-                      connectedLabs={connectedLabs}
-                      disabled={controlsDisabled}
-                      onChange={(next) => onLabSelectionChange?.(next)}
-                      onNavigateToLab={onNavigateToLab}
-                    />
-                  </div>
-                </div>
-              </div>
+                </button>
+              ) : null}
 
               {/* 知识库手风琴 */}
               <div
@@ -260,7 +187,9 @@ export default function PaperChatToolSelectionBar({
                 onClick={() => toggleAccordion('kb')}
               >
                 <SvgIcon name="knowledge" size={16} />
-                <span className={styles['plus-menu__row-label']}>知识库</span>
+                <span className={styles['plus-menu__row-label']}>
+                  {t('paper.chat.input.knowledgeBases')}
+                </span>
                 <span className={styles['plus-menu__row-right']}>
                   {kbCount > 0 && (
                     <span className={styles['plus-menu__count-badge']}>{kbCount}</span>
@@ -360,8 +289,8 @@ export default function PaperChatToolSelectionBar({
             className={styles['paper-chat-input-toolbar__execute-button']}
             type="button"
             disabled={!canSend}
-            title="发送"
-            aria-label="发送"
+            title={t('paper.chat.input.send')}
+            aria-label={t('paper.chat.input.send')}
             onClick={onSend}
           >
             <SvgIcon name="send" size={16} />
@@ -370,8 +299,8 @@ export default function PaperChatToolSelectionBar({
           <button
             className={styles['paper-chat-input-toolbar__stop-button']}
             type="button"
-            title="停止"
-            aria-label="停止"
+            title={t('paper.chat.input.stop')}
+            aria-label={t('paper.chat.input.stop')}
             onClick={onStop}
           >
             <SvgIcon name="stop" size={16} />

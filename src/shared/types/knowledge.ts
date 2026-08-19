@@ -1,7 +1,7 @@
 /**
  * 文件资源来源类型
  */
-export type FileSourceKind = 'uploaded' | 'paper_file' | 'paper_note'
+type FileSourceKind = 'uploaded' | 'paper_file' | 'paper_note'
 
 /**
  * 文件资源来源元信息
@@ -62,6 +62,7 @@ export interface FileItem {
 /**
  * 知识库绑定的嵌入模型完整配置
  * 知识库创建时绑定，不依赖全局配置
+ * @public 经 renderer/types export * 被 knowledgeStore 消费（knip 跨 barrel 假阳性）
  */
 export interface KnowledgeBaseEmbeddingConfig {
   /** API 基础地址 */
@@ -79,7 +80,7 @@ export interface KnowledgeBaseEmbeddingConfig {
 /**
  * 知识库索引失效原因
  */
-export type KnowledgeIndexInvalidationReason = 'paper_note_updated'
+type KnowledgeIndexInvalidationReason = 'paper_note_updated'
 
 /**
  * 导致索引失效的文件信息
@@ -142,32 +143,6 @@ export interface KnowledgeBase {
 }
 
 /**
- * 文档的基本信息
- */
-export interface Document {
-  /** 文档的唯一标识 */
-  id: string
-  /** 所属知识库的 ID */
-  kbId: string
-  /** 文档名称 */
-  name: string
-  /** 文档类型 */
-  fileType: string
-  /** 文件大小，单位字节 */
-  fileSize: number
-  /** 文档分块后的块数量 */
-  chunkCount: number
-  /** 文档处理状态 */
-  status: 'pending' | 'processing' | 'completed' | 'failed'
-  /** 处理失败时的错误信息 */
-  errorMessage?: string
-  /** 文档创建时间 */
-  createdAt: string
-  /** 文档最后更新时间 */
-  updatedAt: string
-}
-
-/**
  * 知识库引用信息
  * 用于聊天时传递用户选中的知识库
  */
@@ -202,6 +177,7 @@ export interface FilePreviewData {
 
 /**
  * 知识库搜索命中的文档块
+ * @public 经 renderer/types export * 被 useKnowledgeSearch 消费（knip 跨 barrel 假阳性）
  */
 export interface KnowledgeSearchHit {
   /** 向量索引中的块 ID */
@@ -230,7 +206,7 @@ export interface KnowledgeSearchResponse {
 /**
  * 重建索引范围
  */
-export type KnowledgeReindexScope = 'full' | 'files'
+type KnowledgeReindexScope = 'full' | 'files'
 
 /**
  * 重建索引选项
@@ -281,7 +257,7 @@ export interface KnowledgeFileProgressEvent {
 /**
  * 重建索引进度
  */
-export interface KnowledgeReindexProgress {
+interface KnowledgeReindexProgress {
   current: number
   total: number
   currentFile?: string
@@ -298,7 +274,7 @@ export interface KnowledgeReindexProgressEvent {
 /**
  * 当前索引中的文件条目
  */
-export interface KnowledgeIndexingFile {
+interface KnowledgeIndexingFile {
   kbId: string
   fileId: string
   fileName?: string

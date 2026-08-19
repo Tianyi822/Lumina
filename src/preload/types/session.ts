@@ -1,19 +1,20 @@
 import type {
   SessionData,
   SessionListItem,
+  SessionMessage,
+  SessionMetaPatch,
+  SessionResourceRef,
   SessionResult,
   SessionType
 } from '@shared/types/session'
 
 export type {
-  ReActIterationData,
-  ReActStepData,
   SessionData,
   SessionListItem,
   SessionMessage,
-  SessionMeta,
+  SessionMetaPatch,
+  SessionResourceRef,
   SessionResult,
-  SessionSelectionState,
   SessionType
 } from '@shared/types/session'
 
@@ -22,9 +23,17 @@ export type {
  */
 export interface SessionApi {
   /** 创建新会话 */
-  create: (title?: string, type?: SessionType) => Promise<SessionResult>
+  create: (
+    title?: string,
+    type?: SessionType,
+    resourceRef?: SessionResourceRef
+  ) => Promise<SessionResult>
   /** 保存会话数据 */
   save: (data: SessionData) => Promise<SessionResult>
+  /** 追加一批新消息 */
+  appendMessages: (sessionId: string, messages: SessionMessage[]) => Promise<SessionResult>
+  /** 更新会话元数据 */
+  updateMeta: (sessionId: string, patch: SessionMetaPatch) => Promise<SessionResult>
   /** 加载指定会话 */
   load: (sessionId: string) => Promise<SessionResult>
   /** 获取所有会话列表 */

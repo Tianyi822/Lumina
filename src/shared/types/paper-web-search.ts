@@ -1,5 +1,5 @@
 /** 模型可见的工具参数 */
-export interface PaperWebSearchCallArgs {
+interface PaperWebSearchCallArgs {
   query: string
   reason: string
   target?: 'paper' | 'method' | 'dataset' | 'tool' | 'citation' | 'recent_progress'
@@ -20,10 +20,10 @@ export interface PaperWebSearchContext {
 }
 
 /** 联网搜索运行时类型 */
-export type PaperWebSearchRuntime = 'electron'
+type PaperWebSearchRuntime = 'electron'
 
 /** 联网搜索依赖模式 */
-export type PaperWebSearchDependencyMode = 'builtin'
+type PaperWebSearchDependencyMode = 'builtin'
 
 /** 联网搜索环境检测结果 */
 export interface PaperWebSearchEnvironmentInfo {
@@ -48,7 +48,7 @@ export interface PaperWebSearchResultItem {
 }
 
 /** 搜索结果质量 */
-export type PaperWebSearchQuality = 'high' | 'medium' | 'low' | 'empty'
+type PaperWebSearchQuality = 'high' | 'medium' | 'low' | 'empty'
 
 /** 搜索输出结果 */
 export interface PaperWebSearchOutput {

@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useKnowledgeStore } from '@renderer/stores/knowledgeStore'
 import { notifySuccess, notifyError, notifyInfo } from '@renderer/composables/notificationCore'
 import type { EmbeddingConfig } from '@shared/types/config'
@@ -9,6 +10,8 @@ import styles from './EmbeddingModelSettings.module.css'
 
 /** 嵌入模型配置页面：管理向量模型的新增、编辑、删除和连接测试 */
 export default function EmbeddingModelSettings() {
+  const { t } = useTranslation()
+
   // Zustand selectors
   const embeddingModels = useKnowledgeStore((s) => s.embeddingModels)
   const embeddingLoading = useKnowledgeStore((s) => s.embeddingLoading)
@@ -53,12 +56,20 @@ export default function EmbeddingModelSettings() {
     async (id: string) => {
       const success = await deleteEmbeddingModel(id)
       if (success) {
-        notifySuccess('嵌入模型', '嵌入模型已删除', { source: 'settings' })
+        notifySuccess(
+          t('notifications.settings.embedding.title'),
+          t('notifications.settings.embedding.deleted'),
+          { source: 'settings' }
+        )
       } else {
-        notifyError('嵌入模型', '删除嵌入模型失败', { source: 'settings' })
+        notifyError(
+          t('notifications.settings.embedding.title'),
+          t('notifications.settings.embedding.deleteFailed'),
+          { source: 'settings' }
+        )
       }
     },
-    [deleteEmbeddingModel]
+    [deleteEmbeddingModel, t]
   )
 
   // 测试模型（已保存的）
@@ -68,15 +79,23 @@ export default function EmbeddingModelSettings() {
       try {
         const result = await testEmbeddingModel(id)
         if (result.success) {
-          notifySuccess('嵌入模型', '连接测试成功', { source: 'settings' })
+          notifySuccess(
+            t('notifications.settings.embedding.title'),
+            t('notifications.settings.embedding.testSuccess'),
+            { source: 'settings' }
+          )
         } else {
-          notifyError('嵌入模型', result.error || '连接测试失败', { source: 'settings' })
+          notifyError(
+            t('notifications.settings.embedding.title'),
+            result.error || t('notifications.settings.embedding.testFailedFallback'),
+            { source: 'settings' }
+          )
         }
       } finally {
         setTestingModelId(null)
       }
     },
-    [testEmbeddingModel]
+    [testEmbeddingModel, t]
   )
 
   // 保存模型（新增或更新）
@@ -85,24 +104,34 @@ export default function EmbeddingModelSettings() {
       const isEditing = editingModelId !== null
       const success = await saveEmbeddingModel(id, config)
       if (success) {
-        notifySuccess('嵌入模型', isEditing ? '嵌入模型已更新' : '嵌入模型已添加', {
-          source: 'settings'
-        })
+        notifySuccess(
+          t('notifications.settings.embedding.title'),
+          isEditing
+            ? t('notifications.settings.embedding.updated')
+            : t('notifications.settings.embedding.added'),
+          { source: 'settings' }
+        )
         if (isEditing) {
-          notifyInfo('嵌入模型', '编辑后保存为新配置是正常逻辑，原配置不受影响。', {
-            source: 'settings'
-          })
+          notifyInfo(
+            t('notifications.settings.embedding.title'),
+            t('notifications.settings.embedding.resaveNote'),
+            { source: 'settings' }
+          )
         }
         setShowAddForm(false)
         setEditingModelId(null)
         setEditingModelConfig(null)
       } else {
-        notifyError('嵌入模型', isEditing ? '更新嵌入模型失败' : '添加嵌入模型失败', {
-          source: 'settings'
-        })
+        notifyError(
+          t('notifications.settings.embedding.title'),
+          isEditing
+            ? t('notifications.settings.embedding.updateFailed')
+            : t('notifications.settings.embedding.addFailed'),
+          { source: 'settings' }
+        )
       }
     },
-    [saveEmbeddingModel, editingModelId]
+    [saveEmbeddingModel, editingModelId, t]
   )
 
   // 取消添加/编辑
@@ -125,24 +154,38 @@ export default function EmbeddingModelSettings() {
         )
 
         if (!saveResult.success) {
-          notifyError('嵌入模型', '保存测试配置失败', { source: 'settings' })
+          notifyError(
+            t('notifications.settings.embedding.title'),
+            t('notifications.settings.embedding.saveTestConfigFailed'),
+            { source: 'settings' }
+          )
           return
         }
 
         if (testResult?.success) {
-          notifySuccess('嵌入模型', '连接测试成功', { source: 'settings' })
+          notifySuccess(
+            t('notifications.settings.embedding.title'),
+            t('notifications.settings.embedding.testSuccess'),
+            { source: 'settings' }
+          )
         } else {
-          notifyError('嵌入模型', testResult?.error || '连接测试失败', { source: 'settings' })
+          notifyError(
+            t('notifications.settings.embedding.title'),
+            testResult?.error || t('notifications.settings.embedding.testFailedFallback'),
+            { source: 'settings' }
+          )
         }
       } catch (error) {
         notifyError(
-          '嵌入模型',
-          `测试失败: ${error instanceof Error ? error.message : String(error)}`,
+          t('notifications.settings.embedding.title'),
+          `${t('notifications.settings.embedding.testFailedPrefix')}${
+            error instanceof Error ? error.message : String(error)
+          }`,
           { source: 'settings' }
         )
       }
     },
-    [testNewModel]
+    [testNewModel, t]
   )
 
   // 保存配置
@@ -150,11 +193,15 @@ export default function EmbeddingModelSettings() {
     setSaving(true)
     try {
       await loadEmbeddingModels()
-      notifySuccess('嵌入模型', '嵌入模型配置已保存', { source: 'settings' })
+      notifySuccess(
+        t('notifications.settings.embedding.title'),
+        t('notifications.settings.embedding.configSaved'),
+        { source: 'settings' }
+      )
     } finally {
       setSaving(false)
     }
-  }, [loadEmbeddingModels])
+  }, [loadEmbeddingModels, t])
 
   const modelEntries = Object.entries(embeddingModels)
   const modelCount = modelEntries.length
@@ -162,29 +209,27 @@ export default function EmbeddingModelSettings() {
   return (
     <div className={['sm-settings-page', 'tab-content'].join(' ')}>
       <header className="sm-settings-page__header">
-        <h2 className="sm-settings-page__title">嵌入模型配置</h2>
-        <p className="sm-settings-page__description">
-          向量模型决定知识库检索质量。这里统一管理嵌入模型、测试连接和新建配置入口。
-        </p>
+        <h2 className="sm-settings-page__title">{t('settings.embedding.title')}</h2>
+        <p className="sm-settings-page__description">{t('settings.embedding.description')}</p>
       </header>
 
       <section className="sm-settings-page__section">
         <div className="sm-settings-page__section-header">
-          <h3 className="sm-settings-page__section-title">模型列表</h3>
+          <h3 className="sm-settings-page__section-title">{t('settings.embedding.listTitle')}</h3>
 
           <button
             className="sm-button sm-button--primary"
             disabled={saving}
             onClick={() => void handleSaveConfig()}
           >
-            {saving ? '保存中...' : '保存配置'}
+            {saving ? t('common.saving') : t('common.saveConfig')}
           </button>
         </div>
 
         <div className={styles['model-list']}>
           {embeddingLoading && (
             <div className="sm-settings-empty">
-              <p>加载中...</p>
+              <p>{t('common.loading')}</p>
             </div>
           )}
 
@@ -203,7 +248,7 @@ export default function EmbeddingModelSettings() {
 
           {!embeddingLoading && modelCount === 0 && (
             <div className="sm-settings-empty">
-              <p>暂无嵌入模型配置</p>
+              <p>{t('settings.embedding.empty')}</p>
             </div>
           )}
         </div>
@@ -224,7 +269,7 @@ export default function EmbeddingModelSettings() {
             className={['sm-button', styles['add-model-btn']].join(' ')}
             onClick={() => setShowAddForm(true)}
           >
-            添加嵌入模型
+            {t('settings.embedding.addModel')}
           </button>
         )}
       </section>

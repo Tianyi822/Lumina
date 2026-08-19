@@ -144,7 +144,6 @@ function isOfficialOpenAIProvider(llmConfig: LLMConfig): boolean {
 
 function buildToolSelectionSignature(request: ChatRequest, toolSignature?: unknown): unknown {
   return {
-    enableLabTools: request.enableLabTools === true,
     enablePaperWebSearch: request.enablePaperWebSearch === true,
     enablePlanMode: request.enablePlanMode === true,
     hasPaperContext: request.sessionType === 'paper' && Boolean(request.paperId),
@@ -504,7 +503,7 @@ export function recordPromptCacheDiagnostics(
  * 构建 Prompt Cache 诊断的 scope 字符串
  * 格式：{host}:{model}:{scope}:{mode}
  */
-export function buildPromptCacheDiagnosticScope(options: PromptCacheDiagnosticOptions): string {
+function buildPromptCacheDiagnosticScope(options: PromptCacheDiagnosticOptions): string {
   const cacheScope =
     options.request.sessionType === 'paper' && options.request.paperId
       ? `paper:${options.request.paperId}`

@@ -4,16 +4,16 @@ import { join } from 'path'
 import { getConfigDirPath, getKnowledgeDirPath } from '@main/services/config/configPaths'
 import { logger } from '@main/services/logger'
 
-const KNOWLEDGE_DATA_DIR_NAME = 'data'
-const KNOWLEDGE_FILES_DIR_NAME = 'files'
+export const KNOWLEDGE_DATA_DIR_NAME = 'data'
+export const KNOWLEDGE_FILES_DIR_NAME = 'files'
 const KNOWLEDGE_VECTOR_DB_DIR_NAME = 'db'
-const KNOWLEDGE_BASES_FILE_NAME = 'knowledge-bases.json'
-const FILES_METADATA_FILE_NAME = 'files-metadata.json'
+export const KNOWLEDGE_BASES_FILE_NAME = 'knowledge-bases.json'
+export const FILES_METADATA_FILE_NAME = 'files-metadata.json'
 
 /**
  * 获取知识库数据目录
  */
-export function getKnowledgeDataDirPath(): string {
+function getKnowledgeDataDirPath(): string {
   return join(getKnowledgeDirPath(), KNOWLEDGE_DATA_DIR_NAME)
 }
 

@@ -5,57 +5,57 @@ import { getConfigDirPath } from '@main/services/config/configPaths'
 /**
  * 论文数据目录名称
  */
-export const PAPERS_DIR_NAME = 'papers'
+const PAPERS_DIR_NAME = 'papers'
 
 /**
  * 页面图片子目录名称
  */
-export const PAGES_DIR_NAME = 'pages'
+const PAGES_DIR_NAME = 'pages'
 
 /**
  * OCR 原始结果子目录名称
  */
-export const OCR_RAW_DIR_NAME = 'ocr/raw'
+const OCR_RAW_DIR_NAME = 'ocr/raw'
 
 /**
  * OCR 归一化结果子目录名称
  */
-export const OCR_NORMALIZED_DIR_NAME = 'ocr/normalized'
+const OCR_NORMALIZED_DIR_NAME = 'ocr/normalized'
 
 /**
  * 裁剪图片资源子目录名称
  */
-export const ASSETS_DIR_NAME = 'assets'
+const ASSETS_DIR_NAME = 'assets'
 
 /**
  * 论文元信息文件名
  */
-export const META_FILE_NAME = 'meta.json'
+const META_FILE_NAME = 'meta.json'
 
 /**
  * 合并后的 Markdown 文件名
  */
-export const MERGED_MD_FILE_NAME = 'merged.md'
+const MERGED_MD_FILE_NAME = 'merged.md'
 
 /**
  * 翻译缓存文件名
  */
-export const TRANSLATION_FILE_NAME = 'translation.json'
+const TRANSLATION_FILE_NAME = 'translation.json'
 
 /**
  * 阅读器文档缓存文件名
  */
-export const READER_DOCUMENT_FILE_NAME = 'reader-document.json'
+const READER_DOCUMENT_FILE_NAME = 'reader-document.json'
 
 /**
  * 批注文件名
  */
-export const ANNOTATIONS_FILE_NAME = 'annotations.json'
+const ANNOTATIONS_FILE_NAME = 'annotations.json'
 
 /**
  * 原始 PDF 文件名
  */
-export const SOURCE_PDF_FILE_NAME = 'source.pdf'
+const SOURCE_PDF_FILE_NAME = 'source.pdf'
 
 /**
  * 获取论文根目录路径
@@ -133,14 +133,14 @@ export function getPaperOcrNormalizedPath(paperId: string, pageIndex: number): s
 /**
  * 获取论文资源目录路径
  */
-export function getPaperAssetsDirPath(paperId: string): string {
+function getPaperAssetsDirPath(paperId: string): string {
   return join(getPaperDirPath(paperId), ASSETS_DIR_NAME)
 }
 
 /**
  * 获取指定页资源目录路径
  */
-export function getPaperPageAssetsDirPath(paperId: string, pageIndex: number): string {
+function getPaperPageAssetsDirPath(paperId: string, pageIndex: number): string {
   const paddedIndex = String(pageIndex + 1).padStart(4, '0')
   return join(getPaperAssetsDirPath(paperId), `page-${paddedIndex}`)
 }
@@ -148,7 +148,7 @@ export function getPaperPageAssetsDirPath(paperId: string, pageIndex: number): s
 /**
  * 获取指定块的图片资源文件名
  */
-export function getPaperFigureAssetFileName(blockIndex: number): string {
+function getPaperFigureAssetFileName(blockIndex: number): string {
   const paddedBlockIndex = String(blockIndex).padStart(4, '0')
   return `crop-${paddedBlockIndex}.png`
 }

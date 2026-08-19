@@ -8,7 +8,9 @@ describe('ToolResultEnricher', () => {
   describe('defaultEnrich', () => {
     it('长内容多段落 → high coverage', () => {
       const content =
-        '## 简介\n这是简介内容部分，包含一些详细信息。\n## 方法\n方法描述内容，需要足够长以满足阈值要求。\n## 结论\n结论部分，总结所有研究发现。\n'.repeat(15)
+        '## 简介\n这是简介内容部分，包含一些详细信息。\n## 方法\n方法描述内容，需要足够长以满足阈值要求。\n## 结论\n结论部分，总结所有研究发现。\n'.repeat(
+          15
+        )
       const result = enricher.defaultEnrich('test__tool', {
         success: true,
         content
@@ -79,12 +81,16 @@ describe('ToolResultEnricher', () => {
       assert.equal(enricher.inferCategory('knowledge__search'), 'knowledge')
     })
 
-    it('lab__execute → lab', () => {
-      assert.equal(enricher.inferCategory('lab__execute'), 'lab')
+    it('paper__read_page → paper', () => {
+      assert.equal(enricher.inferCategory('paper__read_page'), 'paper')
     })
 
     it('paper_web__search → paper_web', () => {
       assert.equal(enricher.inferCategory('paper_web__search'), 'paper_web')
+    })
+
+    it('writer__propose_edits → writer', () => {
+      assert.equal(enricher.inferCategory('writer__propose_edits'), 'writer')
     })
 
     it('myserver__tool → mcp', () => {
@@ -98,7 +104,10 @@ describe('ToolResultEnricher', () => {
 
   describe('enrich', () => {
     it('成功结果应调用 defaultEnrich 并返回 EnrichedToolResult', () => {
-      const content = '## 摘要\n论文内容摘要，详细描述了研究背景和主要发现。\n## 方法\n方法部分，包含了实验设计和数据分析流程的完整说明。\n## 结论\n结论部分，总结了所有研究发现并提出了未来工作方向。\n'.repeat(15)
+      const content =
+        '## 摘要\n论文内容摘要，详细描述了研究背景和主要发现。\n## 方法\n方法部分，包含了实验设计和数据分析流程的完整说明。\n## 结论\n结论部分，总结了所有研究发现并提出了未来工作方向。\n'.repeat(
+          15
+        )
       const result = enricher.enrich('call_1', 'paper__search_context', {
         success: true,
         content

@@ -8,12 +8,10 @@ import {
   useRef,
   useState
 } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { Message } from '@renderer/types'
 import type { PaperQuote } from '@shared/types/chat'
-import {
-  calculateComposerAnchoredScrollTop,
-  parseCssPixelValue
-} from './paperChatScrollAnchor'
+import { calculateComposerAnchoredScrollTop, parseCssPixelValue } from './paperChatScrollAnchor'
 import PaperChatMessage from './message/PaperChatMessage'
 import styles from './PaperChatMessageList.module.css'
 
@@ -39,6 +37,7 @@ const PaperChatMessageList = memo(
     { messages, currentChatId, onQuoteClick, onScrollButtonChange },
     ref
   ) {
+    const { t } = useTranslation()
     const listRef = useRef<HTMLDivElement>(null)
     const itemsRef = useRef<HTMLDivElement>(null)
     const streamAnchorRef = useRef<HTMLDivElement>(null)
@@ -210,7 +209,9 @@ const PaperChatMessageList = memo(
     return (
       <div ref={listRef} className={styles['paper-chat-message-list']} onScroll={handleScroll}>
         {visibleMessages.length === 0 ? (
-          <div className={styles['paper-chat-message-list__empty']}>开始针对这篇论文提问吧</div>
+          <div className={styles['paper-chat-message-list__empty']}>
+            {t('paper.chat.emptyGreeting')}
+          </div>
         ) : (
           <div ref={itemsRef} className={styles['paper-chat-message-list__items']}>
             {visibleMessages.map((message) => (

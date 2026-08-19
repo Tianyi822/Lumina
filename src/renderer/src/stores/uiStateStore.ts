@@ -1,12 +1,12 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { i18n } from '@renderer/i18n'
 import { useNotificationCenterStore } from '@renderer/stores/notificationCenterStore'
-import { useConfigStore } from '@renderer/stores/configStore'
+import type { ViewMode } from '@renderer/components/chrome/workspaceNavigation'
 import type { ThemeConfig, ThemeMode } from '@shared/types/config'
 import {
   DEFAULT_THEME_ID,
   DEFAULT_THEME_MODE,
-  isAnyLabDisciplineEnabled,
   normalizeThemeId,
   normalizeThemeMode,
   resolveEffectiveTheme,
@@ -15,13 +15,11 @@ import {
   type ThemeId
 } from '@shared/utils'
 
-export type ViewMode = 'paper' | 'knowledge' | 'lab'
-export type LabDetailTab = 'stats' | 'terminal' | 'logs'
+export type { ViewMode } from '@renderer/components/chrome/workspaceNavigation'
 
 export interface ThemeMeta {
   id: string
   name: string
-  description?: string
   previewColors?: {
     primary: string
     secondary: string
@@ -35,7 +33,6 @@ export const AVAILABLE_THEMES: ThemeMeta[] = [
   {
     id: 'lumina-dark',
     name: 'Lumina Dark',
-    description: '深色基准主题，统一整个应用的深色、平面和受控交互基线',
     previewColors: {
       primary: '#121212',
       secondary: '#1b1f26',
@@ -47,7 +44,6 @@ export const AVAILABLE_THEMES: ThemeMeta[] = [
   {
     id: 'lumina-light',
     name: 'Lumina Light',
-    description: '浅色主题，清新明亮的界面风格',
     previewColors: {
       primary: '#f5f5f7',
       secondary: '#ffffff',
@@ -59,20 +55,18 @@ export const AVAILABLE_THEMES: ThemeMeta[] = [
 ]
 
 export interface UIStateStore {
-  labSidebarCollapsed: boolean
   knowledgeSidebarCollapsed: boolean
   paperSidebarCollapsed: boolean
   paperSidebarWidth: number
+  writerSidebarCollapsed: boolean
+  writerSidebarWidth: number
   paperChatPanelOpen: boolean
   paperChatPanelWidth: number
+  writerChatPanelOpen: boolean
+  writerChatPanelWidth: number
   lastPaperId: string | null
   currentView: ViewMode
 
-  /** 各实验室详情 Tab 状态（按 labId 隔离） */
-  labDetailTabsByLabId: Record<string, LabDetailTab>
-  lastLabId: string | null
-  labDockerAvailable: boolean | null
-  showLabCreator: boolean
   showConfigManager: boolean
   showKnowledgeFileManager: boolean
 
@@ -86,37 +80,34 @@ export interface UIStateStore {
   themeInitialized: boolean
 
   isKnowledgeView: () => boolean
-  isLabView: () => boolean
   isPaperView: () => boolean
+  isWriterView: () => boolean
   isCurrentSidebarCollapsed: () => boolean
   currentThemeMeta: () => ThemeMeta | undefined
 
-  toggleLabSidebar: () => void
-  setLabSidebarCollapsed: (collapsed: boolean) => void
   setKnowledgeSidebarCollapsed: (collapsed: boolean) => void
   setPaperSidebarCollapsed: (collapsed: boolean) => void
   setPaperSidebarWidth: (width: number) => void
+  setWriterSidebarCollapsed: (collapsed: boolean) => void
+  setWriterSidebarWidth: (width: number) => void
   setPaperChatPanelOpen: (open: boolean) => void
   togglePaperChatPanel: () => void
   setPaperChatPanelWidth: (width: number) => void
+  setWriterChatPanelOpen: (open: boolean) => void
+  toggleWriterChatPanel: () => void
+  setWriterChatPanelWidth: (width: number) => void
   setLastPaperId: (paperId: string | null) => void
-  setLastLabId: (labId: string | null) => void
   toggleCurrentSidebar: () => void
   setCurrentSidebarCollapsed: (collapsed: boolean) => void
 
-  getLabDetailTab: (labId: string | null | undefined) => LabDetailTab
-  setLabDetailTab: (tab: LabDetailTab, labId?: string | null) => void
-  setLabDockerAvailable: (available: boolean | null) => void
-  openLabCreator: () => void
-  closeLabCreator: () => void
   openConfigManager: () => void
   closeConfigManager: () => void
   openKnowledgeFileManager: () => void
   closeKnowledgeFileManager: () => void
 
   switchToKnowledgeView: () => Promise<void>
-  switchToLabView: () => Promise<void>
   switchToPaperView: () => Promise<void>
+  switchToWriterView: () => Promise<void>
   setCurrentView: (view: ViewMode) => Promise<void>
 
   notifyConfigUpdate: () => void
@@ -247,19 +238,18 @@ export const useUIStateStore = create<UIStateStore>()(
       }
 
       return {
-        labSidebarCollapsed: false,
         knowledgeSidebarCollapsed: false,
         paperSidebarCollapsed: false,
         paperSidebarWidth: 320,
+        writerSidebarCollapsed: false,
+        writerSidebarWidth: 320,
         paperChatPanelOpen: false,
         paperChatPanelWidth: 420,
+        writerChatPanelOpen: false,
+        writerChatPanelWidth: 420,
         lastPaperId: null,
         currentView: 'paper',
 
-        labDetailTabsByLabId: {},
-        lastLabId: null,
-        labDockerAvailable: null,
-        showLabCreator: false,
         showConfigManager: false,
         showKnowledgeFileManager: false,
 
@@ -273,39 +263,43 @@ export const useUIStateStore = create<UIStateStore>()(
         themeInitialized: false,
 
         isKnowledgeView: () => get().currentView === 'knowledge',
-        isLabView: () => get().currentView === 'lab',
         isPaperView: () => get().currentView === 'paper',
+        isWriterView: () => get().currentView === 'writer',
         isCurrentSidebarCollapsed: () => {
           const state = get()
           if (state.currentView === 'paper') return state.paperSidebarCollapsed
-          if (state.currentView === 'knowledge') return state.knowledgeSidebarCollapsed
-          return state.labSidebarCollapsed
+          if (state.currentView === 'writer') return state.writerSidebarCollapsed
+          return state.knowledgeSidebarCollapsed
         },
         currentThemeMeta: () => AVAILABLE_THEMES.find((t) => t.id === get().currentTheme),
 
-        toggleLabSidebar: () => set((s) => ({ labSidebarCollapsed: !s.labSidebarCollapsed })),
-        setLabSidebarCollapsed: (collapsed) => set({ labSidebarCollapsed: collapsed }),
         setKnowledgeSidebarCollapsed: (collapsed) => set({ knowledgeSidebarCollapsed: collapsed }),
         setPaperSidebarCollapsed: (collapsed) => set({ paperSidebarCollapsed: collapsed }),
         setPaperSidebarWidth: (width) =>
           set({ paperSidebarWidth: Math.min(480, Math.max(260, Math.round(width))) }),
+        setWriterSidebarCollapsed: (collapsed) => set({ writerSidebarCollapsed: collapsed }),
+        setWriterSidebarWidth: (width) =>
+          set({ writerSidebarWidth: Math.min(480, Math.max(260, Math.round(width))) }),
         setPaperChatPanelOpen: (open) => set({ paperChatPanelOpen: open }),
         togglePaperChatPanel: () => set((s) => ({ paperChatPanelOpen: !s.paperChatPanelOpen })),
         setPaperChatPanelWidth: (width) =>
           set({ paperChatPanelWidth: Math.min(680, Math.max(340, Math.round(width))) }),
+        setWriterChatPanelOpen: (open) => set({ writerChatPanelOpen: open }),
+        toggleWriterChatPanel: () => set((s) => ({ writerChatPanelOpen: !s.writerChatPanelOpen })),
+        setWriterChatPanelWidth: (width) =>
+          set({ writerChatPanelWidth: Math.min(680, Math.max(340, Math.round(width))) }),
         setLastPaperId: (paperId) => set({ lastPaperId: paperId }),
-        setLastLabId: (labId) => set({ lastLabId: labId }),
         toggleCurrentSidebar: () => {
           const state = get()
           if (state.currentView === 'paper') {
             set({ paperSidebarCollapsed: !state.paperSidebarCollapsed })
             return
           }
-          if (state.currentView === 'knowledge') {
-            set({ knowledgeSidebarCollapsed: !state.knowledgeSidebarCollapsed })
+          if (state.currentView === 'writer') {
+            set({ writerSidebarCollapsed: !state.writerSidebarCollapsed })
             return
           }
-          set({ labSidebarCollapsed: !state.labSidebarCollapsed })
+          set({ knowledgeSidebarCollapsed: !state.knowledgeSidebarCollapsed })
         },
         setCurrentSidebarCollapsed: (collapsed) => {
           const state = get()
@@ -313,34 +307,13 @@ export const useUIStateStore = create<UIStateStore>()(
             set({ paperSidebarCollapsed: collapsed })
             return
           }
-          if (state.currentView === 'knowledge') {
-            set({ knowledgeSidebarCollapsed: collapsed })
+          if (state.currentView === 'writer') {
+            set({ writerSidebarCollapsed: collapsed })
             return
           }
-          set({ labSidebarCollapsed: collapsed })
+          set({ knowledgeSidebarCollapsed: collapsed })
         },
 
-        getLabDetailTab: (labId) => {
-          if (!labId) {
-            return 'stats'
-          }
-          return get().labDetailTabsByLabId[labId] ?? 'stats'
-        },
-        setLabDetailTab: (tab, labId) => {
-          const targetLabId = labId ?? get().lastLabId
-          if (!targetLabId) {
-            return
-          }
-          set((state) => ({
-            labDetailTabsByLabId: {
-              ...state.labDetailTabsByLabId,
-              [targetLabId]: tab
-            }
-          }))
-        },
-        setLabDockerAvailable: (available) => set({ labDockerAvailable: available }),
-        openLabCreator: () => set({ showLabCreator: true }),
-        closeLabCreator: () => set({ showLabCreator: false }),
         openConfigManager: () => set({ showConfigManager: true }),
         closeConfigManager: () => set({ showConfigManager: false }),
         openKnowledgeFileManager: () => set({ showKnowledgeFileManager: true }),
@@ -350,28 +323,20 @@ export const useUIStateStore = create<UIStateStore>()(
           set({ currentView: 'knowledge' })
           window.api.logger.info('[UIStateStore] 切换到知识库视图')
         },
-        switchToLabView: async () => {
-          set({ currentView: 'lab' })
-          window.api.logger.info('[UIStateStore] 切换到实验室视图')
-        },
         switchToPaperView: async () => {
           set({ currentView: 'paper' })
           window.api.logger.info('[UIStateStore] 切换到论文视图')
+        },
+        switchToWriterView: async () => {
+          set({ currentView: 'writer' })
+          window.api.logger.info('[UIStateStore] 切换到写作视图')
         },
         setCurrentView: async (view) => {
           const state = get()
           if (state.currentView === view) return
           if (view === 'knowledge') await state.switchToKnowledgeView()
           else if (view === 'paper') await state.switchToPaperView()
-          else {
-            // lab 禁用时 fallback 到 paper 视图
-            const labEnabled = isAnyLabDisciplineEnabled(useConfigStore.getState().labFeatures)
-            if (labEnabled) {
-              await state.switchToLabView()
-            } else {
-              await state.switchToPaperView()
-            }
-          }
+          else await state.switchToWriterView()
         },
 
         notifyConfigUpdate: () => set((s) => ({ configUpdateKey: s.configUpdateKey + 1 })),
@@ -384,13 +349,19 @@ export const useUIStateStore = create<UIStateStore>()(
             if (!status.success && status.error) {
               useNotificationCenterStore
                 .getState()
-                .add('error', '配置错误', status.error, { source: 'config', sticky: true })
+                .add('error', i18n.t('notifications.config.statusErrorTitle'), status.error, {
+                  source: 'config',
+                  sticky: true
+                })
             }
           } catch (error) {
-            const msg = `无法获取配置状态: ${error instanceof Error ? error.message : String(error)}`
+            const msg = `${i18n.t('notifications.config.statusFetchFailedPrefix')}${error instanceof Error ? error.message : String(error)}`
             useNotificationCenterStore
               .getState()
-              .add('error', '配置错误', msg, { source: 'config', sticky: true })
+              .add('error', i18n.t('notifications.config.statusErrorTitle'), msg, {
+                source: 'config',
+                sticky: true
+              })
           }
         },
 
@@ -441,13 +412,13 @@ export const useUIStateStore = create<UIStateStore>()(
       name: 'lumina-ui-state',
       partialize: (state) => ({
         knowledgeSidebarCollapsed: state.knowledgeSidebarCollapsed,
-        labSidebarCollapsed: state.labSidebarCollapsed,
         paperSidebarCollapsed: state.paperSidebarCollapsed,
         paperSidebarWidth: state.paperSidebarWidth,
+        writerSidebarCollapsed: state.writerSidebarCollapsed,
+        writerSidebarWidth: state.writerSidebarWidth,
         paperChatPanelWidth: state.paperChatPanelWidth,
+        writerChatPanelWidth: state.writerChatPanelWidth,
         lastPaperId: state.lastPaperId,
-        lastLabId: state.lastLabId,
-        labDetailTabsByLabId: state.labDetailTabsByLabId,
         currentView: state.currentView
       })
     }

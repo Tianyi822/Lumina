@@ -8,24 +8,11 @@
 // 聊天相关类型（包含 ToolCallInfo, ToolResultInfo, TokenUsage 等）
 // 注意：KnowledgeBaseReference 从 knowledge 导出，避免与 chat 中的重复定义冲突
 export type {
-  MessageRole,
   ChatMessage,
   AttachedDocument,
   AttachedImage,
-  PaperQuote,
-  ToolCallMessage,
   MCPToolReference,
-  ToolCallInfo,
-  ToolResultInfo,
-  StreamEventType,
   StreamEvent,
-  KnowledgeSearchResult,
-  TokenUsage,
-  ChatRequest,
-  ChatResult,
-  KnowledgeSearchInfo,
-  KnowledgeResultInfo,
-  UserInteractionOption,
   UserInteractionRequest,
   PlanStep,
   PlanExecutionStatus,
@@ -43,16 +30,6 @@ export * from '@shared/types/config'
 
 // 知识库相关类型
 export * from '@shared/types/knowledge'
-
-// 实验室相关类型（renderer 本地命名适配）
-export * from './lab'
-
-// 附件文件类型（从 preload 全局类型中获取）
-export type AttachmentFile = {
-  path: string
-  name: string
-  size: number
-}
 
 // ==================== UI 特有类型 ====================
 

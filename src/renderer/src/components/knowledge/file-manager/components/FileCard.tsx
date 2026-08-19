@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import type { FileItem } from '@renderer/types'
 import { useFileStore } from '@renderer/stores'
 import SvgIcon from '@renderer/components/icons/SvgIcon'
@@ -26,6 +27,7 @@ function getFileNameWithoutExtension(fileName: string): string {
 }
 
 export default function FileCard({ file, isDeleting, onDelete, onPreview }: FileCardProps) {
+  const { t } = useTranslation()
   const fileStore = useFileStore()
 
   return (
@@ -46,12 +48,18 @@ export default function FileCard({ file, isDeleting, onDelete, onPreview }: File
             <span>{fileStore.formatFileSize(file.size)}</span>
             <span>{fileStore.formatDate(file.uploadedAt)}</span>
           </div>
-          {file.usedByKBIds.length > 0 && <div className={styles['usage-badge']}>使用中</div>}
+          {file.usedByKBIds.length > 0 && (
+            <div className={styles['usage-badge']}>{t('knowledge.fileManager.usageBadge')}</div>
+          )}
           {canDeleteFile(file) && (
             <button
               className={styles['delete-btn']}
               disabled={isDeleting}
-              title={file.usedByKBIds.length > 0 ? '文件被知识库使用，删除需谨慎' : '删除文件'}
+              title={
+                file.usedByKBIds.length > 0
+                  ? t('knowledge.fileManager.deleteTitleUsed')
+                  : t('knowledge.fileManager.deleteTitle')
+              }
               onClick={(e) => {
                 e.stopPropagation()
                 onDelete(file)

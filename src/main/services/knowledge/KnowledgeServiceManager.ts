@@ -1,11 +1,13 @@
+import { rename, writeFile } from 'fs/promises'
 import { getVectorDBService } from '@main/services/vector'
 import { getFileService } from '@main/services/file/FileService'
 import { logger } from '@main/services/logger'
+import { t } from '@main/services/i18n'
 import type { KnowledgeBase, KnowledgeIndexInvalidatedFile } from '@shared/types/knowledge'
 import type { FileProcessingProgress } from './KnowledgeService'
 import { KnowledgeService } from './KnowledgeService'
 import { readKnowledgeBases, writeKnowledgeBases } from './KnowledgeService'
-import { initializeKnowledgeStorage } from './knowledgePaths'
+import { getKnowledgeBaseFilePath, initializeKnowledgeStorage } from './knowledgePaths'
 
 /**
  * 知识库索引状态接口
@@ -311,7 +313,7 @@ export class KnowledgeServiceManager {
     const knowledgeBases = await readKnowledgeBases()
     const index = knowledgeBases.findIndex((kb) => kb.id === id)
     if (index === -1) {
-      return { success: false, error: '知识库不存在' }
+      return { success: false, error: t('notifications.knowledge.kbNotFound') }
     }
 
     const kb = knowledgeBases[index]
@@ -649,6 +651,40 @@ export class KnowledgeServiceManager {
    */
   hasPendingIndexingTask(kbId: string): boolean {
     return this.indexingQueue.some((task) => task.kbId === kbId)
+  }
+
+  // ============ 同步引擎专用接口 ============
+
+  /** 同步层只读：读取 KB 列表（无副作用） */
+  async readKnowledgeBasesForSync(): Promise<KnowledgeBase[]> {
+    return await readKnowledgeBases()
+  }
+
+  /** 同步下行 KB 列表（原子写 knowledge-bases.json + 刷新内存实例） */
+  async applySyncedKnowledgeBases(
+    merged: KnowledgeBase[]
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const filePath = getKnowledgeBaseFilePath()
+      const tempPath = `${filePath}.tmp`
+      await writeFile(tempPath, JSON.stringify(merged, null, 2), 'utf-8')
+      await rename(tempPath, filePath)
+      // 刷新内存实例：更新已有实例的数据，移除已删除的实例
+      const mergedIds = new Set(merged.map((kb) => kb.id))
+      for (const [id, instance] of this.instances) {
+        if (!mergedIds.has(id)) {
+          this.instances.delete(id)
+        } else {
+          const updated = merged.find((kb) => kb.id === id)
+          if (updated) {
+            instance.updateKBData(updated)
+          }
+        }
+      }
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
+    }
   }
 }
 

@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback, memo } from 'react'
+import { useTranslation } from 'react-i18next'
+import type { ParseKeys } from 'i18next'
 import { useConfigStore } from '@renderer/stores'
-import ThemeSettings from './settings/ThemeSettings'
+import DisplaySettings from './settings/DisplaySettings'
 import ModelSettings from './settings/ModelSettings'
 import MCPSettings from './settings/MCPSettings'
 import EmbeddingModelSettings from './settings/EmbeddingModelSettings'
@@ -8,7 +10,7 @@ import KnowledgeMCPSettings from './settings/KnowledgeMCPSettings'
 import PaperReaderSettings from './settings/PaperReaderSettings'
 import ToolStatsSettings from './settings/ToolStatsSettings'
 import UpdateSettings from './settings/UpdateSettings'
-import LabToggleSettings from './settings/LabToggleSettings'
+import SyncSettings from './settings/SyncSettings'
 import styles from './SettingsModal.module.css'
 
 type SettingsTabKey =
@@ -18,11 +20,11 @@ type SettingsTabKey =
   | 'mcp'
   | 'knowledge'
   | 'toolStats'
-  | 'theme'
+  | 'display'
+  | 'sync'
   | 'update'
-  | 'labToggles'
 
-type SettingsCategoryId = 'paper' | 'knowledge' | 'advanced' | 'theme' | 'update'
+type SettingsCategoryId = 'paper' | 'knowledge' | 'advanced' | 'display' | 'sync' | 'update'
 
 interface SettingsModalProps {
   onClose: () => void
@@ -31,20 +33,23 @@ interface SettingsModalProps {
 
 interface SettingsCategory {
   id: SettingsCategoryId
-  label: string
+  /** 分类名的翻译 key（settings.nav.*） */
+  labelKey: ParseKeys
   items: SettingsTabKey[]
 }
 
 const settingsCategories: SettingsCategory[] = [
-  { id: 'paper', label: '论文阅读配置', items: ['model', 'paperReader'] },
-  { id: 'knowledge', label: '知识库配置', items: ['embedding', 'knowledge'] },
-  { id: 'advanced', label: '高级功能', items: ['labToggles', 'mcp', 'toolStats'] },
-  { id: 'theme', label: '主题设置', items: ['theme'] },
-  { id: 'update', label: '升级版本', items: ['update'] }
+  { id: 'paper', labelKey: 'settings.nav.paper', items: ['model', 'paperReader'] },
+  { id: 'knowledge', labelKey: 'settings.nav.knowledge', items: ['embedding', 'knowledge'] },
+  { id: 'advanced', labelKey: 'settings.nav.advanced', items: ['mcp', 'toolStats'] },
+  { id: 'display', labelKey: 'settings.nav.display', items: ['display'] },
+  { id: 'sync', labelKey: 'settings.nav.sync', items: ['sync'] },
+  { id: 'update', labelKey: 'settings.nav.update', items: ['update'] }
 ]
 
 /** 设置弹窗组件：按类别分组设置项，支持导航分类和 ESC 关闭 */
 function SettingsModal({ onClose, onMcpUpdated }: SettingsModalProps) {
+  const { t } = useTranslation()
   const [activeCategory, setActiveCategory] = useState<SettingsCategoryId>('paper')
 
   const configLoading = useConfigStore((s) => s.loading)
@@ -96,10 +101,10 @@ function SettingsModal({ onClose, onMcpUpdated }: SettingsModalProps) {
       <div className={['sm-modal__surface', styles['settings-container']].join(' ')}>
         <div className={['sm-pane-header', styles['settings-header']].join(' ')}>
           <div className={styles['settings-header__info']}>
-            <h2 className={styles['settings-title']}>设置中心</h2>
+            <h2 className={styles['settings-title']}>{t('settings.title')}</h2>
           </div>
           <button className={['sm-button', styles['close-btn']].join(' ')} onClick={onClose}>
-            关闭
+            {t('common.close')}
           </button>
         </div>
 
@@ -114,7 +119,7 @@ function SettingsModal({ onClose, onMcpUpdated }: SettingsModalProps) {
                     .join(' ')}
                   onClick={() => setActiveCategory(cat.id)}
                 >
-                  <span className="sm-settings-nav__label">{cat.label}</span>
+                  <span className="sm-settings-nav__label">{t(cat.labelKey)}</span>
                 </button>
               ))}
             </div>
@@ -123,7 +128,7 @@ function SettingsModal({ onClose, onMcpUpdated }: SettingsModalProps) {
           <section className="sm-settings-panel settings-panel">
             <div className={['sm-settings-panel__body', styles['settings-content']].join(' ')}>
               {configLoading ? (
-                <div className="sm-settings-empty">正在加载当前配置...</div>
+                <div className="sm-settings-empty">{t('settings.loadingConfig')}</div>
               ) : (
                 <>
                   {(() => {
@@ -137,10 +142,10 @@ function SettingsModal({ onClose, onMcpUpdated }: SettingsModalProps) {
                           return <MCPSettings key="mcp" onMcpUpdated={onMcpUpdated} />
                         case 'embedding':
                           return <EmbeddingModelSettings key="embedding" />
-                        case 'theme':
+                        case 'display':
                           return (
-                            <ThemeSettings
-                              key="theme"
+                            <DisplaySettings
+                              key="display"
                               value={themeConfig}
                               onThemeChange={handleThemeChange}
                             />
@@ -153,8 +158,8 @@ function SettingsModal({ onClose, onMcpUpdated }: SettingsModalProps) {
                           return <PaperReaderSettings key="paperReader" />
                         case 'update':
                           return <UpdateSettings key="update" />
-                        case 'labToggles':
-                          return <LabToggleSettings key="labToggles" />
+                        case 'sync':
+                          return <SyncSettings key="sync" />
                         default:
                           return null
                       }

@@ -4,7 +4,7 @@ export interface ZoomAnchor {
 }
 
 /** 从容器视口中心位置捕获锚点（stableId + 偏移比例）用于缩放后恢复 */
-export function captureAnchor(container: HTMLElement): ZoomAnchor | null {
+function captureAnchor(container: HTMLElement): ZoomAnchor | null {
   const containerRect = container.getBoundingClientRect()
   const centerX = containerRect.left + containerRect.width / 2
   const centerY = containerRect.top + containerRect.height / 2

@@ -1,3 +1,4 @@
+import { t } from '@main/services/i18n'
 import type { ToolAdapter } from '../UnifiedToolRegistry'
 import type { MCPToolReference } from '../../../../types/chat'
 import type { MCPToolCallResult } from '@shared/types/mcp'
@@ -45,7 +46,10 @@ export class MCPToolAdapter implements ToolAdapter {
 
     const originalServer = this.findOriginalServerName(sanitizedServer)
     if (!originalServer) {
-      return { success: false, error: `未找到 MCP 服务器: ${sanitizedServer}` }
+      return {
+        success: false,
+        error: t('notifications.chat.mcpServerNotFound', { serverName: sanitizedServer })
+      }
     }
 
     const actualToolName = this.findOriginalToolName(originalServer, requestedToolName)

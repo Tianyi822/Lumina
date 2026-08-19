@@ -1,7 +1,8 @@
 import { existsSync } from 'fs'
-import { readFile, writeFile, mkdir, unlink } from 'fs/promises'
-import { join, extname } from 'path'
+import { readFile, writeFile, mkdir, unlink, rename } from 'fs/promises'
+import { join, extname, dirname, resolve, sep } from 'path'
 import { createHash } from 'crypto'
+import { t } from '@main/services/i18n'
 import { logger } from '@main/services/logger'
 import { getVectorDBService } from '@main/services/vector'
 import {
@@ -40,6 +41,17 @@ function getFilesMetadataPath(): string {
  */
 export function getFilesStoragePath(): string {
   return getKnowledgeFilesStoragePath()
+}
+
+/**
+ * 防路径注入（防纵深）：解析同步来源的路径，要求必须落在 baseDir 内。
+ * 拒绝 `..` 逃逸与指向目录外的绝对路径；不合法返回 null。
+ */
+function resolveContainedPath(baseDir: string, targetPath: string): string | null {
+  const base = resolve(baseDir)
+  const resolved = resolve(base, targetPath)
+  if (resolved === base || !resolved.startsWith(base + sep)) return null
+  return resolved
 }
 
 /**
@@ -229,7 +241,11 @@ function buildPaperNotesContent(paper: PaperDocument, annotations: PaperAnnotati
  */
 function buildPaperNotesSummary(paper: PaperDocument, annotations: PaperAnnotation[]): string {
   const latestUpdatedAt = getLatestTimestamp(annotations.map((annotation) => annotation.updatedAt))
-  return `${paper.fileName} · ${annotations.length} 条笔记 · 最近更新 ${latestUpdatedAt}`
+  return t('notifications.file.paperNotesSummary', {
+    fileName: paper.fileName,
+    count: annotations.length,
+    latestUpdatedAt
+  })
 }
 
 /**
@@ -276,7 +292,7 @@ async function removeFileChunksFromKnowledgeBases(
       })
       return {
         success: false,
-        error: `删除知识库 ${kbId} 中的文件索引失败: ${errorMessage}`
+        error: t('notifications.file.deleteIndexInKbFailed', { kbId, error: errorMessage })
       }
     }
   }
@@ -436,7 +452,9 @@ export class FileService {
       const filePath = getFilesMetadataPath()
       await writeFile(filePath, JSON.stringify(this.files, null, 2), 'utf-8')
     } catch (error) {
-      const errorMessage = `保存文件元数据失败: ${error instanceof Error ? error.message : String(error)}`
+      const errorMessage = t('notifications.file.saveMetadataFailed', {
+        error: error instanceof Error ? error.message : String(error)
+      })
       logger.error(errorMessage)
       throw new Error(errorMessage)
     }
@@ -480,7 +498,7 @@ export class FileService {
    */
   getAllFiles(): FileItem[] {
     if (!this.loaded) {
-      throw new Error('文件服务未初始化，请先调用 initialize()')
+      throw new Error(t('notifications.file.notInitialized'))
     }
     return [...this.files]
   }
@@ -490,7 +508,7 @@ export class FileService {
    */
   getFileById(id: string): FileItem | null {
     if (!this.loaded) {
-      throw new Error('文件服务未初始化，请先调用 initialize()')
+      throw new Error(t('notifications.file.notInitialized'))
     }
     return this.files.find((f) => f.id === id) || null
   }
@@ -502,7 +520,7 @@ export class FileService {
    */
   searchFiles(query: string): FileItem[] {
     if (!this.loaded) {
-      throw new Error('文件服务未初始化，请先调用 initialize()')
+      throw new Error(t('notifications.file.notInitialized'))
     }
     const lowerQuery = query.toLowerCase()
     return this.files.filter((file) => {
@@ -529,7 +547,7 @@ export class FileService {
     fileName: string
   ): Promise<{ success: boolean; file?: FileItem; error?: string; isDuplicate?: boolean }> {
     if (!this.loaded) {
-      throw new Error('文件服务未初始化，请先调用 initialize()')
+      throw new Error(t('notifications.file.notInitialized'))
     }
 
     try {
@@ -537,7 +555,10 @@ export class FileService {
       if (!isSupportedDocumentExtension(ext)) {
         return {
           success: false,
-          error: `不支持的文件类型: ${ext}，仅支持 ${SUPPORTED_DOCUMENT_EXTENSIONS.join(', ')}`
+          error: t('notifications.file.unsupportedFileType', {
+            ext,
+            supported: SUPPORTED_DOCUMENT_EXTENSIONS.join(', ')
+          })
         }
       }
 
@@ -545,7 +566,9 @@ export class FileService {
       if (fileData.length > maxSize) {
         return {
           success: false,
-          error: `文件过大: ${this.formatFileSize(fileData.length)}，最大支持 50MB`
+          error: t('notifications.file.fileTooLarge', {
+            size: this.formatFileSize(fileData.length)
+          })
         }
       }
 
@@ -588,7 +611,9 @@ export class FileService {
       })
       return { success: true, file: newFile, isDuplicate: false }
     } catch (error) {
-      const errorMessage = `文件上传失败: ${error instanceof Error ? error.message : String(error)}`
+      const errorMessage = t('notifications.file.uploadFailed', {
+        error: error instanceof Error ? error.message : String(error)
+      })
       logger.error(errorMessage)
       return { success: false, error: errorMessage }
     }
@@ -603,7 +628,7 @@ export class FileService {
     paper: PaperDocument
   ): Promise<{ success: boolean; file?: FileItem; error?: string }> {
     if (!this.loaded) {
-      throw new Error('文件服务未初始化，请先调用 initialize()')
+      throw new Error(t('notifications.file.notInitialized'))
     }
 
     try {
@@ -625,7 +650,7 @@ export class FileService {
           paperId: paper.id,
           paperName: paper.fileName,
           displayName: '论文',
-          summary: `论文：${paper.fileName}`,
+          summary: t('knowledge.fileSource.paperWithName', { name: paper.fileName }),
           allowExternalOpen: true,
           allowDelete: false,
           updatedAt: paper.updatedAt
@@ -642,7 +667,9 @@ export class FileService {
       logger.info('论文已同步到文件资源池', 'main', { paperId: paper.id, fileId })
       return { success: true, file: existingFile || paperFile }
     } catch (error) {
-      const errorMessage = `同步论文文件失败: ${error instanceof Error ? error.message : String(error)}`
+      const errorMessage = t('notifications.file.syncPaperFileFailed', {
+        error: error instanceof Error ? error.message : String(error)
+      })
       logger.error(errorMessage, 'main', { paperId: paper.id })
       return { success: false, error: errorMessage }
     }
@@ -804,7 +831,7 @@ export class FileService {
     annotations: PaperAnnotation[]
   ): Promise<PaperNoteResourceSyncResult> {
     if (!this.loaded) {
-      throw new Error('文件服务未初始化，请先调用 initialize()')
+      throw new Error(t('notifications.file.notInitialized'))
     }
 
     const noteAnnotations = sortPaperNoteAnnotations(
@@ -842,7 +869,7 @@ export class FileService {
       )
       const noteFile: FileItem = {
         id: fileId,
-        name: `${paper.fileName} - 论文笔记.md`,
+        name: t('notifications.file.paperNotesFileName', { fileName: paper.fileName }),
         filePath: `paper://${paper.id}/notes.md`,
         absolutePath: '',
         fileType: 'md',
@@ -890,7 +917,9 @@ export class FileService {
         removedFileIds: legacyFiles.map((file) => file.id)
       }
     } catch (error) {
-      const errorMessage = `同步论文笔记失败: ${error instanceof Error ? error.message : String(error)}`
+      const errorMessage = t('notifications.file.syncPaperNotesFailed', {
+        error: error instanceof Error ? error.message : String(error)
+      })
       logger.error(errorMessage, 'main', { paperId: paper.id })
       return { success: false, error: errorMessage }
     }
@@ -902,7 +931,7 @@ export class FileService {
    */
   async removePaperNotesResource(paperId: string): Promise<PaperNoteResourceSyncResult> {
     if (!this.loaded) {
-      throw new Error('文件服务未初始化，请先调用 initialize()')
+      throw new Error(t('notifications.file.notInitialized'))
     }
 
     try {
@@ -917,7 +946,9 @@ export class FileService {
         removedFileIds: noteFiles.map((file) => file.id)
       }
     } catch (error) {
-      const errorMessage = `移除论文笔记失败: ${error instanceof Error ? error.message : String(error)}`
+      const errorMessage = t('notifications.file.removePaperNotesFailed', {
+        error: error instanceof Error ? error.message : String(error)
+      })
       logger.error(errorMessage, 'main', { paperId })
       return { success: false, error: errorMessage }
     }
@@ -933,7 +964,7 @@ export class FileService {
     annotationId: string
   ): Promise<{ success: boolean; error?: string }> {
     if (!this.loaded) {
-      throw new Error('文件服务未初始化，请先调用 initialize()')
+      throw new Error(t('notifications.file.notInitialized'))
     }
 
     const fileId = getLegacyPaperNoteResourceId(paperId, annotationId)
@@ -954,7 +985,7 @@ export class FileService {
    */
   async removePaperResources(paperId: string): Promise<{ success: boolean; error?: string }> {
     if (!this.loaded) {
-      throw new Error('文件服务未初始化，请先调用 initialize()')
+      throw new Error(t('notifications.file.notInitialized'))
     }
 
     const resourceIds = this.files
@@ -988,25 +1019,25 @@ export class FileService {
     fileId: string
   ): Promise<{ success: boolean; data?: { content: string; file: FileItem }; error?: string }> {
     if (!this.loaded) {
-      throw new Error('文件服务未初始化，请先调用 initialize()')
+      throw new Error(t('notifications.file.notInitialized'))
     }
 
     const file = this.getFileById(fileId)
     if (!file) {
-      return { success: false, error: '文件不存在' }
+      return { success: false, error: t('notifications.file.fileNotFound') }
     }
 
     if (file.sourceKind === 'paper_note') {
       const content = file.origin?.noteContent || ''
       if (!content.trim()) {
-        return { success: false, error: '论文笔记内容为空' }
+        return { success: false, error: t('notifications.file.paperNotesEmpty') }
       }
 
       return { success: true, data: { content, file } }
     }
 
     if (!file.absolutePath || !existsSync(file.absolutePath)) {
-      return { success: false, error: '文件不存在，可能已被删除' }
+      return { success: false, error: t('notifications.file.fileNotFoundDeleted') }
     }
 
     try {
@@ -1027,12 +1058,12 @@ export class FileService {
     fileId: string
   ): Promise<{ success: boolean; data?: FilePreviewData; error?: string }> {
     if (!this.loaded) {
-      throw new Error('文件服务未初始化，请先调用 initialize()')
+      throw new Error(t('notifications.file.notInitialized'))
     }
 
     const file = this.getFileById(fileId)
     if (!file) {
-      return { success: false, error: '文件不存在' }
+      return { success: false, error: t('notifications.file.fileNotFound') }
     }
 
     if (file.sourceKind === 'paper_note') {
@@ -1067,7 +1098,7 @@ export class FileService {
     const file = this.files[fileIndex]
 
     if (!file) {
-      return { success: false, error: '文件不存在' }
+      return { success: false, error: t('notifications.file.fileNotFound') }
     }
 
     if (
@@ -1075,13 +1106,13 @@ export class FileService {
       file.origin?.allowDelete === false &&
       !options.allowManagedResourceDelete
     ) {
-      return { success: false, error: '论文来源资源由论文系统管理，请在论文页面删除' }
+      return { success: false, error: t('notifications.file.paperManagedResource') }
     }
 
     if (file.usedByKBIds.length > 0 && !options.forceDelete) {
       return {
         success: false,
-        error: `文件正在被 ${file.usedByKBIds.length} 个知识库使用，请先取消关联后再删除`
+        error: t('notifications.file.inUseByKnowledgeBases', { count: file.usedByKBIds.length })
       }
     }
 
@@ -1093,7 +1124,7 @@ export class FileService {
       if (!indexRemovalResult.success) {
         return {
           success: false,
-          error: indexRemovalResult.error || '删除文件索引失败'
+          error: indexRemovalResult.error || t('notifications.file.deleteIndexFailed')
         }
       }
 
@@ -1142,18 +1173,20 @@ export class FileService {
     forceDelete: boolean = false
   ): Promise<{ success: boolean; error?: string }> {
     if (!this.loaded) {
-      throw new Error('文件服务未初始化，请先调用 initialize()')
+      throw new Error(t('notifications.file.notInitialized'))
     }
 
     try {
       const fileIndex = this.files.findIndex((f) => f.id === fileId)
       if (fileIndex === -1) {
-        return { success: false, error: '文件不存在' }
+        return { success: false, error: t('notifications.file.fileNotFound') }
       }
 
       return await this.removeFileAtIndex(fileIndex, { forceDelete })
     } catch (error) {
-      const errorMessage = `文件删除失败: ${error instanceof Error ? error.message : String(error)}`
+      const errorMessage = t('notifications.file.deleteFailed', {
+        error: error instanceof Error ? error.message : String(error)
+      })
       logger.error(errorMessage)
       return { success: false, error: errorMessage }
     }
@@ -1164,17 +1197,17 @@ export class FileService {
    */
   async linkFileToKB(fileId: string, kbId: string): Promise<{ success: boolean; error?: string }> {
     if (!this.loaded) {
-      throw new Error('文件服务未初始化，请先调用 initialize()')
+      throw new Error(t('notifications.file.notInitialized'))
     }
 
     try {
       const file = this.files.find((f) => f.id === fileId)
       if (!file) {
-        return { success: false, error: '文件不存在' }
+        return { success: false, error: t('notifications.file.fileNotFound') }
       }
 
       if (file.usedByKBIds.includes(kbId)) {
-        return { success: false, error: '文件已关联到此知识库' }
+        return { success: false, error: t('notifications.file.alreadyLinkedToKb') }
       }
 
       file.usedByKBIds.push(kbId)
@@ -1197,7 +1230,9 @@ export class FileService {
       logger.info('文件关联到知识库成功', 'main', { fileId, kbId })
       return { success: true }
     } catch (error) {
-      const errorMessage = `文件关联失败: ${error instanceof Error ? error.message : String(error)}`
+      const errorMessage = t('notifications.file.linkFailed', {
+        error: error instanceof Error ? error.message : String(error)
+      })
       logger.error(errorMessage)
       return { success: false, error: errorMessage }
     }
@@ -1211,25 +1246,25 @@ export class FileService {
     kbId: string
   ): Promise<{ success: boolean; error?: string }> {
     if (!this.loaded) {
-      throw new Error('文件服务未初始化，请先调用 initialize()')
+      throw new Error(t('notifications.file.notInitialized'))
     }
 
     try {
       const file = this.files.find((f) => f.id === fileId)
       if (!file) {
-        return { success: false, error: '文件不存在' }
+        return { success: false, error: t('notifications.file.fileNotFound') }
       }
 
       const kbIndex = file.usedByKBIds.indexOf(kbId)
       if (kbIndex === -1) {
-        return { success: false, error: '文件未关联到此知识库' }
+        return { success: false, error: t('notifications.file.notLinkedToKb') }
       }
 
       const indexRemovalResult = await removeFileChunksFromKnowledgeBases(fileId, [kbId])
       if (!indexRemovalResult.success) {
         return {
           success: false,
-          error: indexRemovalResult.error || '删除文件索引失败'
+          error: indexRemovalResult.error || t('notifications.file.deleteIndexFailed')
         }
       }
 
@@ -1260,7 +1295,9 @@ export class FileService {
       logger.info('文件从知识库取消关联成功', 'main', { fileId, kbId })
       return { success: true }
     } catch (error) {
-      const errorMessage = `取消文件关联失败: ${error instanceof Error ? error.message : String(error)}`
+      const errorMessage = t('notifications.file.unlinkFailed', {
+        error: error instanceof Error ? error.message : String(error)
+      })
       logger.error(errorMessage)
       return { success: false, error: errorMessage }
     }
@@ -1271,7 +1308,7 @@ export class FileService {
    */
   getFilesByKBId(kbId: string): FileItem[] {
     if (!this.loaded) {
-      throw new Error('文件服务未初始化，请先调用 initialize()')
+      throw new Error(t('notifications.file.notInitialized'))
     }
 
     return this.files.filter((f) => f.usedByKBIds.includes(kbId))
@@ -1282,11 +1319,102 @@ export class FileService {
    */
   getFileUsage(fileId: string): string[] {
     if (!this.loaded) {
-      throw new Error('文件服务未初始化，请先调用 initialize()')
+      throw new Error(t('notifications.file.notInitialized'))
     }
 
     const file = this.files.find((f) => f.id === fileId)
     return file ? [...file.usedByKBIds] : []
+  }
+
+  // ============ 同步引擎专用接口 ============
+
+  /** 同步层只读：读取文件元数据（无副作用，返回 clone） */
+  readFilesMetadataForSync(): FileItem[] {
+    return [...this.files]
+  }
+
+  /** 同步下行文件元数据（归一化 + 原子写 files-metadata.json + 刷新 this.files 内存） */
+  async applySyncedFilesMetadata(
+    merged: FileItem[]
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      // 远端条目携带源机器的 absolutePath，必须按启动加载（loadFilesMetadata）同等归一化：
+      // uploaded 重算为本机存储路径，否则同步来的文件在本机会话内不可读、reindex 读内容失败，
+      // 且 applySyncedFileDeletion 的包含性检查会对合法跨设备删除失效
+      const knowledgeBases = await readKnowledgeBases()
+      const existingKBIds = new Set(knowledgeBases.map((kb) => kb.id))
+      this.files = merged.map((file) => this.normalizeStoredFile(file, existingKBIds).file)
+      const filePath = getFilesMetadataPath()
+      const tempPath = `${filePath}.tmp`
+      await writeFile(tempPath, JSON.stringify(this.files, null, 2), 'utf-8')
+      await rename(tempPath, filePath)
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
+    }
+  }
+
+  /** 同步下行文件删除（删物理文件 + 从 this.files 移除 + 写回 metadata） */
+  async applySyncedFileDeletion(fileId: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      const index = this.files.findIndex((f) => f.id === fileId)
+      if (index < 0) {
+        return { success: true }
+      }
+      const file = this.files[index]
+      // 删物理文件（仅 uploaded 类型有独立文件）
+      if (file.sourceKind === 'uploaded' && file.absolutePath) {
+        // absolutePath 可能来自远端同步 metadata，存在路径注入风险：
+        // 仅对落在文件存储目录内的路径执行物理删除；目录外路径跳过 unlink、
+        // 继续走 metadata 移除（最小安全语义：宁可残留物理文件，也不删目录外内容）
+        const target = resolveContainedPath(getFilesStoragePath(), file.absolutePath)
+        if (target) {
+          try {
+            await unlink(target)
+          } catch {
+            // 文件不存在视为已删
+          }
+        }
+      }
+      this.files.splice(index, 1)
+      await this.saveFilesMetadata()
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
+    }
+  }
+
+  /** 同步下行文件内容（写入 data/files/{filePath}） */
+  async applySyncedFileContent(
+    fileId: string,
+    bytes: Uint8Array
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const file = this.files.find((f) => f.id === fileId)
+      if (!file) {
+        return {
+          success: false,
+          error: t('notifications.file.notInMetadata', { fileId })
+        }
+      }
+      if (file.sourceKind !== 'uploaded') {
+        return { success: false, error: t('notifications.file.onlyUploadedWritable') }
+      }
+      const storagePath = getFilesStoragePath()
+      // filePath 来自远端同步 metadata，写入前校验必须落在存储目录内（防 `..`/绝对路径注入）
+      const fullPath = resolveContainedPath(storagePath, file.filePath)
+      if (!fullPath) {
+        return {
+          success: false,
+          error: t('notifications.file.pathOutsideStorage', { path: file.filePath })
+        }
+      }
+      await mkdir(dirname(fullPath), { recursive: true })
+      await writeFile(fullPath, bytes)
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
+    }
   }
 }
 

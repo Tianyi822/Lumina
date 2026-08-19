@@ -1,6 +1,7 @@
 import { ipcMain, BrowserWindow } from 'electron'
 import { mcpConfigManager, mcpService } from '@main/services/mcp'
 import { logger } from '@main/services/logger'
+import { t } from '@main/services/i18n'
 import { MCPServerConfig, MCPToolCallParams } from '@main/types/mcp'
 import { validateSaveConfig, validateImportContent } from './mcpValidation'
 
@@ -125,7 +126,7 @@ export function registerMCPHandlers(): void {
         return {
           success: false,
           serverName: name,
-          error: '配置不存在'
+          error: t('notifications.settings.mcp.configNotFound', { name })
         }
       }
       return mcpService.connect(config)

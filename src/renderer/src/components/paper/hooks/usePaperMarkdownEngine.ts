@@ -38,8 +38,9 @@ import {
   getImageMimeTypeFromPath,
   isFileUrl
 } from '@shared/utils'
+import { i18n } from '@renderer/i18n'
 import { usePaperHighlightRenderer } from '../composables/usePaperHighlightRenderer'
-import type { RenderSourceSegment, QuoteHighlight } from '../composables/usePaperHighlightRenderer'
+import type { RenderSourceSegment } from '../composables/usePaperHighlightRenderer'
 import { postProcessRenderedHtml } from './paperMarkdownPostProcess'
 import {
   getSegmentAnnotationRenderKey,
@@ -48,8 +49,6 @@ import {
 } from './paperAnnotationRenderState'
 // PERF-PROBE:firstpaint — 临时首屏性能埋点，验证后整体移除
 import { probe } from '../perf/paperFirstPaintProfiler'
-
-export type { RenderSourceSegment, QuoteHighlight }
 
 /** 生成翻译缓存的渲染缓存键，用于判断是否需要重新渲染译文 */
 export function getTranslationRenderKey(cache: PaperTranslationCache | null | undefined): string {
@@ -199,7 +198,8 @@ function resolvePaperImageUrl(src: string, basePath: string | undefined): string
   }
 
   // 从 basePath 提取 paperId（最后一个路径段）
-  const normalizedBase = basePath.endsWith('/') || basePath.endsWith('\\') ? basePath.slice(0, -1) : basePath
+  const normalizedBase =
+    basePath.endsWith('/') || basePath.endsWith('\\') ? basePath.slice(0, -1) : basePath
   const lastSep = Math.max(normalizedBase.lastIndexOf('/'), normalizedBase.lastIndexOf('\\'))
   const paperId = lastSep >= 0 ? normalizedBase.substring(lastSep + 1) : ''
   if (!paperId) {
@@ -518,7 +518,7 @@ export function usePaperMarkdownEngine(options: PaperMarkdownEngineOptions): Pap
   }> {
     const segment = ctx.sourceSegments[index]
     if (!segment) {
-      throw new Error(`段落索引无效: ${index}`)
+      throw new Error(i18n.t('notifications.paper.segmentIndexInvalid', { index }))
     }
 
     const outlineEntry = ctx.outlineEntryMap.get(segment.renderId)
@@ -585,7 +585,10 @@ export function usePaperMarkdownEngine(options: PaperMarkdownEngineOptions): Pap
               )
               return {
                 html: translationHighlightResult.html,
-                failedIds: [...translationCollect.failedIds, ...translationHighlightResult.failedIds]
+                failedIds: [
+                  ...translationCollect.failedIds,
+                  ...translationHighlightResult.failedIds
+                ]
               }
             }
           )
@@ -636,7 +639,7 @@ export function usePaperMarkdownEngine(options: PaperMarkdownEngineOptions): Pap
         return
       }
       const message = error instanceof Error ? error.message : String(error)
-      setParseError(`Markdown 解析失败: ${message}`)
+      setParseError(`${i18n.t('paper.reader.parseErrorPrefix')}${message}`)
       segmentRenderContextRef.current = null
       setRenderedSegments([])
       currentOptions.clearToc()

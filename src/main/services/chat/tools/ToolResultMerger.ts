@@ -2,7 +2,7 @@ import type { EnrichedToolResult, ResultMergeStrategy } from './PipelineTypes'
 import type { ToolCategory } from './UnifiedToolRegistry'
 
 /** 各类别在排序时的优先级顺序 */
-const CATEGORY_ORDER: ToolCategory[] = ['paper', 'knowledge', 'paper_web', 'lab', 'mcp']
+const CATEGORY_ORDER: ToolCategory[] = ['paper', 'knowledge', 'paper_web', 'writer', 'mcp']
 
 /** 合并操作的返回结果 */
 export interface MergeOutput {
@@ -25,6 +25,11 @@ export class ToolResultMerger {
   merge(results: EnrichedToolResult[], strategy: ResultMergeStrategy): MergeOutput {
     if (results.length === 0) {
       return { results: [], mergedContent: null }
+    }
+
+    // 写作建议不得排序、拼接或去重，强制 none
+    if (results.some((r) => r.metadata.sourceType === 'writer')) {
+      return { results: [...results], mergedContent: null }
     }
 
     switch (strategy) {

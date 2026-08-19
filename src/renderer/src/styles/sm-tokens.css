@@ -48,6 +48,13 @@
   --sm-paper-progress-radius: 999px;
   --sm-paper-toolbar-height: 44px;
 
+  --sm-writer-title-font-size: 2rem;
+  --sm-writer-title-line-height: 1.2;
+  --sm-writer-status-font-size: 0.75rem;
+  --sm-writer-body-font-size: 1rem;
+  --sm-writer-body-line-height: 1.75;
+  --sm-writer-heading-line-height: 1.3;
+
   --sm-workspace-toolbar-button-size: 26px;
   /* 与 .sm-workspace-page 内边距一致，用于 macOS 标题栏工具栏贴齐内容区右缘 */
   --sm-workspace-toolbar-inset-right: var(--sm-space-3);

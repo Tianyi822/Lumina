@@ -19,7 +19,7 @@ const THEME_BACKGROUND_COLORS: Record<ThemeId, string> = {
 }
 
 /** 判断字符串是否为合法的主题标识 */
-export function isThemeId(value: string): value is ThemeId {
+function isThemeId(value: string): value is ThemeId {
   return value === 'lumina-dark' || value === 'lumina-light'
 }
 

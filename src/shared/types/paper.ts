@@ -1,3 +1,5 @@
+import type { AppLanguage } from './config'
+
 /**
  * 论文状态
  */
@@ -86,6 +88,8 @@ export interface PaperDocument {
   completedPageCount: number
   /** 已持久化的页面图片资源 */
   pageAssets?: PaperPageAsset[]
+  /** 页图清理时间（OCR 全部成功后删除 pages/ 目录；null 表示页图已重渲染恢复） */
+  pageImagesPurgedAt?: string | null
   /** 绑定的论文聊天会话 ID */
   chatSessionId?: string
   /** 错误信息（可选） */
@@ -319,6 +323,8 @@ export interface PaperTranslationCache {
   translationRevisionId?: string
   /** 当前翻译使用的模型名 */
   modelName?: string
+  /** 翻译目标语言（存量缓存缺省视为 'zh'，新建缓存必填） */
+  targetLanguage?: AppLanguage
   /** 内容哈希版本 */
   sourceHashVersion?: 1 | 2
   /** 段落总数 */
@@ -400,7 +406,7 @@ export interface PaperTranslationState {
 /**
  * 阅读器段落来源位置
  */
-export interface PaperReaderSourcePosition {
+interface PaperReaderSourcePosition {
   /** 页码 */
   pageIndex: number
   /** 块索引 */
@@ -458,7 +464,7 @@ export interface PaperReaderDocument {
 /**
  * 批注锚定类型
  */
-export type PaperAnnotationNoteType = 'original_span' | 'translation_view'
+type PaperAnnotationNoteType = 'original_span' | 'translation_view'
 
 /**
  * 批注内容类型
@@ -483,13 +489,13 @@ export const PAPER_ANNOTATION_NOTE_COLOR_KEY = 'green' as const
 /**
  * 批注创建视图
  */
-export type PaperAnnotationView = 'original' | 'translation'
+type PaperAnnotationView = 'original' | 'translation'
 
 /**
  * 批注状态
  * 兼容历史异常状态，新建批注统一使用 active
  */
-export type PaperAnnotationStatus = 'active' | 'translation_missing' | 'needs_reanchor' | 'invalid'
+type PaperAnnotationStatus = 'active' | 'translation_missing' | 'needs_reanchor' | 'invalid'
 
 /**
  * 文本引用锚点
@@ -512,7 +518,7 @@ export interface PaperAnnotationTextAnchor {
 /**
  * 原文语义锚点
  */
-export interface PaperAnnotationSemanticAnchor {
+interface PaperAnnotationSemanticAnchor {
   /** 稳定段落 ID */
   segmentStableId: string
   /** 创建时的渲染段落 ID */
@@ -528,7 +534,7 @@ export interface PaperAnnotationSemanticAnchor {
 /**
  * 译文辅助锚点
  */
-export interface PaperAnnotationTranslationAnchor extends PaperAnnotationTextAnchor {
+interface PaperAnnotationTranslationAnchor extends PaperAnnotationTextAnchor {
   /** 创建时译文修订 ID */
   translationRevisionId: string
   /** 创建时翻译模型 */
@@ -539,7 +545,7 @@ export interface PaperAnnotationTranslationAnchor extends PaperAnnotationTextAnc
  * 批注恢复状态
  * 兼容历史批注数据，不再驱动自动恢复流程
  */
-export interface PaperAnnotationRecoveryMeta {
+interface PaperAnnotationRecoveryMeta {
   /** 最后一次成功定位时间 */
   lastResolvedAt?: string
   /** 最后一次恢复尝试时间 */
@@ -654,4 +660,16 @@ export interface PaperAnnotationAffectedKnowledgeBase {
   id: string
   /** 知识库名称 */
   name: string
+}
+
+/**
+ * 存量页图清理摘要
+ */
+export interface PagesPurgeSummary {
+  /** 清理的论文篇数 */
+  purgedCount: number
+  /** 释放的字节数 */
+  freedBytes: number
+  /** 清理执行时间 */
+  at: string
 }

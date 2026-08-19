@@ -4,6 +4,7 @@ import { Int32, Int64, Utf8, Schema, Field, FixedSizeList, Float32 } from 'apach
 import type { Connection, Table } from '@lancedb/lancedb'
 
 import { logger } from '@main/services/logger'
+import { t } from '@main/services/i18n'
 import { getVectorDBDirPath } from '@main/services/knowledge/knowledgePaths'
 
 // 文档块数据结构
@@ -59,7 +60,7 @@ function getLanceDB(): LanceDBModule {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
     logger.error('LanceDB 原生模块加载失败', 'main', { error: errorMessage })
-    throw new Error(`LanceDB 原生模块加载失败，请确认安装包包含当前系统架构的依赖: ${errorMessage}`)
+    throw new Error(t('notifications.embedding.nativeModuleLoadFailed', { reason: errorMessage }))
   }
 }
 
@@ -123,7 +124,7 @@ export class VectorDBService {
     embeddings: number[][]
   ): Promise<void> {
     if (chunks.length !== embeddings.length) {
-      throw new Error('文档块数量和向量数量不匹配')
+      throw new Error(t('notifications.embedding.chunkVectorCountMismatch'))
     }
 
     logger.info('addChunks 开始', 'main', {
@@ -201,7 +202,7 @@ export class VectorDBService {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
       logger.error('添加文档块失败', 'main', { kbId, error: errorMessage })
-      throw new Error(`添加文档块失败: ${errorMessage}`)
+      throw new Error(t('notifications.embedding.addChunksFailed', { reason: errorMessage }))
     }
   }
 
@@ -259,7 +260,7 @@ export class VectorDBService {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
       logger.error('删除文件文档块失败', 'main', { kbId, fileId, error: errorMessage })
-      throw new Error(`删除文件文档块失败: ${errorMessage}`)
+      throw new Error(t('notifications.embedding.deleteFileChunksFailed', { reason: errorMessage }))
     }
   }
 
@@ -299,7 +300,7 @@ export class VectorDBService {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
       logger.error('向量搜索失败', 'main', { kbId, error: errorMessage })
-      throw new Error(`向量搜索失败: ${errorMessage}`)
+      throw new Error(t('notifications.embedding.vectorSearchFailed', { reason: errorMessage }))
     }
   }
 

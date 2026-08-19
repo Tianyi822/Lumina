@@ -47,18 +47,12 @@ export class KnowledgeToolAdapter implements ToolAdapter {
    * 执行知识库工具调用
    * 搜索时自动注入论文关键词作为语义上下文
    */
-  async execute(
-    toolName: string,
-    args: Record<string, unknown>
-  ): Promise<MCPToolCallResult> {
+  async execute(toolName: string, args: Record<string, unknown>): Promise<MCPToolCallResult> {
     const fullName = toolName.startsWith('knowledge__') ? toolName : `knowledge__${toolName}`
 
     // 搜索时注入论文语义上下文
     const searchArgs = { ...args }
-    if (
-      this.semanticContext &&
-      (toolName === 'search' || toolName === 'knowledge__search')
-    ) {
+    if (this.semanticContext && (toolName === 'search' || toolName === 'knowledge__search')) {
       searchArgs.paperContext = {
         keywords: this.semanticContext.keywords
       }
@@ -73,9 +67,7 @@ export class KnowledgeToolAdapter implements ToolAdapter {
     result: MCPToolCallResult
   ): ToolResultMetadata {
     const content =
-      typeof result.content === 'string'
-        ? result.content
-        : JSON.stringify(result.content ?? '')
+      typeof result.content === 'string' ? result.content : JSON.stringify(result.content ?? '')
 
     const hitCount = (content.match(/\[来源[：:]/g) || []).length
     const contentLength = content.length

@@ -1,6 +1,5 @@
 import type { KnowledgeBaseReference } from './knowledge'
 import type { PaperAnnotationTextAnchor } from './paper'
-import type { LabDisciplineId } from './config'
 
 /**
  * 定义聊天消息中发送者的角色类型
@@ -47,7 +46,7 @@ export interface AttachedImage {
  * 论文引用信息
  * 用户从论文阅读页选中的内容片段
  */
-export type PaperQuoteSourceType = 'original' | 'translation'
+type PaperQuoteSourceType = 'original' | 'translation'
 
 export interface PaperQuoteSurroundingContext {
   /** 选区前方的上下文文本 */
@@ -66,7 +65,7 @@ export interface PaperQuoteSurroundingContext {
   contextEndOffset: number
 }
 
-export interface PaperQuoteSourceLocation {
+interface PaperQuoteSourceLocation {
   /** 段落稳定 ID */
   segmentStableId: string
   /** 段落索引 */
@@ -204,6 +203,7 @@ export type ReactIterationStatus = 'thinking' | 'calling_tools' | 'processing'
 /**
  * 流式传输时的事件类型
  * 定义了聊天过程中可能发生的各种事件
+ * @public 经 renderer/types + main/types/chat.ts 的 re-export 链被消费（knip 跨 barrel 假阳性）
  */
 export type StreamEventType =
   | 'content'
@@ -223,6 +223,7 @@ export type StreamEventType =
 
 /**
  * 知识库搜索操作的信息展示
+ * @public 经 renderer/types + preload re-export 链被消费（knip 跨 barrel 假阳性）
  */
 export interface KnowledgeSearchInfo {
   /** 知识库的唯一标识 */
@@ -235,6 +236,7 @@ export interface KnowledgeSearchInfo {
 
 /**
  * 知识库搜索完成后的结果信息展示
+ * @public 经 renderer/types + preload re-export 链被消费（knip 跨 barrel 假阳性）
  */
 export interface KnowledgeResultInfo {
   /** 知识库的唯一标识 */
@@ -402,6 +404,7 @@ export interface TokenUsage {
 /**
  * 知识库搜索的完整结果
  * 包含搜索到的文档片段和相关度信息
+ * @public 经 renderer/types + main/types/chat.ts 的 re-export 链被消费（knip 跨 barrel 假阳性）
  */
 export interface KnowledgeSearchResult {
   /** 知识库的唯一标识 */
@@ -449,18 +452,14 @@ export interface ChatRequest {
   maxReactIterations?: number
   /** ReAct 循环 Token 预算上限（累计 total_tokens），默认 60000；超过后触发无工具收尾回复 */
   tokenBudget?: number
-  /** 是否启用实验室管理工具 */
-  enableLabTools?: boolean
-  /** 会话激活的实验室学科（启用实验室工具时传入） */
-  activeLabDiscipline?: LabDisciplineId | null
-  /** 会话绑定的实验室 ID（启用实验室工具时传入） */
-  activeLabId?: string | null
   /** 会话类型标识，用于启用会话专属功能 */
   sessionType?: string
   /** 是否启用规划模式（仅论文会话可用） */
   enablePlanMode?: boolean
   /** 是否启用论文联网搜索（仅论文会话可用） */
   enablePaperWebSearch?: boolean
+  /** 写作会话的只读编辑上下文；存在且有效时进入 ReAct 并启用 writer 工具 */
+  writerContext?: import('./writer').WriterAiRequestContext
 }
 
 /**
@@ -497,7 +496,7 @@ export interface ChatResult {
 export interface ChatToolExecutionResult {
   /** 工具调用 ID */
   toolCallId: string
-  /** 工具完整名称，如 lab__exec_command */
+  /** 工具完整名称，如 serverName__toolName */
   toolName: string
   /** 工具调用是否成功 */
   success: boolean

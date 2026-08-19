@@ -1,9 +1,9 @@
 import { ipcRenderer } from 'electron'
 
 /**
- * 嵌入模型支持的提供商类型
+ * 嵌入模型支持的提供商类型（文件内部使用，不对外导出）
  */
-export type EmbeddingProviderType = 'openai' | 'aliyun' | 'ollama' | 'custom'
+type EmbeddingProviderType = 'openai' | 'aliyun' | 'ollama' | 'custom'
 
 /**
  * 嵌入模型的配置

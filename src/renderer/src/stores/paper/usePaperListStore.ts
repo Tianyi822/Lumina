@@ -1,7 +1,10 @@
 import { create } from 'zustand'
 import type { PaperDocument, PaperStatus, OcrProgressInfo } from '@shared/types/paper'
+import { i18n } from '@renderer/i18n'
+import { usePdfPageRasterizer } from '@renderer/composables/usePdfPageRasterizer'
 import {
   createIdleOcrProgress,
+  decodeBase64ToArrayBuffer,
   isPaperReadableStatus,
   type PipelineControl,
   type RenderPipelineContext,
@@ -42,6 +45,7 @@ interface PaperListState {
   clearRenderPipelineState: (paperId: string) => void
   runRenderAndOcrPipeline: (context: RenderPipelineContext) => Promise<void>
   registerPaperForOcr: (paperId: string) => void
+  rerenderPagesForOcr: (paperId: string) => Promise<{ success: boolean; error?: string }>
   skipOcrQueue: (paperId: string) => void
   requeuePaperForOcr: (paperId: string) => void
 
@@ -164,6 +168,9 @@ export const usePaperListStore = create<PaperListState>()((set, get) => {
           errorMessage
         })
         void get().updatePaperStatus(paperId, 'failed', errorMessage)
+      },
+      onPagesMissing: (paperId) => {
+        void get().rerenderPagesForOcr(paperId)
       }
     })
 
@@ -241,7 +248,7 @@ export const usePaperListStore = create<PaperListState>()((set, get) => {
     ): Promise<void> => {
       const result = await window.api.paper.updateStatus({ paperId, status, errorMessage })
       if (!result.success) {
-        throw new Error(result.error || '更新论文状态失败')
+        throw new Error(result.error || i18n.t('notifications.paper.updatePaperStatusFailed'))
       }
       get().updatePaperInList(paperId, { status, errorMessage })
     },
@@ -418,7 +425,10 @@ export const usePaperListStore = create<PaperListState>()((set, get) => {
 
             if (!saveResult.success) {
               throw new Error(
-                `保存第 ${pageIndex + 1} 页图片失败: ${saveResult.error || '未知错误'}`
+                i18n.t('notifications.paper.savePageImageFailed', {
+                  page: pageIndex + 1,
+                  reason: saveResult.error || i18n.t('common.unknownError')
+                })
               )
             }
           },
@@ -480,6 +490,57 @@ export const usePaperListStore = create<PaperListState>()((set, get) => {
     registerPaperForOcr: (paperId: string) => {
       get().ensureOcrProgressListener()
       ensureOcrAdmissionQueue().registerPaper(paperId)
+    },
+
+    /**
+     * 页图回源重渲染：页图已清理的论文重新 OCR 前，从 source.pdf 重新栅格化全部页图。
+     * 渲染完成后管线自动 markRenderComplete 重新排队 OCR；savePageImage 会清除清理标记。
+     */
+    rerenderPagesForOcr: async (paperId: string) => {
+      const paper = get().papers.find((item) => item.id === paperId)
+      if (!paper) {
+        return { success: false, error: i18n.t('notifications.paper.paperMissing') }
+      }
+      // 已有渲染管线在跑：其完成时会自动重新排队 OCR，无需重复触发
+      if (get().renderProgressByPaperId[paperId]?.stage === 'rendering') {
+        return { success: true }
+      }
+
+      try {
+        const fileResult = await window.api.paper.readFileAsBase64(paper.filePath)
+        if (!fileResult.success || !fileResult.data) {
+          throw new Error(
+            fileResult.error || i18n.t('notifications.paper.readLocalPaperFileFailed')
+          )
+        }
+        const rasterizer = usePdfPageRasterizer()
+        const pageInfos = await rasterizer.loadPdf(decodeBase64ToArrayBuffer(fileResult.data))
+
+        await get().updatePaperStatus(paperId, 'rendering')
+        get().updatePaperInList(paperId, { completedPageCount: 0 })
+        usePaperListStore.setState((s) => ({
+          renderProgressByPaperId: {
+            ...s.renderProgressByPaperId,
+            [paperId]: {
+              currentPage: 0,
+              totalPages: pageInfos.length,
+              completedPages: 0,
+              stage: 'rendering'
+            }
+          },
+          ocrProgressByPaperId: {
+            ...s.ocrProgressByPaperId,
+            [paperId]: createIdleOcrProgress(paperId, pageInfos.length)
+          }
+        }))
+
+        get().registerPaperForOcr(paperId)
+        void get().runRenderAndOcrPipeline({ paperId, pageInfos, rasterizer })
+        return { success: true }
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        return { success: false, error: errorMessage }
+      }
     },
 
     skipOcrQueue: (paperId: string) => {

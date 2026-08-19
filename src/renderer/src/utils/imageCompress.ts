@@ -3,21 +3,15 @@
  * 使用 Canvas API 在渲染进程中完成图片压缩和 Base64 编码
  */
 
+import { i18n } from '@renderer/i18n'
+
 // ==================== 常量 ====================
 
 /** 支持的图片扩展名 */
-export const IMAGE_SUPPORTED_EXTENSIONS = [
-  '.jpg',
-  '.jpeg',
-  '.png',
-  '.webp',
-  '.bmp',
-  '.tiff',
-  '.tif'
-]
+const IMAGE_SUPPORTED_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp', '.bmp', '.tiff', '.tif']
 
 /** 支持的 MIME 类型 */
-export const IMAGE_SUPPORTED_MIME_TYPES = [
+const IMAGE_SUPPORTED_MIME_TYPES = [
   'image/jpeg',
   'image/png',
   'image/webp',
@@ -34,11 +28,8 @@ const IMAGE_EXTENSION_BY_MIME_TYPE: Record<string, string> = {
   'image/tiff': '.tiff'
 }
 
-/** 图片文件选择器 accept 字符串 */
-export const IMAGE_ACCEPT_STRING = IMAGE_SUPPORTED_EXTENSIONS.join(',')
-
 /** 单张图片最大大小：5MB */
-export const IMAGE_MAX_SIZE = 5 * 1024 * 1024
+const IMAGE_MAX_SIZE = 5 * 1024 * 1024
 
 /** 单次上传最多图片数量 */
 export const IMAGE_MAX_COUNT = 10
@@ -153,21 +144,26 @@ export function validateImageFile(file: File): ImageValidationResult {
 
   // 检查是否为不支持的动图格式
   if (ext === '.gif' || mimeType === 'image/gif') {
-    return { valid: false, error: `不支持 GIF 动图格式` }
+    return { valid: false, error: i18n.t('notifications.common.imageGifUnsupported') }
   }
 
   // 检查是否为支持的图片格式
   if (!resolveImageExtension(file) && !getSupportedMimeType(file)) {
     return {
       valid: false,
-      error: `图片格式不支持，仅支持 ${IMAGE_SUPPORTED_EXTENSIONS.join(', ')}`
+      error: i18n.t('notifications.common.imageTypeUnsupported', {
+        extensions: IMAGE_SUPPORTED_EXTENSIONS.join(', ')
+      })
     }
   }
 
   // 检查文件大小
   if (file.size > IMAGE_MAX_SIZE) {
     const sizeMB = (file.size / (1024 * 1024)).toFixed(1)
-    return { valid: false, error: `图片 "${file.name}" 过大（${sizeMB}MB），最大支持 5MB` }
+    return {
+      valid: false,
+      error: i18n.t('notifications.common.imageTooLarge', { name: file.name, size: sizeMB })
+    }
   }
 
   return { valid: true }
@@ -182,10 +178,12 @@ function loadImageFromFile(file: File): Promise<HTMLImageElement> {
     reader.onload = () => {
       const img = new Image()
       img.onload = () => resolve(img)
-      img.onerror = () => reject(new Error(`无法加载图片: ${file.name}`))
+      img.onerror = () =>
+        reject(new Error(i18n.t('notifications.common.imageLoadFailed', { name: file.name })))
       img.src = reader.result as string
     }
-    reader.onerror = () => reject(new Error(`无法读取文件: ${file.name}`))
+    reader.onerror = () =>
+      reject(new Error(i18n.t('notifications.common.imageReadFailed', { name: file.name })))
     reader.readAsDataURL(file)
   })
 }
@@ -197,7 +195,7 @@ function loadImageFromDataURL(dataURL: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image()
     img.onload = () => resolve(img)
-    img.onerror = () => reject(new Error('无法加载图片'))
+    img.onerror = () => reject(new Error(i18n.t('notifications.common.imageLoadFailedBare')))
     img.src = dataURL
   })
 }
@@ -274,7 +272,7 @@ export async function compressImage(file: File): Promise<CompressedImage> {
 
   const ctx = canvas.getContext('2d')
   if (!ctx) {
-    throw new Error('无法创建 Canvas 上下文')
+    throw new Error(i18n.t('notifications.common.canvasContextFailed'))
   }
 
   // 绘制图片
@@ -307,7 +305,7 @@ export async function compressImage(file: File): Promise<CompressedImage> {
  * 生成缩略图
  * 缩小图片到指定最大边长，用于 UI 快速预览
  */
-export async function generateThumbnail(
+async function generateThumbnail(
   base64Data: string,
   maxSize: number = THUMBNAIL_MAX_SIZE
 ): Promise<string> {
@@ -321,7 +319,7 @@ export async function generateThumbnail(
 
   const ctx = canvas.getContext('2d')
   if (!ctx) {
-    throw new Error('无法创建 Canvas 上下文')
+    throw new Error(i18n.t('notifications.common.canvasContextFailed'))
   }
 
   ctx.drawImage(img, 0, 0, scaled.width, scaled.height)

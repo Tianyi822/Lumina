@@ -22,26 +22,3 @@ export function deepClone<T>(obj: T): T {
   }
   return JSON.parse(JSON.stringify(obj))
 }
-
-/**
- * 截断文本到指定长度
- * 超过长度时添加省略号
- */
-export function truncateText(text: string, maxLength: number): string {
-  const trimmed = text.trim()
-  if (trimmed.length <= maxLength) {
-    return trimmed || '新对话'
-  }
-  return trimmed.substring(0, maxLength) + '...'
-}
-
-/**
- * 清理文件名，移除不安全的字符
- * 替换空格并限制长度
- */
-export function sanitizeFileName(name: string): string {
-  return name
-    .replace(/[<>:"/\\|?*]/g, '')
-    .replace(/\s+/g, '_')
-    .substring(0, 200)
-}

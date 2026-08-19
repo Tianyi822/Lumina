@@ -1,6 +1,7 @@
 import { ipcMain } from 'electron'
 import { getDocumentManagerService } from '@main/services/document/DocumentManagerService'
 import { logger } from '@main/services/logger'
+import { t } from '@main/services/i18n'
 
 /**
  * 注册文档处理相关的 IPC 处理程序
@@ -36,7 +37,7 @@ export function registerDocumentHandlers(): void {
         logger.error('文档上传处理失败', 'main', { error: errorMessage })
         return {
           success: false,
-          error: `文档处理失败: ${errorMessage}`
+          error: t('notifications.document.processFailed', { reason: errorMessage })
         }
       }
     }
@@ -71,7 +72,7 @@ export function registerDocumentHandlers(): void {
         logger.error('批量文档上传处理失败', 'main', { error: errorMessage })
         return {
           success: false,
-          error: `批量文档处理失败: ${errorMessage}`
+          error: t('notifications.document.batchProcessFailed', { reason: errorMessage })
         }
       }
     }

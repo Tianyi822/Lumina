@@ -124,7 +124,10 @@ export function usePaperSegmentRenderScheduler({
 
     const visible = items.map((item) => item.index)
     const min = Math.max(0, visible[0] - PAPER_SEGMENT_PREFETCH_COUNT)
-    const max = Math.min(segmentCount - 1, visible[visible.length - 1] + PAPER_SEGMENT_PREFETCH_COUNT)
+    const max = Math.min(
+      segmentCount - 1,
+      visible[visible.length - 1] + PAPER_SEGMENT_PREFETCH_COUNT
+    )
     const prefetch: number[] = []
     for (let index = min; index <= max; index += 1) {
       if (!visible.includes(index)) {

@@ -488,3 +488,164 @@ test('deleteFile 强制删除多知识库文件时向量删除失败会保留所
     vectorDelete.restore()
   }
 })
+
+function createSyncedFileItem(overrides: Partial<FileItem> = {}): FileItem {
+  return {
+    id: overrides.id ?? 'synced-file-1',
+    name: overrides.name ?? 'synced-file-1.txt',
+    filePath: overrides.filePath ?? 'synced-file-1.txt',
+    absolutePath: overrides.absolutePath ?? '',
+    fileType: 'text/plain',
+    size: 10,
+    uploadedAt: '2026-01-01T00:00:00.000Z',
+    usedByKBIds: [],
+    sourceKind: 'uploaded',
+    ...overrides
+  } as FileItem
+}
+
+async function createServiceWithFiles(files: FileItem[]): Promise<FileService> {
+  resetKnowledgeStorage()
+  mkdirSync(getKnowledgeDirPath(), { recursive: true })
+  writeFileSync(getFilesMetadataPath(), JSON.stringify(files, null, 2), 'utf-8')
+  const service = new FileService()
+  await service.initialize()
+  return service
+}
+
+test('applySyncedFileContent 拒绝 ../ 路径注入且不写盘', async () => {
+  // filePath 越出 data/files 存储目录（解析到 knowledge 目录下）
+  const escapeTarget = join(getKnowledgeDirPath(), 'escaped.txt')
+  const service = await createServiceWithFiles([
+    createSyncedFileItem({ id: 'evil-dotdot', filePath: '../../escaped.txt' })
+  ])
+  try {
+    const result = await service.applySyncedFileContent('evil-dotdot', new Uint8Array([1, 2, 3]))
+
+    assert.equal(result.success, false)
+    assert.match(result.error || '', /非法文件路径/)
+    assert.equal(existsSync(escapeTarget), false)
+  } finally {
+    rmSync(escapeTarget, { force: true })
+  }
+})
+
+test('applySyncedFileContent 拒绝指向目录外的绝对路径 filePath', async () => {
+  const absoluteTarget = join(tmpdir(), `lumina-abs-injection-${process.pid}.txt`)
+  const service = await createServiceWithFiles([
+    createSyncedFileItem({ id: 'evil-abs', filePath: absoluteTarget })
+  ])
+  try {
+    const result = await service.applySyncedFileContent('evil-abs', new Uint8Array([1, 2, 3]))
+
+    assert.equal(result.success, false)
+    assert.match(result.error || '', /非法文件路径/)
+    assert.equal(existsSync(absoluteTarget), false)
+  } finally {
+    rmSync(absoluteTarget, { force: true })
+  }
+})
+
+test('applySyncedFileDeletion 对目录外 absolutePath 不做物理删除，仅移除 metadata', async () => {
+  const outsidePath = join(tmpdir(), `lumina-outside-injection-${process.pid}.txt`)
+  writeFileSync(outsidePath, '目录外重要数据')
+  const service = await createServiceWithFiles([
+    createSyncedFileItem({ id: 'file-outside', absolutePath: outsidePath })
+  ])
+  try {
+    const result = await service.applySyncedFileDeletion('file-outside')
+
+    assert.equal(result.success, true)
+    // 目录外文件不被物理删除，metadata 正常移除
+    assert.equal(existsSync(outsidePath), true)
+    assert.equal(service.getFileById('file-outside'), null)
+  } finally {
+    rmSync(outsidePath, { force: true })
+  }
+})
+
+test('applySyncedFileDeletion 对存储目录内文件正常物理删除（对照）', async () => {
+  const insidePath = join(getFilesStoragePath(), 'inside.txt')
+  const service = await createServiceWithFiles([
+    createSyncedFileItem({ id: 'file-inside', filePath: 'inside.txt', absolutePath: insidePath })
+  ])
+  // 物理文件在 initialize（ensureFilesDir 建目录）之后写入，避免被 resetKnowledgeStorage 清掉
+  writeFileSync(insidePath, '目录内文件')
+
+  const result = await service.applySyncedFileDeletion('file-inside')
+
+  assert.equal(result.success, true)
+  assert.equal(existsSync(insidePath), false)
+  assert.equal(service.getFileById('file-inside'), null)
+})
+
+test('applySyncedFilesMetadata 将 uploaded 条目的 absolutePath 归一化为本机存储路径', async () => {
+  const service = await createServiceWithFiles([])
+  try {
+    // 模拟来自设备 A 的远端条目：absolutePath 指向源机器主目录
+    const fromRemote = createSyncedFileItem({
+      id: 'file-foreign',
+      filePath: 'foreign.txt',
+      absolutePath: '/Users/other-machine/.lumina/knowledge/data/files/foreign.txt'
+    })
+    const result = await service.applySyncedFilesMetadata([fromRemote])
+    assert.equal(result.success, true)
+
+    const expected = join(getFilesStoragePath(), 'foreign.txt')
+    // 内存归一化
+    assert.equal(service.getFileById('file-foreign')?.absolutePath, expected)
+    // 落盘同样是归一化后的值
+    const onDisk = JSON.parse(readFileSync(getFilesMetadataPath(), 'utf-8')) as FileItem[]
+    assert.equal(onDisk[0]?.absolutePath, expected)
+  } finally {
+    resetKnowledgeStorage()
+  }
+})
+
+test('归一化后跨设备删除能物理删除本机存储目录内文件', async () => {
+  // 设备 B：metadata 来自设备 A（foreign absolutePath），文件内容已下行到本机存储目录
+  const service = await createServiceWithFiles([])
+  const localPath = join(getFilesStoragePath(), 'cross-device.txt')
+  writeFileSync(localPath, '同步下来的内容')
+  await service.applySyncedFilesMetadata([
+    createSyncedFileItem({
+      id: 'file-cross',
+      filePath: 'cross-device.txt',
+      absolutePath: '/Users/other-machine/.lumina/knowledge/data/files/cross-device.txt'
+    })
+  ])
+  try {
+    const result = await service.applySyncedFileDeletion('file-cross')
+    assert.equal(result.success, true)
+    // 归一化后包含性检查通过，物理删除生效
+    assert.equal(existsSync(localPath), false)
+    assert.equal(service.getFileById('file-cross'), null)
+  } finally {
+    rmSync(localPath, { force: true })
+    resetKnowledgeStorage()
+  }
+})
+
+test('归一化后 filePath 注入仍被拦截：applySyncedFileContent/Deletion 不触及目录外', async () => {
+  // filePath '../../escaped-del.txt' 归一化后解析到 knowledge 目录（存储目录外）
+  const escapeTarget = join(getKnowledgeDirPath(), 'escaped-del.txt')
+  const service = await createServiceWithFiles([])
+  await service.applySyncedFilesMetadata([
+    createSyncedFileItem({ id: 'evil-sync', filePath: '../../escaped-del.txt' })
+  ])
+  writeFileSync(escapeTarget, '目录外重要数据')
+  try {
+    const write = await service.applySyncedFileContent('evil-sync', new Uint8Array([1, 2, 3]))
+    assert.equal(write.success, false)
+    assert.match(write.error || '', /非法文件路径/)
+
+    const del = await service.applySyncedFileDeletion('evil-sync')
+    assert.equal(del.success, true)
+    // 目录外文件不被物理删除，metadata 正常移除
+    assert.equal(existsSync(escapeTarget), true)
+    assert.equal(service.getFileById('evil-sync'), null)
+  } finally {
+    rmSync(escapeTarget, { force: true })
+    resetKnowledgeStorage()
+  }
+})

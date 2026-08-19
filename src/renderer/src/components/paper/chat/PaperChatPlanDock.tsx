@@ -1,4 +1,6 @@
 import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import type { ParseKeys } from 'i18next'
 import type { PaperChatPlanState } from '@renderer/stores/paperChatStreamStore'
 import PlanningStatusIndicator from './PlanningStatusIndicator'
 import styles from './PaperChatPlanDock.module.css'
@@ -7,42 +9,47 @@ interface PaperChatPlanDockProps {
   planState: PaperChatPlanState | null
 }
 
-/** 将计划状态枚举值转换为中文显示文本 */
-function getStatusLabel(status: PaperChatPlanState['status']): string {
-  if (status === 'planning') return '规划中'
-  if (status === 'planned') return '已规划'
-  if (status === 'running') return '执行中'
-  if (status === 'completed') return '已完成'
-  if (status === 'failed') return '失败'
-  if (status === 'cancelled') return '已取消'
-  return '待命'
+/** 计划状态文案 key（paper.chat.plan.status*） */
+const PLAN_STATUS_KEYS: Record<string, ParseKeys> = {
+  planning: 'paper.chat.plan.statusPlanning',
+  planned: 'paper.chat.plan.statusPlanned',
+  running: 'paper.chat.plan.statusRunning',
+  completed: 'paper.chat.plan.statusCompleted',
+  failed: 'paper.chat.plan.statusFailed',
+  cancelled: 'paper.chat.plan.statusCancelled'
 }
+const PLAN_STATUS_DEFAULT_KEY: ParseKeys = 'paper.chat.plan.statusIdle'
 
-/** 将步骤状态枚举值转换为中文标签 */
-function getStepStatusLabel(status: string): string {
-  if (status === 'running') return '运行'
-  if (status === 'success') return '完成'
-  if (status === 'failed') return '失败'
-  if (status === 'cancelled') return '取消'
-  if (status === 'skipped') return '跳过'
-  return '等待'
+/** 步骤状态文案 key（paper.chat.plan.step*） */
+const STEP_STATUS_KEYS: Record<string, ParseKeys> = {
+  running: 'paper.chat.plan.stepRunning',
+  success: 'paper.chat.plan.stepSuccess',
+  failed: 'paper.chat.plan.stepFailed',
+  cancelled: 'paper.chat.plan.stepCancelled',
+  skipped: 'paper.chat.plan.stepSkipped'
 }
+const STEP_STATUS_DEFAULT_KEY: ParseKeys = 'paper.chat.plan.stepWaiting'
 
-/** 将迭代（子阶段）状态枚举值转换为中文标签 */
-function getIterationStatusLabel(status: string): string {
-  if (status === 'calling_tools') return '调用工具'
-  if (status === 'processing') return '处理结果'
-  if (status === 'complete') return '完成'
-  return '思考'
+/** 迭代（子阶段）状态文案 key（paper.chat.plan.iteration*） */
+const ITERATION_STATUS_KEYS: Record<string, ParseKeys> = {
+  calling_tools: 'paper.chat.plan.iterationCallingTools',
+  processing: 'paper.chat.plan.iterationProcessing',
+  complete: 'paper.chat.plan.iterationComplete'
 }
+const ITERATION_STATUS_DEFAULT_KEY: ParseKeys = 'paper.chat.plan.iterationThinking'
 
 /** 论文对话 Plan-Execute 执行计划的停靠面板，展示多步骤任务的进度和各阶段状态 */
 export default function PaperChatPlanDock({ planState }: PaperChatPlanDockProps) {
+  const { t } = useTranslation()
   const [expanded, setExpanded] = useState(true)
   const summary = useMemo(() => {
-    if (!planState) return '等待模型生成执行计划'
-    return planState.summary || planState.error || `${planState.steps.length} 个步骤`
-  }, [planState])
+    if (!planState) return t('paper.chat.plan.summaryWaiting')
+    return (
+      planState.summary ||
+      planState.error ||
+      t('paper.chat.plan.stepCount', { count: planState.steps.length })
+    )
+  }, [planState, t])
 
   if (!planState) {
     return null
@@ -58,7 +65,7 @@ export default function PaperChatPlanDock({ planState }: PaperChatPlanDockProps)
       >
         <span className={styles['paper-chat-plan-dock__header-main']}>
           <span className={styles['paper-chat-plan-dock__status-label']}>
-            {getStatusLabel(planState.status)}
+            {t(PLAN_STATUS_KEYS[planState.status] ?? PLAN_STATUS_DEFAULT_KEY)}
           </span>
           <span className={styles['paper-chat-plan-dock__summary']}>{summary}</span>
         </span>
@@ -76,7 +83,7 @@ export default function PaperChatPlanDock({ planState }: PaperChatPlanDockProps)
           {planState.steps.length === 0 ? (
             <div className={styles['paper-chat-plan-dock__empty-status']}>
               <span className={styles['paper-chat-plan-dock__dot']} />
-              <PlanningStatusIndicator text="正在拆解任务" />
+              <PlanningStatusIndicator text={t('paper.chat.plan.planningIndicator')} />
             </div>
           ) : (
             <div className={styles['paper-chat-plan-dock__list']}>
@@ -91,10 +98,10 @@ export default function PaperChatPlanDock({ planState }: PaperChatPlanDockProps)
                   >
                     <div className={styles['paper-chat-plan-dock__task-row']}>
                       <span className={styles['paper-chat-plan-dock__task-number']}>
-                        任务 {index + 1}
+                        {t('paper.chat.taskLabel', { index: index + 1 })}
                       </span>
                       <span className={styles['paper-chat-plan-dock__task-state']}>
-                        {getStepStatusLabel(step.status)}
+                        {t(STEP_STATUS_KEYS[step.status] ?? STEP_STATUS_DEFAULT_KEY)}
                       </span>
                       <span className={styles['paper-chat-plan-dock__task-main']}>
                         <span className={styles['paper-chat-plan-dock__task-title']}>
@@ -118,10 +125,15 @@ export default function PaperChatPlanDock({ planState }: PaperChatPlanDockProps)
                             }`}
                           >
                             <span className={styles['paper-chat-plan-dock__phase-label']}>
-                              阶段 {iteration.stepNumber}.{iteration.localPhaseNumber}
+                              {t('paper.chat.phaseLabel', {
+                                number: `${iteration.stepNumber}.${iteration.localPhaseNumber}`
+                              })}
                             </span>
                             <span className={styles['paper-chat-plan-dock__phase-state']}>
-                              {getIterationStatusLabel(iteration.status)}
+                              {t(
+                                ITERATION_STATUS_KEYS[iteration.status] ??
+                                  ITERATION_STATUS_DEFAULT_KEY
+                              )}
                             </span>
                             {iteration.toolSummary && (
                               <span className={styles['paper-chat-plan-dock__phase-tools']}>

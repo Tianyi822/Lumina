@@ -1,0 +1,195 @@
+.theme-page {
+  gap: var(--sm-space-5);
+  /* 与上方语言子页拉开距离，避免两个子页黏在一起 */
+  margin-top: var(--sm-space-4);
+}
+
+.theme-page-header {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sm-space-4);
+}
+
+.theme-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--sm-space-4);
+}
+
+.auto-theme-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  padding: 18px;
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-lg);
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--sm-color-accent) 8%, transparent),
+      transparent
+    ),
+    var(--sm-color-surface-2);
+  color: inherit;
+  cursor: pointer;
+  transition:
+    border-color var(--sm-transition-fast),
+    background-color var(--sm-transition-fast),
+    transform var(--sm-transition-fast);
+}
+
+.auto-theme-toggle:hover {
+  border-color: var(--sm-color-border-strong);
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--sm-color-accent) 12%, transparent),
+      transparent
+    ),
+    var(--sm-color-surface-hover);
+}
+
+.auto-theme-toggle:focus-visible {
+  border-color: var(--sm-color-border-accent);
+}
+
+.auto-theme-toggle__copy {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: left;
+}
+
+.auto-theme-toggle__title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--sm-color-text-primary);
+}
+
+.auto-theme-toggle__desc {
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--sm-color-text-secondary);
+}
+
+.auto-theme-toggle__control {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.auto-theme-toggle__track {
+  position: relative;
+  display: inline-flex;
+  width: 52px;
+  height: 30px;
+  padding: 3px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--sm-color-border-default) 72%, transparent);
+  transition: background-color var(--sm-transition-fast);
+}
+
+.auto-theme-toggle[aria-pressed='true'] .auto-theme-toggle__track {
+  background: color-mix(in srgb, var(--sm-color-accent) 72%, white 8%);
+}
+
+.auto-theme-toggle__thumb {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: #ffffff;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18);
+  transform: translateX(0);
+  transition: transform var(--sm-transition-fast);
+}
+
+.auto-theme-toggle[aria-pressed='true'] .auto-theme-toggle__thumb {
+  transform: translateX(22px);
+}
+
+.theme-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+  width: 100%;
+  padding: 16px;
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-md);
+  background: var(--sm-color-surface-2);
+  cursor: pointer;
+  text-align: left;
+  transition:
+    background-color var(--sm-transition-fast),
+    border-color var(--sm-transition-fast),
+    color var(--sm-transition-fast);
+}
+
+.theme-card:hover {
+  border-color: var(--sm-color-border-strong);
+  background: var(--sm-color-surface-hover);
+}
+
+.theme-card.is-disabled {
+  cursor: not-allowed;
+  opacity: 0.72;
+}
+
+.theme-card.is-disabled:hover {
+  border-color: var(--sm-color-border-default);
+  background: var(--sm-color-surface-2);
+}
+
+.theme-card.is-selected {
+  border-color: var(--sm-color-border-selected);
+  background: var(--sm-color-surface-selected);
+}
+
+.theme-card:focus-visible {
+  border-color: var(--sm-color-border-accent);
+  background: var(--sm-color-surface-hover);
+}
+
+.theme-preview {
+  display: flex;
+  gap: 4px;
+  height: 48px;
+  border-radius: var(--sm-radius-sm);
+  overflow: hidden;
+}
+
+.preview-color {
+  flex: 1;
+  border-radius: 4px;
+}
+
+.preview-color.primary {
+  flex: 2;
+}
+
+.preview-color.extra {
+  flex: 1;
+}
+
+.theme-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.theme-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--sm-color-text-primary);
+}
+
+.theme-desc {
+  font-size: 12px;
+  color: var(--sm-color-text-secondary);
+  line-height: 1.5;
+}

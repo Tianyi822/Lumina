@@ -2,10 +2,8 @@ import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { PaperCapability } from './PaperCapability'
 import { KnowledgeCapability } from './KnowledgeCapability'
-import { LabCapability } from './LabCapability'
 import { PaperWebCapability } from './PaperWebCapability'
 import { McpCapability } from './McpCapability'
-import type { CapabilityUnit } from './CapabilityUnit'
 
 describe('PaperCapability', () => {
   const cap = new PaperCapability()
@@ -76,30 +74,6 @@ describe('KnowledgeCapability', () => {
       ]
     })
     assert.ok(withKbTools.length > 0)
-  })
-})
-
-describe('LabCapability', () => {
-  const cap = new LabCapability()
-
-  it('元数据正确', () => {
-    assert.equal(cap.id, 'lab')
-    assert.equal(cap.displayName, '实验室工具')
-    assert.ok(cap.tags.includes('命令执行'))
-  })
-
-  it('createAdapter 按 discipline 决策（无 discipline 返回 null）', () => {
-    const unit: CapabilityUnit = cap
-    assert.equal(unit.createAdapter({}), null)
-    assert.equal(unit.createAdapter({ labDiscipline: null }), null)
-    assert.notEqual(unit.createAdapter({ labDiscipline: 'computer', labId: 'lab-1' }), null)
-  })
-
-  it('describeTools 按 discipline 返回 lab 工具', () => {
-    assert.equal(cap.describeTools({}).length, 0)
-    const tools = cap.describeTools({ labDiscipline: 'computer' })
-    assert.ok(tools.length > 0)
-    assert.ok(tools.some((t) => t.name.includes('lab')))
   })
 })
 

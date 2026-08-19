@@ -5,7 +5,9 @@
   --sm-theme-switch-thumb-size: 28px;
   --sm-theme-switch-gap: 2px;
   --sm-theme-switch-radius: var(--sm-radius-sm);
-  --sm-theme-switch-inner-radius: calc(var(--sm-theme-switch-radius) - var(--sm-theme-switch-inset));
+  --sm-theme-switch-inner-radius: calc(
+    var(--sm-theme-switch-radius) - var(--sm-theme-switch-inset)
+  );
   --sm-primary-sidebar-edge-inset: calc(
     (var(--sm-primary-sidebar-width) - var(--sm-primary-sidebar-item-size) - 2px) / 2
   );
@@ -196,8 +198,8 @@
 
 .sm-primary-sidebar__theme-switch {
   --sm-theme-switch-height: calc(
-    2 * var(--sm-theme-switch-thumb-size) + var(--sm-theme-switch-gap) +
-      2 * var(--sm-theme-switch-inset)
+    2 * var(--sm-theme-switch-thumb-size) + var(--sm-theme-switch-gap) + 2 *
+      var(--sm-theme-switch-inset)
   );
 
   position: relative;

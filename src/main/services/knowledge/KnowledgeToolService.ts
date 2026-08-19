@@ -1,3 +1,4 @@
+import { t } from '@main/services/i18n'
 import { logger } from '@main/services/logger'
 import type { MCPTool, MCPToolCallResult } from '@shared/types/mcp'
 import { knowledgeCoreService } from './KnowledgeCoreService'
@@ -17,7 +18,7 @@ interface ToolArgs {
  * 注意：此服务通过 KnowledgeCoreService 实现核心业务逻辑，
  * 与 KnowledgeMCPServerService（MCP 服务）共享相同的底层实现
  */
-export class KnowledgeToolService {
+class KnowledgeToolService {
   /**
    * 获取知识库工具定义
    * @param selectedKnowledgeBaseIds 选中的知识库 ID 列表，如果指定则只搜索这些知识库
@@ -112,7 +113,7 @@ export class KnowledgeToolService {
         default:
           return {
             success: false,
-            error: `未知工具: ${name}`
+            error: t('notifications.knowledge.unknownTool', { name })
           }
       }
     } catch (error) {
@@ -141,7 +142,7 @@ export class KnowledgeToolService {
     if (!query) {
       return {
         success: false,
-        error: '缺少必需参数: query'
+        error: t('notifications.knowledge.missingParamQuery')
       }
     }
 
@@ -246,7 +247,7 @@ export class KnowledgeToolService {
     if (!knowledgeBaseId) {
       return {
         success: false,
-        error: '缺少必需参数: knowledgeBaseId'
+        error: t('notifications.knowledge.missingParamKnowledgeBaseId')
       }
     }
 
@@ -260,8 +261,8 @@ export class KnowledgeToolService {
       return {
         success: false,
         error: selectedKnowledgeBaseIds?.length
-          ? `知识库 ${knowledgeBaseId} 不在当前可用的知识库范围内`
-          : `知识库不存在: ${knowledgeBaseId}`
+          ? t('notifications.knowledge.kbNotInRange', { kbId: knowledgeBaseId })
+          : t('notifications.knowledge.kbNotFoundWithId', { kbId: knowledgeBaseId })
       }
     }
 

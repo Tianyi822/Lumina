@@ -5,6 +5,7 @@ import type { UpdateInfo } from 'electron-updater'
 import type { UpdateStatus, UpdateStatusEvent, CheckUpdateResult } from '@shared/types/update'
 
 import { logger } from '../logger'
+import { t } from '@main/services/i18n'
 import {
   classifyUpdateError,
   configurePlatformUpdateChannel,
@@ -97,7 +98,7 @@ export class UpdateService {
    */
   async checkForUpdate(): Promise<CheckUpdateResult> {
     if (!app.isPackaged) {
-      return { success: false, error: '开发模式下不可用' }
+      return { success: false, error: t('notifications.settings.update.devModeUnavailable') }
     }
 
     if (this.lastCheckResult && Date.now() - this.lastCheckTime < UpdateService.CHECK_CACHE_MS) {
@@ -183,7 +184,7 @@ export class UpdateService {
    */
   async downloadUpdate(): Promise<{ success: boolean; error?: string }> {
     if (usesManualInstallerUpdate()) {
-      return { success: false, error: '当前平台使用手动下载安装包更新' }
+      return { success: false, error: t('notifications.settings.update.manualDownloadOnly') }
     }
 
     try {
@@ -296,7 +297,8 @@ export class UpdateService {
       const releasesResult = await releaseNotesService.getReleases()
 
       if (!releasesResult.success || !releasesResult.data || releasesResult.data.length === 0) {
-        const message = releasesResult.error || '无法获取最新版本信息'
+        const message =
+          releasesResult.error || t('notifications.settings.update.latestInfoUnavailable')
         this.setStatus('error', {
           diagnosticCode: 'unknown',
           message,

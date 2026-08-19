@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import type { MutableRefObject } from 'react'
+import { i18n } from '@renderer/i18n'
 import type {
   AttachedDocument,
   AttachedImage,
@@ -13,7 +14,6 @@ import type {
   StreamEvent
 } from '@renderer/types'
 import type { PaperQuote } from '@shared/types/chat'
-import type { LabDisciplineId } from '@shared/types/config'
 import { usePaperChatMessageCacheStore, usePaperChatStreamStore } from '@renderer/stores'
 import { buildChatMessages } from '@renderer/utils/messageHelpers'
 import { deepClone } from '@shared/utils'
@@ -26,10 +26,7 @@ interface UsePaperChatStreamReactOptions {
   selectedModel: string
   selectedMCPTools: MCPTool[]
   selectedKnowledgeBases: KnowledgeBase[]
-  enableLabTools: boolean
   enablePaperWebSearch: boolean
-  activeLabDiscipline: LabDisciplineId | null
-  activeLabId: string | null
   saveCurrentSession: () => Promise<boolean>
   setError: (message: string) => void
   onRequestError?: (message: string) => void
@@ -176,7 +173,7 @@ export function usePaperChatStreamReact(
     ): Promise<void> => {
       const targetSession = latestRef.current.session
       if (!targetSession) {
-        setError('论文聊天会话未就绪')
+        setError(i18n.t('notifications.paper.sessionNotReady'))
         return
       }
 
@@ -196,7 +193,7 @@ export function usePaperChatStreamReact(
 
       const selected = latestRef.current
       if (!selected.selectedModel) {
-        setError('请先选择一个模型')
+        setError(i18n.t('notifications.paper.modelNotSelected'))
         return
       }
 
@@ -265,12 +262,9 @@ export function usePaperChatStreamReact(
               selected.selectedKnowledgeBases.length > 0
                 ? toKnowledgeReferences(selected.selectedKnowledgeBases)
                 : undefined,
-            enableLabTools: selected.enableLabTools,
             enablePlanMode: targetSession.selectionState?.enablePlanMode === true,
             sessionType: 'paper',
-            enablePaperWebSearch: selected.enablePaperWebSearch,
-            activeLabDiscipline: selected.enableLabTools ? selected.activeLabDiscipline : undefined,
-            activeLabId: selected.enableLabTools ? selected.activeLabId : undefined
+            enablePaperWebSearch: selected.enablePaperWebSearch
           })
         )
 

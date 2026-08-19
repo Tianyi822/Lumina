@@ -81,7 +81,7 @@ export interface RegisteredTool {
   registeredAt: Date
   /** 当前可用状态 */
   status: 'available' | 'unavailable'
-  /** 执行超时时间（ms），lab 默认 180s，其他 60s */
+  /** 执行超时时间（ms），统一 60s */
   timeoutMs: number
 }
 
@@ -120,7 +120,7 @@ export class UnifiedToolRegistry {
         adapter,
         registeredAt: new Date(),
         status: 'available',
-        timeoutMs: category === 'lab' ? 180000 : 60000
+        timeoutMs: 60000
       })
       this.aliases.set(openAIName, fullName)
     }
@@ -139,7 +139,7 @@ export class UnifiedToolRegistry {
   }
 
   /**
-   * 按类别注销工具（如关闭实验室时清除所有 lab 类别工具）
+   * 按类别注销工具
    */
   unregisterByCategory(category: ToolCategory): void {
     for (const [fullName, tool] of this.tools.entries()) {
@@ -188,7 +188,7 @@ export class UnifiedToolRegistry {
 
   /**
    * 构建 OpenAI tools 定义数组
-   * 从注册表中直接生成，按类别添加前缀（lab__、knowledge__、paper__、paper_web__），
+   * 从注册表中直接生成，按类别添加前缀（knowledge__、paper__、paper_web__），
    * 并对 MCP 工具进行安全名称处理和描述增强
    */
   buildOpenAITools(): OpenAI.Chat.Completions.ChatCompletionTool[] {
@@ -203,18 +203,6 @@ export class UnifiedToolRegistry {
     for (const rt of this.getAllTools()) {
       const { name, description, parameters } = rt.functionDef
       const stableParameters = deepSortPromptCacheValue(parameters) as Record<string, unknown>
-
-      if (rt.category === 'lab') {
-        openAITools.push({
-          type: 'function' as const,
-          function: {
-            name: `lab__${name}`,
-            description,
-            parameters: stableParameters
-          }
-        })
-        continue
-      }
 
       if (rt.category === 'knowledge') {
         openAITools.push({
@@ -252,6 +240,18 @@ export class UnifiedToolRegistry {
         continue
       }
 
+      if (rt.category === 'writer') {
+        openAITools.push({
+          type: 'function' as const,
+          function: {
+            name: `writer__${name}`,
+            description,
+            parameters: stableParameters
+          }
+        })
+        continue
+      }
+
       // MCP 工具：使用增强描述
       const toolKey = `${rt.serverName}__${name}`
       const enhancedDescription = enhancedDescriptions.get(toolKey) || description
@@ -281,7 +281,7 @@ export class UnifiedToolRegistry {
   }
 
   /**
-   * 对非 lab/knowledge/paper 的工具进行描述增强
+   * 对非 knowledge/paper 的工具进行描述增强
    * 内置工具的描述已人工优化，不需要再次增强
    */
   private enhanceDescriptionsByCategory(
@@ -290,10 +290,10 @@ export class UnifiedToolRegistry {
   ): Map<string, string> {
     const mcpTools = tools.filter(
       (t) =>
-        t.serverName !== 'lab' &&
         t.serverName !== 'knowledge' &&
         t.serverName !== 'paper' &&
-        t.serverName !== 'paper_web'
+        t.serverName !== 'paper_web' &&
+        t.serverName !== 'writer'
     )
     return enhanceToolDescriptions(mcpTools, level)
   }
@@ -309,10 +309,10 @@ export class UnifiedToolRegistry {
    */
   private getOpenAIToolName(tool: RegisteredTool): string {
     const { name } = tool.functionDef
-    if (tool.category === 'lab') return `lab__${name}`
     if (tool.category === 'knowledge') return `knowledge__${name}`
     if (tool.category === 'paper') return `paper__${name}`
     if (tool.category === 'paper_web') return `paper_web__${name}`
+    if (tool.category === 'writer') return `writer__${name}`
     return this.sanitizeName(tool.serverName, name)
   }
 

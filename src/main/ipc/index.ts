@@ -8,17 +8,15 @@ import { registerEmbeddingHandlers } from './handlers/embeddingHandlers'
 import { registerKnowledgeHandlers } from './handlers/knowledgeHandlers'
 import { registerEmbeddingModelHandlers } from './handlers/embeddingModelHandlers'
 import { registerFileHandlers } from './handlers/fileHandlers'
-import { registerLabHandlers, initializeLab } from './handlers/labHandlers'
-import {
-  registerKnowledgeMCPHandlers,
-  initializeKnowledgeMCP
-} from './handlers/knowledgeMCPHandlers'
+import { registerKnowledgeMCPHandlers } from './handlers/knowledgeMCPHandlers'
 import { registerDocumentHandlers } from './handlers/documentHandlers'
 import { registerPaperHandlers } from './handlers/paperHandlers'
 import { registerToolStatsHandlers } from './handlers/toolStatsHandlers'
 import { registerPaperWebSearchHandlers } from './handlers/paperWebSearchHandlers'
 import { registerCapabilityHandlers } from './handlers/capabilityHandlers'
 import { registerUpdateHandlers } from './handlers/updateHandlers'
+import { registerWriterHandlers } from './handlers/writerHandlers'
+import { registerSyncHandlers } from './handlers/syncHandlers'
 
 export { initializeConfig } from './handlers/configHandlers'
 export { initializeLogger } from './handlers/loggerHandlers'
@@ -27,8 +25,9 @@ export { initializeEmbedding } from './handlers/embeddingHandlers'
 export { initializeKnowledge } from './handlers/knowledgeHandlers'
 export { initializeEmbeddingModels } from './handlers/embeddingModelHandlers'
 export { initializeFileService } from './handlers/fileHandlers'
-export { initializeLab }
-export { initializeKnowledgeMCP }
+export { initializeWriterService } from '@main/services/writer'
+export { initializeSessionService } from '@main/services/session'
+export { initializeSyncService } from '@main/services/sync'
 
 /**
  * 注册所有 IPC 处理程序
@@ -64,9 +63,6 @@ export function registerAllIpcHandlers(): void {
   // 注册文件管理相关处理程序
   registerFileHandlers()
 
-  // 注册实验室相关处理程序
-  registerLabHandlers()
-
   // 注册知识库 MCP 服务相关处理程序
   registerKnowledgeMCPHandlers()
 
@@ -87,4 +83,10 @@ export function registerAllIpcHandlers(): void {
 
   // 注册自动更新相关处理程序
   registerUpdateHandlers()
+
+  // 注册写作工作区相关处理程序
+  registerWriterHandlers()
+
+  // 注册数据同步相关处理程序
+  registerSyncHandlers()
 }

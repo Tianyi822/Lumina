@@ -20,7 +20,11 @@ const ModalPortal = forwardRef<HTMLDivElement, ModalPortalProps>(function ModalP
   }
 
   return createPortal(
-    <div ref={ref} className={overlayClassName} onClick={onBackdropClick ? handleBackdropClick : undefined}>
+    <div
+      ref={ref}
+      className={overlayClassName}
+      onClick={onBackdropClick ? handleBackdropClick : undefined}
+    >
       {children}
     </div>,
     document.body

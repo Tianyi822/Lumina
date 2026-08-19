@@ -13,8 +13,6 @@ export interface NotificationAction {
 
 /** 通知来源模块 */
 export type NotificationSource =
-  | 'lab'
-  | 'creator'
   | 'config'
   | 'settings'
   | 'knowledge'
@@ -26,7 +24,7 @@ export type NotificationSource =
   | 'global'
 
 /** 持久化策略 */
-export type NotificationPersistence = 'auto' | 'sticky'
+type NotificationPersistence = 'auto' | 'sticky'
 
 /** 单条通知数据结构 */
 export interface Notification {

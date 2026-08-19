@@ -71,7 +71,7 @@ function normalizeReaderPageResults(pageResults: PaperPageOcrResult[]): PaperPag
  * 在 Markdown 中查找每个可见块的出现位置（start/end offset）
  * 跳过 removalIndexes 中的块
  */
-export function findBlockOccurrences(
+function findBlockOccurrences(
   markdown: string,
   pageBlocks: PaperLayoutBlock[],
   removalIndexes: Set<number>
@@ -485,7 +485,10 @@ function extractLeadingFloatingTableLayout(
 
 function buildReaderPageFragment(
   pageResult: PaperPageOcrResult,
-  figureData: Pick<ExtractedPaperFigureData, 'figures' | 'pageRemovalBlockIndexes' | 'pageRemovalGroups'>
+  figureData: Pick<
+    ExtractedPaperFigureData,
+    'figures' | 'pageRemovalBlockIndexes' | 'pageRemovalGroups'
+  >
 ): ReaderPageFragment {
   const removalIndexes = new Set(figureData.pageRemovalBlockIndexes[pageResult.pageIndex] || [])
 
@@ -503,10 +506,7 @@ function buildReaderPageFragment(
     const sources = getBlockImageSourceCandidates(block)
     for (const source of sources) {
       const escapedSource = escapeRegExp(source)
-      const imgPattern = new RegExp(
-        `(<img\\b[^>]*?\\bsrc=['"])(${escapedSource})(['"])`,
-        'i'
-      )
+      const imgPattern = new RegExp(`(<img\\b[^>]*?\\bsrc=['"])(${escapedSource})(['"])`, 'i')
       const injected = pageMarkdown.replace(
         imgPattern,
         `$1$2$3 data-paper-figure-id="${figure.id}"`
@@ -696,7 +696,10 @@ function buildReaderSegments(
 export function buildReaderDocument(
   paperId: string,
   pageResults: PaperPageOcrResult[],
-  figureData: Pick<ExtractedPaperFigureData, 'figures' | 'pageRemovalBlockIndexes' | 'pageRemovalGroups'>
+  figureData: Pick<
+    ExtractedPaperFigureData,
+    'figures' | 'pageRemovalBlockIndexes' | 'pageRemovalGroups'
+  >
 ): PaperReaderDocument {
   const normalizedPageResults = normalizeReaderPageResults(pageResults)
   const markdown = buildReaderMarkdown(normalizedPageResults, figureData)
@@ -723,7 +726,10 @@ export function buildReaderDocument(
  */
 export function buildReaderMarkdown(
   pageResults: PaperPageOcrResult[],
-  figureData: Pick<ExtractedPaperFigureData, 'figures' | 'pageRemovalBlockIndexes' | 'pageRemovalGroups'>
+  figureData: Pick<
+    ExtractedPaperFigureData,
+    'figures' | 'pageRemovalBlockIndexes' | 'pageRemovalGroups'
+  >
 ): string {
   const normalizedPageResults = normalizeReaderPageResults(pageResults)
   let combinedMarkdown = ''

@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import MarkdownIt from 'markdown-it'
 import type { ReActIteration, ReActStep, UiReactIterationStatus } from '@renderer/types'
 import type { PaperChatStepContentResult } from './paperChatReactStepContent'
@@ -91,16 +93,23 @@ function trimConclusionPromise(reasoning: string, content?: string): string {
 
 /** 根据任务分组信息生成阶段的显示标签（如"阶段 1.2"） */
 // 根据 taskNumber 生成阶段标签
-function getPhaseLabel(unit: PhaseUnit, taskGroups: TaskGroup[], hasTaskGroups: boolean): string {
+function getPhaseLabel(
+  unit: PhaseUnit,
+  taskGroups: TaskGroup[],
+  hasTaskGroups: boolean,
+  t: TFunction
+): string {
   if (unit.taskNumber !== undefined) {
     const group = taskGroups.find((item) => item.taskNumber === unit.taskNumber)
     const localIndex = group ? group.units.indexOf(unit) + 1 : unit.iteration + 1
-    return `阶段 ${unit.taskNumber}.${localIndex > 0 ? localIndex : unit.iteration + 1}`
+    return t('paper.chat.phaseLabel', {
+      number: `${unit.taskNumber}.${localIndex > 0 ? localIndex : unit.iteration + 1}`
+    })
   }
   if (!hasTaskGroups) {
-    return `第 ${unit.iteration + 1} 阶段`
+    return t('paper.chat.iterationPhase', { number: unit.iteration + 1 })
   }
-  return `阶段 ${unit.iteration + 1}`
+  return t('paper.chat.phaseLabel', { number: unit.iteration + 1 })
 }
 
 function PhaseUnitView({
@@ -116,6 +125,7 @@ function PhaseUnitView({
   reasoningExpanded: boolean
   onToggleReasoning: () => void
 }) {
+  const { t } = useTranslation()
   return (
     <div className="paper-chat-react-steps__phase">
       <span className="paper-chat-react-steps__phase-rail" aria-hidden="true">
@@ -126,13 +136,13 @@ function PhaseUnitView({
           <span className="paper-chat-react-steps__phase-label">{phaseLabel}</span>
           {unit.toolItems.length > 0 && (
             <span className="paper-chat-react-steps__phase-count">
-              {unit.toolItems.length} 次工具调用
+              {t('paper.chat.react.toolCalls', { count: unit.toolItems.length })}
             </span>
           )}
           {isStreaming && unit.isActive && (
             <span className="paper-chat-react-steps__phase-streaming">
               <span className="paper-chat-react-steps__pulse-dot--small" />
-              进行中
+              {t('paper.chat.react.inProgress')}
             </span>
           )}
         </div>
@@ -147,7 +157,9 @@ function PhaseUnitView({
               onClick={onToggleReasoning}
             >
               <span className="paper-chat-react-steps__reasoning-header-left">
-                <span className="paper-chat-react-steps__reasoning-label">阶段思考</span>
+                <span className="paper-chat-react-steps__reasoning-label">
+                  {t('paper.chat.react.phaseThinking')}
+                </span>
               </span>
               <span
                 className={`paper-chat-react-steps__reasoning-arrow ${
@@ -205,6 +217,7 @@ export default function PaperChatReActSteps({
   iterations,
   isStreaming
 }: PaperChatReActStepsProps) {
+  const { t } = useTranslation()
   const [isExpanded, setIsExpanded] = useState(false)
   const [expandedReasoningKeys, setExpandedReasoningKeys] = useState<Set<string>>(new Set())
 
@@ -329,12 +342,14 @@ export default function PaperChatReActSteps({
         onClick={() => setIsExpanded((value) => !value)}
       >
         <span className="paper-chat-react-steps__header-left">
-          <span className="paper-chat-react-steps__title">分阶段推理</span>
-          <span className="paper-chat-react-steps__badge">{toolItems.length} 次工具调用</span>
+          <span className="paper-chat-react-steps__title">{t('paper.chat.react.title')}</span>
+          <span className="paper-chat-react-steps__badge">
+            {t('paper.chat.react.toolCalls', { count: toolItems.length })}
+          </span>
           {isStreaming && (
             <span className="paper-chat-react-steps__streaming-indicator">
               <span className="paper-chat-react-steps__pulse-dot" />
-              进行中
+              {t('paper.chat.react.inProgress')}
             </span>
           )}
         </span>
@@ -365,14 +380,14 @@ export default function PaperChatReActSteps({
                   >
                     <div className="paper-chat-react-steps__task-divider">
                       <span className="paper-chat-react-steps__task-divider-label">
-                        任务 {group.taskNumber}
+                        {t('paper.chat.taskLabel', { index: group.taskNumber })}
                       </span>
                     </div>
                     {group.units.map((unit) => (
                       <PhaseUnitView
                         key={unit.key}
                         unit={unit}
-                        phaseLabel={getPhaseLabel(unit, taskGroups, hasTaskGroups)}
+                        phaseLabel={getPhaseLabel(unit, taskGroups, hasTaskGroups, t)}
                         isStreaming={isStreaming}
                         reasoningExpanded={expandedReasoningKeys.has(unit.key)}
                         onToggleReasoning={() => toggleReasoning(unit.key)}
@@ -387,7 +402,7 @@ export default function PaperChatReActSteps({
                   <PhaseUnitView
                     key={unit.key}
                     unit={unit}
-                    phaseLabel={getPhaseLabel(unit, taskGroups, hasTaskGroups)}
+                    phaseLabel={getPhaseLabel(unit, taskGroups, hasTaskGroups, t)}
                     isStreaming={isStreaming}
                     reasoningExpanded={expandedReasoningKeys.has(unit.key)}
                     onToggleReasoning={() => toggleReasoning(unit.key)}

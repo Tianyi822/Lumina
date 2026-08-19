@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { EmbeddingConfig } from '@shared/types/config'
 import styles from './EmbeddingModelItem.module.css'
 
@@ -20,6 +21,7 @@ export default function EmbeddingModelItem({
   onDelete,
   onTest
 }: EmbeddingModelItemProps) {
+  const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
 
   const displayName = config.displayName || config.model
@@ -44,8 +46,12 @@ export default function EmbeddingModelItem({
     <div className={styles['model-item']}>
       <div className={styles['model-header']} onClick={toggleExpand}>
         <span className={styles['model-name']}>{displayName}</span>
-        <span className={styles['model-dimensions']}>{config.dimensions}维</span>
-        <span className={styles['expand-state']}>{expanded ? '收起' : '展开'}</span>
+        <span className={styles['model-dimensions']}>
+          {t('settings.embedding.dimensions', { value: config.dimensions })}
+        </span>
+        <span className={styles['expand-state']}>
+          {expanded ? t('common.collapse') : t('common.expand')}
+        </span>
         <div className={styles['model-actions']}>
           <button
             className="sm-button sm-button--small"
@@ -55,7 +61,7 @@ export default function EmbeddingModelItem({
               handleTest()
             }}
           >
-            {testing ? '测试中...' : '测试'}
+            {testing ? t('common.testing') : t('common.test')}
           </button>
           <button
             className="sm-button sm-button--small"
@@ -64,7 +70,7 @@ export default function EmbeddingModelItem({
               handleEdit()
             }}
           >
-            编辑
+            {t('common.edit')}
           </button>
           <button
             className={[
@@ -78,7 +84,7 @@ export default function EmbeddingModelItem({
               handleDelete()
             }}
           >
-            删除
+            {t('common.delete')}
           </button>
         </div>
       </div>
@@ -90,7 +96,7 @@ export default function EmbeddingModelItem({
             <span className={styles['detail-value']}>{config.baseUrl}</span>
           </div>
           <div className={styles['detail-item']}>
-            <span className={styles['detail-label']}>模型:</span>
+            <span className={styles['detail-label']}>{t('settings.embedding.modelLabel')}</span>
             <span className={styles['detail-value']}>{config.model}</span>
           </div>
         </div>

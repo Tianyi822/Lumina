@@ -1,8 +1,9 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import type { AppConfig, ConfigLoadResult } from '@main/types/config'
 import { getConfigDirPath, getConfigFilePath } from './configPaths'
 import { logger } from '@main/services/logger'
+import { t } from '@main/services/i18n'
 import {
   DEFAULT_OCR_PROVIDER,
   getOcrProviderPreset,
@@ -13,8 +14,6 @@ import {
 import {
   DEFAULT_THEME_ID,
   DEFAULT_THEME_MODE,
-  createDefaultLabFeatures,
-  normalizeLabFeatures,
   normalizeThemeId,
   normalizeThemeMode
 } from '@shared/utils'
@@ -57,6 +56,30 @@ function sanitizePaperReaderConfig(config: PaperReaderConfig | undefined): Paper
 }
 
 /**
+ * 清理 lab 子系统遗留的本地数据（破坏性更新的一次性迁移）
+ * 删除 ssh-connections.json、ssh-keys/、lab/ 目录。
+ * 幂等：文件不存在则跳过；失败不阻断启动。
+ * 仅在 labRemovalMigrated 标记未设置时由 migrateConfig 调用。
+ */
+function cleanupLegacyLabData(): void {
+  const configDir = getConfigDirPath()
+  const targets = [
+    join(configDir, 'ssh-connections.json'),
+    join(configDir, 'ssh-keys'),
+    join(configDir, 'lab')
+  ]
+  for (const target of targets) {
+    try {
+      rmSync(target, { recursive: true, force: true })
+      logger.info('已清理 lab 遗留数据', 'main', { path: target })
+    } catch (err) {
+      // 清理失败不阻断启动
+      logger.warn('清理 lab 遗留数据失败', 'main', { path: target, error: String(err) })
+    }
+  }
+}
+
+/**
  * 创建空的基础配置结构
  * 包含所有必要的字段，但值为空或默认值
  * 主题颜色由 CSS 主题文件管理，不再在配置中保存
@@ -76,8 +99,7 @@ function createEmptyConfig(): AppConfig {
     mcpServers: {},
     embeddingModels: {},
     knowledgeMCP: DEFAULT_KNOWLEDGE_MCP_CONFIG,
-    paperReader: sanitizePaperReaderConfig(undefined),
-    labFeatures: createDefaultLabFeatures()
+    paperReader: sanitizePaperReaderConfig(undefined)
   }
 }
 
@@ -137,8 +159,14 @@ export function migrateConfig(config: AppConfig): AppConfig {
   delete (migrated as Record<string, unknown>).aliyunMiaobi
   delete (migrated as Record<string, unknown>).videoGeneration
 
-  // 迁移 labFeatures 配置（兼容旧版 labEnabled 总开关）
-  migrated.labFeatures = normalizeLabFeatures(migrated.labFeatures ?? createDefaultLabFeatures())
+  // 剥离废弃的 labFeatures 字段（lab 子系统已移除）
+  delete (migrated as Record<string, unknown>).labFeatures
+
+  // 一次性清理 lab 遗留数据（破坏性更新），仅首次迁移执行
+  if (!migrated.labRemovalMigrated) {
+    cleanupLegacyLabData()
+    migrated.labRemovalMigrated = true
+  }
 
   return migrated
 }
@@ -146,6 +174,7 @@ export function migrateConfig(config: AppConfig): AppConfig {
 /**
  * 配置管理器
  * 负责配置的加载、保存和状态管理
+ * @public 配置系统对外公共 API（经 services/config barrel re-export 作为稳定导出表面）
  */
 export class ConfigManager {
   private config: AppConfig | null = null
@@ -213,9 +242,10 @@ export class ConfigManager {
             config: emptyConfig
           }
         } catch (createError) {
-          const errorMessage = `无法创建配置文件: ${createError instanceof Error ? createError.message : String(createError)}`
-          logger.error(errorMessage)
+          const detail = createError instanceof Error ? createError.message : String(createError)
+          logger.error(`无法创建配置文件: ${detail}`)
           this.loaded = true
+          const errorMessage = t('notifications.config.createFileFailed', { detail })
           this.loadError = errorMessage
           return {
             success: false,
@@ -241,9 +271,10 @@ export class ConfigManager {
         config
       }
     } catch (error) {
-      const errorMessage = `配置加载失败: ${error instanceof Error ? error.message : String(error)}`
-      logger.error(errorMessage)
+      const detail = error instanceof Error ? error.message : String(error)
+      logger.error(`配置加载失败: ${detail}`)
       this.loaded = true
+      const errorMessage = t('notifications.config.loadFailed', { detail })
       this.loadError = errorMessage
       return {
         success: false,
@@ -265,9 +296,9 @@ export class ConfigManager {
       logger.info('配置保存成功')
       return { success: true }
     } catch (error) {
-      const errorMessage = `配置保存失败: ${error instanceof Error ? error.message : String(error)}`
-      logger.error(errorMessage)
-      return { success: false, error: errorMessage }
+      const detail = error instanceof Error ? error.message : String(error)
+      logger.error(`配置保存失败: ${detail}`)
+      return { success: false, error: t('notifications.config.saveFailed', { detail }) }
     }
   }
 
@@ -284,7 +315,7 @@ export class ConfigManager {
    */
   updateConfig(partialConfig: Partial<AppConfig>): { success: boolean; error?: string } {
     if (!this.config) {
-      return { success: false, error: '无法更新：当前没有有效配置' }
+      return { success: false, error: t('notifications.config.noActiveConfig') }
     }
 
     const newConfig = {

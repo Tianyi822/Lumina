@@ -3,7 +3,7 @@ import { join } from 'path'
 import { CONFIG_DIR_NAME } from '@main/services/config/configPaths'
 
 // 日志目录名称
-export const LOGS_DIR_NAME = 'logs'
+const LOGS_DIR_NAME = 'logs'
 
 /**
  * 获取日志目录路径

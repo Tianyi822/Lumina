@@ -1,14 +1,15 @@
+import { i18n } from '@renderer/i18n'
 import type { FileItem } from '@renderer/types'
 
-/** 根据文件来源类型获取中文标签（论文/论文笔记/上传文件） */
+/** 根据文件来源类型获取本地化标签（论文/论文笔记/上传文件） */
 export function getFileSourceLabel(file: FileItem): string {
   switch (file.sourceKind) {
     case 'paper_file':
-      return '论文'
+      return i18n.t('knowledge.fileSource.paper')
     case 'paper_note':
-      return '论文笔记'
+      return i18n.t('knowledge.fileSource.paperNote')
     default:
-      return '上传文件'
+      return i18n.t('knowledge.fileSource.uploadedFile')
   }
 }
 
@@ -24,10 +25,10 @@ export function getFileSubtitle(file: FileItem): string {
   }
 
   if (file.origin?.paperName) {
-    return `论文：${file.origin.paperName}`
+    return i18n.t('knowledge.fileSource.paperWithName', { name: file.origin.paperName })
   }
 
-  return '文件资源池'
+  return i18n.t('knowledge.common.poolLabel')
 }
 
 /** 判断文件是否允许删除 */

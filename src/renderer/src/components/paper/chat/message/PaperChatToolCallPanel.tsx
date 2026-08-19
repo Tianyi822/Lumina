@@ -1,4 +1,6 @@
 import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import type { ParseKeys } from 'i18next'
 import styles from './PaperChatToolCallPanel.module.css'
 
 export interface PaperChatToolCallPanelItem {
@@ -29,12 +31,12 @@ function stringifyValue(value: unknown): string {
   }
 }
 
-/** 将工具调用状态枚举转换为中文显示文本 */
-function getStatusText(status: PaperChatToolCallPanelItem['status']): string {
-  if (status === 'running') return '执行中'
-  if (status === 'success') return '完成'
-  if (status === 'error') return '失败'
-  return '等待'
+/** 工具调用状态文案 key（paper.chat.toolCall.status*） */
+const STATUS_KEYS: Record<PaperChatToolCallPanelItem['status'], ParseKeys> = {
+  pending: 'paper.chat.toolCall.statusWaiting',
+  running: 'paper.chat.toolCall.statusRunning',
+  success: 'paper.chat.toolCall.statusSuccess',
+  error: 'paper.chat.toolCall.statusError'
 }
 
 /** 根据工具状态返回对应的字符图标 */
@@ -56,6 +58,7 @@ function formatTimeCost(startTime?: string, endTime?: string): string {
 
 /** 单次工具调用的可折叠面板组件，展示状态、参数、结果和执行耗时 */
 export default function PaperChatToolCallPanel({ toolCall, index }: PaperChatToolCallPanelProps) {
+  const { t } = useTranslation()
   const [expanded, setExpanded] = useState(toolCall.status === 'error')
   const paramsText = useMemo(() => stringifyValue(toolCall.params), [toolCall.params])
   const resultText = useMemo(() => stringifyValue(toolCall.result), [toolCall.result])
@@ -85,7 +88,7 @@ export default function PaperChatToolCallPanel({ toolCall, index }: PaperChatToo
         </span>
         <span className={styles['paper-chat-tool-call__header-right']}>
           <span className={styles['paper-chat-tool-call__status-text']}>
-            {getStatusText(toolCall.status)}
+            {t(STATUS_KEYS[toolCall.status])}
           </span>
           {timeCost && (
             <span className={styles['paper-chat-tool-call__execution-time']}>{timeCost}</span>
@@ -99,7 +102,9 @@ export default function PaperChatToolCallPanel({ toolCall, index }: PaperChatToo
           {paramsText && (
             <section className={styles['paper-chat-tool-call__section']}>
               <div className={styles['paper-chat-tool-call__section-header']}>
-                <span className={styles['paper-chat-tool-call__section-title']}>参数</span>
+                <span className={styles['paper-chat-tool-call__section-title']}>
+                  {t('paper.chat.toolCall.params')}
+                </span>
               </div>
               <pre
                 className={`${styles['paper-chat-tool-call__code']} ${styles['paper-chat-tool-call__params']}`}
@@ -112,7 +117,9 @@ export default function PaperChatToolCallPanel({ toolCall, index }: PaperChatToo
           {(resultText || toolCall.error) && (
             <section className={styles['paper-chat-tool-call__section']}>
               <div className={styles['paper-chat-tool-call__section-header']}>
-                <span className={styles['paper-chat-tool-call__section-title']}>结果</span>
+                <span className={styles['paper-chat-tool-call__section-title']}>
+                  {t('paper.chat.toolCall.result')}
+                </span>
               </div>
               <pre
                 className={`${styles['paper-chat-tool-call__code']} ${

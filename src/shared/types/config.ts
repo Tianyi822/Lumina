@@ -1,9 +1,4 @@
 /**
- * 定义嵌入模型支持的提供商类型
- */
-export type EmbeddingProviderType = 'openai' | 'aliyun' | 'ollama' | 'custom'
-
-/**
  * 嵌入模型的配置信息
  */
 export interface EmbeddingConfig {
@@ -26,20 +21,9 @@ export interface EmbeddingConfig {
 }
 
 /**
- * 预定义的嵌入模型模板
- * 供用户快速选择常用的模型配置
- */
-export interface PresetEmbeddingModel {
-  id: string
-  name: string
-  dimension: number
-  config: Partial<EmbeddingConfig>
-}
-
-/**
  * 多个嵌入模型配置的集合
  */
-export interface EmbeddingConfigs {
+interface EmbeddingConfigs {
   [modelId: string]: EmbeddingConfig
 }
 
@@ -56,7 +40,7 @@ export interface LLMConfig {
  * LLM 配置对象的完整结构
  * 包含多个模型配置和一些全局设置
  */
-export interface LLMConfigObject {
+interface LLMConfigObject {
   default_model: string
   compression_threshold: number
   enable_auto_compression: boolean
@@ -76,14 +60,14 @@ export interface ThemeConfig {
   mode?: ThemeMode
 }
 
+/** 界面语言（国际化）：zh=中文，en=English */
+export type AppLanguage = 'zh' | 'en'
+
 // MCP 相关类型已移至 @shared/types/mcp.ts，避免重复定义
-import type { MCPServerConfig, MCPTransportType } from './mcp'
+import type { MCPServerConfig } from './mcp'
 
 // 知识库 MCP 服务配置
 import type { KnowledgeMCPConfig } from './knowledgeMCP'
-
-// 重新导出以保持向后兼容
-export type { MCPServerConfig, MCPTransportType }
 
 /**
  * OCR 服务提供商标识
@@ -129,7 +113,7 @@ export function getOcrProviderPreset(providerId: OcrProviderId): OcrProviderPres
 /**
  * 论文 OCR 配置
  */
-export interface PaperOcrConfig {
+interface PaperOcrConfig {
   /** API Key */
   apiKey?: string
   /** 当前选择的 OCR 服务提供商 */
@@ -151,23 +135,10 @@ export interface PaperReaderConfig {
   originalPdfZoomLevel?: number
 }
 
-/** 学科实验室标识 */
-export type LabDisciplineId = 'computer'
-
-/**
- * 实验室功能开关配置
- */
-export interface LabFeaturesConfig {
-  /** @deprecated 旧版总开关，迁移至 disciplines，读取时请用 normalizeLabFeatures */
-  labEnabled?: boolean
-  /** 各学科实验室独立开关 */
-  disciplines: Record<LabDisciplineId, boolean>
-}
-
 /**
  * MCP 服务器配置的集合
  */
-export interface MCPServers {
+interface MCPServers {
   [key: string]: MCPServerConfig
 }
 
@@ -176,6 +147,8 @@ export interface MCPServers {
  */
 export interface AppConfig {
   theme: ThemeConfig
+  /** 界面语言（缺省视为中文 'zh'） */
+  language?: AppLanguage
   llm_config: LLMConfigObject
   mcpServers: MCPServers
   /** 知识库使用的嵌入模型配置集合 */
@@ -184,8 +157,8 @@ export interface AppConfig {
   knowledgeMCP?: KnowledgeMCPConfig
   /** 论文阅读配置（含 OCR 与翻译模型） */
   paperReader?: PaperReaderConfig
-  /** 实验室功能开关 */
-  labFeatures?: LabFeaturesConfig
+  /** @deprecated 一次性迁移标记，lab 数据清理完成后未来可移除此字段 */
+  labRemovalMigrated?: boolean
 }
 
 /**

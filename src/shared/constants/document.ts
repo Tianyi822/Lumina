@@ -18,11 +18,6 @@ const SUPPORTED_DOCUMENT_EXTENSION_SET = new Set<string>(SUPPORTED_DOCUMENT_EXTE
 export const SUPPORTED_DOCUMENT_ACCEPT = SUPPORTED_DOCUMENT_EXTENSIONS.join(',')
 export const SUPPORTED_DOCUMENT_LABEL = SUPPORTED_DOCUMENT_EXTENSIONS.join('、')
 
-export function getFileExtension(fileName: string): string {
-  const lastDotIndex = fileName.lastIndexOf('.')
-  return lastDotIndex === -1 ? '' : fileName.slice(lastDotIndex).toLowerCase()
-}
-
 export function isSupportedDocumentExtension(extension: string): boolean {
   return SUPPORTED_DOCUMENT_EXTENSION_SET.has(extension.toLowerCase())
 }

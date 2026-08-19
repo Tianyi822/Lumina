@@ -2,6 +2,10 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { useKnowledgeStore } from './knowledgeStore'
 import type { KnowledgeBase } from '@shared/types/knowledge'
+import { initI18n } from '@renderer/i18n'
+
+// store 错误兜底走 i18n.t：先初始化（测试环境无 localStorage，默认语言恒为 zh）
+await initI18n()
 
 function createKnowledgeBase(): KnowledgeBase {
   return {
@@ -50,7 +54,10 @@ test('unlinkFileFromKB 会同步清理本地索引失效文件', () => {
   const kb = useKnowledgeStore.getState().knowledgeBases[0]
   assert.deepEqual(kb.linkedFileIds, ['file-2'])
   assert.equal(kb.documentCount, 1)
-  assert.deepEqual(kb.indexInvalidation?.files.map((file) => file.fileId), ['file-2'])
+  assert.deepEqual(
+    kb.indexInvalidation?.files.map((file) => file.fileId),
+    ['file-2']
+  )
 })
 
 test('unlinkFileFromKB 移除最后一个失效文件时清空本地失效状态', () => {

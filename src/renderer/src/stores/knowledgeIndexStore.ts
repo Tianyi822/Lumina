@@ -4,7 +4,7 @@ import type {
   KnowledgeFileProgressEvent
 } from '@shared/types/knowledge'
 
-export type FileProcessingProgress = KnowledgeFileProcessingProgress
+type FileProcessingProgress = KnowledgeFileProcessingProgress
 type FileProgressEvent = KnowledgeFileProgressEvent
 
 interface KnowledgeIndexState {

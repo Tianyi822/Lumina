@@ -1,0 +1,40 @@
+.outline {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--sm-space-2);
+  padding: var(--sm-space-3);
+  overflow-y: auto;
+}
+
+.item {
+  padding: var(--sm-space-2) var(--sm-space-3);
+  padding-left: calc(var(--sm-space-3) + (var(--writer-outline-level, 1) - 1) * var(--sm-space-4));
+  border: 0;
+  border-radius: var(--sm-radius-sm);
+  background: transparent;
+  color: var(--sm-color-text-secondary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.item:hover,
+.item:focus-visible {
+  outline: 0;
+  background: var(--sm-color-surface-hover);
+  color: var(--sm-color-text-primary);
+}
+
+.empty {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sm-space-4);
+  color: var(--sm-color-text-secondary);
+  text-align: center;
+}

@@ -66,10 +66,7 @@ export class CapabilityComposer {
    * 获取可推荐给用户启用的能力列表
    * 排除已激活且条件满足的能力
    */
-  getSuggestableCapabilities(
-    activeCapabilities: string[],
-    context: unknown
-  ): CapabilityUnit[] {
+  getSuggestableCapabilities(activeCapabilities: string[], context: unknown): CapabilityUnit[] {
     return this.capabilityRegistry.getAll().filter((unit) => {
       if (activeCapabilities.includes(unit.id)) return false
       return unit.createAdapter(context) !== null

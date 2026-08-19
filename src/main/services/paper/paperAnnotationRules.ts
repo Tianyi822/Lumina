@@ -8,6 +8,7 @@ import {
   PAPER_ANNOTATION_HIGHLIGHT_COLOR_KEYS,
   PAPER_ANNOTATION_NOTE_COLOR_KEY
 } from '@shared/types/paper'
+import { t } from '@main/services/i18n'
 
 export interface NormalizedAnnotationContentInput {
   comment: string
@@ -26,7 +27,7 @@ export function createEmptyPaperAnnotationStore(paperId: string): PaperAnnotatio
   }
 }
 
-export function isHighlightColorKey(colorKey: PaperAnnotationColorKey): boolean {
+function isHighlightColorKey(colorKey: PaperAnnotationColorKey): boolean {
   return PAPER_ANNOTATION_HIGHLIGHT_COLOR_KEYS.includes(
     colorKey as (typeof PAPER_ANNOTATION_HIGHLIGHT_COLOR_KEYS)[number]
   )
@@ -45,7 +46,7 @@ export function normalizeAnnotationContent(
 
   if (kind === 'highlight') {
     if (!isHighlightColorKey(colorKey)) {
-      return { success: false, error: '普通标记只能使用蓝色、黄色或橙色' }
+      return { success: false, error: t('notifications.paper.highlightColorRestricted') }
     }
 
     return {
@@ -58,11 +59,11 @@ export function normalizeAnnotationContent(
   }
 
   if (colorKey !== PAPER_ANNOTATION_NOTE_COLOR_KEY) {
-    return { success: false, error: '笔记必须使用绿色高亮' }
+    return { success: false, error: t('notifications.paper.noteHighlightRequired') }
   }
 
   if (!trimmedComment) {
-    return { success: false, error: '请先填写笔记内容' }
+    return { success: false, error: t('notifications.paper.noteContentRequired') }
   }
 
   return {
@@ -89,7 +90,7 @@ function normalizeAnnotationColorKey(value: unknown): PaperAnnotationColorKey {
 /**
  * 归一化从磁盘读取的单条批注（确保 kind 和 colorKey 的合法性）
  */
-export function normalizeStoredAnnotation(annotation: PaperAnnotation): PaperAnnotation {
+function normalizeStoredAnnotation(annotation: PaperAnnotation): PaperAnnotation {
   return {
     ...annotation,
     kind: normalizeAnnotationKind((annotation as PaperAnnotation & { kind?: unknown }).kind),

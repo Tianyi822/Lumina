@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { ReactNode } from 'react'
 import SvgIcon from '@renderer/components/icons/SvgIcon'
 import type { PaperTocEntry, PaperTocItem } from '@shared/types/paper'
@@ -35,6 +36,7 @@ export default function TocPanel({
   getTocEntryDisplayText,
   containerRef
 }: TocPanelProps) {
+  const { t } = useTranslation()
   const paperTocTree = useMemo<PaperTocTreeNode[]>(() => {
     const roots: PaperTocTreeNode[] = []
     let currentLevel1: PaperTocTreeNode | null = null
@@ -116,7 +118,7 @@ export default function TocPanel({
           ]
             .filter(Boolean)
             .join(' ')}
-          aria-label="打开论文目录"
+          aria-label={t('chrome.toolbar.openToc')}
           aria-haspopup="dialog"
           aria-expanded={showTocPanel}
           disabled={!canOpenToc}
@@ -125,7 +127,7 @@ export default function TocPanel({
           <SvgIcon name="toc" size={18} />
         </button>
         <span className={styles['sm-workspace-toolbar__tooltip']} role="tooltip">
-          论文目录
+          {t('chrome.toolbar.toc')}
         </span>
       </div>
 
@@ -133,14 +135,20 @@ export default function TocPanel({
         <div
           className={styles['sm-workspace-toolbar__toc-panel']}
           role="dialog"
-          aria-label="论文目录"
+          aria-label={t('chrome.toolbar.toc')}
         >
-          <div className={styles['sm-workspace-toolbar__toc-header']}>论文目录</div>
+          <div className={styles['sm-workspace-toolbar__toc-header']}>
+            {t('chrome.toolbar.toc')}
+          </div>
 
           {markdownLoading ? (
-            <div className={styles['sm-workspace-toolbar__toc-state']}>目录加载中</div>
+            <div className={styles['sm-workspace-toolbar__toc-state']}>
+              {t('chrome.toolbar.tocLoading')}
+            </div>
           ) : !hasAnyTocEntries ? (
-            <div className={styles['sm-workspace-toolbar__toc-state']}>未识别到可用目录</div>
+            <div className={styles['sm-workspace-toolbar__toc-state']}>
+              {t('chrome.toolbar.tocEmpty')}
+            </div>
           ) : (
             <div className={styles['sm-workspace-toolbar__toc-scroll']}>
               {paperTocTitle && (

@@ -4,10 +4,15 @@ import { dirname, join } from 'path'
 import { randomUUID } from 'crypto'
 import { net } from 'electron'
 import { logger } from '@main/services/logger'
+import { t } from '@main/services/i18n'
 import { getFileService, getPaperFileResourceId, getPaperNoteResourceId } from '@main/services/file'
 import { getKnowledgeServiceManager } from '@main/services/knowledge'
 import { paperStorageService } from './index'
 import { PaperOcrService, type OcrProgressInfo } from './PaperOcrService'
+import {
+  purgeRenderedPageImages,
+  consumePagesPurgeSummary as consumePagesPurgeSummaryOnce
+} from './pageImagePurge'
 import {
   buildReaderDocument,
   extractPaperFigureData,
@@ -31,18 +36,13 @@ import type {
   PaperReaderDocument,
   PaperReaderSegment,
   PaperPageOcrResult,
+  PagesPurgeSummary,
   UpdatePaperAnnotationPayload
 } from '@shared/types/paper'
 import { PAPER_ANNOTATION_NOTE_COLOR_KEY } from '@shared/types/paper'
 import { buildPaperTextAnchor } from '@shared/utils/paperAnnotationAnchors'
-import {
-  PAPER_ANNOTATION_INDEX_LOADING_MESSAGE,
-  isFallbackPaperSegmentStableId
-} from '@shared/utils/paperAnnotationReadiness'
-import {
-  PAPER_ANNOTATION_NOTE_CONFLICT_MESSAGE,
-  findPaperAnnotationNoteConflict
-} from '@shared/utils/paperAnnotationConflicts'
+import { isFallbackPaperSegmentStableId } from '@shared/utils/paperAnnotationReadiness'
+import { findPaperAnnotationNoteConflict } from '@shared/utils/paperAnnotationConflicts'
 import { removeTranslationAnnotationsFromStore } from '@shared/utils/paperTranslationAnnotations'
 import { createEmptyPaperAnnotationStore, normalizeAnnotationContent } from './paperAnnotationRules'
 
@@ -147,7 +147,7 @@ export class PaperService {
   }> {
     const metaResult = await paperStorageService.readMeta(paperId)
     if (!metaResult.success || !metaResult.data) {
-      return { success: false, error: metaResult.error || '论文元信息不存在' }
+      return { success: false, error: metaResult.error || t('notifications.paper.metaMissing') }
     }
 
     const pages: ReaderDocumentPageSignature[] = []
@@ -250,7 +250,10 @@ export class PaperService {
     const probeT0 = performance.now() // PERF-PROBE:firstpaint
     const signatureResult = await this.buildReaderSourceSignature(paperId)
     if (!signatureResult.success || !signatureResult.data) {
-      return { success: false, error: signatureResult.error || '生成阅读器文档签名失败' }
+      return {
+        success: false,
+        error: signatureResult.error || t('notifications.paper.readerSignatureFailed')
+      }
     }
 
     const cachedPayload = await this.readReaderPayloadCache(paperId, signatureResult.data)
@@ -265,7 +268,10 @@ export class PaperService {
 
     const resultsResult = await paperStorageService.listNormalizedResults(paperId)
     if (!resultsResult.success || !resultsResult.data) {
-      return { success: false, error: resultsResult.error || '读取论文正文失败' }
+      return {
+        success: false,
+        error: resultsResult.error || t('notifications.paper.loadBodyFailed')
+      }
     }
 
     const pageResults = await this.ensureLocalFigureAssets(paperId, resultsResult.data)
@@ -378,7 +384,7 @@ export class PaperService {
       const fileService = getFileService()
       const metaResult = await paperStorageService.readMeta(paperId)
       if (!metaResult.success || !metaResult.data) {
-        return { success: false, error: metaResult.error || '论文元信息不存在' }
+        return { success: false, error: metaResult.error || t('notifications.paper.metaMissing') }
       }
 
       const paper = metaResult.data
@@ -398,7 +404,7 @@ export class PaperService {
         existingPaperFile.contentHash !== paper.fileHash
       const registerResult = await fileService.registerPaperFile(paper)
       if (!registerResult.success) {
-        errors.push(registerResult.error || '同步论文文件失败')
+        errors.push(registerResult.error || t('notifications.paper.syncPaperFileFailed'))
       } else if (paperFileNeedsRepair) {
         paperFileRepaired = true
       }
@@ -413,7 +419,7 @@ export class PaperService {
           storeResult.data.annotations
         )
         if (!upsertResult.success) {
-          errors.push(upsertResult.error || '同步论文笔记失败')
+          errors.push(upsertResult.error || t('notifications.paper.syncPaperNotesFailed'))
         } else {
           const removedFileCount = upsertResult.removedFileIds?.length || 0
           if (
@@ -438,7 +444,7 @@ export class PaperService {
           }
         }
       } else if (!storeResult.success) {
-        errors.push(storeResult.error || '读取论文批注失败')
+        errors.push(storeResult.error || t('notifications.paper.loadAnnotationsFailed'))
       }
 
       if (paperFileRepaired || noteFilesRepaired > 0 || affectedKnowledgeBaseCount > 0) {
@@ -485,7 +491,7 @@ export class PaperService {
         noteFilesRepaired: 0,
         affectedKnowledgeBaseCount: 0,
         failedPaperIds: [],
-        error: listResult.error || '获取论文列表失败'
+        error: listResult.error || t('notifications.paper.listPapersFailed')
       }
     }
 
@@ -519,7 +525,11 @@ export class PaperService {
       affectedKnowledgeBaseCount,
       failedPaperIds,
       error:
-        failedPaperIds.length > 0 ? `部分论文资源修复失败: ${failedPaperIds.join(', ')}` : undefined
+        failedPaperIds.length > 0
+          ? t('notifications.paper.repairPapersPartialFailed', {
+              failedIds: failedPaperIds.join(', ')
+            })
+          : undefined
     }
   }
 
@@ -697,7 +707,10 @@ export class PaperService {
   ): Promise<{ success: boolean; data?: PaperAnnotationStore; error?: string }> {
     const annotationDataResult = await paperStorageService.readAnnotationData(paperId)
     if (!annotationDataResult.success || !annotationDataResult.data) {
-      return { success: false, error: annotationDataResult.error || '读取论文批注失败' }
+      return {
+        success: false,
+        error: annotationDataResult.error || t('notifications.paper.loadAnnotationsFailed')
+      }
     }
 
     if (annotationDataResult.data.kind === 'store' && annotationDataResult.data.store) {
@@ -714,7 +727,10 @@ export class PaperService {
     }
 
     if (!nextReaderDocument) {
-      return { success: false, error: '读取阅读器文档失败，无法迁移旧版批注' }
+      return {
+        success: false,
+        error: t('notifications.paper.legacyAnnotationReaderFailed')
+      }
     }
 
     const migratedStore = this.migrateLegacyAnnotations(
@@ -724,7 +740,10 @@ export class PaperService {
     )
     const saveResult = await paperStorageService.saveAnnotationStore(paperId, migratedStore)
     if (!saveResult.success) {
-      return { success: false, error: saveResult.error || '迁移旧版批注失败' }
+      return {
+        success: false,
+        error: saveResult.error || t('notifications.paper.legacyAnnotationMigrateFailed')
+      }
     }
 
     logger.info('旧版论文批注迁移完成', 'main', {
@@ -763,7 +782,7 @@ export class PaperService {
     if (!removeResourceResult.success) {
       return {
         success: false,
-        error: removeResourceResult.error || '清理论文知识库资源失败'
+        error: removeResourceResult.error || t('notifications.paper.clearKnowledgeResourcesFailed')
       }
     }
     return paperStorageService.deletePaper(paperId)
@@ -775,12 +794,18 @@ export class PaperService {
   async deleteTranslation(paperId: string): Promise<{ success: boolean; error?: string }> {
     const clearResult = await paperStorageService.clearTranslationCache(paperId)
     if (!clearResult.success) {
-      return { success: false, error: clearResult.error || '删除译文失败' }
+      return {
+        success: false,
+        error: clearResult.error || t('notifications.paper.deleteTranslationFailed')
+      }
     }
 
     const storeResult = await paperStorageService.readAnnotationStore(paperId)
     if (!storeResult.success || !storeResult.data) {
-      return { success: false, error: storeResult.error || '读取论文标注失败' }
+      return {
+        success: false,
+        error: storeResult.error || t('notifications.paper.loadTranslationAnnotationsFailed')
+      }
     }
 
     const cleanupResult = removeTranslationAnnotationsFromStore(
@@ -796,7 +821,10 @@ export class PaperService {
       cleanupResult.nextStore
     )
     if (!saveResult.success) {
-      return { success: false, error: saveResult.error || '清理译文标注失败' }
+      return {
+        success: false,
+        error: saveResult.error || t('notifications.paper.clearTranslationAnnotationsFailed')
+      }
     }
 
     if (cleanupResult.removedAnnotations.some((annotation) => annotation.kind === 'note')) {
@@ -814,7 +842,7 @@ export class PaperService {
   /**
    * 启动论文 OCR 处理管线
    */
-  async startOcr(paperId: string): Promise<{ success: boolean; error?: string }> {
+  async startOcr(paperId: string): Promise<{ success: boolean; code?: string; error?: string }> {
     logger.info('启动 OCR 任务', 'main', { paperId })
     return this.ocrService.startOcr(paperId)
   }
@@ -830,9 +858,23 @@ export class PaperService {
   async retryPage(
     paperId: string,
     pageIndex: number
-  ): Promise<{ success: boolean; error?: string }> {
+  ): Promise<{ success: boolean; code?: string; error?: string }> {
     logger.info('重试单页 OCR', 'main', { paperId, pageIndex })
     return this.ocrService.retryPage(paperId, pageIndex)
+  }
+
+  /**
+   * 启动时存量页图清理：OCR 全部完成的论文删除 pages/ 目录（不阻塞启动主流程）
+   */
+  async purgeRenderedPageImages(): Promise<PagesPurgeSummary> {
+    return purgeRenderedPageImages(paperStorageService)
+  }
+
+  /**
+   * 取走最近一次存量清理摘要（一次性；无清理结果为 null）
+   */
+  consumePagesPurgeSummary(): PagesPurgeSummary | null {
+    return consumePagesPurgeSummaryOnce()
   }
 
   onOcrProgress(paperId: string, callback: (progress: OcrProgressInfo) => void): void {
@@ -855,7 +897,10 @@ export class PaperService {
   ): Promise<{ success: boolean; data?: PaperFigureItem[]; error?: string }> {
     const payloadResult = await this.getReaderPayload(paperId)
     if (!payloadResult.success || !payloadResult.data) {
-      return { success: false, error: payloadResult.error || '读取论文图片失败' }
+      return {
+        success: false,
+        error: payloadResult.error || t('notifications.paper.loadFiguresFailed')
+      }
     }
 
     return {
@@ -872,7 +917,10 @@ export class PaperService {
   ): Promise<{ success: boolean; data?: string; error?: string }> {
     const payloadResult = await this.getReaderPayload(paperId)
     if (!payloadResult.success || !payloadResult.data) {
-      return { success: false, error: payloadResult.error || '读取论文正文失败' }
+      return {
+        success: false,
+        error: payloadResult.error || t('notifications.paper.loadBodyFailed')
+      }
     }
 
     return { success: true, data: payloadResult.data.readerDocument.markdown }
@@ -888,7 +936,10 @@ export class PaperService {
   }> {
     const payloadResult = await this.getReaderPayload(paperId)
     if (!payloadResult.success || !payloadResult.data) {
-      return { success: false, error: payloadResult.error || '读取论文正文失败' }
+      return {
+        success: false,
+        error: payloadResult.error || t('notifications.paper.loadBodyFailed')
+      }
     }
 
     return { success: true, data: payloadResult.data.readerDocument }
@@ -904,12 +955,18 @@ export class PaperService {
   }> {
     const readerResult = await this.getReaderDocument(paperId)
     if (!readerResult.success || !readerResult.data) {
-      return { success: false, error: readerResult.error || '读取阅读器文档失败' }
+      return {
+        success: false,
+        error: readerResult.error || t('notifications.paper.loadReaderDocumentFailed')
+      }
     }
 
     const annotationStoreResult = await this.resolveAnnotationStore(paperId, readerResult.data)
     if (!annotationStoreResult.success || !annotationStoreResult.data) {
-      return { success: false, error: annotationStoreResult.error || '读取论文批注失败' }
+      return {
+        success: false,
+        error: annotationStoreResult.error || t('notifications.paper.loadAnnotationsFailed')
+      }
     }
 
     return {
@@ -930,7 +987,10 @@ export class PaperService {
     try {
       const readerResult = await this.getReaderDocument(params.paperId)
       if (!readerResult.success || !readerResult.data) {
-        return { success: false, error: readerResult.error || '读取阅读器文档失败' }
+        return {
+          success: false,
+          error: readerResult.error || t('notifications.paper.loadReaderDocumentFailed')
+        }
       }
 
       const targetSegment = readerResult.data.segments.find((segment) => {
@@ -941,17 +1001,17 @@ export class PaperService {
         return {
           success: false,
           error: isFallbackPaperSegmentStableId(segmentStableId)
-            ? PAPER_ANNOTATION_INDEX_LOADING_MESSAGE
-            : `当前批注对应的原文段落不存在 (segmentStableId: ${segmentStableId})`
+            ? t('notifications.paper.annotationIndexLoading')
+            : t('notifications.paper.annotationSegmentMissing', { segmentStableId })
         }
       }
 
       if (params.noteType === 'original_span' && !params.originalAnchor) {
-        return { success: false, error: '原文锚定批注缺少原文文本锚点' }
+        return { success: false, error: t('notifications.paper.annotationMissingOriginalText') }
       }
 
       if (params.noteType === 'translation_view' && !params.translationAnchor) {
-        return { success: false, error: '译文视图批注缺少译文文本锚点' }
+        return { success: false, error: t('notifications.paper.annotationMissingTranslationText') }
       }
 
       const normalizedContentResult = normalizeAnnotationContent(
@@ -968,7 +1028,10 @@ export class PaperService {
         readerResult.data
       )
       if (!annotationStoreResult.success) {
-        return { success: false, error: annotationStoreResult.error || '读取论文批注失败' }
+        return {
+          success: false,
+          error: annotationStoreResult.error || t('notifications.paper.loadAnnotationsFailed')
+        }
       }
 
       const now = new Date().toISOString()
@@ -1010,7 +1073,7 @@ export class PaperService {
         translationAnchor: params.translationAnchor
       })
       if (noteConflict) {
-        return { success: false, error: PAPER_ANNOTATION_NOTE_CONFLICT_MESSAGE }
+        return { success: false, error: t('notifications.paper.noteConflict') }
       }
 
       const nextStore: PaperAnnotationStore = {
@@ -1020,7 +1083,10 @@ export class PaperService {
       }
       const saveResult = await paperStorageService.saveAnnotationStore(params.paperId, nextStore)
       if (!saveResult.success) {
-        return { success: false, error: saveResult.error || '保存论文批注失败' }
+        return {
+          success: false,
+          error: saveResult.error || t('notifications.paper.saveAnnotationsFailed')
+        }
       }
 
       if (nextAnnotation.kind === 'note') {
@@ -1034,7 +1100,10 @@ export class PaperService {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
       logger.error('创建论文批注失败', 'main', { paperId: params.paperId, error: errorMessage })
-      return { success: false, error: errorMessage || '创建批注时发生内部错误' }
+      return {
+        success: false,
+        error: errorMessage || t('notifications.paper.annotationCreateInternalError')
+      }
     }
   }
 
@@ -1048,7 +1117,10 @@ export class PaperService {
     try {
       const annotationStoreResult = await this.resolveAnnotationStore(paperId)
       if (!annotationStoreResult.success || !annotationStoreResult.data) {
-        return { success: false, error: annotationStoreResult.error || '读取论文批注失败' }
+        return {
+          success: false,
+          error: annotationStoreResult.error || t('notifications.paper.loadAnnotationsFailed')
+        }
       }
 
       const removedAnnotation = annotationStoreResult.data.annotations.find((annotation) => {
@@ -1064,7 +1136,10 @@ export class PaperService {
       }
       const saveResult = await paperStorageService.saveAnnotationStore(paperId, nextStore)
       if (!saveResult.success) {
-        return { success: false, error: saveResult.error || '删除论文批注失败' }
+        return {
+          success: false,
+          error: saveResult.error || t('notifications.paper.deleteAnnotationsFailed')
+        }
       }
 
       if (removedAnnotation?.kind === 'note') {
@@ -1078,7 +1153,10 @@ export class PaperService {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)
       logger.error('删除论文批注失败', 'main', { paperId, annotationId, error: errorMessage })
-      return { success: false, error: errorMessage || '删除批注时发生内部错误' }
+      return {
+        success: false,
+        error: errorMessage || t('notifications.paper.annotationDeleteInternalError')
+      }
     }
   }
 
@@ -1094,14 +1172,17 @@ export class PaperService {
     try {
       const annotationStoreResult = await this.resolveAnnotationStore(params.paperId)
       if (!annotationStoreResult.success || !annotationStoreResult.data) {
-        return { success: false, error: annotationStoreResult.error || '读取论文批注失败' }
+        return {
+          success: false,
+          error: annotationStoreResult.error || t('notifications.paper.loadAnnotationsFailed')
+        }
       }
 
       const annotationIndex = annotationStoreResult.data.annotations.findIndex((annotation) => {
         return annotation.id === params.annotationId
       })
       if (annotationIndex < 0) {
-        return { success: false, error: '要更新的标注不存在' }
+        return { success: false, error: t('notifications.paper.annotationToUpdateNotFound') }
       }
 
       const currentAnnotation = annotationStoreResult.data.annotations[annotationIndex]
@@ -1110,11 +1191,11 @@ export class PaperService {
       let nextAnnotation: PaperAnnotation
       if (currentAnnotation.kind === 'highlight') {
         if (typeof params.comment !== 'undefined') {
-          return { success: false, error: '普通标记不支持修改笔记内容' }
+          return { success: false, error: t('notifications.paper.highlightNoteEditUnsupported') }
         }
 
         if (!params.colorKey) {
-          return { success: false, error: '请先选择新的标记颜色' }
+          return { success: false, error: t('notifications.paper.annotationColorRequired') }
         }
 
         const normalizedContentResult = normalizeAnnotationContent('highlight', params.colorKey, '')
@@ -1130,11 +1211,11 @@ export class PaperService {
         }
       } else {
         if (typeof params.colorKey !== 'undefined') {
-          return { success: false, error: '笔记不支持修改高亮颜色' }
+          return { success: false, error: t('notifications.paper.noteColorEditUnsupported') }
         }
 
         if (typeof params.comment !== 'string') {
-          return { success: false, error: '请先填写笔记内容' }
+          return { success: false, error: t('notifications.paper.noteContentRequired') }
         }
 
         const normalizedContentResult = normalizeAnnotationContent(
@@ -1164,7 +1245,10 @@ export class PaperService {
       }
       const saveResult = await paperStorageService.saveAnnotationStore(params.paperId, nextStore)
       if (!saveResult.success) {
-        return { success: false, error: saveResult.error || '更新论文批注失败' }
+        return {
+          success: false,
+          error: saveResult.error || t('notifications.paper.updateAnnotationsFailed')
+        }
       }
 
       const affectedKnowledgeBases =
@@ -1184,7 +1268,10 @@ export class PaperService {
         annotationId: params.annotationId,
         error: errorMessage
       })
-      return { success: false, error: errorMessage || '更新批注时发生内部错误' }
+      return {
+        success: false,
+        error: errorMessage || t('notifications.paper.annotationUpdateInternalError')
+      }
     }
   }
 
@@ -1255,5 +1342,10 @@ export class PaperService {
     }
 
     return localization.pageResult
+  }
+
+  /** 同步下行论文删除（复用现有 deletePaper 级联） */
+  async applySyncedPaperDeletion(paperId: string): Promise<{ success: boolean; error?: string }> {
+    return this.deletePaper(paperId)
   }
 }

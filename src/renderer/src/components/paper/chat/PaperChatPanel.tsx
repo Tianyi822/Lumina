@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useUIStateStore } from '@renderer/stores/uiStateStore'
 import { usePaperChatStreamStore } from '@renderer/stores'
-import { useConfigStore } from '@renderer/stores/configStore'
-import { useLabListStore } from '@renderer/stores/lab/labListStore'
-import { LAB_DISCIPLINE_PRESETS, isLabDisciplineEnabled } from '@shared/utils/labFeatures'
 import { useNotification } from '@renderer/composables/useNotification'
 import { usePaperQuoteContext } from '@renderer/contexts/PaperQuoteContext'
 import SvgIcon from '@renderer/components/icons/SvgIcon'
+import AssistantPanelShell from '@renderer/components/assistant/AssistantPanelShell'
 import type { Message } from '@renderer/types'
 import type { PaperDocument } from '@shared/types/paper'
 import { parseMessageOptions } from '@renderer/utils/optionParser'
@@ -35,13 +34,14 @@ function getLatestAssistantMessage(messages: Message[]): Message | null {
 
 /** 论文对话主面板组件，管理会话生命周期、消息流式传输和快速回复 */
 export default function PaperChatPanel({ paper }: PaperChatPanelProps) {
+  const { t } = useTranslation()
   const notify = useNotification()
   const { scrollToQuote } = usePaperQuoteContext()
   const [dismissedQuickReplyIds, setDismissedQuickReplyIds] = useState<Set<string>>(new Set())
   const [isDragging, setIsDragging] = useState(false)
   const dragCounterRef = useRef(0)
   const composerRef = useRef<HTMLDivElement>(null)
-  const panelRef = useRef<HTMLElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
   const messageListRef = useRef<PaperChatMessageListHandle>(null)
   const [showScrollButton, setShowScrollButton] = useState(false)
 
@@ -62,45 +62,17 @@ export default function PaperChatPanel({ paper }: PaperChatPanelProps) {
     selectedModel: sessionState.selectedModel,
     selectedMCPTools: sessionState.selectedMCPTools,
     selectedKnowledgeBases: sessionState.selectedKnowledgeBases,
-    enableLabTools: sessionState.enableLabTools,
     enablePaperWebSearch: sessionState.enablePaperWebSearch,
-    activeLabDiscipline: sessionState.activeLabDiscipline,
-    activeLabId: sessionState.activeLabId,
     saveCurrentSession: sessionState.saveCurrentSession,
     setError: sessionState.setError,
     onRequestError: () => {
-      notify.error('论文对话请求失败', '模型请求失败，请稍后重试或换一个模型。', {
-        source: 'chat'
-      })
+      notify.error(
+        t('notifications.paper.requestFailedTitle'),
+        t('notifications.paper.modelRequestFailed'),
+        { source: 'chat' }
+      )
     }
   })
-
-  // 实验室学科与已连接实验室数据源（供 LabSessionPanel）
-  const labFeatures = useConfigStore((s) => s.labFeatures)
-  const enabledDisciplines = useMemo(
-    () =>
-      LAB_DISCIPLINE_PRESETS.filter((d) => isLabDisciplineEnabled(labFeatures, d.id)).map(
-        (d) => d.id
-      ),
-    [labFeatures]
-  )
-  const allLabs = useLabListStore((s) => s.labList)
-  const connectedLabs = useMemo(() => allLabs.filter((lab) => lab.status === 'running'), [allLabs])
-
-  // 论文聊天入口可能未经过实验室页面，挂载时确保实验室列表已加载（供 LabSessionPanel）
-  useEffect(() => {
-    void useLabListStore.getState().loadLabList()
-  }, [])
-
-  // 跳转到实验室页面（LabSessionPanel 空状态提示触发）
-  const handleNavigateToLab = useCallback(() => {
-    void useUIStateStore.getState().setCurrentView('lab')
-  }, [])
-
-  // 刷新实验室列表（手风琴打开时触发，保证数据新鲜）
-  const handleRefreshLabs = useCallback(() => {
-    void useLabListStore.getState().loadLabList()
-  }, [])
 
   // 只有存在有效会话时才查询计划状态，否则保持 null
   const currentPlanState = sessionState.sessionId
@@ -174,12 +146,14 @@ export default function PaperChatPanel({ paper }: PaperChatPanelProps) {
   async function handleClearContext(): Promise<void> {
     // 流式回复进行中时禁止清空，防止中断异常
     if (streamState.isSending) {
-      notify.warning('论文对话', '请先停止当前回复，再清空上下文。', { source: 'chat' })
+      notify.warning(t('notifications.paper.chatTitle'), t('notifications.paper.stopFirst'), {
+        source: 'chat'
+      })
       return
     }
 
-    const confirmed = await notify.confirm('聊天记录会被清空。', {
-      title: '清空当前论文聊天上下文？',
+    const confirmed = await notify.confirm(t('notifications.paper.clearConfirm'), {
+      title: t('notifications.paper.clearConfirmTitle'),
       danger: true
     })
     if (!confirmed) return
@@ -188,7 +162,9 @@ export default function PaperChatPanel({ paper }: PaperChatPanelProps) {
     if (success && sessionState.sessionId) {
       usePaperChatStreamStore.getState().resetPlanState(sessionState.sessionId)
       setDismissedQuickReplyIds(new Set())
-      notify.success('论文对话', '上下文已清空', { source: 'chat' })
+      notify.success(t('notifications.paper.chatTitle'), t('notifications.paper.cleared'), {
+        source: 'chat'
+      })
     }
   }
 
@@ -198,153 +174,118 @@ export default function PaperChatPanel({ paper }: PaperChatPanelProps) {
       const envInfo = await window.api.paperWebSearch.checkEnvironment()
       if (!envInfo.available) {
         notify.warning(
-          '联网搜索不可用',
-          envInfo.error || 'Electron 搜索运行时不可用，请重启应用后重试。',
+          t('notifications.paper.webSearchUnavailable'),
+          envInfo.error || t('notifications.paper.webSearchRuntimeUnavailable'),
           { source: 'chat' }
         )
         return false
       }
       return true
     } catch {
-      notify.warning('联网搜索不可用', '环境检查失败，请稍后重试。', { source: 'chat' })
+      notify.warning(
+        t('notifications.paper.webSearchUnavailable'),
+        t('notifications.paper.webSearchCheckFailed'),
+        { source: 'chat' }
+      )
       return false
     }
-  }, [notify])
+  }, [notify, t])
 
   return (
-    <section ref={panelRef} className={styles['paper-chat-panel']}>
-      <header className={styles['paper-chat-panel__header']}>
-        <div className={styles['paper-chat-panel__title-group']}>
-          <h2>论文对话</h2>
-          <span title={paper.fileName}>{paper.fileName}</span>
-        </div>
-
-        <div className={styles['paper-chat-panel__actions']}>
-          <button
-            className={styles['paper-chat-panel__icon-button']}
-            type="button"
-            title="清空上下文"
-            aria-label="清空上下文"
-            disabled={sessionState.loading}
-            onClick={() => void handleClearContext()}
+    <div ref={panelRef} className={styles['paper-chat-panel']}>
+      <AssistantPanelShell
+        title={t('paper.chat.panelTitle')}
+        subtitle={paper.fileName}
+        status={sessionState.error || undefined}
+        loading={sessionState.loading}
+        onClear={() => void handleClearContext()}
+        onClose={() => setPaperChatPanelOpen(false)}
+        messages={
+          <PaperChatMessageList
+            ref={messageListRef}
+            messages={sessionState.messages}
+            currentChatId={sessionState.sessionId}
+            onQuoteClick={scrollToQuote || undefined}
+            onScrollButtonChange={setShowScrollButton}
+          />
+        }
+        composer={
+          <div
+            ref={composerRef}
+            className={[
+              styles['paper-chat-panel__composer'],
+              isDragging ? styles['paper-chat-panel__composer--dragging'] : ''
+            ]
+              .filter(Boolean)
+              .join(' ')}
+            // 使用计数器而非简单布尔值处理拖拽，避免子元素 dragEnter/Leave 闪烁
+            onDragEnter={(event) => {
+              event.preventDefault()
+              dragCounterRef.current += 1
+              setIsDragging(true)
+            }}
+            onDragOver={(event) => {
+              event.preventDefault()
+            }}
+            onDragLeave={(event) => {
+              event.preventDefault()
+              dragCounterRef.current -= 1
+              // 只有计数器归零才真正退出拖拽态，防止子元素冒泡导致误关闭
+              if (dragCounterRef.current <= 0) {
+                dragCounterRef.current = 0
+                setIsDragging(false)
+              }
+            }}
+            onDrop={(event) => {
+              event.preventDefault()
+              dragCounterRef.current = 0
+              setIsDragging(false)
+            }}
           >
-            <SvgIcon name="trash" size={15} />
-          </button>
-          <button
-            className={styles['paper-chat-panel__icon-button']}
-            type="button"
-            title="关闭"
-            aria-label="关闭"
-            onClick={() => setPaperChatPanelOpen(false)}
-          >
-            <SvgIcon name="close" size={16} />
-          </button>
-        </div>
-      </header>
-
-      {sessionState.error && (
-        <div className={styles['paper-chat-panel__status-bar']} role="status">
-          {sessionState.error}
-        </div>
-      )}
-
-      {sessionState.loading ? (
-        <div className={styles['paper-chat-panel__loading-state']}>正在加载论文对话...</div>
-      ) : (
-        <PaperChatMessageList
-          ref={messageListRef}
-          messages={sessionState.messages}
-          currentChatId={sessionState.sessionId}
-          onQuoteClick={scrollToQuote || undefined}
-          onScrollButtonChange={setShowScrollButton}
-        />
-      )}
-
-      <div
-        ref={composerRef}
-        className={[
-          styles['paper-chat-panel__composer'],
-          isDragging ? styles['paper-chat-panel__composer--dragging'] : ''
-        ]
-          .filter(Boolean)
-          .join(' ')}
-        // 使用计数器而非简单布尔值处理拖拽，避免子元素 dragEnter/Leave 闪烁
-        onDragEnter={(event) => {
-          event.preventDefault()
-          dragCounterRef.current += 1
-          setIsDragging(true)
-        }}
-        onDragOver={(event) => {
-          event.preventDefault()
-        }}
-        onDragLeave={(event) => {
-          event.preventDefault()
-          dragCounterRef.current -= 1
-          // 只有计数器归零才真正退出拖拽态，防止子元素冒泡导致误关闭
-          if (dragCounterRef.current <= 0) {
-            dragCounterRef.current = 0
-            setIsDragging(false)
-          }
-        }}
-        onDrop={(event) => {
-          event.preventDefault()
-          dragCounterRef.current = 0
-          setIsDragging(false)
-        }}
-      >
-        {showScrollButton && (
-          <button
-            className={styles['paper-chat-panel__scroll-button']}
-            type="button"
-            aria-label="滚动到底部"
-            onClick={() => messageListRef.current?.scrollToBottom()}
-          >
-            <SvgIcon name="arrow-down" size={16} />
-          </button>
-        )}
-        <PaperChatPlanDock planState={currentPlanState} />
-        <PaperChatInput
-          sessionId={sessionState.sessionId || 'temp'}
-          inputMessage={sessionState.inputMessage}
-          selectedModel={sessionState.selectedModel}
-          selectedMCPTools={sessionState.selectedMCPTools}
-          selectedKnowledgeBases={sessionState.selectedKnowledgeBases}
-          enableLabTools={sessionState.enableLabTools}
-          enablePaperWebSearch={sessionState.enablePaperWebSearch}
-          activeLabDiscipline={sessionState.activeLabDiscipline}
-          activeLabId={sessionState.activeLabId}
-          enabledDisciplines={enabledDisciplines}
-          connectedLabs={connectedLabs}
-          isSending={streamState.isSending}
-          disabled={sessionState.loading || !sessionState.session}
-          isDragging={isDragging}
-          quickReply={quickReply}
-          userInteraction={userInteractionInfo}
-          showUserInteraction={showUserInteraction}
-          showCapabilitySuggestion={showCapabilitySuggestion}
-          capabilitySuggestion={capabilitySuggestion}
-          onUpdateInput={sessionState.updateInputMessage}
-          onUpdateSelectedModel={sessionState.updateSelectedModel}
-          onUpdateSelectedTools={sessionState.updateSelectedTools}
-          onUpdateSelectedKnowledgeBases={sessionState.updateSelectedKnowledgeBases}
-          onUpdateEnableLabTools={sessionState.updateEnableLabTools}
-          onUpdateEnablePaperWebSearch={sessionState.updateEnablePaperWebSearch}
-          onLabSelectionChange={(next) =>
-            sessionState.updateLabSelection(next.discipline, next.labId)
-          }
-          onNavigateToLab={handleNavigateToLab}
-          onRefreshLabs={handleRefreshLabs}
-          onEnablePaperWebSearch={handleEnablePaperWebSearch}
-          onDismissQuickReply={(messageId) => {
-            if (!messageId) return
-            setDismissedQuickReplyIds((current) => new Set(current).add(messageId))
-          }}
-          onHideUserInteraction={hideUserInteraction}
-          onHideCapabilitySuggestion={hideCapabilitySuggestion}
-          onSend={streamState.sendMessage}
-          onStop={streamState.stopRequest}
-        />
-      </div>
-    </section>
+            {showScrollButton && (
+              <button
+                className={styles['paper-chat-panel__scroll-button']}
+                type="button"
+                aria-label={t('paper.chat.scrollToBottomAria')}
+                onClick={() => messageListRef.current?.scrollToBottom()}
+              >
+                <SvgIcon name="arrow-down" size={16} />
+              </button>
+            )}
+            <PaperChatPlanDock planState={currentPlanState} />
+            <PaperChatInput
+              sessionId={sessionState.sessionId || 'temp'}
+              inputMessage={sessionState.inputMessage}
+              selectedModel={sessionState.selectedModel}
+              selectedMCPTools={sessionState.selectedMCPTools}
+              selectedKnowledgeBases={sessionState.selectedKnowledgeBases}
+              enablePaperWebSearch={sessionState.enablePaperWebSearch}
+              isSending={streamState.isSending}
+              disabled={sessionState.loading || !sessionState.session}
+              isDragging={isDragging}
+              quickReply={quickReply}
+              userInteraction={userInteractionInfo}
+              showUserInteraction={showUserInteraction}
+              showCapabilitySuggestion={showCapabilitySuggestion}
+              capabilitySuggestion={capabilitySuggestion}
+              onUpdateInput={sessionState.updateInputMessage}
+              onUpdateSelectedModel={sessionState.updateSelectedModel}
+              onUpdateSelectedTools={sessionState.updateSelectedTools}
+              onUpdateSelectedKnowledgeBases={sessionState.updateSelectedKnowledgeBases}
+              onUpdateEnablePaperWebSearch={sessionState.updateEnablePaperWebSearch}
+              onEnablePaperWebSearch={handleEnablePaperWebSearch}
+              onDismissQuickReply={(messageId) => {
+                if (!messageId) return
+                setDismissedQuickReplyIds((current) => new Set(current).add(messageId))
+              }}
+              onHideUserInteraction={hideUserInteraction}
+              onHideCapabilitySuggestion={hideCapabilitySuggestion}
+              onSend={streamState.sendMessage}
+              onStop={streamState.stopRequest}
+            />
+          </div>
+        }
+      />
+    </div>
   )
 }

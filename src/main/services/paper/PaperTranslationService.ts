@@ -1,6 +1,7 @@
 import OpenAI from 'openai'
-import type { LLMConfig } from '@shared/types/config'
+import type { AppLanguage, LLMConfig } from '@shared/types/config'
 import { configManager } from '@main/services/config'
+import { t } from '@main/services/i18n'
 import { logger } from '@main/services/logger'
 import { PaperStorageService } from './PaperStorageService'
 import { PaperTranslationCore } from './PaperTranslationCore'
@@ -31,7 +32,7 @@ function getTranslationLlmConfig(): LLMConfig | null {
  * 论文翻译服务
  * 继承 PaperTranslationCore，注入 OpenAI 兼容的 LLM 客户端作为翻译引擎
  */
-export class PaperTranslationService extends PaperTranslationCore {
+class PaperTranslationService extends PaperTranslationCore {
   constructor() {
     super({
       concurrency: 3,
@@ -40,7 +41,7 @@ export class PaperTranslationService extends PaperTranslationCore {
       readCache: (paperId) => paperTranslationStorage.readTranslationCache(paperId),
       saveCache: (paperId, cache) => paperTranslationStorage.saveTranslationCache(paperId, cache),
       clearCache: (paperId) => paperTranslationStorage.clearTranslationCache(paperId),
-      translateSegment: async (llmConfig, prompt, segment, signal) => {
+      translateSegment: async (llmConfig, prompt, segment, signal, targetLanguage: AppLanguage) => {
         const client = new OpenAI({
           apiKey: llmConfig.api_key,
           baseURL: llmConfig.base_url,
@@ -57,8 +58,11 @@ export class PaperTranslationService extends PaperTranslationCore {
             messages: [
               {
                 role: 'system',
+                // 目标词随语言切换，与用户 prompt 中的目标语言保持一致
                 content:
-                  '你是专业的学术论文翻译助手。请严格按照用户要求输出纯翻译结果，不要附加任何解释。'
+                  targetLanguage === 'en'
+                    ? '你是专业的学术论文翻译助手。请严格按照用户要求将当前段落翻译成英文，输出纯翻译结果，不要附加任何解释。'
+                    : '你是专业的学术论文翻译助手。请严格按照用户要求输出纯翻译结果，不要附加任何解释。'
               },
               {
                 role: 'user',
@@ -71,7 +75,7 @@ export class PaperTranslationService extends PaperTranslationCore {
 
         const translatedContent = response.choices[0]?.message?.content?.trim()
         if (!translatedContent) {
-          throw new Error('模型未返回翻译内容')
+          throw new Error(t('notifications.paper.translationContentMissing'))
         }
 
         return translatedContent

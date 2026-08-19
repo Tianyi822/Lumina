@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import type {
   AttachedDocument,
   AttachedImage,
   KnowledgeBase,
-  LabListItem,
   MCPTool,
   UserInteractionRequest
 } from '@renderer/types'
 import type { PaperQuote } from '@shared/types/chat'
-import type { LabDisciplineId } from '@shared/types/config'
 import type { CapabilitySuggestionData } from '@renderer/stores/paperChatStreamStore'
+import { i18n } from '@renderer/i18n'
 import SvgIcon from '@renderer/components/icons/SvgIcon'
 import {
   usePaperChatDocumentUploadStore,
@@ -38,6 +38,9 @@ import imageStyles from './input/PaperChatAttachedImages.module.css'
 import quoteStyles from './input/PaperChatAttachedQuotes.module.css'
 import processingStyles from './input/PaperChatProcessingFiles.module.css'
 
+// selector 空态必须复用同一引用，否则每次渲染返回新数组会触发无限重渲染
+const EMPTY_LIST: never[] = []
+
 interface QuickReplyOption {
   id: string
   label: string
@@ -57,15 +60,14 @@ interface PaperChatInputProps {
   selectedModel: string
   selectedMCPTools: MCPTool[]
   selectedKnowledgeBases: KnowledgeBase[]
-  enableLabTools: boolean
   enablePaperWebSearch: boolean
-  activeLabDiscipline?: LabDisciplineId | null
-  activeLabId?: string | null
-  enabledDisciplines?: LabDisciplineId[]
-  connectedLabs?: LabListItem[]
   isSending: boolean
   disabled?: boolean
   isDragging?: boolean
+  /** 是否允许论文引文附件；写作面板传 false */
+  allowPaperQuotes?: boolean
+  /** 是否允许论文联网搜索；写作面板传 false */
+  allowPaperWebSearch?: boolean
   quickReply?: PaperChatQuickReply | null
   userInteraction?: UserInteractionRequest | null
   showUserInteraction?: boolean
@@ -75,14 +77,7 @@ interface PaperChatInputProps {
   onUpdateSelectedModel: (value: string) => void
   onUpdateSelectedTools: (value: MCPTool[]) => void
   onUpdateSelectedKnowledgeBases: (value: KnowledgeBase[]) => void
-  onUpdateEnableLabTools: (value: boolean) => void
   onUpdateEnablePaperWebSearch: (value: boolean) => void
-  onLabSelectionChange?: (next: {
-    discipline: LabDisciplineId | null
-    labId: string | null
-  }) => void
-  onNavigateToLab?: () => void
-  onRefreshLabs?: () => void
   onEnablePaperWebSearch?: () => Promise<boolean>
   onDismissQuickReply?: (messageId: string) => void
   onHideUserInteraction?: () => void
@@ -109,15 +104,12 @@ export default function PaperChatInput({
   selectedModel,
   selectedMCPTools,
   selectedKnowledgeBases,
-  enableLabTools,
   enablePaperWebSearch,
-  activeLabDiscipline = null,
-  activeLabId = null,
-  enabledDisciplines = [],
-  connectedLabs = [],
   isSending,
   disabled,
   isDragging = false,
+  allowPaperQuotes = true,
+  allowPaperWebSearch = true,
   quickReply,
   userInteraction,
   showUserInteraction,
@@ -127,11 +119,7 @@ export default function PaperChatInput({
   onUpdateSelectedModel,
   onUpdateSelectedTools,
   onUpdateSelectedKnowledgeBases,
-  onUpdateEnableLabTools,
   onUpdateEnablePaperWebSearch,
-  onLabSelectionChange,
-  onNavigateToLab,
-  onRefreshLabs,
   onEnablePaperWebSearch,
   onDismissQuickReply,
   onHideUserInteraction,
@@ -139,25 +127,26 @@ export default function PaperChatInput({
   onSend,
   onStop
 }: PaperChatInputProps) {
+  const { t } = useTranslation()
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const isComposingRef = useRef(false)
   const [attachmentError, setAttachmentError] = useState('')
 
   const pendingDocuments = usePaperChatDocumentUploadStore((s) =>
-    sessionId ? s.getSessionDocuments(sessionId) : []
+    sessionId ? s.getSessionDocuments(sessionId) : EMPTY_LIST
   )
   const processingFiles = usePaperChatDocumentUploadStore((s) =>
-    sessionId ? s.getSessionProcessingFiles(sessionId) : []
+    sessionId ? s.getSessionProcessingFiles(sessionId) : EMPTY_LIST
   )
   const pendingImages = usePaperChatImageUploadStore((s) =>
-    sessionId ? s.getSessionImages(sessionId) : []
+    sessionId ? s.getSessionImages(sessionId) : EMPTY_LIST
   )
   const processingImages = usePaperChatImageUploadStore((s) =>
-    sessionId ? s.getSessionProcessingImages(sessionId) : []
+    sessionId ? s.getSessionProcessingImages(sessionId) : EMPTY_LIST
   )
   const pendingQuotes = usePaperChatQuoteStore((s) =>
-    sessionId ? s.getSessionQuotes(sessionId) : []
+    sessionId && allowPaperQuotes ? s.getSessionQuotes(sessionId) : EMPTY_LIST
   )
 
   // 检查是否有待发送的附件（文档、图片或引文）
@@ -168,7 +157,7 @@ export default function PaperChatInput({
   const canSend = Boolean(inputMessage.trim() || hasAttachments) && !disabled && !isSending
   // 快速回复面板：AI 给出多个候选回答供用户一键选择
   const showQuickReplyDock = Boolean(quickReply && quickReply.options.length > 0 && !isSending)
-  // 能力建议面板：推荐开启某项功能（如联网搜索、实验室）
+  // 能力建议面板：推荐开启某项功能（如联网搜索）
   const showCapabilitySuggestionDock = Boolean(
     showCapabilitySuggestion && capabilitySuggestion && !isSending
   )
@@ -183,8 +172,10 @@ export default function PaperChatInput({
     if (!sessionId) return
     usePaperChatDocumentUploadStore.getState().initSession(sessionId)
     usePaperChatImageUploadStore.getState().initSession(sessionId)
-    usePaperChatQuoteStore.getState().initSession(sessionId)
-  }, [sessionId])
+    if (allowPaperQuotes) {
+      usePaperChatQuoteStore.getState().initSession(sessionId)
+    }
+  }, [allowPaperQuotes, sessionId])
 
   async function handleFiles(files: File[]): Promise<void> {
     if (!sessionId || files.length === 0) return
@@ -199,7 +190,7 @@ export default function PaperChatInput({
           .getState()
           .addImages(sessionId, imageFiles)
         if (result.errors.length > 0) {
-          setAttachmentError(result.errors.join('\uff1b'))
+          setAttachmentError(result.errors.join(i18n.t('common.listSeparator')))
         }
       }
       if (documentFiles.length > 0) {
@@ -220,13 +211,17 @@ export default function PaperChatInput({
     const images = toPaperChatAttachedImages(
       usePaperChatImageUploadStore.getState().getSessionImages(sessionId)
     )
-    const quotes = usePaperChatQuoteStore.getState().getPendingQuotesForSending(sessionId)
+    const quotes = allowPaperQuotes
+      ? usePaperChatQuoteStore.getState().getPendingQuotesForSending(sessionId)
+      : []
 
     // 立即清空输入栏和所有待发送附件，避免异步发送期间的竞态条件
     onUpdateInput('')
     usePaperChatDocumentUploadStore.getState().clearPendingDocuments(sessionId)
     usePaperChatImageUploadStore.getState().clearImages(sessionId)
-    usePaperChatQuoteStore.getState().clearQuotes(sessionId)
+    if (allowPaperQuotes) {
+      usePaperChatQuoteStore.getState().clearQuotes(sessionId)
+    }
     onDismissQuickReply?.(quickReply?.messageId || '')
     onHideUserInteraction?.()
     onHideCapabilitySuggestion?.()
@@ -253,14 +248,14 @@ export default function PaperChatInput({
             <section className={inputStyles['paper-chat-input__interaction-card']}>
               <div className={inputStyles['paper-chat-input__interaction-header']}>
                 <span className={inputStyles['paper-chat-input__interaction-title']}>
-                  {quickReply.question || '\u9009\u62e9\u4e00\u4e2a\u56de\u590d'}
+                  {quickReply.question || t('paper.chat.input.replyPlaceholder')}
                 </span>
                 <button
                   className={inputStyles['paper-chat-input__interaction-button']}
                   type="button"
                   onClick={() => onDismissQuickReply?.(quickReply.messageId)}
                 >
-                  \u81ea\u5b9a\u4e49
+                  {t('paper.chat.input.custom')}
                 </button>
               </div>
               <div className={toolbarStyles['paper-chat-input-toolbar']}>
@@ -282,7 +277,7 @@ export default function PaperChatInput({
             <section className={inputStyles['paper-chat-input__interaction-card']}>
               <div className={inputStyles['paper-chat-input__interaction-header']}>
                 <span className={inputStyles['paper-chat-input__interaction-title']}>
-                  建议开启能力
+                  {t('paper.chat.input.suggestCapabilities')}
                 </span>
                 <button
                   className={inputStyles['paper-chat-input__interaction-button']}
@@ -294,7 +289,7 @@ export default function PaperChatInput({
                     onHideCapabilitySuggestion?.()
                   }}
                 >
-                  忽略
+                  {t('paper.chat.input.ignore')}
                 </button>
               </div>
               <div className={toolbarStyles['paper-chat-input-toolbar']}>
@@ -309,7 +304,7 @@ export default function PaperChatInput({
                       onHideCapabilitySuggestion?.()
                     }}
                   >
-                    开启 {cap.displayName}
+                    {t('paper.chat.input.enableCapability', { name: cap.displayName })}
                   </button>
                 ))}
               </div>
@@ -326,7 +321,9 @@ export default function PaperChatInput({
           {showUserInteractionDock && userInteraction && (
             <UserInteractionList
               interaction={userInteraction}
-              onSelect={(option) => handleSend(`我选择：${option.value}`)}
+              onSelect={(option) =>
+                handleSend(t('paper.chat.input.selectOption', { value: option.value }))
+              }
               onLater={onHideUserInteraction}
             />
           )}
@@ -335,7 +332,9 @@ export default function PaperChatInput({
 
       {attachmentError && (
         <div className={inputStyles['paper-chat-input__warning']}>
-          <span className={inputStyles['paper-chat-input__warning-label']}>\u9644\u4ef6</span>
+          <span className={inputStyles['paper-chat-input__warning-label']}>
+            {t('paper.chat.input.attachment')}
+          </span>
           <span>{attachmentError}</span>
         </div>
       )}
@@ -405,7 +404,7 @@ export default function PaperChatInput({
         </div>
       )}
 
-      {pendingQuotes.length > 0 && (
+      {allowPaperQuotes && pendingQuotes.length > 0 && (
         <div className={quoteStyles['paper-chat-input__pending-quotes']}>
           {pendingQuotes.map((quote) => (
             <div key={quote.id} className={quoteStyles['paper-chat-input__pending-quote']}>
@@ -416,15 +415,15 @@ export default function PaperChatInput({
               />
               <span className={quoteStyles['paper-chat-input__pending-quote-label']}>
                 {quote.viewKind === 'original'
-                  ? '\u539f\u6587\u5f15\u7528'
-                  : '\u8bd1\u6587\u5f15\u7528'}
+                  ? t('paper.chat.quoteOriginal')
+                  : t('paper.chat.quoteTranslation')}
               </span>
               <span className={quoteStyles['paper-chat-input__pending-quote-preview']}>
                 {quotePreview(quote)}
               </span>
               {quote.surroundingContext?.contextualText.trim() && (
                 <span className={quoteStyles['paper-chat-input__pending-quote-context']}>
-                  \u4e0a\u4e0b\u6587
+                  {t('paper.chat.context')}
                 </span>
               )}
               <button
@@ -462,8 +461,8 @@ export default function PaperChatInput({
           disabled={disabled || isSending}
           placeholder={
             quickReply
-              ? '\u8f93\u5165\u81ea\u5b9a\u4e49\u56de\u7b54\uff0c\u6216\u70b9\u51fb\u4e0a\u65b9\u5feb\u6377\u9009\u9879 ...'
-              : '\u5c3d\u7ba1\u95ee'
+              ? t('paper.chat.input.customPlaceholder')
+              : t('paper.chat.input.askPlaceholder')
           }
           onChange={(event) => onUpdateInput(event.target.value)}
           // 从粘贴板中提取文件（如截图），自动触发附件上传
@@ -500,7 +499,7 @@ export default function PaperChatInput({
           <div className={textareaStyles['paper-chat-input__drag-overlay']}>
             <div className={textareaStyles['paper-chat-input__drag-hint']}>
               <SvgIcon name="attachment" size={24} />
-              <p>\u91ca\u653e\u4ee5\u6dfb\u52a0\u9644\u4ef6</p>
+              <p>{t('paper.chat.input.dropToAttach')}</p>
             </div>
           </div>
         )}
@@ -513,20 +512,12 @@ export default function PaperChatInput({
           canSend={canSend}
           selectedTools={selectedMCPTools}
           selectedKnowledgeBases={selectedKnowledgeBases}
-          enableLabTools={enableLabTools}
           enablePaperWebSearch={enablePaperWebSearch}
+          allowPaperWebSearch={allowPaperWebSearch}
           totalAttachmentCount={totalAttachmentCount}
-          activeLabDiscipline={activeLabDiscipline}
-          activeLabId={activeLabId}
-          enabledDisciplines={enabledDisciplines}
-          connectedLabs={connectedLabs}
           onUpdateSelectedTools={onUpdateSelectedTools}
           onUpdateSelectedKnowledgeBases={onUpdateSelectedKnowledgeBases}
-          onUpdateEnableLabTools={onUpdateEnableLabTools}
           onTogglePaperWebSearch={() => void togglePaperWebSearch()}
-          onLabSelectionChange={onLabSelectionChange}
-          onNavigateToLab={onNavigateToLab}
-          onRefreshLabs={onRefreshLabs}
           onUpload={() => fileInputRef.current?.click()}
           onSend={() => void handleSend()}
           onStop={() => void onStop()}

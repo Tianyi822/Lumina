@@ -1,0 +1,66 @@
+.tableControls {
+  display: flex;
+  align-items: center;
+  gap: var(--sm-space-2);
+  max-width: min(90vw, calc(var(--sm-space-6) * 24));
+  padding: var(--sm-space-2);
+  overflow-x: auto;
+  border: 1px solid var(--sm-color-border-default);
+  border-radius: var(--sm-radius-lg);
+  background: var(--sm-color-surface-3);
+  box-shadow: var(--sm-shadow-md);
+}
+
+.button {
+  flex: 0 0 auto;
+  padding: var(--sm-space-2) var(--sm-space-3);
+  border: 0;
+  border-radius: var(--sm-radius-md);
+  background: transparent;
+  color: var(--sm-color-text-secondary);
+  font: inherit;
+  font-size: var(--sm-writer-status-font-size);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.button:hover:not(:disabled),
+.button:focus-visible:not(:disabled),
+.button[aria-pressed='true'] {
+  outline: 0;
+  background: var(--sm-color-surface-selected);
+  color: var(--sm-color-text-primary);
+}
+
+.button:disabled {
+  color: var(--sm-color-text-tertiary);
+  cursor: not-allowed;
+}
+
+.alignGroup {
+  display: flex;
+  align-items: center;
+  gap: var(--sm-space-2);
+  padding-left: var(--sm-space-2);
+  border-left: 1px solid var(--sm-color-border-subtle);
+}
+
+.alignButton {
+  flex: 0 0 auto;
+  padding: var(--sm-space-2) var(--sm-space-3);
+  border: 0;
+  border-radius: var(--sm-radius-md);
+  background: transparent;
+  color: var(--sm-color-text-secondary);
+  font: inherit;
+  font-size: var(--sm-writer-status-font-size);
+  cursor: pointer;
+}
+
+.alignButton:hover,
+.alignButton:focus-visible,
+.alignButton[aria-pressed='true'] {
+  outline: 0;
+  background: var(--sm-color-surface-selected);
+  color: var(--sm-color-text-primary);
+}

@@ -1,3 +1,4 @@
+import { t } from '@main/services/i18n'
 import type { ToolAdapter } from '../UnifiedToolRegistry'
 import type { MCPToolReference } from '../../../../types/chat'
 import type { MCPToolCallResult } from '@shared/types/mcp'
@@ -69,14 +70,14 @@ export class PaperContextToolAdapter implements ToolAdapter {
     if (normalizedToolName !== 'search_context') {
       return {
         success: false,
-        error: `未知的论文工具: ${toolName}，当前仅支持 search_context`
+        error: t('notifications.chat.unknownPaperTool', { toolName })
       }
     }
 
     if (!this.paperId) {
       return {
         success: false,
-        error: '论文 ID 未设置，无法检索论文上下文'
+        error: t('notifications.chat.paperIdNotSet')
       }
     }
 
@@ -89,9 +90,7 @@ export class PaperContextToolAdapter implements ToolAdapter {
     result: MCPToolCallResult
   ): ToolResultMetadata {
     const content =
-      typeof result.content === 'string'
-        ? result.content
-        : JSON.stringify(result.content ?? '')
+      typeof result.content === 'string' ? result.content : JSON.stringify(result.content ?? '')
 
     const sectionCount = (content.match(/^##\s/gm) || []).length
     const contentLength = content.length

@@ -26,10 +26,28 @@ export const CHAT_DEFAULT_PRESET: ConsumerPreset = {
   defaultComposition: { stages: [], mergeStrategy: 'none' }
 }
 
+/**
+ * 写作聊天预设
+ * 默认激活写作编辑能力；论文与知识库仅在用户选择后启用；结果不做合并
+ */
+export const CHAT_WRITER_PRESET: ConsumerPreset = {
+  id: 'chat.writer',
+  defaultCapabilities: ['writer'],
+  defaultComposition: {
+    stages: [
+      { capabilityId: 'writer', mode: 'on_demand' },
+      { capabilityId: 'paper', mode: 'on_demand' },
+      { capabilityId: 'knowledge', mode: 'on_demand' }
+    ],
+    mergeStrategy: 'none'
+  }
+}
+
 /** 会话类型到预设 ID 的映射 */
 export const SESSION_TYPE_TO_PRESET: Record<string, string> = {
   paper: 'chat.paper',
   default: 'chat.default',
   knowledge: 'chat.default',
-  tool: 'chat.default'
+  tool: 'chat.default',
+  writer: 'chat.writer'
 }

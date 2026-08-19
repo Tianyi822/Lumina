@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { i18n } from '@renderer/i18n'
 import type {
   UpdateStatus,
   DownloadProgress,
@@ -45,7 +46,8 @@ function applyCheckResult(
   }
   if (!result.success) {
     patch.status = 'error'
-    patch.errorMessage = result.message || result.error || '检查更新失败，请稍后重试'
+    patch.errorMessage =
+      result.message || result.error || i18n.t('notifications.settings.update.checkFailed')
     patch.diagnosticCode = result.diagnosticCode || null
     patch.manualDownloadUrl = result.manualDownloadUrl || null
   }
@@ -100,7 +102,7 @@ export const useUpdateStore = create<UpdateState>()((set, get) => ({
         patch.manualDownloadUrl = null
       }
       if (event.status === 'error') {
-        patch.errorMessage = event.message || '检查更新失败，请稍后重试'
+        patch.errorMessage = event.message || i18n.t('notifications.settings.update.checkFailed')
         patch.diagnosticCode = event.diagnosticCode || null
         patch.manualDownloadUrl = event.manualDownloadUrl || null
       }
@@ -156,7 +158,10 @@ export const useUpdateStore = create<UpdateState>()((set, get) => ({
     set({ errorMessage: null, diagnosticCode: null, manualDownloadUrl: null })
     const result = await window.api.update.downloadUpdate()
     if (!result.success) {
-      set({ status: 'error', errorMessage: result.error || '下载更新失败' })
+      set({
+        status: 'error',
+        errorMessage: result.error || i18n.t('notifications.settings.update.downloadFailed')
+      })
     }
   },
 
@@ -176,7 +181,7 @@ export const useUpdateStore = create<UpdateState>()((set, get) => ({
     if (result.success && result.data) {
       set({ releases: result.data })
     } else {
-      set({ releasesError: result.error || '获取版本历史失败' })
+      set({ releasesError: result.error || i18n.t('notifications.settings.update.releasesFailed') })
     }
 
     set({ loadingReleases: false })

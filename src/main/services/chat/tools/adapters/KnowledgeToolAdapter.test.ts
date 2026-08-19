@@ -9,10 +9,14 @@ describe('KnowledgeToolAdapter', () => {
     it('多来源命中 + 长内容应返回 high coverage', () => {
       const content =
         '[来源: doc1]\n内容\n[来源: doc2]\n内容\n[来源: doc3]\n内容\n' + 'x'.repeat(800)
-      const result = adapter.enrichResult!('knowledge__search', {}, {
-        success: true,
-        content
-      })
+      const result = adapter.enrichResult!(
+        'knowledge__search',
+        {},
+        {
+          success: true,
+          content
+        }
+      )
       assert.equal(result.coverage, 'high')
       assert.equal(result.sourceType, 'knowledge')
       assert.equal(result.sourceName, 'kb-1, kb-2')
@@ -20,28 +24,40 @@ describe('KnowledgeToolAdapter', () => {
 
     it('单来源命中 + 中等内容 → medium coverage', () => {
       const content = '[来源: doc1]\n' + 'x'.repeat(300)
-      const result = adapter.enrichResult!('knowledge__search', {}, {
-        success: true,
-        content
-      })
+      const result = adapter.enrichResult!(
+        'knowledge__search',
+        {},
+        {
+          success: true,
+          content
+        }
+      )
       assert.equal(result.coverage, 'medium')
     })
 
     it('无来源命中 → low coverage', () => {
       const content = '没有匹配结果'
-      const result = adapter.enrichResult!('knowledge__search', {}, {
-        success: true,
-        content
-      })
+      const result = adapter.enrichResult!(
+        'knowledge__search',
+        {},
+        {
+          success: true,
+          content
+        }
+      )
       assert.equal(result.coverage, 'low')
       assert.equal(result.confidence, 0.25)
     })
 
     it('失败调用 → low coverage + confidence=0', () => {
-      const result = adapter.enrichResult!('knowledge__search', {}, {
-        success: false,
-        error: '连接失败'
-      })
+      const result = adapter.enrichResult!(
+        'knowledge__search',
+        {},
+        {
+          success: false,
+          error: '连接失败'
+        }
+      )
       assert.equal(result.coverage, 'low')
       assert.equal(result.confidence, 0)
     })

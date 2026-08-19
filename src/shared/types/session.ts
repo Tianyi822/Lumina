@@ -11,17 +11,25 @@ import {
 } from './chat'
 import type { KnowledgeBase } from './knowledge'
 import type { MCPTool } from './mcp'
-import type { LabDisciplineId } from './config'
 
 /**
  * 会话的类型
  */
-export type SessionType = 'default' | 'tool' | 'knowledge' | 'paper'
+export type SessionType = 'default' | 'tool' | 'knowledge' | 'paper' | 'writer'
+
+/**
+ * 会话关联的外部资源引用
+ * 目前仅写作会话用于绑定文档 ID
+ */
+export interface SessionResourceRef {
+  kind: 'writer'
+  id: string
+}
 
 /**
  * ReAct 步骤（持久化用）
  */
-export interface ReActStepData {
+interface ReActStepData {
   type: 'tool_call' | 'tool_result'
   toolCall?: ToolCallInfo
   toolResult?: ToolResultInfo
@@ -32,7 +40,7 @@ export interface ReActStepData {
  * ReAct 迭代数据（持久化用）
  * 每次 ReAct 循环迭代的思考过程和工具调用步骤
  */
-export interface ReActIterationData {
+interface ReActIterationData {
   /** 迭代序号（从 0 开始） */
   iteration: number
   /** 该迭代的思考内容 */
@@ -93,7 +101,7 @@ export interface SessionMessage {
 /**
  * 会话的元数据信息
  */
-export interface SessionMeta {
+interface SessionMeta {
   /** 会话的唯一标识 */
   sessionId: string
   /** 会话标题 */
@@ -110,25 +118,21 @@ export interface SessionMeta {
 
 /**
  * 会话级选择状态
- * 用于持久化当前会话选择的 MCP 工具、知识库和实验室开关
+ * 用于持久化当前会话选择的 MCP 工具和知识库
  */
 export interface SessionSelectionState {
   /** 当前会话选中的 MCP 工具 */
   selectedMCPTools: MCPTool[]
   /** 当前会话选中的知识库 */
   selectedKnowledgeBases: KnowledgeBase[]
-  /** 当前会话是否启用实验室工具 */
-  enableLabTools: boolean
   /** 当前会话选中的模型 */
   selectedModel: string
   /** 当前会话是否启用规划模式（仅论文会话） */
   enablePlanMode?: boolean
   /** 当前会话是否启用论文联网搜索（仅论文会话） */
   enablePaperWebSearch?: boolean
-  /** 当前会话激活的实验室学科；null 表示未选 */
-  activeLabDiscipline?: LabDisciplineId | null
-  /** 当前会话绑定的已连接实验室 ID；null 表示未绑定 */
-  activeLabId?: string | null
+  /** 写作会话主动选择的论文 ID；默认未选择，不自动读取最近论文 */
+  selectedPaperId?: string
 }
 
 /**
@@ -142,11 +146,39 @@ export interface SessionData extends SessionMeta {
   selectionState?: SessionSelectionState
   /** 活跃能力状态（可选，兼容旧会话） */
   capabilities?: ActiveCapabilityState
+  /** 关联资源引用（写作会话绑定文档） */
+  resourceRef?: SessionResourceRef
 }
 
 export interface ActiveCapabilityState {
   presetId: string
   activeCapabilities: string[]
+}
+
+/**
+ * 会话元数据记录（JSONL meta 行的 data 载荷）
+ * 即 SessionData 去掉 messages 后的全部字段
+ */
+export type SessionMetaData = Omit<SessionData, 'messages'>
+
+/**
+ * 会话 JSONL 行记录信封
+ * 每行一个对象，kind 判别行类型；首行必为 meta，最后一条 meta 生效
+ */
+export type SessionJsonlRecord =
+  | { kind: 'meta'; v: 1; data: SessionMetaData }
+  | { kind: 'message'; data: SessionMessage }
+
+/**
+ * 会话元数据补丁（session:updateMeta 通道载荷）
+ */
+export interface SessionMetaPatch {
+  /** 新标题 */
+  title?: string
+  /** 会话级选择状态 */
+  selectionState?: SessionSelectionState
+  /** 活跃能力状态 */
+  capabilities?: ActiveCapabilityState
 }
 
 /**
@@ -164,6 +196,8 @@ export interface SessionListItem {
   createdAt: string
   /** 会话最后更新时间 */
   updatedAt: string
+  /** 关联资源引用（写作会话用于按文档查找） */
+  resourceRef?: SessionResourceRef
 }
 
 /**

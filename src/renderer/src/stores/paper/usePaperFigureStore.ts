@@ -83,6 +83,7 @@ interface PaperFigureState {
     item: PaperFigureItem,
     options?: { initialRect?: Partial<PaperFigurePreviewRect> }
   ) => void
+  openFigurePreviewById: (paperId: string, figureId: string) => Promise<void>
   closeFigurePreview: () => void
   setFigurePreviewPinned: (value: boolean) => void
   setFigurePreviewImageRatio: (ratio: number) => void
@@ -232,6 +233,16 @@ export const usePaperFigureStore = create<PaperFigureState>()((set, get) => ({
       figurePreviewPinned: false,
       figurePreviewImageRatio: 0.75
     })
+  },
+
+  // 按图片 ID 打开预览；图片列表未加载时先加载（loadFigures 有缓存，不会重复请求），
+  // 确保首次启动后直接点击正文图片也能打开预览
+  openFigurePreviewById: async (paperId: string, figureId: string): Promise<void> => {
+    const figures = await get().loadFigures(paperId)
+    const figure = figures.find((f) => f.id === figureId)
+    if (figure) {
+      get().openFigurePreview(figure)
+    }
   },
 
   setFigurePreviewPinned: (value: boolean) => set({ figurePreviewPinned: value }),

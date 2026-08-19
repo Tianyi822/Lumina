@@ -13,8 +13,9 @@ import {
   getPaperFigureAssetRelativePath,
   getPaperOcrNormalizedDirPath
 } from './paperPaths'
+import { t } from '@main/services/i18n'
 
-export type PaperAssetDownloader = (remoteUrl: string, localPath: string) => Promise<boolean>
+type PaperAssetDownloader = (remoteUrl: string, localPath: string) => Promise<boolean>
 
 export interface LocalizePaperPageAssetsResult {
   pageResult: PaperPageOcrResult
@@ -22,7 +23,7 @@ export interface LocalizePaperPageAssetsResult {
   failedAssets: PaperAssetLocalizationFailure[]
 }
 
-export interface PaperAssetLocalizationFailure {
+interface PaperAssetLocalizationFailure {
   pageIndex: number
   blockIndex: number
   remoteUrl: string
@@ -38,7 +39,7 @@ const LOCALIZABLE_ASSET_LABELS = new Set<BlockLabel>(['image', 'table', 'formula
 /**
  * 判断字符串是否为远端资源 URL
  */
-export function isRemoteAssetUrl(content: string | undefined): boolean {
+function isRemoteAssetUrl(content: string | undefined): boolean {
   return typeof content === 'string' && /^https?:\/\/\S+$/i.test(content.trim())
 }
 
@@ -51,7 +52,7 @@ function replaceAllLiteral(content: string, searchValue: string, replacement: st
 }
 
 function createLocalAssetImageMarkup(localRelativePath: string): string {
-  return `<div style='text-align: center;'><img src='${localRelativePath}' alt='OCR图片'/></div>`
+  return `<div style='text-align: center;'><img src='${localRelativePath}' alt='${t('notifications.paper.ocrImageAlt')}'/></div>`
 }
 
 function wrapBareLocalAssetReferences(markdown: string, localRelativePath: string): string {
@@ -109,7 +110,7 @@ function shouldLocalizeBlock(block: PaperLayoutBlock): boolean {
 /**
  * 获取布局块的远端资源 URL（优先 remoteAssetUrl，其次检查 content 是否为 URL）
  */
-export function getBlockRemoteAssetUrl(block: PaperLayoutBlock): string | undefined {
+function getBlockRemoteAssetUrl(block: PaperLayoutBlock): string | undefined {
   if (isRemoteAssetUrl(block.remoteAssetUrl)) {
     return block.remoteAssetUrl?.trim()
   }
@@ -320,7 +321,7 @@ export async function localizePaperPageAssets(
 /**
  * 创建远端 URL 到本地资源路径的映射表
  */
-export async function createLocalAssetReplacementMap(
+async function createLocalAssetReplacementMap(
   paperId: string,
   pageResults: PaperPageOcrResult[]
 ): Promise<Map<string, string>> {
